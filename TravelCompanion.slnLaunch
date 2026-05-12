@@ -1,0 +1,19 @@
+[
+  {
+    "Name": "Travel Companion Dev",
+    "Projects": [
+      {
+        "Path": "tools\\TravelCompanion.DevBootstrap\\TravelCompanion.DevBootstrap.csproj",
+        "Action": "StartWithoutDebugging"
+      },
+      {
+        "Path": "src\\TravelCompanion.Api\\TravelCompanion.Api.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "src\\TravelCompanion.Mobile\\TravelCompanion.Mobile.csproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]

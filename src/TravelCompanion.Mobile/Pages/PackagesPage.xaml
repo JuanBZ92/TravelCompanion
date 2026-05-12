@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dtos="clr-namespace:TravelCompanion.Shared.Dtos;assembly=TravelCompanion.Shared"
+             xmlns:viewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
+             x:Class="TravelCompanion.Mobile.Pages.PackagesPage"
+             x:DataType="viewModels:PackagesViewModel"
+             Title="Paquetes">
+    <Grid Padding="20" RowDefinitions="Auto,Auto,*" RowSpacing="16">
+        <VerticalStackLayout Spacing="4">
+            <Label Text="Paquetes" FontSize="28" FontAttributes="Bold" />
+            <Label Text="Compra unica o suscripcion para desbloquear contenido." FontSize="15" TextColor="{AppThemeBinding Light=#58616A, Dark=#C7CDD3}" />
+        </VerticalStackLayout>
+
+        <Border Grid.Row="1"
+                Padding="12"
+                BackgroundColor="#FFF4E5"
+                Stroke="#F2C078"
+                StrokeThickness="1"
+                IsVisible="{Binding HasError}">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="8" />
+            </Border.StrokeShape>
+            <Label Text="{Binding ErrorMessage}" TextColor="#5F3D00" />
+        </Border>
+
+        <RefreshView Grid.Row="2"
+                     Command="{Binding LoadPackagesCommand}"
+                     IsRefreshing="{Binding IsBusy}">
+            <CollectionView ItemsSource="{Binding Packages}">
+                <CollectionView.EmptyView>
+                    <Label Text="Todavia no hay paquetes disponibles." HorizontalOptions="Center" VerticalOptions="Center" />
+                </CollectionView.EmptyView>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="dtos:TravelPackageDto">
+                        <Border Stroke="#D8DEE4" StrokeThickness="1" Padding="14" Margin="0,0,0,12">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="8" />
+                            </Border.StrokeShape>
+                            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="12">
+                                <Label Text="{Binding Name}" FontSize="18" FontAttributes="Bold" />
+                                <Label Grid.Column="1" Text="{Binding Price, StringFormat='${0:F2}'}" FontSize="18" FontAttributes="Bold" />
+                                <Label Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding Description}" FontSize="14" />
+                                <Label Grid.Row="2" Grid.ColumnSpan="2" Text="{Binding Currency}" FontSize="12" TextColor="{AppThemeBinding Light=#68727D, Dark=#BDC4CC}" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </RefreshView>
+    </Grid>
+</ContentPage>

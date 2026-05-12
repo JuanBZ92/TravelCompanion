@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="TravelCompanion.Mobile.Pages.SupportPage"
+             Title="Soporte">
+    <ScrollView>
+        <VerticalStackLayout Padding="20" Spacing="18">
+            <Label Text="Soporte" FontSize="28" FontAttributes="Bold" />
+
+            <Border Stroke="#D8DEE4" StrokeThickness="1" Padding="16">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="8" />
+                </Border.StrokeShape>
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Ayuda durante el viaje" FontSize="18" FontAttributes="Bold" />
+                    <Label Text="Canal para dudas, cambios de reserva y recomendaciones de ultimo momento." FontSize="14" />
+                    <Button Text="Abrir WhatsApp" />
+                    <Button Text="Enviar email" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Stroke="#D8DEE4" StrokeThickness="1" Padding="16">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="8" />
+                </Border.StrokeShape>
+                <VerticalStackLayout Spacing="6">
+                    <Label Text="Emergencias" FontSize="18" FontAttributes="Bold" />
+                    <Label Text="Policia: 110" FontSize="14" />
+                    <Label Text="Ambulancia y bomberos: 119" FontSize="14" />
+                </VerticalStackLayout>
+            </Border>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

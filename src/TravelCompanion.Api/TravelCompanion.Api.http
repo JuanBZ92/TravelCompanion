@@ -1,0 +1,19 @@
+@TravelCompanion.Api_HostAddress = http://localhost:5289
+
+GET {{TravelCompanion.Api_HostAddress}}/api/destinations
+Accept: application/json
+
+###
+
+GET {{TravelCompanion.Api_HostAddress}}/api/packages?destinationSlug=japon
+Accept: application/json
+
+###
+
+GET {{TravelCompanion.Api_HostAddress}}/api/recommendations?destinationSlug=japon&latitude=35.6762&longitude=139.6503
+Accept: application/json
+
+###
+
+GET {{TravelCompanion.Api_HostAddress}}/api/trips/44444444-4444-4444-4444-444444444401/schedule
+Accept: application/json

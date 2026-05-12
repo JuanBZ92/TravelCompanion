@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:viewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
+             x:Class="TravelCompanion.Mobile.Pages.RecommendationDetailPage"
+             x:DataType="viewModels:RecommendationDetailViewModel"
+             Title="{Binding Recommendation.Title}">
+    <ScrollView>
+        <VerticalStackLayout Padding="20" Spacing="18">
+            <VerticalStackLayout Spacing="6">
+                <Label Text="{Binding Recommendation.Title}" FontSize="30" FontAttributes="Bold" />
+                <Label Text="{Binding Recommendation.Neighborhood}" FontSize="15" TextColor="{AppThemeBinding Light=#58616A, Dark=#C7CDD3}" />
+            </VerticalStackLayout>
+
+            <Border Stroke="#D8DEE4" StrokeThickness="1" Padding="16">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="8" />
+                </Border.StrokeShape>
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="{Binding Recommendation.Category}" FontSize="13" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#2F6F6D, Dark=#7AD1CD}" />
+                    <Label Text="{Binding Recommendation.Description}" FontSize="16" />
+                    <Label Text="{Binding Recommendation.SuggestedDurationMinutes, StringFormat='Duracion sugerida: {0} min'}" FontSize="14" TextColor="{AppThemeBinding Light=#58616A, Dark=#C7CDD3}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Stroke="#D8DEE4" StrokeThickness="1" Padding="16">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="8" />
+                </Border.StrokeShape>
+                <VerticalStackLayout Spacing="6">
+                    <Label Text="Ubicacion" FontSize="18" FontAttributes="Bold" />
+                    <Label Text="{Binding Recommendation.Latitude, StringFormat='Latitud: {0:F6}'}" FontSize="14" />
+                    <Label Text="{Binding Recommendation.Longitude, StringFormat='Longitud: {0:F6}'}" FontSize="14" />
+                </VerticalStackLayout>
+            </Border>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

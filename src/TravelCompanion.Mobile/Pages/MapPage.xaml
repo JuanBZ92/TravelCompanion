@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dtos="clr-namespace:TravelCompanion.Shared.Dtos;assembly=TravelCompanion.Shared"
+             xmlns:viewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
+             x:Class="TravelCompanion.Mobile.Pages.MapPage"
+             x:DataType="viewModels:MapViewModel"
+             Title="Mapa">
+    <Grid Padding="20" RowDefinitions="Auto,Auto,*" RowSpacing="16">
+        <VerticalStackLayout Spacing="4">
+            <Label Text="Cerca de ti" FontSize="28" FontAttributes="Bold" />
+            <Label Text="Ordenado por distancia desde Tokyo Station." FontSize="15" TextColor="{AppThemeBinding Light=#58616A, Dark=#C7CDD3}" />
+        </VerticalStackLayout>
+
+        <Border Grid.Row="1"
+                Padding="12"
+                BackgroundColor="#FFF4E5"
+                Stroke="#F2C078"
+                StrokeThickness="1"
+                IsVisible="{Binding HasError}">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="8" />
+            </Border.StrokeShape>
+            <Label Text="{Binding ErrorMessage}" TextColor="#5F3D00" />
+        </Border>
+
+        <RefreshView Grid.Row="2"
+                     Command="{Binding LoadNearbyRecommendationsCommand}"
+                     IsRefreshing="{Binding IsBusy}">
+            <CollectionView ItemsSource="{Binding NearbyRecommendations}">
+                <CollectionView.EmptyView>
+                    <Label Text="Todavia no hay lugares cercanos." HorizontalOptions="Center" VerticalOptions="Center" />
+                </CollectionView.EmptyView>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="dtos:RecommendationDto">
+                        <Grid Padding="0,0,0,14" ColumnDefinitions="*,Auto">
+                            <VerticalStackLayout Spacing="3">
+                                <Label Text="{Binding Title}" FontSize="17" FontAttributes="Bold" />
+                                <Label Text="{Binding Category}" FontSize="13" TextColor="{AppThemeBinding Light=#68727D, Dark=#BDC4CC}" />
+                            </VerticalStackLayout>
+                            <Label Grid.Column="1" Text="{Binding DistanceKm, StringFormat='{0} km'}" FontSize="14" FontAttributes="Bold" VerticalOptions="Center" />
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </RefreshView>
+    </Grid>
+</ContentPage>
