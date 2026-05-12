@@ -1,18 +1,24 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:dtos="clr-namespace:TravelCompanion.Shared.Dtos;assembly=TravelCompanion.Shared"
+             xmlns:itemViewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
              xmlns:viewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
              x:Class="TravelCompanion.Mobile.Pages.RecommendationsPage"
+             x:Name="PageRoot"
              x:DataType="viewModels:RecommendationsViewModel"
              Title="Recomendaciones">
-    <Grid Padding="20" RowDefinitions="Auto,Auto,*" RowSpacing="16">
+    <Grid Padding="20" RowDefinitions="Auto,Auto,Auto,*" RowSpacing="16">
         <VerticalStackLayout Spacing="4">
             <Label Text="Japon" FontSize="28" FontAttributes="Bold" />
             <Label Text="Planes curados para comer, caminar y explorar." FontSize="15" TextColor="{AppThemeBinding Light=#58616A, Dark=#C7CDD3}" />
         </VerticalStackLayout>
 
-        <Border Grid.Row="1"
+        <Picker Grid.Row="1"
+                Title="Categoria"
+                ItemsSource="{Binding Categories}"
+                SelectedItem="{Binding SelectedCategory}" />
+
+        <Border Grid.Row="2"
                 Padding="12"
                 BackgroundColor="#FFF4E5"
                 Stroke="#F2C078"
@@ -24,7 +30,7 @@
             <Label Text="{Binding ErrorMessage}" TextColor="#5F3D00" />
         </Border>
 
-        <RefreshView Grid.Row="2"
+        <RefreshView Grid.Row="3"
                      Command="{Binding LoadRecommendationsCommand}"
                      IsRefreshing="{Binding IsBusy}">
             <CollectionView ItemsSource="{Binding Recommendations}"
@@ -33,20 +39,34 @@
                             SelectionChangedCommand="{Binding OpenRecommendationCommand}"
                             SelectionChangedCommandParameter="{Binding SelectedRecommendation}">
                 <CollectionView.EmptyView>
-                    <Label Text="Todavia no hay recomendaciones." HorizontalOptions="Center" VerticalOptions="Center" />
+                    <Label Text="No hay recomendaciones para este filtro." HorizontalOptions="Center" VerticalOptions="Center" />
                 </CollectionView.EmptyView>
                 <CollectionView.ItemTemplate>
-                    <DataTemplate x:DataType="dtos:RecommendationDto">
+                    <DataTemplate x:DataType="itemViewModels:RecommendationListItemViewModel">
                         <Border Stroke="#D8DEE4" StrokeThickness="1" Padding="14" Margin="0,0,0,12">
                             <Border.StrokeShape>
                                 <RoundRectangle CornerRadius="8" />
                             </Border.StrokeShape>
-                            <VerticalStackLayout Spacing="6">
+                            <Grid ColumnDefinitions="*,44" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="12">
                                 <Label Text="{Binding Title}" FontSize="18" FontAttributes="Bold" />
-                                <Label Text="{Binding Neighborhood}" FontSize="13" TextColor="{AppThemeBinding Light=#68727D, Dark=#BDC4CC}" />
-                                <Label Text="{Binding Description}" FontSize="14" />
-                                <Label Text="{Binding SuggestedDurationMinutes, StringFormat='{0} min'}" FontSize="12" TextColor="{AppThemeBinding Light=#68727D, Dark=#BDC4CC}" />
-                            </VerticalStackLayout>
+                                <Button Grid.Column="1"
+                                        Text="{Binding FavoriteGlyph}"
+                                        Command="{Binding Source={x:Reference PageRoot}, Path=BindingContext.ToggleFavoriteCommand}"
+                                        CommandParameter="{Binding .}"
+                                        SemanticProperties.Description="{Binding FavoriteLabel}"
+                                        FontSize="22"
+                                        Padding="0"
+                                        HeightRequest="44"
+                                        WidthRequest="44" />
+                                <Label Grid.Row="1" Text="{Binding Neighborhood}" FontSize="13" TextColor="{AppThemeBinding Light=#68727D, Dark=#BDC4CC}" />
+                                <Label Grid.Row="2" Grid.ColumnSpan="2" Text="{Binding Description}" FontSize="14" />
+                                <HorizontalStackLayout Grid.Row="3" Grid.ColumnSpan="2" Spacing="12">
+                                    <Label Text="{Binding Category}" FontSize="12" TextColor="{AppThemeBinding Light=#2F6F6D, Dark=#7AD1CD}" />
+                                    <Label Text="{Binding AccessLevel}" FontSize="12" TextColor="{AppThemeBinding Light=#7A4D00, Dark=#F0C36A}" />
+                                    <Label Text="{Binding AccessStatus}" FontSize="12" TextColor="{AppThemeBinding Light=#58616A, Dark=#C7CDD3}" />
+                                    <Label Text="{Binding SuggestedDurationMinutes, StringFormat='{0} min'}" FontSize="12" TextColor="{AppThemeBinding Light=#68727D, Dark=#BDC4CC}" />
+                                </HorizontalStackLayout>
+                            </Grid>
                         </Border>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>

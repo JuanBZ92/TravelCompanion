@@ -1,0 +1,104 @@
+@page "/admin/reservations"
+@model TravelCompanion.Api.Pages.Admin.ReservationsModel
+@{
+    ViewData["Title"] = "Schedule";
+}
+
+<h1>Schedule</h1>
+<p class="lede">Reservas y eventos que aparecen en el itinerary del viajero.</p>
+
+<section class="panel">
+    <h2>@(Model.Input.Id.HasValue ? "Editar reserva" : "Nueva reserva")</h2>
+    <form method="post" asp-page-handler="Save">
+        <input type="hidden" asp-for="Input.Id" />
+        <div class="form-grid">
+            <div>
+                <label asp-for="Input.TripId">Viaje</label>
+                <select asp-for="Input.TripId" asp-items="Model.TripOptions"></select>
+            </div>
+            <div>
+                <label asp-for="Input.Date">Fecha</label>
+                <input asp-for="Input.Date" type="date" />
+            </div>
+            <div>
+                <label asp-for="Input.StartsAt">Hora</label>
+                <input asp-for="Input.StartsAt" type="time" />
+            </div>
+            <div>
+                <label asp-for="Input.Title">Titulo</label>
+                <input asp-for="Input.Title" />
+            </div>
+            <div>
+                <label asp-for="Input.LocationName">Lugar</label>
+                <input asp-for="Input.LocationName" />
+            </div>
+            <div>
+                <label asp-for="Input.ConfirmationCode">Codigo</label>
+                <input asp-for="Input.ConfirmationCode" />
+            </div>
+            <div>
+                <label asp-for="Input.AccessLevel">Acceso</label>
+                <select asp-for="Input.AccessLevel" asp-items="Model.AccessLevelOptions"></select>
+            </div>
+        </div>
+        <div style="margin-top: 12px;">
+            <label asp-for="Input.Address">Direccion</label>
+            <input asp-for="Input.Address" />
+        </div>
+        <div style="margin-top: 12px;">
+            <label asp-for="Input.Notes">Notas</label>
+            <textarea asp-for="Input.Notes"></textarea>
+        </div>
+        <div class="actions">
+            <button type="submit">Guardar</button>
+            @if (Model.Input.Id.HasValue)
+            {
+                <a class="button secondary" asp-page="/Admin/Reservations">Cancelar</a>
+            }
+        </div>
+    </form>
+</section>
+
+<section class="panel" style="margin-top: 18px;">
+    <table>
+        <thead>
+            <tr>
+                <th>Fecha</th>
+                <th>Reserva</th>
+                <th>Lugar</th>
+                <th>Acceso</th>
+                <th>Codigo</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var reservation in Model.Reservations)
+        {
+            <tr>
+                <td>
+                    <strong>@reservation.Date.ToString("MMM d")</strong><br />
+                    <span class="muted">@reservation.StartsAt.ToString("HH\\:mm")</span>
+                </td>
+                <td>
+                    <strong>@reservation.Title</strong><br />
+                    <span class="muted">@reservation.TripName</span>
+                </td>
+                <td>
+                    @reservation.LocationName<br />
+                    <span class="muted">@reservation.Address</span>
+                </td>
+                <td>@reservation.AccessLevel</td>
+                <td>@reservation.ConfirmationCode</td>
+                <td>
+                    <div class="row-actions">
+                        <a class="button secondary" asp-page="/Admin/Reservations" asp-route-editId="@reservation.Id">Editar</a>
+                        <form method="post" asp-page-handler="Delete" asp-route-id="@reservation.Id">
+                            <button class="danger" type="submit">Borrar</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</section>

@@ -1,3 +1,5 @@
+using TravelCompanion.Shared;
+
 namespace TravelCompanion.Shared.Dtos;
 
 public sealed record RecommendationDto(
@@ -10,4 +12,5 @@ public sealed record RecommendationDto(
     decimal Latitude,
     decimal Longitude,
     int SuggestedDurationMinutes,
+    ContentAccessLevel AccessLevel,
     decimal? DistanceKm);

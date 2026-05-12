@@ -25,6 +25,7 @@ public partial class RecommendationsPage : ContentPage
 
         if (_loaded)
         {
+            _viewModel.RefreshFavoriteState();
             return;
         }
 

@@ -40,7 +40,8 @@ public sealed class TripsController(TravelCompanionDbContext dbContext) : Contro
                     reservation.LocationName,
                     reservation.Address,
                     reservation.ConfirmationCode,
-                    reservation.Notes))
+                    reservation.Notes,
+                    reservation.AccessLevel))
                 .ToList());
 
         return Ok(response);

@@ -1,10 +1,17 @@
 using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Mobile.Services;
 
 public sealed class TravelCompanionApiClient
 {
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        Converters = { new JsonStringEnumConverter() }
+    };
+
     private readonly HttpClient _httpClient;
 
     public TravelCompanionApiClient(HttpClient httpClient)
@@ -16,6 +23,7 @@ public sealed class TravelCompanionApiClient
     {
         return await _httpClient.GetFromJsonAsync<IReadOnlyList<DestinationSummaryDto>>(
             "api/destinations",
+            JsonOptions,
             cancellationToken) ?? [];
     }
 
@@ -23,7 +31,16 @@ public sealed class TravelCompanionApiClient
     {
         return await _httpClient.GetFromJsonAsync<IReadOnlyList<TravelPackageDto>>(
             "api/packages?destinationSlug=japon",
+            JsonOptions,
             cancellationToken) ?? [];
+    }
+
+    public async Task<UserEntitlementsDto?> GetDemoEntitlementsAsync(CancellationToken cancellationToken = default)
+    {
+        return await _httpClient.GetFromJsonAsync<UserEntitlementsDto>(
+            "api/users/demo/entitlements",
+            JsonOptions,
+            cancellationToken);
     }
 
     public async Task<IReadOnlyList<RecommendationDto>> GetRecommendationsAsync(
@@ -39,6 +56,7 @@ public sealed class TravelCompanionApiClient
 
         return await _httpClient.GetFromJsonAsync<IReadOnlyList<RecommendationDto>>(
             url,
+            JsonOptions,
             cancellationToken) ?? [];
     }
 
@@ -46,6 +64,7 @@ public sealed class TravelCompanionApiClient
     {
         return await _httpClient.GetFromJsonAsync<TripScheduleDto>(
             "api/trips/44444444-4444-4444-4444-444444444401/schedule",
+            JsonOptions,
             cancellationToken);
     }
 }

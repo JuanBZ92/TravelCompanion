@@ -1,22 +1,41 @@
 using System.Collections.ObjectModel;
-using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using TravelCompanion.Mobile.Pages;
 using TravelCompanion.Mobile.Services;
+using TravelCompanion.Shared;
 using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Mobile.ViewModels;
 
-public sealed partial class RecommendationsViewModel(TravelCompanionApiClient apiClient) : ViewModelBase
+public sealed partial class RecommendationsViewModel(
+    TravelCompanionApiClient apiClient,
+    FavoritesService favoritesService) : ViewModelBase
 {
-    private RecommendationDto? _selectedRecommendation;
+    private const string AllCategories = "Todas";
+    private const string FavoritesCategory = "Favoritos";
+    private readonly List<RecommendationListItemViewModel> _allRecommendations = [];
+    private RecommendationListItemViewModel? _selectedRecommendation;
+    private string _selectedCategory = AllCategories;
 
-    public ObservableCollection<RecommendationDto> Recommendations { get; } = [];
+    public ObservableCollection<RecommendationListItemViewModel> Recommendations { get; } = [];
+    public ObservableCollection<string> Categories { get; } = [AllCategories, FavoritesCategory];
 
-    public RecommendationDto? SelectedRecommendation
+    public RecommendationListItemViewModel? SelectedRecommendation
     {
         get => _selectedRecommendation;
         set => SetProperty(ref _selectedRecommendation, value);
+    }
+
+    public string SelectedCategory
+    {
+        get => _selectedCategory;
+        set
+        {
+            if (SetProperty(ref _selectedCategory, value))
+            {
+                ApplyFilters();
+            }
+        }
     }
 
     [RelayCommand]
@@ -24,17 +43,36 @@ public sealed partial class RecommendationsViewModel(TravelCompanionApiClient ap
     {
         return LoadAsync(async () =>
         {
-            Recommendations.Clear();
+            var entitlements = await apiClient.GetDemoEntitlementsAsync();
             var recommendations = await apiClient.GetRecommendationsAsync();
+
+            _allRecommendations.Clear();
             foreach (var recommendation in recommendations)
             {
-                Recommendations.Add(recommendation);
+                _allRecommendations.Add(new RecommendationListItemViewModel(recommendation)
+                {
+                    IsFavorite = favoritesService.IsFavorite(recommendation.Id),
+                    IsUnlocked = IsUnlocked(recommendation, entitlements)
+                });
             }
+
+            UpdateCategories();
+            ApplyFilters();
         });
     }
 
+    public void RefreshFavoriteState()
+    {
+        foreach (var recommendation in _allRecommendations)
+        {
+            recommendation.IsFavorite = favoritesService.IsFavorite(recommendation.Id);
+        }
+
+        ApplyFilters();
+    }
+
     [RelayCommand]
-    private async Task OpenRecommendationAsync(RecommendationDto? recommendation)
+    private async Task OpenRecommendationAsync(RecommendationListItemViewModel? recommendation)
     {
         if (recommendation is null)
         {
@@ -46,7 +84,60 @@ public sealed partial class RecommendationsViewModel(TravelCompanionApiClient ap
             nameof(RecommendationDetailPage),
             new Dictionary<string, object>
             {
-                ["Recommendation"] = recommendation
+                ["Recommendation"] = recommendation.Recommendation,
+                ["IsUnlocked"] = recommendation.IsUnlocked
             });
+    }
+
+    [RelayCommand]
+    private void ToggleFavorite(RecommendationListItemViewModel? recommendation)
+    {
+        if (recommendation is null)
+        {
+            return;
+        }
+
+        recommendation.IsFavorite = favoritesService.ToggleFavorite(recommendation.Id);
+        ApplyFilters();
+    }
+
+    private void UpdateCategories()
+    {
+        var currentCategory = SelectedCategory;
+        Categories.Clear();
+        Categories.Add(AllCategories);
+        Categories.Add(FavoritesCategory);
+
+        foreach (var category in _allRecommendations.Select(recommendation => recommendation.Category).Distinct().Order())
+        {
+            Categories.Add(category);
+        }
+
+        SelectedCategory = Categories.Contains(currentCategory) ? currentCategory : AllCategories;
+    }
+
+    private void ApplyFilters()
+    {
+        Recommendations.Clear();
+
+        var filtered = SelectedCategory switch
+        {
+            FavoritesCategory => _allRecommendations.Where(recommendation => recommendation.IsFavorite),
+            AllCategories => _allRecommendations,
+            _ => _allRecommendations.Where(recommendation => recommendation.Category == SelectedCategory)
+        };
+
+        foreach (var recommendation in filtered)
+        {
+            Recommendations.Add(recommendation);
+        }
+    }
+
+    private static bool IsUnlocked(RecommendationDto recommendation, UserEntitlementsDto? entitlements)
+    {
+        return ContentAccessPolicy.IsUnlocked(
+            recommendation.AccessLevel,
+            entitlements?.AccessLevels ?? [],
+            entitlements?.DestinationIds.Contains(recommendation.DestinationId) ?? false);
     }
 }

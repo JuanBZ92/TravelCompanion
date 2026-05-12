@@ -1,3 +1,5 @@
+using TravelCompanion.Shared;
+
 namespace TravelCompanion.Shared.Dtos;
 
 public sealed record TripScheduleDto(
@@ -16,4 +18,5 @@ public sealed record ScheduleItemDto(
     string LocationName,
     string Address,
     string ConfirmationCode,
-    string Notes);
+    string Notes,
+    ContentAccessLevel AccessLevel);

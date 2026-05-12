@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@ViewData["Title"] - Travel Companion Admin</title>
+    <link rel="stylesheet" href="~/admin.css" />
+</head>
+<body>
+    <header class="topbar">
+        <a class="brand" asp-page="/Admin/Index">Travel Companion</a>
+        <nav>
+            <a asp-page="/Admin/Index">Dashboard</a>
+            <a asp-page="/Admin/Recommendations">Recommendations</a>
+            <a asp-page="/Admin/Reservations">Schedule</a>
+            <a asp-page="/Admin/Users">Users</a>
+            @if (User.Identity?.IsAuthenticated == true)
+            {
+                <a asp-page="/Logout">Logout</a>
+            }
+        </nav>
+    </header>
+    <main class="shell">
+        @RenderBody()
+    </main>
+</body>
+</html>

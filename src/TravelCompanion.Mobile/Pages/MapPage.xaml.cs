@@ -1,4 +1,12 @@
+using System.Collections.Specialized;
 using TravelCompanion.Mobile.ViewModels;
+using TravelCompanion.Shared.Dtos;
+
+#if !WINDOWS
+using MauiMap = Microsoft.Maui.Controls.Maps.Map;
+using Microsoft.Maui.Controls.Maps;
+using Microsoft.Maui.Maps;
+#endif
 
 namespace TravelCompanion.Mobile.Pages;
 
@@ -6,6 +14,10 @@ public partial class MapPage : ContentPage
 {
     private readonly MapViewModel _viewModel;
     private bool _loaded;
+
+#if !WINDOWS
+    private readonly MauiMap _map;
+#endif
 
     public MapPage()
         : this(MauiProgram.Services.GetRequiredService<MapViewModel>())
@@ -17,6 +29,20 @@ public partial class MapPage : ContentPage
         InitializeComponent();
         BindingContext = viewModel;
         _viewModel = viewModel;
+        _viewModel.NearbyRecommendations.CollectionChanged += OnNearbyRecommendationsChanged;
+
+#if !WINDOWS
+        _map = new MauiMap(MapSpan.FromCenterAndRadius(
+            new Location(35.681236, 139.767125),
+            Distance.FromKilometers(8)))
+        {
+            IsShowingUser = true,
+            MapType = MapType.Street
+        };
+
+        MapContainer.Children.Clear();
+        MapContainer.Children.Add(_map);
+#endif
     }
 
     protected override async void OnAppearing()
@@ -31,4 +57,63 @@ public partial class MapPage : ContentPage
         _loaded = true;
         await _viewModel.LoadNearbyRecommendationsCommand.ExecuteAsync(null);
     }
+
+    private void OnNearbyRecommendationsChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+#if !WINDOWS
+        RefreshMapPins();
+#endif
+    }
+
+#if !WINDOWS
+    private void RefreshMapPins()
+    {
+        _map.Pins.Clear();
+
+        foreach (var recommendation in _viewModel.NearbyRecommendations)
+        {
+            var pin = new Pin
+            {
+                Label = recommendation.Title,
+                Address = recommendation.Neighborhood,
+                Type = PinType.Place,
+                Location = new Location((double)recommendation.Latitude, (double)recommendation.Longitude)
+            };
+
+            pin.MarkerClicked += async (_, args) =>
+            {
+                args.HideInfoWindow = false;
+                await OpenRecommendationAsync(recommendation);
+            };
+
+            _map.Pins.Add(pin);
+        }
+
+        MoveToRecommendationBounds(_viewModel.NearbyRecommendations);
+    }
+
+    private void MoveToRecommendationBounds(IReadOnlyCollection<RecommendationDto> recommendations)
+    {
+        if (recommendations.Count == 0)
+        {
+            return;
+        }
+
+        var centerLatitude = recommendations.Average(recommendation => (double)recommendation.Latitude);
+        var centerLongitude = recommendations.Average(recommendation => (double)recommendation.Longitude);
+
+        var maxLatitudeDelta = recommendations.Max(recommendation => Math.Abs((double)recommendation.Latitude - centerLatitude));
+        var maxLongitudeDelta = recommendations.Max(recommendation => Math.Abs((double)recommendation.Longitude - centerLongitude));
+        var radiusKm = Math.Max(2, Math.Max(maxLatitudeDelta, maxLongitudeDelta) * 140);
+
+        _map.MoveToRegion(MapSpan.FromCenterAndRadius(
+            new Location(centerLatitude, centerLongitude),
+            Distance.FromKilometers(radiusKm)));
+    }
+
+    private Task OpenRecommendationAsync(RecommendationDto recommendation)
+    {
+        return _viewModel.OpenRecommendationCommand.ExecuteAsync(recommendation);
+    }
+#endif
 }

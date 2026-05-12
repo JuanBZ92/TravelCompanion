@@ -1,0 +1,154 @@
+@page "/admin/users"
+@model TravelCompanion.Api.Pages.Admin.UsersModel
+@{
+    ViewData["Title"] = "Users";
+}
+
+<h1>Users & access</h1>
+<p class="lede">Usuarios de la app y accesos activos por pago, paquete o suscripcion.</p>
+
+<section class="grid">
+    <div class="panel">
+        <h2>@(Model.UserInput.Id.HasValue ? "Editar usuario" : "Nuevo usuario")</h2>
+        <form method="post" asp-page-handler="SaveUser">
+            <input type="hidden" asp-for="UserInput.Id" />
+            <div class="form-grid">
+                <div>
+                    <label asp-for="UserInput.Email">Email</label>
+                    <input asp-for="UserInput.Email" type="email" />
+                </div>
+                <div>
+                    <label asp-for="UserInput.DisplayName">Nombre visible</label>
+                    <input asp-for="UserInput.DisplayName" />
+                </div>
+            </div>
+            <div class="actions">
+                <button type="submit">Guardar usuario</button>
+                @if (Model.UserInput.Id.HasValue)
+                {
+                    <a class="button secondary" asp-page="/Admin/Users">Cancelar</a>
+                }
+            </div>
+        </form>
+    </div>
+
+    <div class="panel">
+        <h2>Asignar acceso</h2>
+        @if (Model.UserOptions.Count == 0)
+        {
+            <p class="muted">Crea un usuario antes de asignar accesos.</p>
+        }
+        else
+        {
+            <form method="post" asp-page-handler="GrantEntitlement">
+                <div class="form-grid">
+                    <div>
+                        <label asp-for="EntitlementInput.UserId">Usuario</label>
+                        <select asp-for="EntitlementInput.UserId" asp-items="Model.UserOptions"></select>
+                    </div>
+                    <div>
+                        <label asp-for="EntitlementInput.AccessLevel">Tipo de acceso</label>
+                        <select asp-for="EntitlementInput.AccessLevel" asp-items="Model.AccessLevelOptions"></select>
+                    </div>
+                    <div>
+                        <label asp-for="EntitlementInput.DestinationId">Destino</label>
+                        <select asp-for="EntitlementInput.DestinationId" asp-items="Model.DestinationOptions"></select>
+                    </div>
+                    <div>
+                        <label asp-for="EntitlementInput.TravelPackageId">Paquete</label>
+                        <select asp-for="EntitlementInput.TravelPackageId" asp-items="Model.PackageOptions"></select>
+                    </div>
+                    <div>
+                        <label asp-for="EntitlementInput.ExpiresOn">Expira</label>
+                        <input asp-for="EntitlementInput.ExpiresOn" type="date" />
+                    </div>
+                    <div>
+                        <label asp-for="EntitlementInput.Source">Origen</label>
+                        <input asp-for="EntitlementInput.Source" />
+                    </div>
+                </div>
+                <div class="actions">
+                    <button type="submit">Asignar acceso</button>
+                </div>
+            </form>
+        }
+    </div>
+</section>
+
+<section class="panel" style="margin-top: 18px;">
+    <h2>Usuarios</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Usuario</th>
+                <th>Accesos</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var user in Model.Users)
+        {
+            <tr>
+                <td>
+                    <strong>@user.DisplayName</strong><br />
+                    <span class="muted">@user.Email</span>
+                </td>
+                <td>
+                    @user.ActiveEntitlementCount activo(s)<br />
+                    <span class="muted">@user.EntitlementCount total(es)</span>
+                </td>
+                <td>
+                    <div class="row-actions">
+                        <a class="button secondary" asp-page="/Admin/Users" asp-route-editUserId="@user.Id">Editar</a>
+                        <form method="post" asp-page-handler="DeleteUser" asp-route-id="@user.Id">
+                            <button class="danger" type="submit">Borrar</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</section>
+
+<section class="panel" style="margin-top: 18px;">
+    <h2>Accesos asignados</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Usuario</th>
+                <th>Acceso</th>
+                <th>Scope</th>
+                <th>Vigencia</th>
+                <th>Origen</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var entitlement in Model.Entitlements)
+        {
+            <tr>
+                <td>@entitlement.UserEmail</td>
+                <td>
+                    <strong>@entitlement.AccessLevel</strong><br />
+                    <span class="muted">@entitlement.Status</span>
+                </td>
+                <td>
+                    @entitlement.DestinationName<br />
+                    <span class="muted">@entitlement.PackageName</span>
+                </td>
+                <td>
+                    Desde @entitlement.GrantedAt.ToLocalTime().ToString("yyyy-MM-dd")<br />
+                    <span class="muted">Hasta @(entitlement.ExpiresAt.HasValue ? entitlement.ExpiresAt.Value.ToLocalTime().ToString("yyyy-MM-dd") : "sin vencimiento")</span>
+                </td>
+                <td>@entitlement.Source</td>
+                <td>
+                    <form method="post" asp-page-handler="DeleteEntitlement" asp-route-id="@entitlement.Id">
+                        <button class="danger" type="submit">Quitar</button>
+                    </form>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</section>

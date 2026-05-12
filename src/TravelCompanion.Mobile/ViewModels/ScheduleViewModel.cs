@@ -1,6 +1,6 @@
 using System.Collections.ObjectModel;
-using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using TravelCompanion.Mobile.Pages;
 using TravelCompanion.Mobile.Services;
 using TravelCompanion.Shared.Dtos;
 
@@ -10,8 +10,9 @@ public sealed partial class ScheduleViewModel(TravelCompanionApiClient apiClient
 {
     private string _tripTitle = "Tu viaje";
     private string? _tripDates;
+    private ScheduleItemDto? _selectedItem;
 
-    public ObservableCollection<ScheduleItemDto> Items { get; } = [];
+    public ObservableCollection<ScheduleDayViewModel> Days { get; } = [];
 
     public string TripTitle
     {
@@ -23,6 +24,12 @@ public sealed partial class ScheduleViewModel(TravelCompanionApiClient apiClient
     {
         get => _tripDates;
         set => SetProperty(ref _tripDates, value);
+    }
+
+    public ScheduleItemDto? SelectedItem
+    {
+        get => _selectedItem;
+        set => SetProperty(ref _selectedItem, value);
     }
 
     [RelayCommand]
@@ -39,11 +46,30 @@ public sealed partial class ScheduleViewModel(TravelCompanionApiClient apiClient
             TripTitle = $"{schedule.DestinationName} para {schedule.TravelerName}";
             TripDates = $"{schedule.StartsOn:MMM d} - {schedule.EndsOn:MMM d, yyyy}";
 
-            Items.Clear();
-            foreach (var item in schedule.Items)
+            Days.Clear();
+            foreach (var group in schedule.Items.GroupBy(item => item.Date).OrderBy(group => group.Key))
             {
-                Items.Add(item);
+                Days.Add(new ScheduleDayViewModel(
+                    group.Key,
+                    group.OrderBy(item => item.StartsAt)));
             }
         });
+    }
+
+    [RelayCommand]
+    private async Task OpenScheduleItemAsync(ScheduleItemDto? item)
+    {
+        if (item is null)
+        {
+            return;
+        }
+
+        SelectedItem = null;
+        await Shell.Current.GoToAsync(
+            nameof(ScheduleItemDetailPage),
+            new Dictionary<string, object>
+            {
+                ["ScheduleItem"] = item
+            });
     }
 }

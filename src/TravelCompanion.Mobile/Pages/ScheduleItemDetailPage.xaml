@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:viewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
+             x:Class="TravelCompanion.Mobile.Pages.ScheduleItemDetailPage"
+             x:DataType="viewModels:ScheduleItemDetailViewModel"
+             Title="{Binding ScheduleItem.Title}">
+    <ScrollView>
+        <VerticalStackLayout Padding="20" Spacing="18">
+            <VerticalStackLayout Spacing="6">
+                <Label Text="{Binding ScheduleItem.Title}" FontSize="30" FontAttributes="Bold" />
+                <Label Text="{Binding ScheduleItem.LocationName}" FontSize="15" TextColor="{AppThemeBinding Light=#58616A, Dark=#C7CDD3}" />
+            </VerticalStackLayout>
+
+            <Button Text="Abrir mapa"
+                    Command="{Binding OpenMapsCommand}" />
+
+            <Border Stroke="#D8DEE4" StrokeThickness="1" Padding="16">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="8" />
+                </Border.StrokeShape>
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="Reserva" FontSize="18" FontAttributes="Bold" />
+                    <Label Text="{Binding ScheduleItem.Date, StringFormat='Fecha: {0:dddd, MMM d}'}" FontSize="14" />
+                    <Label Text="{Binding ScheduleItem.StartsAt, StringFormat='Hora: {0:HH\\:mm}'}" FontSize="14" />
+                    <Label Text="{Binding ScheduleItem.ConfirmationCode, StringFormat='Codigo: {0}'}" FontSize="14" FontAttributes="Bold" />
+                    <Label Text="{Binding ScheduleItem.AccessLevel, StringFormat='Acceso: {0}'}" FontSize="14" TextColor="{AppThemeBinding Light=#7A4D00, Dark=#F0C36A}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Stroke="#D8DEE4" StrokeThickness="1" Padding="16">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="8" />
+                </Border.StrokeShape>
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="Direccion" FontSize="18" FontAttributes="Bold" />
+                    <Label Text="{Binding ScheduleItem.Address}" FontSize="14" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Stroke="#D8DEE4" StrokeThickness="1" Padding="16">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="8" />
+                </Border.StrokeShape>
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="Notas" FontSize="18" FontAttributes="Bold" />
+                    <Label Text="{Binding ScheduleItem.Notes}" FontSize="14" />
+                </VerticalStackLayout>
+            </Border>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

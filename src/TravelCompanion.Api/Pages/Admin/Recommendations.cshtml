@@ -1,0 +1,98 @@
+@page "/admin/recommendations"
+@model TravelCompanion.Api.Pages.Admin.RecommendationsModel
+@{
+    ViewData["Title"] = "Recommendations";
+}
+
+<h1>Recommendations</h1>
+<p class="lede">Lugares curados que aparecen en recomendaciones y mapa.</p>
+
+<section class="panel">
+    <h2>@(Model.Input.Id.HasValue ? "Editar recomendacion" : "Nueva recomendacion")</h2>
+    <form method="post" asp-page-handler="Save">
+        <input type="hidden" asp-for="Input.Id" />
+        <div class="form-grid">
+            <div>
+                <label asp-for="Input.DestinationId">Destino</label>
+                <select asp-for="Input.DestinationId" asp-items="Model.DestinationOptions"></select>
+            </div>
+            <div>
+                <label asp-for="Input.Title">Titulo</label>
+                <input asp-for="Input.Title" />
+            </div>
+            <div>
+                <label asp-for="Input.Category">Categoria</label>
+                <input asp-for="Input.Category" />
+            </div>
+            <div>
+                <label asp-for="Input.Neighborhood">Barrio</label>
+                <input asp-for="Input.Neighborhood" />
+            </div>
+            <div>
+                <label asp-for="Input.Latitude">Latitud</label>
+                <input asp-for="Input.Latitude" type="number" step="0.000001" />
+            </div>
+            <div>
+                <label asp-for="Input.Longitude">Longitud</label>
+                <input asp-for="Input.Longitude" type="number" step="0.000001" />
+            </div>
+            <div>
+                <label asp-for="Input.SuggestedDurationMinutes">Duracion min</label>
+                <input asp-for="Input.SuggestedDurationMinutes" type="number" min="1" />
+            </div>
+            <div>
+                <label asp-for="Input.AccessLevel">Acceso</label>
+                <select asp-for="Input.AccessLevel" asp-items="Model.AccessLevelOptions"></select>
+            </div>
+        </div>
+        <div style="margin-top: 12px;">
+            <label asp-for="Input.Description">Descripcion</label>
+            <textarea asp-for="Input.Description"></textarea>
+        </div>
+        <div class="actions">
+            <button type="submit">Guardar</button>
+            @if (Model.Input.Id.HasValue)
+            {
+                <a class="button secondary" asp-page="/Admin/Recommendations">Cancelar</a>
+            }
+        </div>
+    </form>
+</section>
+
+<section class="panel" style="margin-top: 18px;">
+    <table>
+        <thead>
+            <tr>
+                <th>Titulo</th>
+                <th>Categoria</th>
+                <th>Acceso</th>
+                <th>Barrio</th>
+                <th>Coordenadas</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var recommendation in Model.Recommendations)
+        {
+            <tr>
+                <td>
+                    <strong>@recommendation.Title</strong><br />
+                    <span class="muted">@recommendation.DestinationName</span>
+                </td>
+                <td>@recommendation.Category</td>
+                <td>@recommendation.AccessLevel</td>
+                <td>@recommendation.Neighborhood</td>
+                <td>@recommendation.Latitude, @recommendation.Longitude</td>
+                <td>
+                    <div class="row-actions">
+                        <a class="button secondary" asp-page="/Admin/Recommendations" asp-route-editId="@recommendation.Id">Editar</a>
+                        <form method="post" asp-page-handler="Delete" asp-route-id="@recommendation.Id">
+                            <button class="danger" type="submit">Borrar</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</section>

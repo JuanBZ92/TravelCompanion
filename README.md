@@ -2,6 +2,18 @@
 
 App companion de viajes con cliente movil .NET MAUI, API ASP.NET Core y PostgreSQL.
 
+## Documentacion
+
+- [Documentacion tecnica](docs/TECHNICAL.md): arquitectura, stack, desarrollo local, API, base de datos, migraciones y verificaciones.
+- [Documentacion funcional](docs/FUNCTIONAL.md): vision de producto, usuarios, pantallas, reglas de acceso, CMS y roadmap.
+
+## Regla del proyecto
+
+Cada vez que se agregue codigo nuevo, se debe actualizar la documentacion correspondiente:
+
+- Cambios de arquitectura, endpoints, base de datos, dependencias, setup o integraciones: actualizar `docs/TECHNICAL.md`.
+- Cambios de comportamiento visible, pantallas, reglas de negocio, contenido, CMS o roadmap: actualizar `docs/FUNCTIONAL.md`.
+
 ## Stack actual
 
 - .NET 10
@@ -10,45 +22,39 @@ App companion de viajes con cliente movil .NET MAUI, API ASP.NET Core y PostgreS
 - Entity Framework Core 10
 - PostgreSQL 16 para desarrollo local
 
-## Estructura
+## Desarrollo rapido
 
-- `src/TravelCompanion.Api`: API REST con endpoints iniciales para destinos, paquetes, recomendaciones y schedule.
-- `src/TravelCompanion.Shared`: DTOs compartidos entre API y app movil.
-- `docker-compose.yml`: PostgreSQL local para desarrollo.
+### Visual Studio F5
 
-## Desarrollo local
-
-### Opcion recomendada: Visual Studio F5
-
-1. Abre Docker Desktop.
-2. Abre `TravelCompanion.sln` en Visual Studio.
-3. En la solucion, selecciona el perfil compartido `Travel Companion Dev`.
-4. En `TravelCompanion.Mobile`, elige el target que quieras usar, por ejemplo `Windows Machine` o un emulador Android.
-5. Presiona F5.
-
-El perfil ejecuta `TravelCompanion.DevBootstrap`, que levanta PostgreSQL con Docker Compose, luego inicia la API y la app MAUI.
-
-Si no ves el perfil, habilita `Tools > Options > Preview Features > Enable Multi-Project Launch Profiles` y reinicia Visual Studio.
+1. Abrir Docker Desktop.
+2. Abrir `TravelCompanion.sln` en Visual Studio.
+3. Seleccionar el perfil compartido `Travel Companion Dev`.
+4. Elegir el target de `TravelCompanion.Mobile`.
+5. Presionar F5.
 
 ### Manual
 
-1. Levantar PostgreSQL:
+```powershell
+docker compose up -d
+dotnet run --project src\TravelCompanion.Api\TravelCompanion.Api.csproj --launch-profile http
+```
 
-   ```powershell
-   docker compose up -d
-   ```
+API local:
 
-2. Ejecutar la API:
+```text
+http://localhost:5289
+```
 
-   ```powershell
-   dotnet run --project src\TravelCompanion.Api\TravelCompanion.Api.csproj
-   ```
+Admin local:
 
-3. Probar endpoints:
+```text
+http://localhost:5289/admin
+Usuario: admin
+Password: travel-companion-dev
+```
 
-   - `GET /api/destinations`
-   - `GET /api/packages?destinationSlug=japon`
-   - `GET /api/recommendations?destinationSlug=japon&latitude=35.6762&longitude=139.6503`
-   - `GET /api/trips/44444444-4444-4444-4444-444444444401/schedule`
+## Verificacion
 
-La API crea la base con `EnsureCreated` y carga datos demo de Japon al iniciar. Para produccion conviene cambiar esto por migraciones EF Core.
+```powershell
+dotnet build TravelCompanion.sln
+```

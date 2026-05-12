@@ -1,20 +1,42 @@
 using Microsoft.EntityFrameworkCore;
 using TravelCompanion.Api.Models;
+using TravelCompanion.Shared;
 
 namespace TravelCompanion.Api.Data;
 
 public static class DatabaseSeeder
 {
+    private static readonly Guid JapanDestinationId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private static readonly Guid JapanEssentialsPackageId = Guid.Parse("22222222-2222-2222-2222-222222222201");
+    private static readonly Guid PremiumPackageId = Guid.Parse("22222222-2222-2222-2222-222222222202");
+    private static readonly Guid FushimiInariRecommendationId = Guid.Parse("33333333-3333-3333-3333-333333333302");
+    private static readonly Guid DotonboriRecommendationId = Guid.Parse("33333333-3333-3333-3333-333333333303");
+    private static readonly Guid OmakaseReservationId = Guid.Parse("55555555-5555-5555-5555-555555555502");
+    private static readonly Guid DemoUserId = Guid.Parse("66666666-6666-6666-6666-666666666601");
+    private const string DemoUserEmail = "demo@travelcompanion.local";
+
     public static async Task SeedAsync(TravelCompanionDbContext dbContext)
     {
-        if (await dbContext.Destinations.AnyAsync())
+        if (!await dbContext.Destinations.AnyAsync())
         {
-            return;
+            SeedJapanContent(dbContext);
         }
 
+        await NormalizeDemoAccessLevelsAsync(dbContext);
+
+        if (!await dbContext.AppUsers.AnyAsync(user => user.Email == DemoUserEmail))
+        {
+            SeedDemoUser(dbContext);
+        }
+
+        await dbContext.SaveChangesAsync();
+    }
+
+    private static void SeedJapanContent(TravelCompanionDbContext dbContext)
+    {
         var japan = new Destination
         {
-            Id = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            Id = JapanDestinationId,
             Name = "Japon",
             Slug = "japon",
             Country = "Japan",
@@ -26,7 +48,7 @@ public static class DatabaseSeeder
         [
             new TravelPackage
             {
-                Id = Guid.Parse("22222222-2222-2222-2222-222222222201"),
+                Id = JapanEssentialsPackageId,
                 DestinationId = japan.Id,
                 Name = "Japon Essentials",
                 Slug = "japon-essentials",
@@ -37,7 +59,7 @@ public static class DatabaseSeeder
             },
             new TravelPackage
             {
-                Id = Guid.Parse("22222222-2222-2222-2222-222222222202"),
+                Id = PremiumPackageId,
                 DestinationId = japan.Id,
                 Name = "Travel Companion Premium",
                 Slug = "travel-companion-premium",
@@ -60,11 +82,12 @@ public static class DatabaseSeeder
                 Description = "Ideal para desayuno temprano, snacks de mar y caminar sin apuro antes de Ginza.",
                 Latitude = 35.665486m,
                 Longitude = 139.770667m,
-                SuggestedDurationMinutes = 90
+                SuggestedDurationMinutes = 90,
+                AccessLevel = ContentAccessLevel.Free
             },
             new Recommendation
             {
-                Id = Guid.Parse("33333333-3333-3333-3333-333333333302"),
+                Id = FushimiInariRecommendationId,
                 DestinationId = japan.Id,
                 Title = "Fushimi Inari Taisha",
                 Category = "Culture",
@@ -72,11 +95,12 @@ public static class DatabaseSeeder
                 Description = "Santuario de torii rojos. Conviene ir muy temprano o al atardecer para evitar multitudes.",
                 Latitude = 34.967140m,
                 Longitude = 135.772671m,
-                SuggestedDurationMinutes = 120
+                SuggestedDurationMinutes = 120,
+                AccessLevel = ContentAccessLevel.Paid
             },
             new Recommendation
             {
-                Id = Guid.Parse("33333333-3333-3333-3333-333333333303"),
+                Id = DotonboriRecommendationId,
                 DestinationId = japan.Id,
                 Title = "Dotonbori",
                 Category = "Nightlife",
@@ -84,7 +108,8 @@ public static class DatabaseSeeder
                 Description = "Neones, street food y una buena primera noche en Osaka sin complicarse.",
                 Latitude = 34.668723m,
                 Longitude = 135.501297m,
-                SuggestedDurationMinutes = 120
+                SuggestedDurationMinutes = 120,
+                AccessLevel = ContentAccessLevel.Subscription
             }
         ]);
 
@@ -106,24 +131,93 @@ public static class DatabaseSeeder
                     LocationName = "Azabudai Hills",
                     Address = "1 Chome-2-4 Azabudai, Minato City, Tokyo",
                     ConfirmationCode = "DEMO-TLB-1026",
-                    Notes = "Llegar 15 minutos antes. Llevar QR en el telefono."
+                    Notes = "Llegar 15 minutos antes. Llevar QR en el telefono.",
+                    AccessLevel = ContentAccessLevel.Paid
                 },
                 new Reservation
                 {
-                    Id = Guid.Parse("55555555-5555-5555-5555-555555555502"),
+                    Id = OmakaseReservationId,
                     Date = new DateOnly(2026, 10, 9),
                     StartsAt = new TimeOnly(18, 0),
                     Title = "Cena omakase",
                     LocationName = "Sushi demo",
                     Address = "Shibuya City, Tokyo",
                     ConfirmationCode = "DEMO-SUSHI-1026",
-                    Notes = "Avisar alergias con 48 horas de anticipacion."
+                    Notes = "Avisar alergias con 48 horas de anticipacion.",
+                    AccessLevel = ContentAccessLevel.Bundle
                 }
             ]
         };
 
         dbContext.Destinations.Add(japan);
         dbContext.Trips.Add(demoTrip);
-        await dbContext.SaveChangesAsync();
+    }
+
+    private static void SeedDemoUser(TravelCompanionDbContext dbContext)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var demoUser = new AppUser
+        {
+            Id = DemoUserId,
+            Email = DemoUserEmail,
+            DisplayName = "Demo Traveler",
+            Entitlements =
+            [
+                new UserEntitlement
+                {
+                    Id = Guid.Parse("77777777-7777-7777-7777-777777777701"),
+                    UserId = DemoUserId,
+                    AccessLevel = ContentAccessLevel.Bundle,
+                    DestinationId = JapanDestinationId,
+                    TravelPackageId = JapanEssentialsPackageId,
+                    GrantedAt = now,
+                    Source = "seed-package"
+                },
+                new UserEntitlement
+                {
+                    Id = Guid.Parse("77777777-7777-7777-7777-777777777702"),
+                    UserId = DemoUserId,
+                    AccessLevel = ContentAccessLevel.Subscription,
+                    DestinationId = JapanDestinationId,
+                    TravelPackageId = PremiumPackageId,
+                    GrantedAt = now,
+                    ExpiresAt = now.AddYears(1),
+                    Source = "seed-subscription"
+                }
+            ]
+        };
+
+        dbContext.AppUsers.Add(demoUser);
+    }
+
+    private static async Task NormalizeDemoAccessLevelsAsync(TravelCompanionDbContext dbContext)
+    {
+        var recommendations = await dbContext.Recommendations
+            .Where(recommendation => recommendation.Id == FushimiInariRecommendationId
+                || recommendation.Id == DotonboriRecommendationId)
+            .ToListAsync();
+
+        foreach (var recommendation in recommendations)
+        {
+            if (recommendation.Id == FushimiInariRecommendationId
+                && recommendation.AccessLevel == ContentAccessLevel.Free)
+            {
+                recommendation.AccessLevel = ContentAccessLevel.Paid;
+            }
+
+            if (recommendation.Id == DotonboriRecommendationId
+                && recommendation.AccessLevel == ContentAccessLevel.Free)
+            {
+                recommendation.AccessLevel = ContentAccessLevel.Subscription;
+            }
+        }
+
+        var omakaseReservation = await dbContext.Reservations
+            .FirstOrDefaultAsync(reservation => reservation.Id == OmakaseReservationId);
+
+        if (omakaseReservation is not null && omakaseReservation.AccessLevel == ContentAccessLevel.Paid)
+        {
+            omakaseReservation.AccessLevel = ContentAccessLevel.Bundle;
+        }
     }
 }

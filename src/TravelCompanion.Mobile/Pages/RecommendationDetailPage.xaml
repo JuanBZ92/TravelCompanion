@@ -12,12 +12,23 @@
                 <Label Text="{Binding Recommendation.Neighborhood}" FontSize="15" TextColor="{AppThemeBinding Light=#58616A, Dark=#C7CDD3}" />
             </VerticalStackLayout>
 
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                <Button Text="{Binding FavoriteButtonText}"
+                        Command="{Binding ToggleFavoriteCommand}" />
+                <Button Grid.Column="1"
+                        Text="Abrir mapa"
+                        Command="{Binding OpenMapsCommand}"
+                        IsEnabled="{Binding IsUnlocked}" />
+            </Grid>
+
             <Border Stroke="#D8DEE4" StrokeThickness="1" Padding="16">
                 <Border.StrokeShape>
                     <RoundRectangle CornerRadius="8" />
                 </Border.StrokeShape>
                 <VerticalStackLayout Spacing="10">
                     <Label Text="{Binding Recommendation.Category}" FontSize="13" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#2F6F6D, Dark=#7AD1CD}" />
+                    <Label Text="{Binding AccessLevelText}" FontSize="13" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#7A4D00, Dark=#F0C36A}" />
+                    <Label Text="{Binding AccessStatus}" FontSize="13" TextColor="{AppThemeBinding Light=#58616A, Dark=#C7CDD3}" />
                     <Label Text="{Binding Recommendation.Description}" FontSize="16" />
                     <Label Text="{Binding Recommendation.SuggestedDurationMinutes, StringFormat='Duracion sugerida: {0} min'}" FontSize="14" TextColor="{AppThemeBinding Light=#58616A, Dark=#C7CDD3}" />
                 </VerticalStackLayout>

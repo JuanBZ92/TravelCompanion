@@ -1,3 +1,5 @@
+using TravelCompanion.Shared;
+
 namespace TravelCompanion.Api.Models;
 
 public sealed class Recommendation
@@ -12,4 +14,5 @@ public sealed class Recommendation
     public decimal Latitude { get; set; }
     public decimal Longitude { get; set; }
     public int SuggestedDurationMinutes { get; set; }
+    public ContentAccessLevel AccessLevel { get; set; } = ContentAccessLevel.Free;
 }

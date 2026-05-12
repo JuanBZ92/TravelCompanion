@@ -27,23 +27,46 @@
         <RefreshView Grid.Row="2"
                      Command="{Binding LoadScheduleCommand}"
                      IsRefreshing="{Binding IsBusy}">
-            <CollectionView ItemsSource="{Binding Items}">
+            <CollectionView ItemsSource="{Binding Days}"
+                            IsGrouped="True"
+                            SelectionMode="Single"
+                            SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
+                            SelectionChangedCommand="{Binding OpenScheduleItemCommand}"
+                            SelectionChangedCommandParameter="{Binding SelectedItem}">
                 <CollectionView.EmptyView>
                     <Label Text="Todavia no hay reservas en este viaje." HorizontalOptions="Center" VerticalOptions="Center" />
                 </CollectionView.EmptyView>
+                <CollectionView.GroupHeaderTemplate>
+                    <DataTemplate x:DataType="viewModels:ScheduleDayViewModel">
+                        <Grid Padding="0,10,0,8" ColumnDefinitions="*,Auto">
+                            <Label Text="{Binding DayLabel}" FontSize="18" FontAttributes="Bold" />
+                            <Label Grid.Column="1" Text="{Binding CountLabel}" FontSize="12" TextColor="{AppThemeBinding Light=#68727D, Dark=#BDC4CC}" VerticalOptions="Center" />
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.GroupHeaderTemplate>
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="dtos:ScheduleItemDto">
-                        <Border Stroke="#D8DEE4" StrokeThickness="1" Padding="14" Margin="0,0,0,12">
-                            <Border.StrokeShape>
-                                <RoundRectangle CornerRadius="8" />
-                            </Border.StrokeShape>
-                            <VerticalStackLayout Spacing="5">
-                                <Label Text="{Binding Title}" FontSize="18" FontAttributes="Bold" />
-                                <Label Text="{Binding LocationName}" FontSize="14" />
-                                <Label Text="{Binding Address}" FontSize="13" TextColor="{AppThemeBinding Light=#68727D, Dark=#BDC4CC}" />
-                                <Label Text="{Binding ConfirmationCode}" FontSize="13" FontAttributes="Bold" />
+                        <Grid ColumnDefinitions="58,*" Padding="0,0,0,14">
+                            <VerticalStackLayout Spacing="0" HorizontalOptions="Center">
+                                <Label Text="{Binding StartsAt, StringFormat='{0:HH\\:mm}'}" FontSize="13" FontAttributes="Bold" />
+                                <BoxView WidthRequest="2" HeightRequest="72" Color="#D8DEE4" Margin="0,8,0,0" />
                             </VerticalStackLayout>
-                        </Border>
+
+                            <Border Grid.Column="1" Stroke="#D8DEE4" StrokeThickness="1" Padding="14">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="8" />
+                                </Border.StrokeShape>
+                                <VerticalStackLayout Spacing="5">
+                                    <Label Text="{Binding Title}" FontSize="18" FontAttributes="Bold" />
+                                    <Label Text="{Binding LocationName}" FontSize="14" />
+                                    <Label Text="{Binding Address}" FontSize="13" TextColor="{AppThemeBinding Light=#68727D, Dark=#BDC4CC}" />
+                                    <HorizontalStackLayout Spacing="12">
+                                        <Label Text="{Binding ConfirmationCode}" FontSize="13" FontAttributes="Bold" />
+                                        <Label Text="{Binding AccessLevel}" FontSize="13" TextColor="{AppThemeBinding Light=#7A4D00, Dark=#F0C36A}" />
+                                    </HorizontalStackLayout>
+                                </VerticalStackLayout>
+                            </Border>
+                        </Grid>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
             </CollectionView>

@@ -62,6 +62,7 @@ public sealed class RecommendationsController(TravelCompanionDbContext dbContext
             recommendation.Latitude,
             recommendation.Longitude,
             recommendation.SuggestedDurationMinutes,
+            recommendation.AccessLevel,
             distanceKm);
     }
 

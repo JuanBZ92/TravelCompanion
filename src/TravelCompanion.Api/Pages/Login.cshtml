@@ -1,0 +1,30 @@
+@page "/login"
+@model TravelCompanion.Api.Pages.LoginModel
+@{
+    ViewData["Title"] = "Login";
+}
+
+<section class="auth-panel">
+    <h1>Admin login</h1>
+    <p class="lede">Acceso local para gestionar contenido.</p>
+
+    @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+    {
+        <div class="alert">@Model.ErrorMessage</div>
+    }
+
+    <form method="post">
+        <input type="hidden" asp-for="ReturnUrl" />
+        <div>
+            <label asp-for="Input.Username">Usuario</label>
+            <input asp-for="Input.Username" autocomplete="username" />
+        </div>
+        <div style="margin-top: 12px;">
+            <label asp-for="Input.Password">Password</label>
+            <input asp-for="Input.Password" type="password" autocomplete="current-password" />
+        </div>
+        <div class="actions">
+            <button type="submit">Entrar</button>
+        </div>
+    </form>
+</section>

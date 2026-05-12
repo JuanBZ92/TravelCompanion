@@ -1,0 +1,53 @@
+@page "/admin"
+@model TravelCompanion.Api.Pages.Admin.IndexModel
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<h1>Admin</h1>
+<p class="lede">Contenido base para destinos, recomendaciones y schedule.</p>
+
+<section class="grid">
+    <div class="panel">
+        <div class="metric">@Model.DestinationCount</div>
+        <div class="muted">Destinos</div>
+    </div>
+    <div class="panel">
+        <div class="metric">@Model.PackageCount</div>
+        <div class="muted">Paquetes</div>
+    </div>
+    <div class="panel">
+        <div class="metric">@Model.RecommendationCount</div>
+        <div class="muted">Recomendaciones</div>
+    </div>
+    <div class="panel">
+        <div class="metric">@Model.ReservationCount</div>
+        <div class="muted">Reservas</div>
+    </div>
+    <div class="panel">
+        <div class="metric">@Model.UserCount</div>
+        <div class="muted">Usuarios</div>
+    </div>
+    <div class="panel">
+        <div class="metric">@Model.EntitlementCount</div>
+        <div class="muted">Accesos</div>
+    </div>
+</section>
+
+<section class="grid" style="margin-top: 18px;">
+    <div class="panel">
+        <h2>Recommendations</h2>
+        <p class="muted">Carga lugares, categorias, duracion y coordenadas para la app.</p>
+        <a class="button" asp-page="/Admin/Recommendations">Gestionar</a>
+    </div>
+    <div class="panel">
+        <h2>Schedule</h2>
+        <p class="muted">Administra reservas y eventos del viaje demo.</p>
+        <a class="button" asp-page="/Admin/Reservations">Gestionar</a>
+    </div>
+    <div class="panel">
+        <h2>Users & access</h2>
+        <p class="muted">Crea usuarios y asigna accesos por pago, paquete o suscripcion.</p>
+        <a class="button" asp-page="/Admin/Users">Gestionar</a>
+    </div>
+</section>
