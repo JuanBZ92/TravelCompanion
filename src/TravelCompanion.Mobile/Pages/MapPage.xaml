@@ -74,8 +74,7 @@
                 <Label Text="Near You"
                        FontSize="24"
                        FontAttributes="Bold"
-                       TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
-                       LetterSpacing="-0.5" />
+                       TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
                 <Label Text="Places within walking distance"
                        FontSize="14"
                        TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
@@ -120,7 +119,6 @@
                                                FontSize="18"
                                                FontAttributes="Bold"
                                                TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
-                                               LetterSpacing="-0.3" />
                                         <Label Text="{Binding Neighborhood}"
                                                FontSize="14"
                                                TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />

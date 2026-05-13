@@ -16,8 +16,7 @@
             <Label Text="Your Itinerary"
                    FontSize="24"
                    FontAttributes="Bold"
-                   TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
-                   LetterSpacing="-0.5" />
+                   TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
             <Label Text="{Binding TripDates}"
                    FontSize="14"
                    TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
@@ -133,7 +132,6 @@
                                    FontSize="18"
                                    FontAttributes="Bold"
                                    TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
-                                   LetterSpacing="-0.3" />
                             <Label Grid.Column="1"
                                    Text="{Binding CountLabel}"
                                    FontSize="13"
@@ -190,7 +188,6 @@
                                                    FontSize="11"
                                                    FontAttributes="Bold"
                                                    TextTransform="Uppercase"
-                                                   LetterSpacing="0.5"
                                                    TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
                                         </Border>
                                     </HorizontalStackLayout>
@@ -200,7 +197,6 @@
                                                FontSize="18"
                                                FontAttributes="Bold"
                                                TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
-                                               LetterSpacing="-0.3" />
                                         <Label Text="{Binding LocationName}"
                                                FontSize="14"
                                                TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}" />

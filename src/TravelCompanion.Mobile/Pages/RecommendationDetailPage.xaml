@@ -29,13 +29,11 @@
                 <VerticalStackLayout Spacing="8">
                     <Label Text="{Binding Recommendation.Category}"
                            FontSize="12"
-                           TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
-                           LetterSpacing="0.5" />
+                           TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
                     <Label Text="{Binding Recommendation.Title}"
                            FontSize="28"
                            FontAttributes="Bold"
-                           TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
-                           LetterSpacing="-0.5" />
+                           TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
                     <Label Text="{Binding Recommendation.Description}"
                            FontSize="16"
                            TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}"
