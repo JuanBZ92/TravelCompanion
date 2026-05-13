@@ -29,18 +29,18 @@
                 <VerticalStackLayout Spacing="8">
                     <Label Text="{Binding Recommendation.Category}"
                            FontSize="12"
+                           TextTransform="Uppercase"
                            TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
                     <Label Text="{Binding Recommendation.Title}"
                            FontSize="28"
                            FontAttributes="Bold"
                            TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
-                    <Label Text="{Binding Recommendation.Description}"
+                    <Label Text="{Binding Recommendation.Neighborhood}"
                            FontSize="16"
-                           TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}"
-                           LineHeight="1.5" />
+                           TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}" />
                 </VerticalStackLayout>
 
-                <!-- Reservation Info -->
+                <!-- Details Info -->
                 <Border Padding="16"
                         BackgroundColor="{AppThemeBinding Light={StaticResource Mist}, Dark={StaticResource NightSurface}}"
                         Stroke="Transparent"
@@ -48,92 +48,55 @@
                     <Border.StrokeShape>
                         <RoundRectangle CornerRadius="12" />
                     </Border.StrokeShape>
-                    <VerticalStackLayout Spacing="12">
-                        <Label Text="Your Reservation"
+                    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" RowSpacing="12" ColumnSpacing="12">
+                        <Label Grid.Row="0" Grid.Column="0"
+                               Text="Duration"
+                               FontSize="12"
+                               TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                               VerticalOptions="Center" />
+                        <Label Grid.Row="0" Grid.Column="1"
+                               Text="{Binding Recommendation.SuggestedDurationMinutes, StringFormat='{0} minutes'}"
                                FontSize="14"
                                FontAttributes="Bold"
-                               TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
+                               TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
+                               VerticalOptions="Center" />
 
-                        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="8" ColumnSpacing="12">
-                            <Label Grid.Row="0" Grid.Column="0" Text="📅" FontSize="16" />
-                            <Label Grid.Row="0" Grid.Column="1"
-                                   Text="Wednesday, May 13, 2026"
-                                   FontSize="14"
-                                   TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}"
-                                   VerticalOptions="Center" />
-
-                            <Label Grid.Row="1" Grid.Column="0" Text="🕐" FontSize="16" />
-                            <Label Grid.Row="1" Grid.Column="1"
-                                   Text="{Binding Recommendation.SuggestedDurationMinutes, StringFormat='Duration: {0} minutes'}"
-                                   FontSize="14"
-                                   TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}"
-                                   VerticalOptions="Center" />
-
-                            <Label Grid.Row="2" Grid.Column="0" Text="📍" FontSize="16" />
-                            <Label Grid.Row="2" Grid.Column="1"
-                                   Text="{Binding Recommendation.Neighborhood}"
-                                   FontSize="14"
-                                   TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}"
-                                   VerticalOptions="Center" />
-                        </Grid>
-                    </VerticalStackLayout>
+                        <Label Grid.Row="1" Grid.Column="0"
+                               Text="Access"
+                               FontSize="12"
+                               TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                               VerticalOptions="Center" />
+                        <Label Grid.Row="1" Grid.Column="1"
+                               Text="{Binding AccessLevelText}"
+                               FontSize="14"
+                               FontAttributes="Bold"
+                               TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
+                               VerticalOptions="Center" />
+                    </Grid>
                 </Border>
 
-                <!-- About Section -->
+                <!-- Description -->
                 <VerticalStackLayout Spacing="12">
-                    <Label Text="About"
+                    <Label Text="About This Experience"
                            FontSize="14"
                            FontAttributes="Bold"
                            TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
-                    <Label Text="Experience the pinnacle of Japanese culinary artistry. Each dish is meticulously crafted using seasonal ingredients sourced from across Japan. The intimate setting allows for direct interaction with master chefs who have dedicated their lives to perfecting their craft."
+                    <Label Text="{Binding Recommendation.Description}"
                            FontSize="14"
                            LineHeight="1.6"
                            TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}" />
                 </VerticalStackLayout>
 
-                <!-- What to Expect -->
+                <!-- Location -->
                 <VerticalStackLayout Spacing="12">
-                    <Label Text="What to Expect"
+                    <Label Text="Location"
                            FontSize="14"
                            FontAttributes="Bold"
                            TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
-                    <VerticalStackLayout Spacing="8">
-                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                            <Label Text="•" FontSize="14" TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
-                            <Label Grid.Column="1" Text="Omakase menu curated by the chef" FontSize="14" TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}" />
-                        </Grid>
-                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                            <Label Text="•" FontSize="14" TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
-                            <Label Grid.Column="1" Text="Intimate counter seating" FontSize="14" TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}" />
-                        </Grid>
-                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                            <Label Text="•" FontSize="14" TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
-                            <Label Grid.Column="1" Text="{Binding Recommendation.SuggestedDurationMinutes, StringFormat='Approximately {0} minutes duration'}" FontSize="14" TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}" />
-                        </Grid>
-                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                            <Label Text="•" FontSize="14" TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
-                            <Label Grid.Column="1" Text="Smart casual dress code" FontSize="14" TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}" />
-                        </Grid>
-                    </VerticalStackLayout>
-                </VerticalStackLayout>
-
-                <!-- Getting There -->
-                <VerticalStackLayout Spacing="12">
-                    <Label Text="Getting There"
+                    <Label Text="{Binding Recommendation.Neighborhood}"
                            FontSize="14"
-                           FontAttributes="Bold"
-                           TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
-                    <Label FontSize="14"
                            LineHeight="1.5"
-                           TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}">
-                        <Label.FormattedText>
-                            <FormattedString>
-                                <Span Text="5 min walk from nearest station" />
-                                <Span Text="&#x0a;" />
-                                <Span Text="{Binding Recommendation.Neighborhood}" />
-                            </FormattedString>
-                        </Label.FormattedText>
-                    </Label>
+                           TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}" />
                 </VerticalStackLayout>
 
                 <!-- Action Buttons -->
@@ -147,10 +110,19 @@
                             CornerRadius="12"
                             FontSize="16"
                             FontAttributes="Bold" />
-                    <Button Text="Contact Concierge"
+                    <Button Text="Contact Concierge to Book"
                             BackgroundColor="Transparent"
                             TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
                             BorderColor="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
+                            BorderWidth="1"
+                            HeightRequest="48"
+                            CornerRadius="12"
+                            FontSize="16" />
+                    <Button Text="{Binding FavoriteButtonText}"
+                            Command="{Binding ToggleFavoriteCommand}"
+                            BackgroundColor="Transparent"
+                            TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}"
+                            BorderColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}"
                             BorderWidth="1"
                             HeightRequest="48"
                             CornerRadius="12"
