@@ -4,59 +4,211 @@
              xmlns:viewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
              x:Class="TravelCompanion.Mobile.Pages.SupportPage"
              x:DataType="viewModels:SupportViewModel"
-             Title="Cuenta"
-             Shell.NavBarIsVisible="False">
+             Title="Support"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{AppThemeBinding Light={StaticResource PaperAlt}, Dark={StaticResource Night}}">
+
     <ScrollView>
-        <VerticalStackLayout Padding="18,18,18,0" Spacing="14">
-            <Border Style="{StaticResource Card}">
+        <VerticalStackLayout Padding="24,16,24,24" Spacing="24">
+            <!-- Header -->
+            <VerticalStackLayout Spacing="4">
+                <Label Text="Support"
+                       FontSize="24"
+                       FontAttributes="Bold"
+                       TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
+                       LetterSpacing="-0.5" />
+                <Label Text="We're here to help"
+                       FontSize="14"
+                       TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
+            </VerticalStackLayout>
+
+            <!-- Concierge Support -->
+            <Border Padding="20"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource Paper}, Dark={StaticResource NightSurface}}"
+                    Stroke="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
+                    StrokeThickness="1">
                 <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="8" />
+                    <RoundRectangle CornerRadius="12" />
                 </Border.StrokeShape>
-                <VerticalStackLayout Spacing="10">
-                    <Label Text="Ayuda durante el viaje" Style="{StaticResource SectionTitle}" />
-                    <Label Text="Canal para dudas, cambios de reserva y recomendaciones de ultimo momento." FontSize="14" />
-                    <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
-                        <Button Text="WhatsApp" />
-                        <Button Grid.Column="1" Text="Email" Style="{StaticResource GhostButton}" />
-                    </Grid>
+                <VerticalStackLayout Spacing="16">
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Your Concierge"
+                               FontSize="18"
+                               FontAttributes="Bold"
+                               TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
+                               LetterSpacing="-0.3" />
+                        <Label Text="24/7 assistance for reservations and recommendations"
+                               FontSize="14"
+                               LineHeight="1.5"
+                               TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}" />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="10">
+                        <Button Text="Live Chat"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}"
+                                TextColor="{AppThemeBinding Light={StaticResource Paper}, Dark={StaticResource PrimaryDarkText}}" />
+                        <Button Text="Send Email"
+                                Style="{StaticResource GhostButton}" />
+                    </VerticalStackLayout>
                 </VerticalStackLayout>
             </Border>
 
-            <Border Style="{StaticResource Card}">
+            <!-- Quick Help -->
+            <VerticalStackLayout Spacing="12">
+                <Label Text="Quick Help"
+                       FontSize="16"
+                       FontAttributes="Bold"
+                       TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
+
+                <Border Padding="16"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource Paper}, Dark={StaticResource NightSurface}}"
+                        Stroke="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
+                        StrokeThickness="1">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="12" />
+                    </Border.StrokeShape>
+                    <Grid RowDefinitions="Auto,1,Auto,1,Auto" RowSpacing="0">
+                        <Grid Padding="0,12" ColumnDefinitions="*,Auto">
+                            <Label Text="Lost or need directions"
+                                   FontSize="14"
+                                   TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
+                                   VerticalOptions="Center" />
+                            <Label Grid.Column="1"
+                                   Text="›"
+                                   FontSize="20"
+                                   TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                                   VerticalOptions="Center" />
+                        </Grid>
+
+                        <BoxView Grid.Row="1"
+                                 HeightRequest="1"
+                                 Color="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}" />
+
+                        <Grid Grid.Row="2" Padding="0,12" ColumnDefinitions="*,Auto">
+                            <Label Text="Booking assistance"
+                                   FontSize="14"
+                                   TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
+                                   VerticalOptions="Center" />
+                            <Label Grid.Column="1"
+                                   Text="›"
+                                   FontSize="20"
+                                   TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                                   VerticalOptions="Center" />
+                        </Grid>
+
+                        <BoxView Grid.Row="3"
+                                 HeightRequest="1"
+                                 Color="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}" />
+
+                        <Grid Grid.Row="4" Padding="0,12" ColumnDefinitions="*,Auto">
+                            <Label Text="Report an issue"
+                                   FontSize="14"
+                                   TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
+                                   VerticalOptions="Center" />
+                            <Label Grid.Column="1"
+                                   Text="›"
+                                   FontSize="20"
+                                   TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                                   VerticalOptions="Center" />
+                        </Grid>
+                    </Grid>
+                </Border>
+            </VerticalStackLayout>
+
+            <!-- Emergency Services -->
+            <Border Padding="16"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource RoseSoft}, Dark={StaticResource NightSurfaceAlt}}"
+                    Stroke="{AppThemeBinding Light={StaticResource Rose}, Dark={StaticResource NightLine}}"
+                    StrokeThickness="1">
                 <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="8" />
+                    <RoundRectangle CornerRadius="12" />
                 </Border.StrokeShape>
-                <VerticalStackLayout Spacing="10">
-                    <Label Text="Cuenta" Style="{StaticResource SectionTitle}" />
-                    <Label Text="{Binding DisplayName}" FontSize="14" FontAttributes="Bold" />
-                    <Label Text="{Binding Email}" Style="{StaticResource Metadata}" />
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                        <VerticalStackLayout Spacing="2">
-                            <Label Text="Biometria" FontSize="14" FontAttributes="Bold" />
-                            <Label Text="Usar huella, Face ID o biometria disponible al abrir la app." Style="{StaticResource Metadata}" />
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="Emergency Services"
+                           FontSize="14"
+                           FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light={StaticResource Rose}, Dark={StaticResource Paper}}" />
+                    <Label FontSize="13"
+                           LineHeight="1.5"
+                           TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}">
+                        <Label.FormattedText>
+                            <FormattedString>
+                                <Span Text="Police: 110  |  Ambulance: 119" />
+                                <Span Text="&#x0a;" />
+                                <Span Text="Tourist Hotline: 050-3816-2787" />
+                            </FormattedString>
+                        </Label.FormattedText>
+                    </Label>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Account Section -->
+            <VerticalStackLayout Spacing="12">
+                <Label Text="Account"
+                       FontSize="16"
+                       FontAttributes="Bold"
+                       TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
+
+                <Border Padding="20"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource Paper}, Dark={StaticResource NightSurface}}"
+                        Stroke="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
+                        StrokeThickness="1">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="12" />
+                    </Border.StrokeShape>
+                    <VerticalStackLayout Spacing="16">
+                        <VerticalStackLayout Spacing="4">
+                            <Label Text="{Binding DisplayName}"
+                                   FontSize="18"
+                                   FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
+                            <Label Text="{Binding Email}"
+                                   FontSize="14"
+                                   TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
                         </VerticalStackLayout>
-                        <Switch Grid.Column="1"
-                                IsToggled="{Binding IsBiometricEnabled}"
-                                VerticalOptions="Center" />
-                    </Grid>
-                    <Button Text="Bloquear app"
-                            Command="{Binding LockCommand}" />
-                    <Button Text="Cerrar sesion"
-                            Style="{StaticResource GhostButton}"
-                            Command="{Binding LogoutCommand}" />
-                </VerticalStackLayout>
-            </Border>
 
-            <Border Style="{StaticResource Card}">
-                <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="8" />
-                </Border.StrokeShape>
-                <VerticalStackLayout Spacing="6">
-                    <Label Text="Emergencias" Style="{StaticResource SectionTitle}" />
-                    <Label Text="Policia: 110" FontSize="14" />
-                    <Label Text="Ambulancia y bomberos: 119" FontSize="14" />
-                </VerticalStackLayout>
-            </Border>
+                        <BoxView HeightRequest="1"
+                                 Color="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}" />
+
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                            <VerticalStackLayout Spacing="4">
+                                <Label Text="Biometric Login"
+                                       FontSize="14"
+                                       FontAttributes="Bold"
+                                       TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
+                                <Label Text="Use Face ID or fingerprint to unlock"
+                                       FontSize="13"
+                                       TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
+                            </VerticalStackLayout>
+                            <Switch Grid.Column="1"
+                                    IsToggled="{Binding IsBiometricEnabled}"
+                                    VerticalOptions="Center" />
+                        </Grid>
+
+                        <VerticalStackLayout Spacing="10">
+                            <Button Text="Lock App"
+                                    Command="{Binding LockCommand}"
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}"
+                                    TextColor="{AppThemeBinding Light={StaticResource Paper}, Dark={StaticResource PrimaryDarkText}}" />
+                            <Button Text="Sign Out"
+                                    Style="{StaticResource GhostButton}"
+                                    Command="{Binding LogoutCommand}" />
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+
+            <!-- Concierge Info -->
+            <VerticalStackLayout Spacing="4" Padding="0,8">
+                <Label Text="Your dedicated concierge:"
+                       FontSize="12"
+                       TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                       HorizontalOptions="Center" />
+                <Label Text="Yuki Tanaka"
+                       FontSize="14"
+                       TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
+                       HorizontalOptions="Center" />
+            </VerticalStackLayout>
         </VerticalStackLayout>
     </ScrollView>
 </ContentPage>

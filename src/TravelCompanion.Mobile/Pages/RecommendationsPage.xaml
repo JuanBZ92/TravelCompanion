@@ -6,49 +6,36 @@
              x:Class="TravelCompanion.Mobile.Pages.RecommendationsPage"
              x:Name="PageRoot"
              x:DataType="viewModels:RecommendationsViewModel"
-             Title="Ideas"
-             Shell.NavBarIsVisible="False">
-    <Grid Padding="18,18,18,0" RowDefinitions="Auto,Auto,Auto,*" RowSpacing="14">
-        <Border HeightRequest="158"
-                Stroke="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
-                StrokeThickness="1"
-                BackgroundColor="{AppThemeBinding Light={StaticResource Paper}, Dark={StaticResource NightSurface}}">
-            <Border.StrokeShape>
-                <RoundRectangle CornerRadius="8" />
-            </Border.StrokeShape>
-            <Grid>
-                <Image Source="japan_hero.svg" Aspect="AspectFill" />
-                <VerticalStackLayout Padding="16" Spacing="4" VerticalOptions="End">
-                    <Label Text="Japon" FontSize="28" FontAttributes="Bold" TextColor="{StaticResource Ink}" />
-                    <Label Text="Ideas curadas para comer, caminar y explorar." FontSize="13" TextColor="{StaticResource InkSoft}" />
-                </VerticalStackLayout>
-            </Grid>
-        </Border>
+             Title="Curated for You"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{AppThemeBinding Light={StaticResource PaperAlt}, Dark={StaticResource Night}}">
 
-        <Border Grid.Row="1" Style="{StaticResource SoftPanel}">
-            <Border.StrokeShape>
-                <RoundRectangle CornerRadius="8" />
-            </Border.StrokeShape>
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                <VerticalStackLayout Spacing="2">
-                    <Label Text="Categoria" Style="{StaticResource Metadata}" />
-                    <Picker Title="Categoria"
-                            ItemsSource="{Binding Categories}"
-                            SelectedItem="{Binding SelectedCategory}" />
-                </VerticalStackLayout>
-                <Label Grid.Column="1"
-                       Text="Curado"
-                       Style="{StaticResource Eyebrow}"
-                       VerticalOptions="Center" />
-            </Grid>
-        </Border>
+    <Grid Padding="24,16,24,0" RowDefinitions="Auto,Auto,*" RowSpacing="24">
+        <!-- Header -->
+        <VerticalStackLayout Spacing="4">
+            <Label Text="Curated for You"
+                   FontSize="24"
+                   FontAttributes="Bold"
+                   TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
+                   LetterSpacing="-0.5" />
+            <Label Text="Handpicked experiences"
+                   FontSize="14"
+                   TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
+        </VerticalStackLayout>
 
-        <VerticalStackLayout Grid.Row="2" Spacing="8">
-            <Border Style="{StaticResource SoftPanel}" IsVisible="{Binding HasStatus}">
+        <!-- Status/Error Messages -->
+        <VerticalStackLayout Grid.Row="1" Spacing="8">
+            <Border Padding="12"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource AccentSoft}, Dark={StaticResource NightSurfaceAlt}}"
+                    Stroke="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
+                    StrokeThickness="1"
+                    IsVisible="{Binding HasStatus}">
                 <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="8" />
+                    <RoundRectangle CornerRadius="12" />
                 </Border.StrokeShape>
-                <Label Text="{Binding StatusMessage}" Style="{StaticResource Metadata}" TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}" />
+                <Label Text="{Binding StatusMessage}"
+                       FontSize="13"
+                       TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}" />
             </Border>
 
             <Border Padding="12"
@@ -57,55 +44,93 @@
                     StrokeThickness="1"
                     IsVisible="{Binding HasError}">
                 <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="8" />
+                    <RoundRectangle CornerRadius="12" />
                 </Border.StrokeShape>
-                <Label Text="{Binding ErrorMessage}" TextColor="{AppThemeBinding Light={StaticResource Rose}, Dark={StaticResource Paper}}" />
+                <Label Text="{Binding ErrorMessage}"
+                       FontSize="13"
+                       TextColor="{AppThemeBinding Light={StaticResource Rose}, Dark={StaticResource Paper}}" />
             </Border>
         </VerticalStackLayout>
 
-        <RefreshView Grid.Row="3"
+        <!-- Recommendations List -->
+        <RefreshView Grid.Row="2"
                      Command="{Binding LoadRecommendationsCommand}"
                      IsRefreshing="{Binding IsRefreshing, Mode=TwoWay}">
             <CollectionView ItemsSource="{Binding Recommendations}"
-                            ItemSizingStrategy="MeasureFirstItem"
+                            ItemSizingStrategy="MeasureAllItems"
                             SelectionMode="None">
                 <CollectionView.EmptyView>
-                    <Label Text="No hay recomendaciones para este filtro." HorizontalOptions="Center" VerticalOptions="Center" />
+                    <VerticalStackLayout HorizontalOptions="Center"
+                                       VerticalOptions="Center"
+                                       Spacing="8"
+                                       Padding="24">
+                        <Label Text="No recommendations available"
+                               FontSize="16"
+                               TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                               HorizontalOptions="Center" />
+                        <Label Text="Pull to refresh"
+                               FontSize="13"
+                               TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                               HorizontalOptions="Center" />
+                    </VerticalStackLayout>
                 </CollectionView.EmptyView>
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="itemViewModels:RecommendationListItemViewModel">
-                        <Border Style="{StaticResource Card}" Margin="0,0,0,10" HeightRequest="176">
+                        <Border Margin="0,0,0,12"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource Paper}, Dark={StaticResource NightSurface}}"
+                                Stroke="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
+                                StrokeThickness="1">
                             <Border.GestureRecognizers>
                                 <TapGestureRecognizer Command="{Binding Source={x:Reference PageRoot}, Path=BindingContext.OpenRecommendationCommand}"
                                                       CommandParameter="{Binding .}" />
                             </Border.GestureRecognizers>
                             <Border.StrokeShape>
-                                <RoundRectangle CornerRadius="8" />
+                                <RoundRectangle CornerRadius="12" />
                             </Border.StrokeShape>
-                            <Grid ColumnDefinitions="*,40" RowDefinitions="Auto,Auto,*,Auto" ColumnSpacing="12" RowSpacing="5">
-                                <Label Text="{Binding Title}" Style="{StaticResource SectionTitle}" MaxLines="2" LineBreakMode="TailTruncation" />
-                                <Label Grid.Column="1"
-                                        Text="{Binding FavoriteGlyph}"
-                                        SemanticProperties.Description="{Binding FavoriteLabel}"
-                                        BackgroundColor="{AppThemeBinding Light={StaticResource PaperAlt}, Dark={StaticResource NightSurfaceAlt}}"
-                                        HorizontalTextAlignment="Center"
-                                        VerticalTextAlignment="Center"
-                                        FontSize="20"
-                                        HeightRequest="40"
-                                        WidthRequest="40">
-                                    <Label.GestureRecognizers>
-                                        <TapGestureRecognizer Command="{Binding Source={x:Reference PageRoot}, Path=BindingContext.ToggleFavoriteCommand}"
-                                                              CommandParameter="{Binding .}" />
-                                    </Label.GestureRecognizers>
-                                </Label>
-                                <Label Grid.Row="1" Text="{Binding Neighborhood}" Style="{StaticResource Metadata}" />
-                                <Label Grid.Row="2" Grid.ColumnSpan="2" Text="{Binding Description}" FontSize="14" MaxLines="2" LineBreakMode="TailTruncation" />
-                                <HorizontalStackLayout Grid.Row="3" Grid.ColumnSpan="2" Spacing="10">
-                                    <Label Text="{Binding Category}" Style="{StaticResource Metadata}" TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}" />
-                                    <Label Text="{Binding AccessLevel}" Style="{StaticResource Metadata}" TextColor="{AppThemeBinding Light={StaticResource Gold}, Dark={StaticResource GoldSoft}}" />
-                                    <Label Text="{Binding AccessStatus}" Style="{StaticResource Metadata}" />
-                                    <Label Text="{Binding SuggestedDurationMinutes, StringFormat='{0} min'}" Style="{StaticResource Metadata}" />
-                                </HorizontalStackLayout>
+                            <Grid RowDefinitions="200,Auto">
+                                <!-- Image Placeholder -->
+                                <Border BackgroundColor="{AppThemeBinding Light={StaticResource Mist}, Dark={StaticResource NightSurfaceAlt}}">
+                                    <Border.StrokeShape>
+                                        <RoundRectangle CornerRadius="12,12,0,0" />
+                                    </Border.StrokeShape>
+                                    <Label Text="📸"
+                                           FontSize="48"
+                                           HorizontalOptions="Center"
+                                           VerticalOptions="Center"
+                                           Opacity="0.3" />
+                                </Border>
+
+                                <!-- Content -->
+                                <Grid Grid.Row="1"
+                                      Padding="16"
+                                      RowDefinitions="Auto,Auto,Auto"
+                                      RowSpacing="8">
+                                    <VerticalStackLayout Spacing="4">
+                                        <Label Text="{Binding Title}"
+                                               FontSize="18"
+                                               FontAttributes="Bold"
+                                               TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
+                                               MaxLines="2"
+                                               LineBreakMode="TailTruncation" />
+                                        <Label Text="{Binding Description}"
+                                               FontSize="14"
+                                               TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                                               MaxLines="2"
+                                               LineBreakMode="TailTruncation" />
+                                    </VerticalStackLayout>
+
+                                    <HorizontalStackLayout Grid.Row="2" Spacing="8">
+                                        <Label Text="{Binding Category}"
+                                               FontSize="12"
+                                               TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
+                                        <Label Text="•"
+                                               FontSize="12"
+                                               TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
+                                        <Label Text="{Binding Neighborhood}"
+                                               FontSize="12"
+                                               TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
+                                    </HorizontalStackLayout>
+                                </Grid>
                             </Grid>
                         </Border>
                     </DataTemplate>

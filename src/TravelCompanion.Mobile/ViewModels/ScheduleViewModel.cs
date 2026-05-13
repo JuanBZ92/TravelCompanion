@@ -10,15 +10,14 @@ public sealed partial class ScheduleViewModel(
     AuthSessionService sessionService,
     MobileBootstrapStore bootstrapStore) : ViewModelBase
 {
-    private const string AllCities = "Todas las ciudades";
+    private const string AllCitiesKey = "All Cities";
     private readonly List<ScheduleItemDto> _allItems = [];
-    private string _tripTitle = "Tu viaje";
+    private string _tripTitle = "Your Trip";
     private string? _tripDates;
-    private string _selectedCity = AllCities;
     private ScheduleItemDto? _selectedItem;
 
     public ObservableCollection<ScheduleDayViewModel> Days { get; } = [];
-    public ObservableCollection<string> Cities { get; } = [AllCities];
+    public ObservableCollection<CityFilterViewModel> CityFilters { get; } = [];
 
     public string TripTitle
     {
@@ -30,18 +29,6 @@ public sealed partial class ScheduleViewModel(
     {
         get => _tripDates;
         set => SetProperty(ref _tripDates, value);
-    }
-
-    public string SelectedCity
-    {
-        get => _selectedCity;
-        set
-        {
-            if (SetProperty(ref _selectedCity, value))
-            {
-                ApplyCityFilter();
-            }
-        }
     }
 
     public ScheduleItemDto? SelectedItem
@@ -84,6 +71,57 @@ public sealed partial class ScheduleViewModel(
             });
     }
 
+    [RelayCommand]
+    private void ToggleCityFilter(string? cityName)
+    {
+        if (string.IsNullOrWhiteSpace(cityName))
+        {
+            return;
+        }
+
+        var filter = CityFilters.FirstOrDefault(f => f.CityName == cityName);
+        if (filter is null)
+        {
+            return;
+        }
+
+        // If clicking "All Cities"
+        if (filter.IsAllCities)
+        {
+            // Deselect all other cities and select "All Cities"
+            foreach (var f in CityFilters)
+            {
+                f.IsSelected = f.IsAllCities;
+            }
+        }
+        else
+        {
+            // Toggle the clicked city
+            filter.IsSelected = !filter.IsSelected;
+
+            // If at least one specific city is selected, deselect "All Cities"
+            var allCitiesFilter = CityFilters.FirstOrDefault(f => f.IsAllCities);
+            if (allCitiesFilter is not null)
+            {
+                var anySelected = CityFilters.Any(f => !f.IsAllCities && f.IsSelected);
+                allCitiesFilter.IsSelected = !anySelected;
+            }
+        }
+
+        ApplyCityFilter();
+    }
+
+    [RelayCommand]
+    private void ClearFilters()
+    {
+        foreach (var filter in CityFilters)
+        {
+            filter.IsSelected = filter.IsAllCities;
+        }
+
+        ApplyCityFilter();
+    }
+
     private async Task LoadScheduleLocalFirstAsync(string token)
     {
         var cached = await bootstrapStore.GetCachedAsync();
@@ -113,7 +151,7 @@ public sealed partial class ScheduleViewModel(
                 throw;
             }
 
-            StatusMessage = $"Modo offline. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
+            StatusMessage = $"Offline mode. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
         }
     }
 
@@ -130,58 +168,87 @@ public sealed partial class ScheduleViewModel(
 
     private void ApplySchedule(TripScheduleDto schedule)
     {
-        TripTitle = $"{schedule.DestinationName} para {schedule.TravelerName}";
+        TripTitle = $"{schedule.DestinationName} for {schedule.TravelerName}";
         TripDates = $"{schedule.StartsOn:MMM d} - {schedule.EndsOn:MMM d, yyyy}";
         _allItems.Clear();
         _allItems.AddRange(schedule.Items);
-        UpdateCities();
+        UpdateCityFilters();
         ApplyCityFilter();
     }
 
     private void ApplyEmptySchedule()
     {
-        TripTitle = "Tu viaje";
-        TripDates = "Todavia no hay reservas asignadas.";
+        TripTitle = "Your Trip";
+        TripDates = "No reservations yet.";
         _allItems.Clear();
         Days.Clear();
-        Cities.Clear();
-        Cities.Add(AllCities);
-        SelectedCity = AllCities;
+        CityFilters.Clear();
+        CityFilters.Add(new CityFilterViewModel(AllCitiesKey, isSelected: true));
     }
 
-    private void UpdateCities()
+    private void UpdateCityFilters()
     {
-        var currentSelection = SelectedCity;
-        Cities.Clear();
-        Cities.Add(AllCities);
+        // Preserve current selections
+        var currentSelections = CityFilters
+            .Where(f => f.IsSelected)
+            .Select(f => f.CityName)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var city in _allItems
+        CityFilters.Clear();
+
+        // Add "All Cities" filter
+        var allCitiesSelected = currentSelections.Count == 0 ||
+                               currentSelections.Contains(AllCitiesKey);
+        CityFilters.Add(new CityFilterViewModel(AllCitiesKey, isSelected: allCitiesSelected));
+
+        // Add individual city filters
+        var cities = _allItems
             .Select(item => NormalizeCity(item.City))
             .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Order(StringComparer.OrdinalIgnoreCase))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        foreach (var city in cities)
         {
-            Cities.Add(city);
+            var isSelected = currentSelections.Contains(city);
+            CityFilters.Add(new CityFilterViewModel(city, isSelected: isSelected));
         }
 
-        SelectedCity = Cities.Contains(currentSelection, StringComparer.OrdinalIgnoreCase)
-            ? currentSelection
-            : AllCities;
+        // If we had selections but none of them exist anymore, select "All Cities"
+        if (currentSelections.Count > 0 &&
+            !CityFilters.Any(f => !f.IsAllCities && f.IsSelected))
+        {
+            var allCities = CityFilters.FirstOrDefault(f => f.IsAllCities);
+            if (allCities is not null)
+            {
+                allCities.IsSelected = true;
+            }
+        }
     }
 
     private void ApplyCityFilter()
     {
-        var selectedCity = NormalizeCity(SelectedCity);
-        var filteredItems = selectedCity == AllCities
+        var selectedCities = CityFilters
+            .Where(f => !f.IsAllCities && f.IsSelected)
+            .Select(f => f.CityName)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        // If no specific cities selected or "All Cities" is selected, show all
+        var allCitiesSelected = CityFilters
+            .FirstOrDefault(f => f.IsAllCities)?
+            .IsSelected ?? true;
+
+        var filteredItems = allCitiesSelected || selectedCities.Count == 0
             ? _allItems
             : _allItems
-                .Where(item => string.Equals(
-                    NormalizeCity(item.City),
-                    selectedCity,
-                    StringComparison.OrdinalIgnoreCase))
+                .Where(item => selectedCities.Contains(
+                    NormalizeCity(item.City)))
                 .ToList();
 
         Days.Clear();
-        foreach (var group in filteredItems.GroupBy(item => item.Date).OrderBy(group => group.Key))
+        foreach (var group in filteredItems
+            .GroupBy(item => item.Date)
+            .OrderBy(group => group.Key))
         {
             Days.Add(new ScheduleDayViewModel(
                 group.Key,
@@ -191,6 +258,6 @@ public sealed partial class ScheduleViewModel(
 
     private static string NormalizeCity(string? city)
     {
-        return string.IsNullOrWhiteSpace(city) ? "Sin ciudad" : city.Trim();
+        return string.IsNullOrWhiteSpace(city) ? "Unknown City" : city.Trim();
     }
 }

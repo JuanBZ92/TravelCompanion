@@ -27,19 +27,19 @@
 
     <TabBar Route="main">
         <ShellContent
-            Title="Ideas"
+            Title="Discover"
             Icon="tab_ideas.svg"
             ContentTemplate="{DataTemplate pages:RecommendationsPage}"
             Route="recommendations" />
 
         <ShellContent
-            Title="Mapa"
+            Title="Map"
             Icon="tab_map.svg"
             ContentTemplate="{DataTemplate pages:MapPage}"
             Route="map" />
 
         <ShellContent
-            Title="Viaje"
+            Title="Schedule"
             Icon="tab_trip.svg"
             ContentTemplate="{DataTemplate pages:SchedulePage}"
             Route="schedule" />
@@ -51,7 +51,7 @@
             Route="packages" />
 
         <ShellContent
-            Title="Cuenta"
+            Title="Support"
             Icon="tab_account.svg"
             ContentTemplate="{DataTemplate pages:SupportPage}"
             Route="support" />
