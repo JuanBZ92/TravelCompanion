@@ -1,14 +1,20 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using TravelCompanion.Api.Data;
 using TravelCompanion.Api.Models;
+using TravelCompanion.Api.Services;
 using TravelCompanion.Shared;
 
 namespace TravelCompanion.Api.Pages.Admin;
 
-public sealed class UsersModel(TravelCompanionDbContext dbContext) : PageModel
+public sealed class UsersModel(
+    TravelCompanionDbContext dbContext,
+    IPasswordHasher<AppUser> passwordHasher,
+    IUserInvitationSender invitationSender,
+    UserSessionService sessionService) : PageModel
 {
     public List<UserRow> Users { get; private set; } = [];
     public List<EntitlementRow> Entitlements { get; private set; } = [];
@@ -19,6 +25,9 @@ public sealed class UsersModel(TravelCompanionDbContext dbContext) : PageModel
         .Where(value => value != ContentAccessLevel.Free && value != ContentAccessLevel.AdminOnly)
         .Select(value => new SelectListItem(value.ToString(), value.ToString()))
         .ToList();
+
+    [TempData]
+    public string? StatusMessage { get; set; }
 
     [BindProperty]
     public UserForm UserInput { get; set; } = new();
@@ -50,12 +59,12 @@ public sealed class UsersModel(TravelCompanionDbContext dbContext) : PageModel
         var normalizedEmail = (UserInput.Email ?? string.Empty).Trim().ToLowerInvariant();
         if (string.IsNullOrWhiteSpace(normalizedEmail))
         {
-            ModelState.AddModelError(nameof(UserInput.Email), "El email es obligatorio.");
+            ModelState.AddModelError($"{nameof(UserInput)}.{nameof(UserInput.Email)}", "El email es obligatorio.");
         }
 
         if (string.IsNullOrWhiteSpace(UserInput.DisplayName))
         {
-            ModelState.AddModelError(nameof(UserInput.DisplayName), "El nombre visible es obligatorio.");
+            ModelState.AddModelError($"{nameof(UserInput)}.{nameof(UserInput.DisplayName)}", "El nombre visible es obligatorio.");
         }
 
         var duplicateExists = await dbContext.AppUsers.AnyAsync(user =>
@@ -63,7 +72,7 @@ public sealed class UsersModel(TravelCompanionDbContext dbContext) : PageModel
 
         if (duplicateExists)
         {
-            ModelState.AddModelError(nameof(UserInput.Email), "Ya existe un usuario con ese email.");
+            ModelState.AddModelError($"{nameof(UserInput)}.{nameof(UserInput.Email)}", "Ya existe un usuario con ese email.");
         }
 
         if (!ModelState.IsValid)
@@ -85,13 +94,49 @@ public sealed class UsersModel(TravelCompanionDbContext dbContext) : PageModel
             {
                 Id = Guid.NewGuid(),
                 Email = string.Empty,
-                DisplayName = string.Empty
+                DisplayName = string.Empty,
+                MustChangePassword = true
             };
             dbContext.AppUsers.Add(user);
         }
 
+        var isNewUser = string.IsNullOrWhiteSpace(user.PasswordHash);
         UserInput.ApplyTo(user);
+        string? temporaryPassword = null;
+        if (isNewUser)
+        {
+            temporaryPassword = TemporaryPasswordGenerator.Create();
+            user.PasswordHash = passwordHasher.HashPassword(user, temporaryPassword);
+            user.MustChangePassword = true;
+            user.TemporaryPasswordIssuedAt = DateTimeOffset.UtcNow;
+        }
+
         await dbContext.SaveChangesAsync();
+
+        if (temporaryPassword is not null)
+        {
+            await invitationSender.SendTemporaryPasswordAsync(user, temporaryPassword);
+            StatusMessage = $"Usuario creado. Password temporal: {temporaryPassword}";
+        }
+
+        return RedirectToPage();
+    }
+
+    public async Task<IActionResult> OnPostResetPasswordAsync(Guid id)
+    {
+        var user = await dbContext.AppUsers.FindAsync(id);
+        if (user is not null)
+        {
+            var temporaryPassword = TemporaryPasswordGenerator.Create();
+            user.PasswordHash = passwordHasher.HashPassword(user, temporaryPassword);
+            user.MustChangePassword = true;
+            user.TemporaryPasswordIssuedAt = DateTimeOffset.UtcNow;
+            await sessionService.RevokeUserSessionsAsync(user.Id);
+            await dbContext.SaveChangesAsync();
+            await invitationSender.SendTemporaryPasswordAsync(user, temporaryPassword);
+            StatusMessage = $"Password temporal para {user.Email}: {temporaryPassword}";
+        }
+
         return RedirectToPage();
     }
 
@@ -115,7 +160,7 @@ public sealed class UsersModel(TravelCompanionDbContext dbContext) : PageModel
         var userExists = await dbContext.AppUsers.AnyAsync(user => user.Id == EntitlementInput.UserId);
         if (!userExists)
         {
-            ModelState.AddModelError(nameof(EntitlementInput.UserId), "Selecciona un usuario valido.");
+            ModelState.AddModelError($"{nameof(EntitlementInput)}.{nameof(EntitlementInput.UserId)}", "Selecciona un usuario valido.");
         }
 
         if (!ModelState.IsValid)
@@ -124,20 +169,32 @@ public sealed class UsersModel(TravelCompanionDbContext dbContext) : PageModel
             return Page();
         }
 
-        var destinationId = EntitlementInput.DestinationId;
-        if (EntitlementInput.TravelPackageId.HasValue && !destinationId.HasValue)
+        TravelPackage? selectedPackage = null;
+        if (EntitlementInput.TravelPackageId.HasValue)
         {
-            destinationId = await dbContext.TravelPackages
-                .Where(package => package.Id == EntitlementInput.TravelPackageId.Value)
-                .Select(package => package.DestinationId)
-                .FirstOrDefaultAsync();
+            selectedPackage = await dbContext.TravelPackages.FindAsync(EntitlementInput.TravelPackageId.Value);
+            if (selectedPackage is null)
+            {
+                ModelState.AddModelError($"{nameof(EntitlementInput)}.{nameof(EntitlementInput.TravelPackageId)}", "Selecciona un paquete valido.");
+            }
         }
+
+        if (!ModelState.IsValid)
+        {
+            await LoadPageDataAsync();
+            return Page();
+        }
+
+        var destinationId = EntitlementInput.DestinationId ?? selectedPackage?.DestinationId;
+        var accessLevel = selectedPackage is null
+            ? EntitlementInput.AccessLevel
+            : selectedPackage.IsSubscription ? ContentAccessLevel.Subscription : ContentAccessLevel.Bundle;
 
         var entitlement = new UserEntitlement
         {
             Id = Guid.NewGuid(),
             UserId = EntitlementInput.UserId,
-            AccessLevel = EntitlementInput.AccessLevel,
+            AccessLevel = accessLevel,
             DestinationId = destinationId,
             TravelPackageId = EntitlementInput.TravelPackageId,
             GrantedAt = DateTimeOffset.UtcNow,
@@ -176,6 +233,7 @@ public sealed class UsersModel(TravelCompanionDbContext dbContext) : PageModel
                 user.Id,
                 user.Email,
                 user.DisplayName,
+                user.MustChangePassword,
                 user.Entitlements.Count,
                 user.Entitlements.Count(entitlement => entitlement.ExpiresAt == null || entitlement.ExpiresAt > DateTimeOffset.UtcNow)))
             .ToListAsync();
@@ -233,6 +291,7 @@ public sealed class UsersModel(TravelCompanionDbContext dbContext) : PageModel
         Guid Id,
         string Email,
         string DisplayName,
+        bool MustChangePassword,
         int EntitlementCount,
         int ActiveEntitlementCount);
 

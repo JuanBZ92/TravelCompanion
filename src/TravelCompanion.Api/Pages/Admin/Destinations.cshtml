@@ -1,0 +1,96 @@
+@page "/admin/destinations"
+@model TravelCompanion.Api.Pages.Admin.DestinationsModel
+@{
+    ViewData["Title"] = "Destinations";
+}
+
+<h1>Destinations</h1>
+<p class="lede">Destinos vendibles y visibles dentro de la app.</p>
+
+@if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
+{
+    <section class="panel" style="margin-bottom: 18px;">
+        <strong>@Model.StatusMessage</strong>
+    </section>
+}
+
+<section class="panel">
+    <h2>@(Model.Input.Id.HasValue ? "Editar destino" : "Nuevo destino")</h2>
+    <form method="post" asp-page-handler="Save">
+        <div asp-validation-summary="All"></div>
+        <input type="hidden" asp-for="Input.Id" />
+        <div class="form-grid">
+            <div>
+                <label asp-for="Input.Name" class="required">Nombre</label>
+                <input asp-for="Input.Name" />
+                <span asp-validation-for="Input.Name"></span>
+            </div>
+            <div>
+                <label asp-for="Input.Slug" class="required">Slug</label>
+                <input asp-for="Input.Slug" />
+                <p class="form-hint">Identificador para la API, por ejemplo <code>japon</code> o <code>nueva-york</code>.</p>
+                <span asp-validation-for="Input.Slug"></span>
+            </div>
+            <div>
+                <label asp-for="Input.Country">Pais <span class="muted">(opcional)</span></label>
+                <input asp-for="Input.Country" />
+                <span asp-validation-for="Input.Country"></span>
+            </div>
+            <div>
+                <label asp-for="Input.HeroImageUrl">Hero image URL <span class="muted">(opcional)</span></label>
+                <input asp-for="Input.HeroImageUrl" />
+                <p class="form-hint">Imagen destacada del destino. Puede quedar vacia durante el MVP.</p>
+                <span asp-validation-for="Input.HeroImageUrl"></span>
+            </div>
+        </div>
+        <div style="margin-top: 12px;">
+            <label asp-for="Input.ShortDescription">Descripcion corta <span class="muted">(opcional)</span></label>
+            <textarea asp-for="Input.ShortDescription"></textarea>
+            <span asp-validation-for="Input.ShortDescription"></span>
+        </div>
+        <div class="actions">
+            <button type="submit">Guardar</button>
+            @if (Model.Input.Id.HasValue)
+            {
+                <a class="button secondary" asp-page="/Admin/Destinations">Cancelar</a>
+            }
+        </div>
+    </form>
+</section>
+
+<section class="panel" style="margin-top: 18px;">
+    <table>
+        <thead>
+            <tr>
+                <th>Destino</th>
+                <th>Slug</th>
+                <th>Contenido</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var destination in Model.Destinations)
+        {
+            <tr>
+                <td>
+                    <strong>@destination.Name</strong><br />
+                    <span class="muted">@destination.Country</span>
+                </td>
+                <td>@destination.Slug</td>
+                <td>
+                    @destination.PackageCount paquete(s)<br />
+                    <span class="muted">@destination.RecommendationCount recomendacion(es), @destination.TripCount viaje(s)</span>
+                </td>
+                <td>
+                    <div class="row-actions">
+                        <a class="button secondary" asp-page="/Admin/Destinations" asp-route-editId="@destination.Id">Editar</a>
+                        <form method="post" asp-page-handler="Delete" asp-route-id="@destination.Id">
+                            <button class="danger" type="submit">Borrar</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</section>

@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:viewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
+             x:Class="TravelCompanion.Mobile.Pages.LoginPage"
+             x:DataType="viewModels:LoginViewModel"
+             Title="Ingresar"
+             Shell.NavBarIsVisible="False">
+    <Grid Padding="24" RowDefinitions="*,Auto,*">
+        <VerticalStackLayout Grid.Row="1" Spacing="20">
+            <VerticalStackLayout Spacing="8">
+                <Label Text="Travel Companion" Style="{StaticResource Eyebrow}" />
+                <Label Text="Ingresar" Style="{StaticResource Headline}" />
+                <Label Text="Tu cuenta conecta recomendaciones, accesos y reservas del viaje." Style="{StaticResource SubHeadline}" />
+            </VerticalStackLayout>
+
+            <Border Style="{StaticResource Card}">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="8" />
+                </Border.StrokeShape>
+                <VerticalStackLayout Spacing="14">
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Email" Style="{StaticResource Metadata}" />
+                        <Entry Text="{Binding Email}"
+                               Keyboard="Email"
+                               ReturnType="Go"
+                               ClearButtonVisibility="WhileEditing" />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Password" Style="{StaticResource Metadata}" />
+                        <Grid ColumnDefinitions="*,44" ColumnSpacing="8">
+                            <Entry Text="{Binding Password}"
+                                   IsPassword="{Binding IsPasswordHidden}"
+                                   ReturnType="Go" />
+                            <Button Grid.Column="1"
+                                    Text="👁"
+                                    Style="{StaticResource GhostButton}"
+                                    Command="{Binding TogglePasswordVisibilityCommand}"
+                                    Padding="0"
+                                    HeightRequest="44"
+                                    WidthRequest="44" />
+                        </Grid>
+                    </VerticalStackLayout>
+
+                    <Border Padding="12"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource RoseSoft}, Dark={StaticResource NightSurfaceAlt}}"
+                            Stroke="{AppThemeBinding Light={StaticResource Rose}, Dark={StaticResource NightLine}}"
+                            StrokeThickness="1"
+                            IsVisible="{Binding HasError}">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="8" />
+                        </Border.StrokeShape>
+                        <Label Text="{Binding ErrorMessage}" TextColor="{AppThemeBinding Light={StaticResource Rose}, Dark={StaticResource Paper}}" />
+                    </Border>
+
+                    <Button Text="Ingresar"
+                            Command="{Binding LoginCommand}"
+                            IsEnabled="{Binding IsNotBusy}" />
+                    <Button Text="Desbloquear con biometria"
+                            Style="{StaticResource GhostButton}"
+                            Command="{Binding UnlockWithBiometricsCommand}"
+                            IsVisible="{Binding CanUseBiometricUnlock}" />
+                    <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
+                </VerticalStackLayout>
+            </Border>
+        </VerticalStackLayout>
+    </Grid>
+</ContentPage>

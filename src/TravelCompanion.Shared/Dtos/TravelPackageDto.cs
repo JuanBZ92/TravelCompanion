@@ -1,3 +1,5 @@
+using TravelCompanion.Shared;
+
 namespace TravelCompanion.Shared.Dtos;
 
 public sealed record TravelPackageDto(
@@ -8,4 +10,6 @@ public sealed record TravelPackageDto(
     string Description,
     decimal Price,
     string Currency,
-    bool IsSubscription);
+    bool IsSubscription,
+    ContentAccessLevel RequiredAccessLevel,
+    bool IsUnlocked);

@@ -13,6 +13,7 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
     public DbSet<Reservation> Reservations => Set<Reservation>();
     public DbSet<AppUser> AppUsers => Set<AppUser>();
     public DbSet<UserEntitlement> UserEntitlements => Set<UserEntitlement>();
+    public DbSet<AppUserSession> AppUserSessions => Set<AppUserSession>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -27,6 +28,7 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
         modelBuilder.Entity<TravelPackage>(entity =>
         {
             entity.HasIndex(package => package.Slug).IsUnique();
+            entity.HasIndex(package => new { package.DestinationId, package.Price });
             entity.Property(package => package.Name).HasMaxLength(140);
             entity.Property(package => package.Slug).HasMaxLength(100);
             entity.Property(package => package.Currency).HasMaxLength(3);
@@ -35,6 +37,8 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
 
         modelBuilder.Entity<Recommendation>(entity =>
         {
+            entity.HasIndex(recommendation => new { recommendation.DestinationId, recommendation.Title });
+            entity.HasIndex(recommendation => new { recommendation.DestinationId, recommendation.Category, recommendation.Title });
             entity.Property(recommendation => recommendation.Title).HasMaxLength(160);
             entity.Property(recommendation => recommendation.Category).HasMaxLength(80);
             entity.Property(recommendation => recommendation.Neighborhood).HasMaxLength(120);
@@ -47,17 +51,22 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
 
         modelBuilder.Entity<Trip>(entity =>
         {
+            entity.HasIndex(trip => new { trip.AppUserId, trip.StartsOn });
+            entity.HasIndex(trip => new { trip.DestinationId, trip.StartsOn });
             entity.Property(trip => trip.TravelerName).HasMaxLength(140);
+            entity.HasOne(trip => trip.AppUser)
+                .WithMany(user => user.Trips)
+                .HasForeignKey(trip => trip.AppUserId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<Reservation>(entity =>
         {
+            entity.HasIndex(reservation => new { reservation.TripId, reservation.Date, reservation.StartsAt });
             entity.Property(reservation => reservation.Title).HasMaxLength(160);
+            entity.Property(reservation => reservation.City).HasMaxLength(120);
             entity.Property(reservation => reservation.LocationName).HasMaxLength(160);
             entity.Property(reservation => reservation.ConfirmationCode).HasMaxLength(80);
-            entity.Property(reservation => reservation.AccessLevel)
-                .HasConversion<string>()
-                .HasMaxLength(32);
         });
 
         modelBuilder.Entity<AppUser>(entity =>
@@ -65,10 +74,25 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
             entity.HasIndex(user => user.Email).IsUnique();
             entity.Property(user => user.Email).HasMaxLength(180);
             entity.Property(user => user.DisplayName).HasMaxLength(140);
+            entity.Property(user => user.PasswordHash).HasMaxLength(512);
+        });
+
+        modelBuilder.Entity<AppUserSession>(entity =>
+        {
+            entity.HasIndex(session => session.TokenHash).IsUnique();
+            entity.HasIndex(session => new { session.UserId, session.RevokedAt });
+            entity.Property(session => session.TokenHash).HasMaxLength(128);
+            entity.HasOne(session => session.User)
+                .WithMany(user => user.Sessions)
+                .HasForeignKey(session => session.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<UserEntitlement>(entity =>
         {
+            entity.HasIndex(entitlement => new { entitlement.UserId, entitlement.ExpiresAt });
+            entity.HasIndex(entitlement => new { entitlement.TravelPackageId, entitlement.ExpiresAt });
+            entity.HasIndex(entitlement => new { entitlement.DestinationId, entitlement.ExpiresAt });
             entity.Property(entitlement => entitlement.AccessLevel)
                 .HasConversion<string>()
                 .HasMaxLength(32);

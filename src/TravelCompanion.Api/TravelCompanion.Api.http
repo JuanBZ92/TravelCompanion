@@ -1,16 +1,71 @@
 @TravelCompanion.Api_HostAddress = http://localhost:5289
 
-GET {{TravelCompanion.Api_HostAddress}}/api/destinations
+GET {{TravelCompanion.Api_HostAddress}}/api/destinations?page=1&pageSize=50
 Accept: application/json
 
 ###
 
-GET {{TravelCompanion.Api_HostAddress}}/api/packages?destinationSlug=japon
+GET {{TravelCompanion.Api_HostAddress}}/api/destinations?page=1&pageSize=50
+Accept: application/json
+If-None-Match: paste-etag-from-previous-destinations-response
+
+###
+
+GET {{TravelCompanion.Api_HostAddress}}/api/packages?destinationSlug=japon&page=1&pageSize=50
 Accept: application/json
 
 ###
 
-GET {{TravelCompanion.Api_HostAddress}}/api/recommendations?destinationSlug=japon&latitude=35.6762&longitude=139.6503
+GET {{TravelCompanion.Api_HostAddress}}/api/recommendations?destinationSlug=japon&latitude=35.6762&longitude=139.6503&page=1&pageSize=50
+Accept: application/json
+
+###
+
+GET {{TravelCompanion.Api_HostAddress}}/api/recommendations?destinationSlug=japon&latitude=35.6762&longitude=139.6503&page=1&pageSize=50
+Accept: application/json
+If-None-Match: paste-etag-from-previous-recommendations-response
+
+###
+
+POST {{TravelCompanion.Api_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "demo@travelcompanion.local",
+  "password": "TravelDemo!2026"
+}
+
+###
+
+POST {{TravelCompanion.Api_HostAddress}}/api/auth/change-password
+Content-Type: application/json
+Authorization: Bearer paste-token-from-login
+
+{
+  "currentPassword": "TravelDemo!2026",
+  "newPassword": "ReplaceWithYourNewPassword!2026"
+}
+
+###
+
+GET {{TravelCompanion.Api_HostAddress}}/api/users/66666666-6666-6666-6666-666666666601/entitlements
+Accept: application/json
+
+###
+
+GET {{TravelCompanion.Api_HostAddress}}/api/me/entitlements
+Accept: application/json
+Authorization: Bearer paste-token-from-login
+
+###
+
+GET {{TravelCompanion.Api_HostAddress}}/api/me/schedule
+Accept: application/json
+Authorization: Bearer paste-token-from-login
+
+###
+
+GET {{TravelCompanion.Api_HostAddress}}/api/users/66666666-6666-6666-6666-666666666601/schedule
 Accept: application/json
 
 ###

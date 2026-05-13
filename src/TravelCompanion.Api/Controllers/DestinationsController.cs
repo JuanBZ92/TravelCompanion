@@ -10,9 +10,17 @@ namespace TravelCompanion.Api.Controllers;
 public sealed class DestinationsController(TravelCompanionDbContext dbContext) : ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<DestinationSummaryDto>>> GetDestinations()
+    public async Task<IActionResult> GetDestinations(
+        [FromQuery] int page = PaginationRequest.DefaultPage,
+        [FromQuery] int pageSize = PaginationRequest.DefaultPageSize,
+        CancellationToken cancellationToken = default)
     {
-        var destinations = await dbContext.Destinations
+        if (!PaginationRequest.TryCreate(page, pageSize, out var pagination, out var error))
+        {
+            return this.ValidationError("pagination", error!);
+        }
+
+        var query = dbContext.Destinations
             .AsNoTracking()
             .OrderBy(destination => destination.Name)
             .Select(destination => new DestinationSummaryDto(
@@ -21,9 +29,9 @@ public sealed class DestinationsController(TravelCompanionDbContext dbContext) :
                 destination.Slug,
                 destination.Country,
                 destination.HeroImageUrl,
-                destination.ShortDescription))
-            .ToListAsync();
+                destination.ShortDescription));
 
-        return Ok(destinations);
+        var response = await query.ToPagedResultAsync(pagination, cancellationToken);
+        return HttpCache.OkOrNotModified(this, response);
     }
 }

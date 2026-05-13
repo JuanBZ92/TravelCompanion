@@ -66,15 +66,43 @@ Los niveles funcionales actuales son:
 Comportamiento actual en la app:
 
 - Las recomendaciones muestran su tipo de acceso.
-- La app consulta los accesos del usuario demo.
+- La app consulta los accesos del usuario logueado.
 - Las recomendaciones aparecen como incluidas o bloqueadas segun el acceso.
 - El usuario demo tiene acceso a Japon Essentials y Travel Companion Premium.
 
 ## App mobile
 
-### Recomendaciones
+La direccion visual actual busca una experiencia minimalista y refinada:
 
-La tab `Recomendaciones` permite:
+- paleta sobria de papel calido, tinta, verde profundo y acentos dorados;
+- cards planas de radio chico, borde fino y sin sombras decorativas;
+- jerarquia clara entre titulo, contexto y metadata;
+- categorias y niveles de acceso como metadata sobria;
+- botones sobrios con variantes primaria y secundaria;
+- tab bar inferior con iconos lineales y labels cortos;
+- hero visual local de Japon en la entrada principal, sin depender de imagenes remotas.
+
+### Login
+
+Al iniciar, la app muestra una pantalla de ingreso.
+
+Estado actual:
+
+- login por email y password contra usuarios existentes en el CMS;
+- los usuarios nuevos reciben una password temporal generada desde el admin;
+- al primer ingreso la app obliga a crear una nueva password;
+- sesion guardada localmente en el dispositivo;
+- desbloqueo por biometria si hay sesion activa y el usuario lo tiene habilitado;
+- fallback a password cuando la biometria falla, no esta disponible o el usuario la cancela;
+- el email demo es `demo@travelcompanion.local`;
+- la password temporal demo es `TravelDemo!2026`;
+- la sesion usa un token opaco emitido por la API.
+
+Esta es una decision de MVP para conectar usuarios, entitlements y schedule. Falta integrar envio real de email.
+
+### Ideas
+
+La tab `Ideas` permite:
 
 - ver recomendaciones curadas de Japon;
 - filtrar por categoria;
@@ -82,6 +110,8 @@ La tab `Recomendaciones` permite:
 - marcar o quitar favoritos;
 - ver barrio, descripcion, duracion sugerida y nivel de acceso;
 - abrir el detalle de una recomendacion.
+
+Para que la experiencia inicial sea mas rapida y robusta, Ideas usa un paquete de datos mobile compartido con destino, recomendaciones, accesos, paquetes y schedule del usuario. Esa copia queda guardada para consulta offline.
 
 El detalle de recomendacion permite:
 
@@ -95,32 +125,73 @@ La tab `Mapa` muestra recomendaciones cercanas.
 
 En plataformas mobile compatibles se usa mapa nativo. En Windows se muestra una experiencia fallback con lista cercana.
 
-### Schedule
+La lista cercana se deriva del paquete mobile compartido y calcula distancias localmente. Eso evita otra llamada de red al entrar al mapa y permite consultar lugares cercanos con la copia offline.
 
-La tab `Schedule` muestra un viaje demo agrupado por dia.
+### Viaje
+
+La tab `Viaje` muestra el viaje asignado al usuario logueado agrupado por dia.
 
 Incluye:
 
 - titulo del viaje;
 - fechas del viaje;
+- selector para ver todo el viaje o filtrar por ciudad;
 - reservas por dia;
-- hora, lugar, direccion, codigo de confirmacion y nivel de acceso;
+- ciudad, hora, lugar, direccion y codigo de confirmacion;
 - detalle de reserva;
 - apertura de direccion en mapas.
 
 Este modulo apunta a cubrir viajes contratados o reservas gestionadas por el negocio.
 
-### Paquetes
+El ultimo paquete mobile descargado incluye el schedule disponible offline por usuario. Si no hay conexion, la app muestra la copia local y avisa la fecha/hora de guardado.
 
-La tab `Paquetes` lista paquetes disponibles para el destino demo.
+### Packs
 
-Hoy funciona como catalogo inicial. Mas adelante deberia conectarse con compra, suscripcion o checkout.
+La tab `Packs` lista paquetes disponibles para el destino demo.
 
-### Soporte
+Cada paquete muestra:
 
-La tab `Soporte` existe como punto de entrada para asistencia al viajero.
+- nombre, descripcion y precio;
+- si es pago fijo o suscripcion;
+- nivel de acceso requerido;
+- si esta incluido o no en la cuenta logueada.
 
-Todavia no tiene flujo completo de tickets, chat o contacto real.
+El CMS puede activar paquetes manualmente para usuarios. Esta activacion representa una compra o suscripcion concedida por admin mientras no exista checkout real.
+
+La ultima lista de paquetes queda incluida en el paquete mobile compartido por usuario para consulta offline.
+
+### Cuenta
+
+La tab `Cuenta` existe como punto de entrada para asistencia al viajero.
+
+Tambien muestra la cuenta activa, permite activar/desactivar biometria, bloquear la app sin cerrar sesion y cerrar sesion completamente. Todavia no tiene flujo completo de tickets, chat o contacto real.
+
+### Offline
+
+La app tiene una primera capa offline para pantallas criticas de viaje.
+
+Funciona con estrategia `local first`:
+
+- si existe una copia local, la muestra primero para evitar esperas innecesarias;
+- luego intenta descargar datos frescos y actualiza la pantalla/copia local;
+- si falla la conexion, conserva la copia local y muestra un aviso de modo offline con la fecha/hora de guardado;
+- si no existe copia local, necesita conexion y muestra el error normal.
+
+Pantallas cubiertas:
+
+- recomendaciones;
+- mapa/lista cercana;
+- viaje;
+- paquetes y estado de acceso del usuario.
+
+Limitaciones actuales:
+
+- no hay sincronizacion bidireccional;
+- favoritos siguen siendo locales del dispositivo;
+- no descarga imagenes ni mapas tiles para offline;
+- el primer uso de cada pantalla necesita conexion para generar la copia local.
+
+Decision vigente: no se implementa sync/delta sync todavia porque el producto mobile actual es principalmente de lectura. Se mantiene el camino preparado para agregarlo cuando existan acciones editables desde la app.
 
 ## Admin CMS
 
@@ -130,32 +201,50 @@ Funciones existentes:
 
 - login de admin;
 - dashboard;
+- formularios con campos obligatorios marcados y errores visibles;
+- crear, editar y borrar destinos sin contenido asociado;
+- crear, editar y borrar paquetes reutilizables sin accesos asociados;
+- seleccionar un paquete y asignarle muchos usuarios;
 - CRUD de recomendaciones;
-- CRUD de reservas;
+- crear, editar y borrar viajes por usuario/destino;
+- CRUD de reservas dentro de cada viaje;
+- ciudad obligatoria por reserva para organizar viajes multi-ciudad;
+- salto directo desde un viaje hacia sus reservas filtradas;
 - crear y editar usuarios;
 - borrar usuarios;
+- generar password temporal al crear usuario;
+- resetear password temporal de usuarios existentes;
 - asignar accesos a usuarios;
+- activar paquetes para usuarios desde la pantalla de paquetes sin duplicar el paquete;
 - quitar accesos asignados;
 - seleccion de nivel de acceso para recomendaciones;
-- seleccion de nivel de acceso para reservas.
 
 Pendiente funcional natural:
 
-- gestionar destinos;
-- gestionar paquetes;
 - cargar imagenes o media;
 - publicar/despublicar contenido;
 - ordenar recomendaciones.
+- adjuntar vouchers, PDFs o QR a reservas.
 
 ## Autenticacion y acceso
 
 Estado actual:
 
 - Admin tiene login por cookie.
-- API publica expone endpoints demo.
-- Mobile usa usuario demo para simular acceso.
+- API expone login mobile por email y password para usuarios creados en el CMS.
+- API emite tokens opacos y guarda solo hash del token.
+- Los errores de validacion de login/cambio de password y paginacion se devuelven en formato consistente (`ValidationProblemDetails`) para que la app pueda mostrar mensajes de forma uniforme.
+- Mobile guarda la sesion local y usa token bearer para refrescar datos de viaje.
+- Mobile usa un bootstrap autenticado compartido para cargar recomendaciones, accesos, schedule y paquetes de Japon en menos llamadas.
+- Mobile deriva Ideas, Mapa, Viaje y Packs desde ese bootstrap y ve si cada contenido/paquete esta desbloqueado para su cuenta.
+- Mobile guarda una copia offline del bootstrap por usuario.
+- Mobile puede desbloquear una sesion local con biometria del dispositivo.
+- `Bloquear app` mantiene la sesion local para poder usar biometria.
+- `Cerrar sesion` revoca y borra la sesion; despues hay que entrar con password.
 - Admin puede asignar entitlements a usuarios desde el CMS.
-- No hay login real de viajero todavia.
+- Admin puede activar un paquete a un usuario desde `/admin/packages`; el acceso queda asociado al paquete y destino.
+- La password temporal obliga cambio en primer ingreso.
+- Las passwords temporales no se escriben en logs; en desarrollo solo se muestran en el CMS para facilitar pruebas locales.
 - No hay integracion de pagos todavia.
 
 El modelo de entitlements ya prepara la app para compras, paquetes o suscripciones reales.
@@ -174,20 +263,42 @@ Contenido demo actual:
   - Cena omakase.
 - Usuario demo:
   - `demo@travelcompanion.local`
+  - password temporal `TravelDemo!2026`;
   - acceso a Japon Essentials;
   - acceso a Travel Companion Premium.
+  - viaje demo de Japon asignado.
 
 ## Roadmap funcional sugerido
 
 Proximos pasos de mayor valor:
 
-1. Agregar administracion de usuarios y entitlements en el CMS.
-2. Agregar login real para viajeros.
-3. Conectar paquetes con una pantalla de compra o simulacion de compra.
+1. Reemplazar login mobile por identidad real: password, magic link, Auth0, Azure AD B2C o similar.
+2. Integrar envio real de email para passwords temporales.
+3. Conectar paquetes con checkout real o simulacion de compra iniciada desde la app.
 4. Aplicar bloqueo funcional mas fuerte en API, no solo en UI.
 5. Agregar destinos multiples y selector de destino en mobile.
 6. Mejorar soporte con formulario, email o chat.
 7. Agregar contenido enriquecido: fotos, tips, horarios, links, tags y prioridades.
+
+## Operacion e infraestructura
+
+La direccion de infraestructura para el MVP es Azure con Terraform.
+
+Objetivo funcional:
+
+- poder publicar API/Admin en un ambiente cloud real;
+- separar datos locales de datos dev/staging/prod;
+- proteger credenciales fuera del codigo;
+- tener base PostgreSQL administrada;
+- preparar almacenamiento de imagenes y media;
+- observar errores y comportamiento de la API.
+
+Ambientes esperados:
+
+- `local`: Docker Compose, API local y app en emulador/celular.
+- `dev`: primer ambiente Azure para pruebas desde dispositivos reales.
+- `staging`: validacion previa a produccion.
+- `prod`: datos reales, backups, monitoreo y dominios reales.
 
 ## Regla de mantenimiento
 

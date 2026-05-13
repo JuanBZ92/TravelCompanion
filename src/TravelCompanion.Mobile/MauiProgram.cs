@@ -5,6 +5,7 @@ using Android.OS;
 #if !WINDOWS
 using Microsoft.Maui.Controls.Maps;
 #endif
+using Maui.Biometric;
 using TravelCompanion.Mobile.Pages;
 using TravelCompanion.Mobile.Services;
 using TravelCompanion.Mobile.ViewModels;
@@ -20,6 +21,7 @@ public static class MauiProgram
         var builder = MauiApp.CreateBuilder();
         builder
             .UseMauiApp<App>()
+            .UseBiometricAuthentication()
 #if !WINDOWS
             .UseMauiMaps()
 #endif
@@ -38,15 +40,26 @@ public static class MauiProgram
             BaseAddress = new Uri(ApiBaseUrl)
         });
         builder.Services.AddSingleton<TravelCompanionApiClient>();
+        builder.Services.AddSingleton<AuthSessionService>();
+        builder.Services.AddSingleton<BiometricUnlockService>();
+        builder.Services.AddSingleton<OfflineCacheService>();
+        builder.Services.AddSingleton<MobileBootstrapStore>();
         builder.Services.AddSingleton<FavoritesService>();
 
+        builder.Services.AddTransient<LoginViewModel>();
+        builder.Services.AddTransient<BiometricUnlockViewModel>();
+        builder.Services.AddTransient<ChangePasswordViewModel>();
         builder.Services.AddTransient<RecommendationsViewModel>();
         builder.Services.AddTransient<MapViewModel>();
         builder.Services.AddTransient<ScheduleViewModel>();
         builder.Services.AddTransient<ScheduleItemDetailViewModel>();
         builder.Services.AddTransient<PackagesViewModel>();
         builder.Services.AddTransient<RecommendationDetailViewModel>();
+        builder.Services.AddTransient<SupportViewModel>();
 
+        builder.Services.AddTransient<LoginPage>();
+        builder.Services.AddTransient<BiometricUnlockPage>();
+        builder.Services.AddTransient<ChangePasswordPage>();
         builder.Services.AddTransient<RecommendationsPage>();
         builder.Services.AddTransient<MapPage>();
         builder.Services.AddTransient<SchedulePage>();

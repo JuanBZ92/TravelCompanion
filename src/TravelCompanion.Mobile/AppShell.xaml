@@ -4,31 +4,55 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:pages="clr-namespace:TravelCompanion.Mobile.Pages"
-    Title="Travel Companion">
+    Title="Travel Companion"
+    Shell.TabBarBackgroundColor="{AppThemeBinding Light={StaticResource Paper}, Dark={StaticResource NightSurface}}"
+    Shell.TabBarForegroundColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}"
+    Shell.TabBarTitleColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
+    Shell.TabBarUnselectedColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}">
 
-    <TabBar>
+    <ShellContent
+        Title="Ingresar"
+        ContentTemplate="{DataTemplate pages:LoginPage}"
+        Route="login" />
+
+    <ShellContent
+        Title="Desbloquear"
+        ContentTemplate="{DataTemplate pages:BiometricUnlockPage}"
+        Route="biometric-unlock" />
+
+    <ShellContent
+        Title="Nueva password"
+        ContentTemplate="{DataTemplate pages:ChangePasswordPage}"
+        Route="change-password" />
+
+    <TabBar Route="main">
         <ShellContent
-            Title="Recomendaciones"
+            Title="Ideas"
+            Icon="tab_ideas.svg"
             ContentTemplate="{DataTemplate pages:RecommendationsPage}"
             Route="recommendations" />
 
         <ShellContent
             Title="Mapa"
+            Icon="tab_map.svg"
             ContentTemplate="{DataTemplate pages:MapPage}"
             Route="map" />
 
         <ShellContent
-            Title="Schedule"
+            Title="Viaje"
+            Icon="tab_trip.svg"
             ContentTemplate="{DataTemplate pages:SchedulePage}"
             Route="schedule" />
 
         <ShellContent
-            Title="Paquetes"
+            Title="Packs"
+            Icon="tab_packs.svg"
             ContentTemplate="{DataTemplate pages:PackagesPage}"
             Route="packages" />
 
         <ShellContent
-            Title="Soporte"
+            Title="Cuenta"
+            Icon="tab_account.svg"
             ContentTemplate="{DataTemplate pages:SupportPage}"
             Route="support" />
     </TabBar>

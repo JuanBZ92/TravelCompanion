@@ -28,5 +28,7 @@
 	</array>
 	<key>XSAppIconAssets</key>
 	<string>Assets.xcassets/appicon.appiconset</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Travel Companion usa Face ID para desbloquear tu cuenta de viaje de forma segura.</string>
 </dict>
 </plist>

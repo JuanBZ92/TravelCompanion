@@ -5,30 +5,34 @@
              xmlns:viewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
              x:Class="TravelCompanion.Mobile.Pages.MapPage"
              x:DataType="viewModels:MapViewModel"
-             Title="Mapa">
-    <Grid Padding="20" RowDefinitions="Auto,Auto,260,*" RowSpacing="16">
-        <VerticalStackLayout Spacing="4">
-            <Label Text="Cerca de ti" FontSize="28" FontAttributes="Bold" />
-            <Label Text="Recomendaciones curadas alrededor de tu punto de referencia." FontSize="15" TextColor="{AppThemeBinding Light=#58616A, Dark=#C7CDD3}" />
+             Title="Mapa"
+             Shell.NavBarIsVisible="False">
+    <Grid Padding="18,18,18,0" RowDefinitions="Auto,300,*" RowSpacing="14">
+        <VerticalStackLayout Grid.Row="0" Spacing="8">
+            <Border Style="{StaticResource SoftPanel}" IsVisible="{Binding HasStatus}">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="8" />
+                </Border.StrokeShape>
+                <Label Text="{Binding StatusMessage}" Style="{StaticResource Metadata}" TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}" />
+            </Border>
+
+            <Border Padding="12"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource RoseSoft}, Dark={StaticResource NightSurfaceAlt}}"
+                    Stroke="{AppThemeBinding Light={StaticResource Rose}, Dark={StaticResource NightLine}}"
+                    StrokeThickness="1"
+                    IsVisible="{Binding HasError}">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="8" />
+                </Border.StrokeShape>
+                <Label Text="{Binding ErrorMessage}" TextColor="{AppThemeBinding Light={StaticResource Rose}, Dark={StaticResource Paper}}" />
+            </Border>
         </VerticalStackLayout>
 
-        <Border Grid.Row="1"
-                Padding="12"
-                BackgroundColor="#FFF4E5"
-                Stroke="#F2C078"
-                StrokeThickness="1"
-                IsVisible="{Binding HasError}">
-            <Border.StrokeShape>
-                <RoundRectangle CornerRadius="8" />
-            </Border.StrokeShape>
-            <Label Text="{Binding ErrorMessage}" TextColor="#5F3D00" />
-        </Border>
-
         <Border x:Name="MapHost"
-                Grid.Row="2"
-                Stroke="#D8DEE4"
+                Grid.Row="1"
+                Stroke="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
                 StrokeThickness="1"
-                BackgroundColor="{AppThemeBinding Light=#F6F8FA, Dark=#1E2329}">
+                BackgroundColor="{AppThemeBinding Light={StaticResource Paper}, Dark={StaticResource NightSurface}}">
             <Border.StrokeShape>
                 <RoundRectangle CornerRadius="8" />
             </Border.StrokeShape>
@@ -38,15 +42,15 @@
                                      Spacing="8"
                                      HorizontalOptions="Center"
                                      VerticalOptions="Center">
-                    <Label Text="Mapa disponible en Android, iOS y MacCatalyst." FontSize="16" FontAttributes="Bold" HorizontalTextAlignment="Center" />
-                    <Label Text="En Windows usamos la lista cercana como fallback." FontSize="13" TextColor="{AppThemeBinding Light=#68727D, Dark=#BDC4CC}" HorizontalTextAlignment="Center" />
+                    <Label Text="Mapa disponible en Android, iOS y MacCatalyst." Style="{StaticResource SectionTitle}" HorizontalTextAlignment="Center" />
+                    <Label Text="En Windows usamos la lista cercana como fallback." Style="{StaticResource Metadata}" HorizontalTextAlignment="Center" />
                 </VerticalStackLayout>
             </Grid>
         </Border>
 
-        <RefreshView Grid.Row="3"
+        <RefreshView Grid.Row="2"
                      Command="{Binding LoadNearbyRecommendationsCommand}"
-                     IsRefreshing="{Binding IsBusy}">
+                     IsRefreshing="{Binding IsRefreshing, Mode=TwoWay}">
             <CollectionView ItemsSource="{Binding NearbyRecommendations}"
                             SelectionMode="Single"
                             SelectedItem="{Binding SelectedRecommendation, Mode=TwoWay}"
@@ -57,13 +61,23 @@
                 </CollectionView.EmptyView>
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="dtos:RecommendationDto">
-                        <Grid Padding="0,0,0,14" ColumnDefinitions="*,Auto">
+                        <Border Style="{StaticResource Card}" Margin="0,0,0,10" Padding="14">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="8" />
+                            </Border.StrokeShape>
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                             <VerticalStackLayout Spacing="3">
                                 <Label Text="{Binding Title}" FontSize="17" FontAttributes="Bold" />
-                                <Label Text="{Binding Category}" FontSize="13" TextColor="{AppThemeBinding Light=#68727D, Dark=#BDC4CC}" />
+                                <Label Text="{Binding Category}" Style="{StaticResource Metadata}" />
                             </VerticalStackLayout>
-                            <Label Grid.Column="1" Text="{Binding DistanceKm, StringFormat='{0} km'}" FontSize="14" FontAttributes="Bold" VerticalOptions="Center" />
-                        </Grid>
+                            <Label Grid.Column="1"
+                                   Text="{Binding DistanceKm, StringFormat='{0} km'}"
+                                   FontSize="14"
+                                   FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}"
+                                   VerticalOptions="Center" />
+                            </Grid>
+                        </Border>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
             </CollectionView>

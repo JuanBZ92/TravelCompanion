@@ -7,19 +7,30 @@
 <h1>Users & access</h1>
 <p class="lede">Usuarios de la app y accesos activos por pago, paquete o suscripcion.</p>
 
+@if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
+{
+    <section class="panel" style="margin-bottom: 18px;">
+        <strong>@Model.StatusMessage</strong>
+        <p class="muted">En desarrollo tambien queda registrado en logs. En produccion esto deberia enviarse por email y no mostrarse en pantalla.</p>
+    </section>
+}
+
 <section class="grid">
     <div class="panel">
         <h2>@(Model.UserInput.Id.HasValue ? "Editar usuario" : "Nuevo usuario")</h2>
         <form method="post" asp-page-handler="SaveUser">
+            <div asp-validation-summary="All"></div>
             <input type="hidden" asp-for="UserInput.Id" />
             <div class="form-grid">
                 <div>
-                    <label asp-for="UserInput.Email">Email</label>
+                    <label asp-for="UserInput.Email" class="required">Email</label>
                     <input asp-for="UserInput.Email" type="email" />
+                    <span asp-validation-for="UserInput.Email"></span>
                 </div>
                 <div>
-                    <label asp-for="UserInput.DisplayName">Nombre visible</label>
+                    <label asp-for="UserInput.DisplayName" class="required">Nombre visible</label>
                     <input asp-for="UserInput.DisplayName" />
+                    <span asp-validation-for="UserInput.DisplayName"></span>
                 </div>
             </div>
             <div class="actions">
@@ -41,30 +52,38 @@
         else
         {
             <form method="post" asp-page-handler="GrantEntitlement">
+                <div asp-validation-summary="All"></div>
                 <div class="form-grid">
                     <div>
-                        <label asp-for="EntitlementInput.UserId">Usuario</label>
+                        <label asp-for="EntitlementInput.UserId" class="required">Usuario</label>
                         <select asp-for="EntitlementInput.UserId" asp-items="Model.UserOptions"></select>
+                        <span asp-validation-for="EntitlementInput.UserId"></span>
                     </div>
                     <div>
-                        <label asp-for="EntitlementInput.AccessLevel">Tipo de acceso</label>
+                        <label asp-for="EntitlementInput.AccessLevel" class="required">Tipo de acceso</label>
                         <select asp-for="EntitlementInput.AccessLevel" asp-items="Model.AccessLevelOptions"></select>
+                        <span asp-validation-for="EntitlementInput.AccessLevel"></span>
                     </div>
                     <div>
-                        <label asp-for="EntitlementInput.DestinationId">Destino</label>
+                        <label asp-for="EntitlementInput.DestinationId">Destino <span class="muted">(opcional)</span></label>
                         <select asp-for="EntitlementInput.DestinationId" asp-items="Model.DestinationOptions"></select>
+                        <span asp-validation-for="EntitlementInput.DestinationId"></span>
                     </div>
                     <div>
-                        <label asp-for="EntitlementInput.TravelPackageId">Paquete</label>
+                        <label asp-for="EntitlementInput.TravelPackageId">Paquete <span class="muted">(opcional)</span></label>
                         <select asp-for="EntitlementInput.TravelPackageId" asp-items="Model.PackageOptions"></select>
+                        <p class="muted">Si eliges paquete, el tipo se ajusta automaticamente a paquete o suscripcion.</p>
+                        <span asp-validation-for="EntitlementInput.TravelPackageId"></span>
                     </div>
                     <div>
-                        <label asp-for="EntitlementInput.ExpiresOn">Expira</label>
+                        <label asp-for="EntitlementInput.ExpiresOn">Expira <span class="muted">(opcional)</span></label>
                         <input asp-for="EntitlementInput.ExpiresOn" type="date" />
+                        <span asp-validation-for="EntitlementInput.ExpiresOn"></span>
                     </div>
                     <div>
-                        <label asp-for="EntitlementInput.Source">Origen</label>
+                        <label asp-for="EntitlementInput.Source">Origen <span class="muted">(opcional)</span></label>
                         <input asp-for="EntitlementInput.Source" />
+                        <span asp-validation-for="EntitlementInput.Source"></span>
                     </div>
                 </div>
                 <div class="actions">
@@ -81,6 +100,7 @@
         <thead>
             <tr>
                 <th>Usuario</th>
+                <th>Login</th>
                 <th>Accesos</th>
                 <th></th>
             </tr>
@@ -94,12 +114,18 @@
                     <span class="muted">@user.Email</span>
                 </td>
                 <td>
+                    @(user.MustChangePassword ? "Password temporal" : "Activo")
+                </td>
+                <td>
                     @user.ActiveEntitlementCount activo(s)<br />
                     <span class="muted">@user.EntitlementCount total(es)</span>
                 </td>
                 <td>
                     <div class="row-actions">
                         <a class="button secondary" asp-page="/Admin/Users" asp-route-editUserId="@user.Id">Editar</a>
+                        <form method="post" asp-page-handler="ResetPassword" asp-route-id="@user.Id">
+                            <button class="secondary" type="submit">Reset password</button>
+                        </form>
                         <form method="post" asp-page-handler="DeleteUser" asp-route-id="@user.Id">
                             <button class="danger" type="submit">Borrar</button>
                         </form>

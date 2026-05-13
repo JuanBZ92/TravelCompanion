@@ -5,28 +5,67 @@
              xmlns:viewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
              x:Class="TravelCompanion.Mobile.Pages.SchedulePage"
              x:DataType="viewModels:ScheduleViewModel"
-             Title="Schedule">
-    <Grid Padding="20" RowDefinitions="Auto,Auto,*" RowSpacing="16">
-        <VerticalStackLayout Spacing="4">
-            <Label Text="{Binding TripTitle}" FontSize="28" FontAttributes="Bold" />
-            <Label Text="{Binding TripDates}" FontSize="15" TextColor="{AppThemeBinding Light=#58616A, Dark=#C7CDD3}" />
-        </VerticalStackLayout>
-
-        <Border Grid.Row="1"
-                Padding="12"
-                BackgroundColor="#FFF4E5"
-                Stroke="#F2C078"
-                StrokeThickness="1"
-                IsVisible="{Binding HasError}">
+             Title="Viaje"
+             Shell.NavBarIsVisible="False">
+    <Grid Padding="18,18,18,0" RowDefinitions="Auto,Auto,Auto,*" RowSpacing="14">
+        <Border Style="{StaticResource Card}" Padding="16">
             <Border.StrokeShape>
                 <RoundRectangle CornerRadius="8" />
             </Border.StrokeShape>
-            <Label Text="{Binding ErrorMessage}" TextColor="#5F3D00" />
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="{Binding TripTitle}" Style="{StaticResource SectionTitle}" />
+                    <Label Text="{Binding TripDates}" Style="{StaticResource Metadata}" />
+                </VerticalStackLayout>
+                <Label Grid.Column="1"
+                       Text="Itinerary"
+                       Style="{StaticResource Metadata}"
+                       TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}"
+                       VerticalOptions="Center" />
+            </Grid>
         </Border>
 
-        <RefreshView Grid.Row="2"
+        <Border Grid.Row="1" Style="{StaticResource SoftPanel}">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="8" />
+            </Border.StrokeShape>
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                <VerticalStackLayout Spacing="2">
+                    <Label Text="Ciudad" Style="{StaticResource Metadata}" />
+                    <Picker Title="Ciudad"
+                            ItemsSource="{Binding Cities}"
+                            SelectedItem="{Binding SelectedCity}" />
+                </VerticalStackLayout>
+                <Label Grid.Column="1"
+                       Text="{Binding SelectedCity}"
+                       Style="{StaticResource Eyebrow}"
+                       VerticalOptions="Center" />
+            </Grid>
+        </Border>
+
+        <VerticalStackLayout Grid.Row="2" Spacing="8">
+            <Border Style="{StaticResource SoftPanel}" IsVisible="{Binding HasStatus}">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="8" />
+                </Border.StrokeShape>
+                <Label Text="{Binding StatusMessage}" Style="{StaticResource Metadata}" TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}" />
+            </Border>
+
+            <Border Padding="12"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource RoseSoft}, Dark={StaticResource NightSurfaceAlt}}"
+                    Stroke="{AppThemeBinding Light={StaticResource Rose}, Dark={StaticResource NightLine}}"
+                    StrokeThickness="1"
+                    IsVisible="{Binding HasError}">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="8" />
+                </Border.StrokeShape>
+                <Label Text="{Binding ErrorMessage}" TextColor="{AppThemeBinding Light={StaticResource Rose}, Dark={StaticResource Paper}}" />
+            </Border>
+        </VerticalStackLayout>
+
+        <RefreshView Grid.Row="3"
                      Command="{Binding LoadScheduleCommand}"
-                     IsRefreshing="{Binding IsBusy}">
+                     IsRefreshing="{Binding IsRefreshing, Mode=TwoWay}">
             <CollectionView ItemsSource="{Binding Days}"
                             IsGrouped="True"
                             SelectionMode="Single"
@@ -39,8 +78,8 @@
                 <CollectionView.GroupHeaderTemplate>
                     <DataTemplate x:DataType="viewModels:ScheduleDayViewModel">
                         <Grid Padding="0,10,0,8" ColumnDefinitions="*,Auto">
-                            <Label Text="{Binding DayLabel}" FontSize="18" FontAttributes="Bold" />
-                            <Label Grid.Column="1" Text="{Binding CountLabel}" FontSize="12" TextColor="{AppThemeBinding Light=#68727D, Dark=#BDC4CC}" VerticalOptions="Center" />
+                            <Label Text="{Binding DayLabel}" Style="{StaticResource SectionTitle}" />
+                            <Label Grid.Column="1" Text="{Binding CountLabel}" Style="{StaticResource Metadata}" VerticalOptions="Center" />
                         </Grid>
                     </DataTemplate>
                 </CollectionView.GroupHeaderTemplate>
@@ -48,21 +87,36 @@
                     <DataTemplate x:DataType="dtos:ScheduleItemDto">
                         <Grid ColumnDefinitions="58,*" Padding="0,0,0,14">
                             <VerticalStackLayout Spacing="0" HorizontalOptions="Center">
-                                <Label Text="{Binding StartsAt, StringFormat='{0:HH\\:mm}'}" FontSize="13" FontAttributes="Bold" />
-                                <BoxView WidthRequest="2" HeightRequest="72" Color="#D8DEE4" Margin="0,8,0,0" />
+                                <Label Text="{Binding StartsAt, StringFormat='{0:HH\\:mm}'}" FontSize="13" FontAttributes="Bold" TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}" />
+                                <BoxView WidthRequest="2" HeightRequest="72" Color="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}" Margin="0,8,0,0" />
                             </VerticalStackLayout>
 
-                            <Border Grid.Column="1" Stroke="#D8DEE4" StrokeThickness="1" Padding="14">
+                            <Border Grid.Column="1" Style="{StaticResource Card}" Padding="14">
                                 <Border.StrokeShape>
                                     <RoundRectangle CornerRadius="8" />
                                 </Border.StrokeShape>
-                                <VerticalStackLayout Spacing="5">
-                                    <Label Text="{Binding Title}" FontSize="18" FontAttributes="Bold" />
+                                <VerticalStackLayout Spacing="7">
+                                    <Border Padding="8,4"
+                                            HorizontalOptions="Start"
+                                            BackgroundColor="{AppThemeBinding Light={StaticResource AccentSoft}, Dark={StaticResource NightSurfaceAlt}}"
+                                            Stroke="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource NightLine}}"
+                                            StrokeThickness="1">
+                                        <Border.StrokeShape>
+                                            <RoundRectangle CornerRadius="8" />
+                                        </Border.StrokeShape>
+                                        <Label Text="{Binding City}"
+                                               FontFamily="OpenSansSemibold"
+                                               FontSize="12"
+                                               TextTransform="Uppercase"
+                                               LineBreakMode="TailTruncation"
+                                               MaxLines="1"
+                                               TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}" />
+                                    </Border>
+                                    <Label Text="{Binding Title}" Style="{StaticResource SectionTitle}" />
                                     <Label Text="{Binding LocationName}" FontSize="14" />
-                                    <Label Text="{Binding Address}" FontSize="13" TextColor="{AppThemeBinding Light=#68727D, Dark=#BDC4CC}" />
+                                    <Label Text="{Binding Address}" Style="{StaticResource Metadata}" />
                                     <HorizontalStackLayout Spacing="12">
                                         <Label Text="{Binding ConfirmationCode}" FontSize="13" FontAttributes="Bold" />
-                                        <Label Text="{Binding AccessLevel}" FontSize="13" TextColor="{AppThemeBinding Light=#7A4D00, Dark=#F0C36A}" />
                                     </HorizontalStackLayout>
                                 </VerticalStackLayout>
                             </Border>

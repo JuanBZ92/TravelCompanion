@@ -2,41 +2,101 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TravelCompanion.Api.Data;
 using TravelCompanion.Api.Models;
+using TravelCompanion.Api.Services;
 using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public sealed class UsersController(TravelCompanionDbContext dbContext) : ControllerBase
+public sealed class UsersController(
+    TravelCompanionDbContext dbContext,
+    UserSessionService sessionService) : ControllerBase
 {
     private const string DemoUserEmail = "demo@travelcompanion.local";
 
     [HttpGet("demo/entitlements")]
-    public Task<ActionResult<UserEntitlementsDto>> GetDemoEntitlements()
+    public Task<ActionResult<UserEntitlementsDto>> GetDemoEntitlements(
+        CancellationToken cancellationToken = default)
     {
-        return GetEntitlementsByEmailAsync(DemoUserEmail);
+        return GetEntitlementsByEmailAsync(DemoUserEmail, cancellationToken);
     }
 
     [HttpGet("{userId:guid}/entitlements")]
-    public async Task<ActionResult<UserEntitlementsDto>> GetEntitlements(Guid userId)
+    public async Task<ActionResult<UserEntitlementsDto>> GetEntitlements(
+        Guid userId,
+        CancellationToken cancellationToken = default)
     {
         var user = await dbContext.AppUsers
             .AsNoTracking()
             .Include(user => user.Entitlements)
-            .FirstOrDefaultAsync(user => user.Id == userId);
+            .FirstOrDefaultAsync(user => user.Id == userId, cancellationToken);
 
         return user is null
             ? NotFound()
             : Ok(ToDto(user));
     }
 
-    private async Task<ActionResult<UserEntitlementsDto>> GetEntitlementsByEmailAsync(string email)
+    [HttpGet("{userId:guid}/schedule")]
+    public async Task<ActionResult<TripScheduleDto>> GetSchedule(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        var schedule = await FindScheduleAsync(userId, cancellationToken);
+        return schedule is null
+            ? NotFound()
+            : Ok(schedule);
+    }
+
+    [HttpGet("~/api/me/entitlements")]
+    public async Task<ActionResult<UserEntitlementsDto>> GetMyEntitlements(CancellationToken cancellationToken)
+    {
+        var user = await sessionService.GetUserAsync(HttpContext, cancellationToken);
+        return user is null
+            ? Unauthorized()
+            : Ok(ToDto(user));
+    }
+
+    [HttpGet("~/api/me/schedule")]
+    public async Task<ActionResult<TripScheduleDto>> GetMySchedule(CancellationToken cancellationToken)
+    {
+        var user = await sessionService.GetUserAsync(HttpContext, cancellationToken);
+        if (user is null)
+        {
+            return Unauthorized();
+        }
+
+        var schedule = await FindScheduleAsync(user.Id, cancellationToken);
+        return schedule is null
+            ? NotFound()
+            : Ok(schedule);
+    }
+
+    private async Task<TripScheduleDto?> FindScheduleAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var trip = await dbContext.Trips
+            .AsNoTracking()
+            .Include(existingTrip => existingTrip.Destination)
+            .Include(existingTrip => existingTrip.Reservations)
+            .Where(existingTrip => existingTrip.AppUserId == userId)
+            .OrderBy(existingTrip => existingTrip.StartsOn < today)
+            .ThenBy(existingTrip => existingTrip.StartsOn)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return trip is null || trip.Destination is null
+            ? null
+            : ToScheduleDto(trip);
+    }
+
+    private async Task<ActionResult<UserEntitlementsDto>> GetEntitlementsByEmailAsync(
+        string email,
+        CancellationToken cancellationToken = default)
     {
         var user = await dbContext.AppUsers
             .AsNoTracking()
             .Include(user => user.Entitlements)
-            .FirstOrDefaultAsync(user => user.Email == email);
+            .FirstOrDefaultAsync(user => user.Email == email, cancellationToken);
 
         return user is null
             ? NotFound()
@@ -76,6 +136,30 @@ public sealed class UsersController(TravelCompanionDbContext dbContext) : Contro
                     entitlement.GrantedAt,
                     entitlement.ExpiresAt,
                     entitlement.Source))
+                .ToList());
+    }
+
+    private static TripScheduleDto ToScheduleDto(Trip trip)
+    {
+        return new TripScheduleDto(
+            trip.Id,
+            trip.TravelerName,
+            trip.Destination!.Name,
+            trip.StartsOn,
+            trip.EndsOn,
+            trip.Reservations
+                .OrderBy(reservation => reservation.Date)
+                .ThenBy(reservation => reservation.StartsAt)
+                .Select(reservation => new ScheduleItemDto(
+                    reservation.Id,
+                    reservation.Date,
+                    reservation.StartsAt,
+                    reservation.Title,
+                    reservation.City,
+                    reservation.LocationName,
+                    reservation.Address,
+                    reservation.ConfirmationCode,
+                    reservation.Notes))
                 .ToList());
     }
 }

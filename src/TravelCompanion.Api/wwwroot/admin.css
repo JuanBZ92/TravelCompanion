@@ -88,6 +88,12 @@ label {
     margin-bottom: 5px;
 }
 
+.required::after {
+    color: #b42318;
+    content: " *";
+    font-weight: 700;
+}
+
 input,
 select,
 textarea {
@@ -101,6 +107,36 @@ textarea {
 
 textarea {
     min-height: 96px;
+}
+
+.field-validation-error,
+.validation-summary-errors {
+    color: #b42318;
+    font-size: 13px;
+}
+
+.field-validation-error {
+    display: block;
+    margin-top: 5px;
+}
+
+.validation-summary-errors {
+    background: #fff4f2;
+    border: 1px solid #f3b8b0;
+    border-radius: 6px;
+    margin-bottom: 14px;
+    padding: 10px 12px;
+}
+
+.validation-summary-errors ul {
+    margin: 6px 0 0;
+    padding-left: 18px;
+}
+
+.form-hint {
+    color: var(--muted);
+    font-size: 12px;
+    margin: 5px 0 0;
 }
 
 .actions {
@@ -153,7 +189,19 @@ th {
 
 .row-actions {
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
+}
+
+.inline-form {
+    align-items: end;
+    display: grid;
+    gap: 10px;
+    grid-template-columns: minmax(220px, 1fr) minmax(150px, auto) auto;
+}
+
+.table-wrap {
+    overflow-x: auto;
 }
 
 .muted {

@@ -6,10 +6,11 @@
              x:DataType="viewModels:RecommendationDetailViewModel"
              Title="{Binding Recommendation.Title}">
     <ScrollView>
-        <VerticalStackLayout Padding="20" Spacing="18">
+        <VerticalStackLayout Padding="22" Spacing="18">
             <VerticalStackLayout Spacing="6">
-                <Label Text="{Binding Recommendation.Title}" FontSize="30" FontAttributes="Bold" />
-                <Label Text="{Binding Recommendation.Neighborhood}" FontSize="15" TextColor="{AppThemeBinding Light=#58616A, Dark=#C7CDD3}" />
+                <Label Text="Recomendacion" Style="{StaticResource Eyebrow}" />
+                <Label Text="{Binding Recommendation.Title}" Style="{StaticResource Headline}" />
+                <Label Text="{Binding Recommendation.Neighborhood}" Style="{StaticResource SubHeadline}" />
             </VerticalStackLayout>
 
             <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
@@ -17,29 +18,32 @@
                         Command="{Binding ToggleFavoriteCommand}" />
                 <Button Grid.Column="1"
                         Text="Abrir mapa"
+                        Style="{StaticResource GhostButton}"
                         Command="{Binding OpenMapsCommand}"
                         IsEnabled="{Binding IsUnlocked}" />
             </Grid>
 
-            <Border Stroke="#D8DEE4" StrokeThickness="1" Padding="16">
+            <Border Style="{StaticResource Card}">
                 <Border.StrokeShape>
                     <RoundRectangle CornerRadius="8" />
                 </Border.StrokeShape>
                 <VerticalStackLayout Spacing="10">
-                    <Label Text="{Binding Recommendation.Category}" FontSize="13" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#2F6F6D, Dark=#7AD1CD}" />
-                    <Label Text="{Binding AccessLevelText}" FontSize="13" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#7A4D00, Dark=#F0C36A}" />
-                    <Label Text="{Binding AccessStatus}" FontSize="13" TextColor="{AppThemeBinding Light=#58616A, Dark=#C7CDD3}" />
+                    <HorizontalStackLayout Spacing="8">
+                        <Label Text="{Binding Recommendation.Category}" Style="{StaticResource Metadata}" TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}" />
+                        <Label Text="{Binding AccessLevelText}" Style="{StaticResource Metadata}" TextColor="{AppThemeBinding Light={StaticResource Gold}, Dark={StaticResource GoldSoft}}" />
+                    </HorizontalStackLayout>
+                    <Label Text="{Binding AccessStatus}" Style="{StaticResource Metadata}" />
                     <Label Text="{Binding Recommendation.Description}" FontSize="16" />
-                    <Label Text="{Binding Recommendation.SuggestedDurationMinutes, StringFormat='Duracion sugerida: {0} min'}" FontSize="14" TextColor="{AppThemeBinding Light=#58616A, Dark=#C7CDD3}" />
+                    <Label Text="{Binding Recommendation.SuggestedDurationMinutes, StringFormat='Duracion sugerida: {0} min'}" Style="{StaticResource Metadata}" />
                 </VerticalStackLayout>
             </Border>
 
-            <Border Stroke="#D8DEE4" StrokeThickness="1" Padding="16">
+            <Border Style="{StaticResource Card}">
                 <Border.StrokeShape>
                     <RoundRectangle CornerRadius="8" />
                 </Border.StrokeShape>
                 <VerticalStackLayout Spacing="6">
-                    <Label Text="Ubicacion" FontSize="18" FontAttributes="Bold" />
+                    <Label Text="Ubicacion" Style="{StaticResource SectionTitle}" />
                     <Label Text="{Binding Recommendation.Latitude, StringFormat='Latitud: {0:F6}'}" FontSize="14" />
                     <Label Text="{Binding Recommendation.Longitude, StringFormat='Longitud: {0:F6}'}" FontSize="14" />
                 </VerticalStackLayout>

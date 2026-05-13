@@ -10,13 +10,15 @@ namespace TravelCompanion.Api.Controllers;
 public sealed class TripsController(TravelCompanionDbContext dbContext) : ControllerBase
 {
     [HttpGet("{id:guid}/schedule")]
-    public async Task<ActionResult<TripScheduleDto>> GetSchedule(Guid id)
+    public async Task<ActionResult<TripScheduleDto>> GetSchedule(
+        Guid id,
+        CancellationToken cancellationToken = default)
     {
         var trip = await dbContext.Trips
             .AsNoTracking()
             .Include(existingTrip => existingTrip.Destination)
             .Include(existingTrip => existingTrip.Reservations)
-            .SingleOrDefaultAsync(existingTrip => existingTrip.Id == id);
+            .SingleOrDefaultAsync(existingTrip => existingTrip.Id == id, cancellationToken);
 
         if (trip is null || trip.Destination is null)
         {
@@ -37,11 +39,11 @@ public sealed class TripsController(TravelCompanionDbContext dbContext) : Contro
                     reservation.Date,
                     reservation.StartsAt,
                     reservation.Title,
+                    reservation.City,
                     reservation.LocationName,
                     reservation.Address,
                     reservation.ConfirmationCode,
-                    reservation.Notes,
-                    reservation.AccessLevel))
+                    reservation.Notes))
                 .ToList());
 
         return Ok(response);

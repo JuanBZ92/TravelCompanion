@@ -8,8 +8,9 @@ using TravelCompanion.Shared.Dtos;
 namespace TravelCompanion.Mobile.ViewModels;
 
 public sealed partial class RecommendationsViewModel(
-    TravelCompanionApiClient apiClient,
-    FavoritesService favoritesService) : ViewModelBase
+    FavoritesService favoritesService,
+    AuthSessionService sessionService,
+    MobileBootstrapStore bootstrapStore) : ViewModelBase
 {
     private const string AllCategories = "Todas";
     private const string FavoritesCategory = "Favoritos";
@@ -43,21 +44,15 @@ public sealed partial class RecommendationsViewModel(
     {
         return LoadAsync(async () =>
         {
-            var entitlements = await apiClient.GetDemoEntitlementsAsync();
-            var recommendations = await apiClient.GetRecommendationsAsync();
-
-            _allRecommendations.Clear();
-            foreach (var recommendation in recommendations)
+            var token = await sessionService.GetTokenAsync();
+            if (string.IsNullOrWhiteSpace(token))
             {
-                _allRecommendations.Add(new RecommendationListItemViewModel(recommendation)
-                {
-                    IsFavorite = favoritesService.IsFavorite(recommendation.Id),
-                    IsUnlocked = IsUnlocked(recommendation, entitlements)
-                });
+                sessionService.Clear();
+                await Shell.Current.GoToAsync("//login");
+                return;
             }
 
-            UpdateCategories();
-            ApplyFilters();
+            await LoadBootstrapLocalFirstAsync(token);
         });
     }
 
@@ -139,5 +134,54 @@ public sealed partial class RecommendationsViewModel(
             recommendation.AccessLevel,
             entitlements?.AccessLevels ?? [],
             entitlements?.DestinationIds.Contains(recommendation.DestinationId) ?? false);
+    }
+
+    private async Task LoadBootstrapLocalFirstAsync(string token)
+    {
+        var cached = await bootstrapStore.GetCachedAsync();
+        if (cached is not null)
+        {
+            ApplyBootstrap(cached.Value);
+            StatusMessage = OfflineCacheService.FormatSavedAt(cached.SavedAt);
+        }
+
+        try
+        {
+            var bootstrap = await bootstrapStore.RefreshAsync(token);
+            if (bootstrap is null)
+            {
+                sessionService.Clear();
+                await Shell.Current.GoToAsync("//login");
+                return;
+            }
+
+            ApplyBootstrap(bootstrap);
+            StatusMessage = null;
+        }
+        catch
+        {
+            if (cached is null)
+            {
+                throw;
+            }
+
+            StatusMessage = $"Modo offline. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
+        }
+    }
+
+    private void ApplyBootstrap(MobileBootstrapDto bootstrap)
+    {
+        _allRecommendations.Clear();
+        foreach (var recommendation in bootstrap.Recommendations)
+        {
+            _allRecommendations.Add(new RecommendationListItemViewModel(recommendation)
+            {
+                IsFavorite = favoritesService.IsFavorite(recommendation.Id),
+                IsUnlocked = IsUnlocked(recommendation, bootstrap.Entitlements)
+            });
+        }
+
+        UpdateCategories();
+        ApplyFilters();
     }
 }

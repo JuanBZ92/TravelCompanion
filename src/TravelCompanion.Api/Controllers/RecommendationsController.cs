@@ -11,12 +11,20 @@ namespace TravelCompanion.Api.Controllers;
 public sealed class RecommendationsController(TravelCompanionDbContext dbContext) : ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<RecommendationDto>>> GetRecommendations(
+    public async Task<IActionResult> GetRecommendations(
         [FromQuery] string? destinationSlug = null,
         [FromQuery] string? category = null,
         [FromQuery] decimal? latitude = null,
-        [FromQuery] decimal? longitude = null)
+        [FromQuery] decimal? longitude = null,
+        [FromQuery] int page = PaginationRequest.DefaultPage,
+        [FromQuery] int pageSize = PaginationRequest.DefaultPageSize,
+        CancellationToken cancellationToken = default)
     {
+        if (!PaginationRequest.TryCreate(page, pageSize, out var pagination, out var error))
+        {
+            return this.ValidationError("pagination", error!);
+        }
+
         var query = dbContext.Recommendations
             .AsNoTracking()
             .AsQueryable();
@@ -32,15 +40,19 @@ public sealed class RecommendationsController(TravelCompanionDbContext dbContext
             query = query.Where(recommendation => recommendation.Category == category);
         }
 
-        var recommendations = await query.ToListAsync();
+        var totalItems = await query.CountAsync(cancellationToken);
+        var recommendations = await query.ToListAsync(cancellationToken);
 
         var response = recommendations
             .Select(recommendation => ToDto(recommendation, latitude, longitude))
             .OrderBy(recommendation => recommendation.DistanceKm ?? decimal.MaxValue)
             .ThenBy(recommendation => recommendation.Title)
+            .Skip((pagination.Page - 1) * pagination.PageSize)
+            .Take(pagination.PageSize)
             .ToList();
 
-        return Ok(response);
+        var pagedResponse = response.ToPagedResult(pagination, totalItems);
+        return HttpCache.OkOrNotModified(this, pagedResponse);
     }
 
     private static RecommendationDto ToDto(

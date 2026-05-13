@@ -6,6 +6,8 @@ App companion de viajes con cliente movil .NET MAUI, API ASP.NET Core y PostgreS
 
 - [Documentacion tecnica](docs/TECHNICAL.md): arquitectura, stack, desarrollo local, API, base de datos, migraciones y verificaciones.
 - [Documentacion funcional](docs/FUNCTIONAL.md): vision de producto, usuarios, pantallas, reglas de acceso, CMS y roadmap.
+- [Infraestructura y Terraform](docs/INFRASTRUCTURE.md): explicacion practica de Terraform, state, recursos Azure y flujo de trabajo.
+- [Terraform Azure](infra/terraform/README.md): infraestructura cloud para App Service, PostgreSQL, Storage, Key Vault y observabilidad.
 
 ## Regla del proyecto
 
@@ -52,6 +54,16 @@ http://localhost:5289/admin
 Usuario: admin
 Password: travel-companion-dev
 ```
+
+Login mobile demo:
+
+```text
+Usuario: demo@travelcompanion.local
+Password temporal: TravelDemo!2026
+```
+
+Luego de cambiar la password temporal, la app puede desbloquear la sesion con biometria del dispositivo y fallback a password.
+Usar `Bloquear app` mantiene la sesion para biometria; `Cerrar sesion` borra la sesion y requiere password.
 
 ## Verificacion
 

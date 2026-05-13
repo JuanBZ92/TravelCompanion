@@ -39,6 +39,31 @@ public sealed class RecommendationsModel(TravelCompanionDbContext dbContext) : P
 
     public async Task<IActionResult> OnPostSaveAsync()
     {
+        if (Input.DestinationId == Guid.Empty)
+        {
+            ModelState.AddModelError($"{nameof(Input)}.{nameof(Input.DestinationId)}", "Selecciona un destino.");
+        }
+
+        if (string.IsNullOrWhiteSpace(Input.Title))
+        {
+            ModelState.AddModelError($"{nameof(Input)}.{nameof(Input.Title)}", "El titulo es obligatorio.");
+        }
+
+        if (string.IsNullOrWhiteSpace(Input.Category))
+        {
+            ModelState.AddModelError($"{nameof(Input)}.{nameof(Input.Category)}", "La categoria es obligatoria.");
+        }
+
+        if (string.IsNullOrWhiteSpace(Input.Description))
+        {
+            ModelState.AddModelError($"{nameof(Input)}.{nameof(Input.Description)}", "La descripcion es obligatoria.");
+        }
+
+        if (Input.SuggestedDurationMinutes < 1)
+        {
+            ModelState.AddModelError($"{nameof(Input)}.{nameof(Input.SuggestedDurationMinutes)}", "La duracion debe ser mayor a cero.");
+        }
+
         if (!ModelState.IsValid)
         {
             await LoadPageDataAsync();

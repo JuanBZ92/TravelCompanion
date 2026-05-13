@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity;
 using TravelCompanion.Api.Models;
 using TravelCompanion.Shared;
 
@@ -15,19 +16,19 @@ public static class DatabaseSeeder
     private static readonly Guid DemoUserId = Guid.Parse("66666666-6666-6666-6666-666666666601");
     private const string DemoUserEmail = "demo@travelcompanion.local";
 
-    public static async Task SeedAsync(TravelCompanionDbContext dbContext)
+    public static async Task SeedAsync(TravelCompanionDbContext dbContext, IPasswordHasher<AppUser> passwordHasher)
     {
         if (!await dbContext.Destinations.AnyAsync())
         {
             SeedJapanContent(dbContext);
         }
 
-        await NormalizeDemoAccessLevelsAsync(dbContext);
-
         if (!await dbContext.AppUsers.AnyAsync(user => user.Email == DemoUserEmail))
         {
-            SeedDemoUser(dbContext);
+            SeedDemoUser(dbContext, passwordHasher);
         }
+
+        await NormalizeDemoDataAsync(dbContext, passwordHasher);
 
         await dbContext.SaveChangesAsync();
     }
@@ -116,6 +117,7 @@ public static class DatabaseSeeder
         var demoTrip = new Trip
         {
             Id = Guid.Parse("44444444-4444-4444-4444-444444444401"),
+            AppUserId = DemoUserId,
             DestinationId = japan.Id,
             TravelerName = "Demo Traveler",
             StartsOn = new DateOnly(2026, 10, 5),
@@ -128,11 +130,11 @@ public static class DatabaseSeeder
                     Date = new DateOnly(2026, 10, 6),
                     StartsAt = new TimeOnly(9, 30),
                     Title = "TeamLab Borderless",
+                    City = "Tokyo",
                     LocationName = "Azabudai Hills",
                     Address = "1 Chome-2-4 Azabudai, Minato City, Tokyo",
                     ConfirmationCode = "DEMO-TLB-1026",
-                    Notes = "Llegar 15 minutos antes. Llevar QR en el telefono.",
-                    AccessLevel = ContentAccessLevel.Paid
+                    Notes = "Llegar 15 minutos antes. Llevar QR en el telefono."
                 },
                 new Reservation
                 {
@@ -140,11 +142,11 @@ public static class DatabaseSeeder
                     Date = new DateOnly(2026, 10, 9),
                     StartsAt = new TimeOnly(18, 0),
                     Title = "Cena omakase",
+                    City = "Tokyo",
                     LocationName = "Sushi demo",
                     Address = "Shibuya City, Tokyo",
                     ConfirmationCode = "DEMO-SUSHI-1026",
-                    Notes = "Avisar alergias con 48 horas de anticipacion.",
-                    AccessLevel = ContentAccessLevel.Bundle
+                    Notes = "Avisar alergias con 48 horas de anticipacion."
                 }
             ]
         };
@@ -153,7 +155,7 @@ public static class DatabaseSeeder
         dbContext.Trips.Add(demoTrip);
     }
 
-    private static void SeedDemoUser(TravelCompanionDbContext dbContext)
+    private static void SeedDemoUser(TravelCompanionDbContext dbContext, IPasswordHasher<AppUser> passwordHasher)
     {
         var now = DateTimeOffset.UtcNow;
         var demoUser = new AppUser
@@ -161,6 +163,8 @@ public static class DatabaseSeeder
             Id = DemoUserId,
             Email = DemoUserEmail,
             DisplayName = "Demo Traveler",
+            MustChangePassword = true,
+            TemporaryPasswordIssuedAt = now,
             Entitlements =
             [
                 new UserEntitlement
@@ -187,10 +191,11 @@ public static class DatabaseSeeder
             ]
         };
 
+        demoUser.PasswordHash = passwordHasher.HashPassword(demoUser, "TravelDemo!2026");
         dbContext.AppUsers.Add(demoUser);
     }
 
-    private static async Task NormalizeDemoAccessLevelsAsync(TravelCompanionDbContext dbContext)
+    private static async Task NormalizeDemoDataAsync(TravelCompanionDbContext dbContext, IPasswordHasher<AppUser> passwordHasher)
     {
         var recommendations = await dbContext.Recommendations
             .Where(recommendation => recommendation.Id == FushimiInariRecommendationId
@@ -212,12 +217,51 @@ public static class DatabaseSeeder
             }
         }
 
-        var omakaseReservation = await dbContext.Reservations
-            .FirstOrDefaultAsync(reservation => reservation.Id == OmakaseReservationId);
+        var reservationsWithoutCity = await dbContext.Reservations
+            .Include(reservation => reservation.Trip)
+                .ThenInclude(trip => trip!.Destination)
+            .Where(reservation => string.IsNullOrWhiteSpace(reservation.City))
+            .ToListAsync();
 
-        if (omakaseReservation is not null && omakaseReservation.AccessLevel == ContentAccessLevel.Paid)
+        foreach (var reservation in reservationsWithoutCity)
         {
-            omakaseReservation.AccessLevel = ContentAccessLevel.Bundle;
+            reservation.City = InferCity(reservation);
         }
+
+        var demoTrip = await dbContext.Trips
+            .FirstOrDefaultAsync(trip => trip.Id == Guid.Parse("44444444-4444-4444-4444-444444444401"));
+
+        if (demoTrip is not null && demoTrip.AppUserId is null)
+        {
+            demoTrip.AppUserId = DemoUserId;
+        }
+
+        var demoUser = await dbContext.AppUsers.FirstOrDefaultAsync(user => user.Id == DemoUserId);
+        if (demoUser is not null && string.IsNullOrWhiteSpace(demoUser.PasswordHash))
+        {
+            demoUser.MustChangePassword = true;
+            demoUser.TemporaryPasswordIssuedAt = DateTimeOffset.UtcNow;
+            demoUser.PasswordHash = passwordHasher.HashPassword(demoUser, "TravelDemo!2026");
+        }
+    }
+
+    private static string InferCity(Reservation reservation)
+    {
+        if (reservation.Address.Contains("Tokyo", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Tokyo";
+        }
+
+        if (reservation.Address.Contains("Kyoto", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Kyoto";
+        }
+
+        if (reservation.Address.Contains("Osaka", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Osaka";
+        }
+
+        return reservation.Trip?.Destination?.Name ?? "Sin ciudad";
     }
 }

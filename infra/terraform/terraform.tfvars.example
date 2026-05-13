@@ -1,0 +1,52 @@
+environment     = "dev"
+location        = "westeurope"
+resource_prefix = "tc"
+project_name    = "travelcompanion"
+
+# Cost safety switch.
+# false = crea solo la base minima: Resource Group, Storage, Key Vault y observabilidad.
+# true  = agrega recursos con costo sostenido: App Service, Web App y PostgreSQL.
+allow_paid_resources = false
+
+app_service_sku_name     = "B1"
+app_stack_dotnet_version = "10.0"
+
+log_analytics_daily_quota_gb   = 0.1
+log_analytics_retention_in_days = 30
+app_insights_daily_cap_gb      = 0.1
+app_insights_retention_in_days = 30
+app_insights_sampling_percentage = 10
+
+enable_budget_alerts   = true
+monthly_budget_amount  = 15
+budget_alert_start_date = "2026-01-01T00:00:00Z"
+budget_alert_contact_emails = []
+budget_alert_contact_roles  = ["Owner"]
+
+postgres_version        = "16"
+postgres_sku_name       = "B_Standard_B1ms"
+postgres_storage_mb     = 32768
+postgres_database_name  = "travel_companion"
+postgres_admin_login    = "tcadmin"
+postgres_admin_password = null
+
+admin_auth_username = null
+admin_auth_password = null
+
+# Cuando allow_paid_resources = true, reemplazar los null anteriores:
+# postgres_admin_password = "replace-with-a-long-random-password"
+# admin_auth_username     = "admin"
+# admin_auth_password     = "replace-with-a-long-random-password"
+
+# Optional: allow your public IP to connect with psql/pgAdmin.
+# postgres_firewall_rules = [
+#   {
+#     name     = "JuanHome"
+#     start_ip = "203.0.113.10"
+#     end_ip   = "203.0.113.10"
+#   }
+# ]
+
+tags = {
+  owner = "juan"
+}

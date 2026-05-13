@@ -1,0 +1,141 @@
+trigger:
+  branches:
+    include:
+    - main
+    - develop
+
+pr:
+  branches:
+    include:
+    - main
+    - develop
+
+parameters:
+- name: runTerraformPlan
+  displayName: Run Terraform plan
+  type: boolean
+  default: false
+
+variables:
+  buildConfiguration: Release
+  dotnetSdkVersion: 10.0.x
+  terraformVersion: 1.8.5
+  terraformWorkingDirectory: infra/terraform
+  vmImageName: ubuntu-22.04
+  azureServiceConnection: TODO-AZURE-SERVICE-CONNECTION
+  NUGET_PACKAGES: $(Pipeline.Workspace)/.nuget/packages
+
+stages:
+- stage: Build
+  displayName: Build API
+  jobs:
+  - job: BuildApi
+    displayName: Restore and build API
+    pool:
+      vmImage: $(vmImageName)
+    timeoutInMinutes: 20
+    steps:
+    - checkout: self
+      clean: true
+      fetchDepth: 1
+
+    - task: UseDotNet@2
+      displayName: Install .NET SDK
+      inputs:
+        packageType: sdk
+        version: $(dotnetSdkVersion)
+
+    - task: Cache@2
+      displayName: Cache NuGet packages
+      inputs:
+        key: 'nuget | "$(Agent.OS)" | **/*.csproj'
+        restoreKeys: |
+          nuget | "$(Agent.OS)"
+        path: $(Pipeline.Workspace)/.nuget/packages
+
+    - script: dotnet restore src/TravelCompanion.Api/TravelCompanion.Api.csproj
+      displayName: Restore API
+
+    - script: dotnet build src/TravelCompanion.Api/TravelCompanion.Api.csproj --configuration $(buildConfiguration) --no-restore
+      displayName: Build API
+
+- stage: TerraformValidate
+  displayName: Validate Terraform
+  jobs:
+  - job: TerraformValidate
+    displayName: Format and validate Terraform
+    pool:
+      vmImage: $(vmImageName)
+    timeoutInMinutes: 15
+    steps:
+    - checkout: self
+      clean: true
+      fetchDepth: 1
+
+    - script: |
+        set -euo pipefail
+        curl -fsSLo terraform.zip "https://releases.hashicorp.com/terraform/$(terraformVersion)/terraform_$(terraformVersion)_linux_amd64.zip"
+        unzip -q terraform.zip
+        sudo mv terraform /usr/local/bin/terraform
+        terraform version
+      displayName: Install Terraform
+
+    - script: terraform fmt -check -recursive
+      displayName: Check Terraform formatting
+      workingDirectory: $(terraformWorkingDirectory)
+
+    - script: terraform init -backend=false
+      displayName: Init Terraform without backend
+      workingDirectory: $(terraformWorkingDirectory)
+
+    - script: terraform validate
+      displayName: Validate Terraform configuration
+      workingDirectory: $(terraformWorkingDirectory)
+
+- ${{ if eq(parameters.runTerraformPlan, true) }}:
+  - stage: TerraformPlan
+    displayName: Plan Terraform
+    dependsOn:
+    - Build
+    - TerraformValidate
+    condition: succeeded()
+    jobs:
+    - job: TerraformPlan
+      displayName: Create dev plan
+      pool:
+        vmImage: $(vmImageName)
+      timeoutInMinutes: 20
+      steps:
+      - checkout: self
+        clean: true
+        fetchDepth: 1
+
+      - script: |
+          set -euo pipefail
+          curl -fsSLo terraform.zip "https://releases.hashicorp.com/terraform/$(terraformVersion)/terraform_$(terraformVersion)_linux_amd64.zip"
+          unzip -q terraform.zip
+          sudo mv terraform /usr/local/bin/terraform
+          terraform version
+        displayName: Install Terraform
+
+      - task: AzureCLI@2
+        displayName: Terraform plan only
+        inputs:
+          azureSubscription: $(azureServiceConnection)
+          scriptType: bash
+          scriptLocation: inlineScript
+          workingDirectory: $(terraformWorkingDirectory)
+          inlineScript: |
+            set -euo pipefail
+            terraform init
+            terraform plan \
+              -out="$(Build.ArtifactStagingDirectory)/travel-companion-dev.tfplan" \
+              -var="environment=dev" \
+              -var="allow_paid_resources=false"
+
+      - task: PublishPipelineArtifact@1
+        displayName: Publish Terraform plan artifact
+        inputs:
+          targetPath: $(Build.ArtifactStagingDirectory)/travel-companion-dev.tfplan
+          artifact: terraform-plan-dev
+          publishLocation: pipeline

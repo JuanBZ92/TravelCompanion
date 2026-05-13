@@ -38,12 +38,61 @@ namespace TravelCompanion.Api.Data.Migrations
                         .HasMaxLength(180)
                         .HasColumnType("character varying(180)");
 
+                    b.Property<bool>("MustChangePassword")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset?>("PasswordChangedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PasswordHash")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<DateTimeOffset?>("TemporaryPasswordIssuedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Email")
                         .IsUnique();
 
                     b.ToTable("AppUsers");
+                });
+
+            modelBuilder.Entity("TravelCompanion.Api.Models.AppUserSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("LastSeenAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("UserId", "RevokedAt");
+
+                    b.ToTable("AppUserSessions");
                 });
 
             modelBuilder.Entity("TravelCompanion.Api.Models.Destination", b =>
@@ -129,7 +178,9 @@ namespace TravelCompanion.Api.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("DestinationId");
+                    b.HasIndex("DestinationId", "Title");
+
+                    b.HasIndex("DestinationId", "Category", "Title");
 
                     b.ToTable("Recommendations");
                 });
@@ -140,14 +191,14 @@ namespace TravelCompanion.Api.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<string>("AccessLevel")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
                     b.Property<string>("Address")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<string>("City")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
 
                     b.Property<string>("ConfirmationCode")
                         .IsRequired()
@@ -179,7 +230,7 @@ namespace TravelCompanion.Api.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TripId");
+                    b.HasIndex("TripId", "Date", "StartsAt");
 
                     b.ToTable("Reservations");
                 });
@@ -221,10 +272,10 @@ namespace TravelCompanion.Api.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("DestinationId");
-
                     b.HasIndex("Slug")
                         .IsUnique();
+
+                    b.HasIndex("DestinationId", "Price");
 
                     b.ToTable("TravelPackages");
                 });
@@ -233,6 +284,9 @@ namespace TravelCompanion.Api.Data.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AppUserId")
                         .HasColumnType("uuid");
 
                     b.Property<Guid>("DestinationId")
@@ -251,7 +305,9 @@ namespace TravelCompanion.Api.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("DestinationId");
+                    b.HasIndex("AppUserId", "StartsOn");
+
+                    b.HasIndex("DestinationId", "StartsOn");
 
                     b.ToTable("Trips");
                 });
@@ -289,13 +345,24 @@ namespace TravelCompanion.Api.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("DestinationId");
+                    b.HasIndex("DestinationId", "ExpiresAt");
 
-                    b.HasIndex("TravelPackageId");
+                    b.HasIndex("TravelPackageId", "ExpiresAt");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("UserId", "ExpiresAt");
 
                     b.ToTable("UserEntitlements");
+                });
+
+            modelBuilder.Entity("TravelCompanion.Api.Models.AppUserSession", b =>
+                {
+                    b.HasOne("TravelCompanion.Api.Models.AppUser", "User")
+                        .WithMany("Sessions")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("TravelCompanion.Api.Models.Recommendation", b =>
@@ -333,11 +400,18 @@ namespace TravelCompanion.Api.Data.Migrations
 
             modelBuilder.Entity("TravelCompanion.Api.Models.Trip", b =>
                 {
+                    b.HasOne("TravelCompanion.Api.Models.AppUser", "AppUser")
+                        .WithMany("Trips")
+                        .HasForeignKey("AppUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("TravelCompanion.Api.Models.Destination", "Destination")
                         .WithMany()
                         .HasForeignKey("DestinationId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("AppUser");
 
                     b.Navigation("Destination");
                 });
@@ -368,6 +442,10 @@ namespace TravelCompanion.Api.Data.Migrations
             modelBuilder.Entity("TravelCompanion.Api.Models.AppUser", b =>
                 {
                     b.Navigation("Entitlements");
+
+                    b.Navigation("Sessions");
+
+                    b.Navigation("Trips");
                 });
 
             modelBuilder.Entity("TravelCompanion.Api.Models.Destination", b =>

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:viewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
+             x:Class="TravelCompanion.Mobile.Pages.BiometricUnlockPage"
+             x:DataType="viewModels:BiometricUnlockViewModel"
+             Title="Desbloquear"
+             Shell.NavBarIsVisible="False">
+    <Grid Padding="24" RowDefinitions="*,Auto,*">
+        <VerticalStackLayout Grid.Row="1" Spacing="20">
+            <VerticalStackLayout Spacing="8">
+                <Label Text="Travel Companion" Style="{StaticResource Eyebrow}" />
+                <Label Text="Bienvenido" Style="{StaticResource Headline}" />
+                <Label Text="{Binding DisplayName, StringFormat='Desbloquea la sesion de {0}.'}" Style="{StaticResource SubHeadline}" />
+            </VerticalStackLayout>
+
+            <Border Style="{StaticResource Card}">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="8" />
+                </Border.StrokeShape>
+                <VerticalStackLayout Spacing="14">
+                    <Label Text="{Binding UnlockStatusMessage}" FontSize="14" />
+                    <Button Text="Desbloquear con biometria"
+                            Command="{Binding UnlockCommand}"
+                            IsEnabled="{Binding IsNotBusy}" />
+                    <Button Text="Usar password"
+                            Style="{StaticResource GhostButton}"
+                            Command="{Binding UsePasswordCommand}" />
+                    <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
+                </VerticalStackLayout>
+            </Border>
+        </VerticalStackLayout>
+    </Grid>
+</ContentPage>

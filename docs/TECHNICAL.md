@@ -17,6 +17,7 @@ Este documento describe como esta construido el proyecto y debe mantenerse actua
 - `TravelCompanion.slnLaunch`: perfil compartido para ejecutar varios proyectos con F5.
 - `docker-compose.yml`: PostgreSQL local.
 - `dotnet-tools.json`: herramientas locales, incluyendo `dotnet-ef`.
+- `azure-pipelines.yml`: pipeline Azure DevOps para build de API, validacion Terraform y plan manual.
 
 ## Proyectos
 
@@ -24,6 +25,39 @@ Este documento describe como esta construido el proyecto y debe mantenerse actua
 - `src/TravelCompanion.Mobile`: app .NET MAUI para iOS, Android, Windows y otros targets MAUI.
 - `src/TravelCompanion.Shared`: DTOs, enums y politicas compartidas entre API y app.
 - `tools/TravelCompanion.DevBootstrap`: bootstrap de desarrollo que levanta Docker Compose antes de iniciar API/mobile desde Visual Studio.
+- `infra/terraform`: infraestructura Azure declarada con Terraform.
+
+## Infraestructura target
+
+La infraestructura cloud objetivo para el MVP usa Azure y Terraform.
+
+Recursos base:
+
+- Azure Storage Account con container privado para media.
+- Azure Key Vault para connection strings y credenciales.
+- Application Insights y Log Analytics para observabilidad.
+
+Por control de costos, Terraform usa `allow_paid_resources = false` por defecto. En ese modo no crea App Service ni PostgreSQL Flexible Server. Al cambiarlo a `true`, agrega:
+
+- Azure App Service Linux para `TravelCompanion.Api` y Admin CMS.
+- Azure Database for PostgreSQL Flexible Server.
+- Secretos productivos en Key Vault.
+
+Log Analytics y Application Insights quedan con cotas bajas de ingesta en dev: `log_analytics_daily_quota_gb = 0.1` y `app_insights_daily_cap_gb = 0.1`.
+Tambien se define `app_insights_sampling_percentage = 10` y retention minima operativa (`30` dias) para controlar costo.
+La infraestructura agrega budget alerts mensuales por Resource Group con umbrales 50%, 80% y 100%.
+
+El directorio `infra/terraform` contiene:
+
+- `versions.tf`: providers y version minima de Terraform.
+- `variables.tf`: parametros configurables por ambiente.
+- `main.tf`: recursos Azure.
+- `outputs.tf`: valores utiles post-deploy.
+- `terraform.tfvars.example`: ejemplo local sin secretos reales.
+
+La explicacion practica de Terraform, state y flujo de trabajo esta en `docs/INFRASTRUCTURE.md`.
+
+La primera version mantiene PostgreSQL con endpoint publico y firewall. Para produccion madura, el siguiente hardening sera VNet integration/private endpoint.
 
 ## Desarrollo local
 
@@ -62,15 +96,38 @@ Entidades principales:
 - `TravelPackage`: paquete de contenido o suscripcion.
 - `Recommendation`: recomendacion geolocalizada.
 - `Trip`: viaje contratado o demo.
-- `Reservation`: reserva dentro de un viaje.
+- `Reservation`: reserva dentro de un viaje (sin nivel de acceso propio).
 - `AppUser`: usuario de la app.
+- `AppUserSession`: sesion mobile con token opaco hasheado.
 - `UserEntitlement`: acceso concedido a un usuario por compra, paquete, destino o suscripcion.
+
+`Trip` tiene `AppUserId` opcional para asociar viajes/schedules a usuarios creados en el CMS.
+
+`Reservation` guarda `City` para diferenciar reservas de viajes multi-ciudad y habilitar filtros de schedule en mobile/CMS.
+
+`AppUser` guarda `PasswordHash`, `MustChangePassword`, `TemporaryPasswordIssuedAt` y `PasswordChangedAt`. Las passwords se hashean con `PasswordHasher<AppUser>`.
+
+Indices principales orientados a query:
+
+- `Destinations`: `Slug` unico.
+- `TravelPackages`: `Slug` unico, compuesto `(DestinationId, Price)`.
+- `Recommendations`: compuestos `(DestinationId, Title)` y `(DestinationId, Category, Title)`.
+- `Trips`: compuestos `(AppUserId, StartsOn)` y `(DestinationId, StartsOn)`.
+- `Reservations`: compuesto `(TripId, Date, StartsAt)`.
+- `AppUsers`: `Email` unico.
+- `AppUserSessions`: `TokenHash` unico y compuesto `(UserId, RevokedAt)`.
+- `UserEntitlements`: compuestos `(UserId, ExpiresAt)`, `(TravelPackageId, ExpiresAt)`, `(DestinationId, ExpiresAt)`.
 
 Migraciones existentes:
 
 - `InitialCreate`
 - `AddContentAccessLevels`
 - `AddUsersAndEntitlements`
+- `AddTripUsers`
+- `AddUserPasswordsAndSessions`
+- `AddValidationAndQueryIndexes`
+- `AddReservationCity`
+- `RemoveReservationAccessLevel`
 
 Comandos EF:
 
@@ -106,21 +163,123 @@ Endpoints publicos actuales:
 - `GET /api/destinations`
 - `GET /api/packages?destinationSlug=japon`
 - `GET /api/recommendations?destinationSlug=japon&latitude=35.6762&longitude=139.6503`
+- `GET /api/mobile/bootstrap?destinationSlug=japon`
+- `POST /api/auth/login`
+- `POST /api/auth/change-password`
+- `POST /api/auth/logout`
+- `GET /api/me/entitlements`
+- `GET /api/me/schedule`
 - `GET /api/trips/44444444-4444-4444-4444-444444444401/schedule`
 - `GET /api/users/demo/entitlements`
 - `GET /api/users/{userId}/entitlements`
+- `GET /api/users/{userId}/schedule`
 
 La API serializa enums como strings usando `JsonStringEnumConverter`.
+
+La API tiene response compression habilitada con Brotli/Gzip y `ProblemDetails` registrado como baseline para respuestas de error mas consistentes. Los log levels por defecto son conservadores para reducir ruido/costo en ambientes cloud; desarrollo puede sobreescribirlos desde `appsettings.Development.json`.
+
+Validacion y errores API:
+
+- `ApiController` + DataAnnotations en DTOs de auth (`LoginRequestDto`, `ChangePasswordRequestDto`) para validar formato y longitudes.
+- `ApiBehaviorOptions.InvalidModelStateResponseFactory` configurado para devolver `ValidationProblemDetails` uniforme con `traceId`.
+- Validaciones manuales puntuales (por ejemplo paginacion y reglas de cambio de password) tambien devuelven `ValidationProblemDetails` mediante helper comun `ApiValidation.ValidationError`.
+
+Observabilidad API:
+
+- `Microsoft.ApplicationInsights.AspNetCore` habilitado con adaptive sampling.
+- Middleware `RequestObservabilityMiddleware` para:
+  - correlacion (`X-Correlation-ID`);
+  - logs de excepciones no manejadas;
+  - logs de requests lentas;
+  - logs de 4xx/5xx.
+- Interceptor EF Core `SlowDbCommandLoggingInterceptor` para:
+  - dependencias SQL lentas;
+  - errores de dependencias SQL.
+- Umbrales configurables en `Observability`:
+  - `SlowRequestThresholdMs`;
+  - `SlowDependencyThresholdMs`;
+  - `CorrelationHeaderName`.
+
+Los listados `destinations`, `packages` y `recommendations` aceptan paginacion simple:
+
+```text
+page=1&pageSize=50
+```
+
+`pageSize` debe estar entre `1` y `100`. La respuesta usa `PagedResultDto<T>`:
+
+```json
+{
+  "items": [],
+  "page": 1,
+  "pageSize": 50,
+  "totalItems": 0,
+  "totalPages": 0,
+  "hasPreviousPage": false,
+  "hasNextPage": false
+}
+```
+
+`GET /api/destinations` y `GET /api/recommendations` usan HTTP caching con `ETag`, `If-None-Match` y `Cache-Control: public, max-age=300, must-revalidate`. El ETag se calcula sobre la respuesta final paginada, incluyendo filtros y distancia cuando aplica. Si el cliente reenvia el mismo ETag en `If-None-Match` y la respuesta no cambio, la API responde `304 Not Modified` sin body.
+
+`POST /api/auth/login` recibe:
+
+```json
+{
+  "email": "demo@travelcompanion.local",
+  "password": "TravelDemo!2026"
+}
+```
+
+Y devuelve `AuthSessionDto` con `userId`, `email`, `displayName`, `mustChangePassword` y `token` si las credenciales son validas.
+
+Los endpoints `/api/me/*`, `/api/auth/change-password` y `/api/auth/logout` esperan:
+
+```text
+Authorization: Bearer <token>
+```
+
+El token completo solo se devuelve a la app. En base de datos se guarda su hash SHA-256.
+
+`GET /api/mobile/bootstrap` es un endpoint autenticado pensado para reducir llamadas iniciales desde mobile. Devuelve en una sola respuesta:
+
+- destino seleccionado;
+- entitlements activos del usuario;
+- recomendaciones del destino;
+- paquetes del destino con `isUnlocked`;
+- schedule vigente del usuario si existe.
+
+`GET /api/packages` acepta token bearer opcional. Si recibe una sesion valida, devuelve cada `TravelPackageDto` con:
+
+- `requiredAccessLevel`: `Bundle` para pago fijo o `Subscription` para suscripciones.
+- `isUnlocked`: calculado contra entitlements activos del usuario, destino y paquete.
+
+Sin token, los paquetes se devuelven como no desbloqueados.
 
 ## Admin CMS
 
 El admin vive en Razor Pages:
 
 - `/admin`: dashboard.
+- `/admin/destinations`: CRUD simple de destinos.
+- `/admin/packages`: CRUD simple de paquetes por destino y gestion de usuarios asignados al paquete seleccionado.
 - `/admin/recommendations`: CRUD simple de recomendaciones.
-- `/admin/reservations`: CRUD simple de reservas del schedule demo.
+- `/admin/reservations`: gestion de viajes por usuario/destino y CRUD de reservas por viaje.
 - `/admin/users`: gestion de usuarios y asignacion/eliminacion de entitlements.
 - `/login` y `/logout`: autenticacion por cookie.
+
+`/admin/users` genera passwords temporales al crear/resetear usuarios. En desarrollo, el CMS la muestra en pantalla para poder probar el flujo local. `LoggingUserInvitationSender` solo registra metadata de entrega pendiente y no escribe passwords en logs. En produccion debe reemplazarse por un sender real de email y evitar mostrar secretos en pantalla.
+
+Reglas CMS actuales:
+
+- Los formularios muestran errores de validacion y marcan campos obligatorios con `*`.
+- Los slugs de destinos y paquetes se normalizan a minusculas y reemplazan espacios por guiones.
+- No se puede borrar un destino con paquetes, recomendaciones o viajes asociados.
+- No se puede borrar un paquete con entitlements de usuario asociados.
+- Al activar un paquete desde `/admin/packages`, el entitlement se crea con scope de paquete y destino. Los paquetes de suscripcion generan `Subscription`; los de pago fijo generan `Bundle`.
+- Un paquete es reutilizable: se crea una vez y puede tener muchos usuarios asignados mediante entitlements.
+- En `/admin/reservations`, `Ver reservas` filtra el viaje y navega al bloque de reservas con ancla `#reservations-list`.
+- No se puede borrar un viaje con reservas asociadas; primero hay que borrar sus reservas.
 
 Credenciales de desarrollo:
 
@@ -135,24 +294,74 @@ Las credenciales locales estan en `src/TravelCompanion.Api/appsettings.Developme
 
 La app MAUI usa Shell y tabs:
 
-- Recomendaciones
+- Login
+- Ideas
 - Mapa
-- Schedule
-- Paquetes
-- Soporte
+- Viaje
+- Packs
+- Cuenta
 
 Servicios principales:
 
 - `TravelCompanionApiClient`: cliente HTTP hacia la API.
+- `AuthSessionService`: guarda metadata de sesion en Preferences y token en SecureStorage.
+- `BiometricUnlockService`: integra autenticacion biometrica local con `Oscore.Maui.Biometric`.
+- `OfflineCacheService`: guarda snapshots JSON en `FileSystem.AppDataDirectory` para fallback offline.
+- `MobileBootstrapStore`: coordina el snapshot mobile agregado de Japon, lo expone local-first y evita que cada tab tenga que pedir endpoints separados.
 - `FavoritesService`: favoritos locales usando Preferences.
 
 `TravelCompanionApiClient` usa opciones JSON compartidas con `JsonStringEnumConverter` para leer enums serializados como strings por la API.
+
+El flujo mobile actual:
+
+1. La app abre en `LoginPage` si no hay sesion local.
+2. El usuario ingresa email y password temporal de una cuenta creada en `/admin/users`.
+3. La app guarda `AuthSessionDto` localmente.
+4. Si `mustChangePassword = true`, navega a `ChangePasswordPage`.
+5. Si hay sesion valida y biometria habilitada, el arranque navega a `BiometricUnlockPage`.
+6. Si la biometria pasa, entra a la app; si falla/cancela, puede volver a login con password.
+7. Ideas, Mapa, Viaje y Packs usan `MobileBootstrapStore`, que lee primero el snapshot local y luego refresca `/api/mobile/bootstrap`.
+8. Mapa calcula distancia localmente desde las recomendaciones del bootstrap y pasa el estado de acceso al detalle.
+9. Viaje permite ver todo el schedule o filtrarlo por ciudad (`Todas las ciudades` + ciudades disponibles de las reservas).
+10. Cuenta permite activar/desactivar biometria.
+11. `Bloquear app` conserva token local y navega al desbloqueo biometrico/password.
+12. `Cerrar sesion` revoca la sesion en API, borra token local y exige login con password.
+
+Las pantallas principales usan estrategia offline `local first`:
+
+- leen primero el ultimo snapshot disponible y lo renderizan inmediatamente;
+- despues intentan descargar datos frescos;
+- si la descarga funciona, actualizan pantalla y snapshot local;
+- si falla la red/API, conservan la pantalla local y muestran `StatusMessage`;
+- si no existe snapshot, muestran el error normal.
+
+Snapshots actuales:
+
+- bootstrap mobile de Japon por usuario, usado por Ideas, Mapa, Viaje y Packs;
+- recomendaciones cercanas, schedule y paquetes se derivan de ese bootstrap compartido.
+
+Los snapshots son de solo lectura para fallback. No hay sincronizacion bidireccional ni descarga offline de tiles de mapas o imagenes.
+
+Decision vigente: por ahora no implementamos delta sync completo porque la app es mayormente read-only. La prioridad tecnica es mantener snapshots offline confiables, endpoints no chatty y agregar sync solo cuando existan mutaciones reales desde mobile.
+
+La biometria desbloquea localmente una sesion ya existente. La autenticacion real contra el backend sigue siendo email/password + token bearer.
+
+La pantalla de login tambien muestra acceso a biometria cuando existe una sesion local habilitada. Si el usuario cerro sesion completamente, no se muestra porque el token fue revocado y eliminado.
+
+Permisos/configuracion biometrica:
+
+- Android: `USE_FINGERPRINT` hasta SDK 27 y `USE_BIOMETRIC` desde SDK 28.
+- iOS: `NSFaceIDUsageDescription` en `Info.plist`.
 
 Patron de UI:
 
 - Pages XAML.
 - ViewModels con CommunityToolkit.Mvvm.
 - DTOs compartidos desde `TravelCompanion.Shared`.
+- Estilos globales en `Resources/Styles/Colors.xaml` y `Resources/Styles/Styles.xaml`.
+- Componentes visuales reutilizables via recursos XAML: `Headline`, `SubHeadline`, `Eyebrow`, `SectionTitle`, `Metadata`, `Card`, `SoftPanel`, `GoldPill` y `GhostButton`.
+- Assets visuales locales en `Resources/Images`: hero de Japon e iconos SVG para las tabs principales.
+- Las tabs principales ocultan la nav bar nativa para evitar headers redundantes; las pantallas de detalle conservan navegacion con titulo/back.
 
 ## Android local
 
@@ -221,7 +430,7 @@ El enum compartido `ContentAccessLevel` diferencia contenido:
 - `Bundle`
 - `AdminOnly`
 
-La politica compartida `ContentAccessPolicy` centraliza la evaluacion de acceso. La app mobile consulta los entitlements demo y marca recomendaciones como incluidas o bloqueadas.
+La politica compartida `ContentAccessPolicy` centraliza la evaluacion de acceso. La app mobile consulta los entitlements del usuario logueado y marca recomendaciones como incluidas o bloqueadas. La API tambien usa la misma politica para marcar paquetes como desbloqueados cuando `/api/packages` recibe token bearer.
 
 Los entitlements se pueden asignar desde `/admin/users`. Cada entitlement puede tener:
 
@@ -258,8 +467,33 @@ dotnet run --project src\TravelCompanion.Api\TravelCompanion.Api.csproj --launch
 Probar:
 
 ```text
+POST http://localhost:5289/api/auth/login
+POST http://localhost:5289/api/auth/change-password
 http://localhost:5289/api/users/demo/entitlements
+http://localhost:5289/api/me/entitlements
+http://localhost:5289/api/me/schedule
+http://localhost:5289/api/users/66666666-6666-6666-6666-666666666601/schedule
 ```
+
+Para validar infraestructura Terraform:
+
+```powershell
+cd infra\terraform
+terraform init
+terraform fmt
+terraform validate
+terraform plan
+```
+
+## Azure DevOps
+
+`azure-pipelines.yml` define:
+
+- stage `Build`: instala .NET 10, restaura y compila `TravelCompanion.Api`.
+- stage `TerraformValidate`: instala Terraform, ejecuta `terraform fmt -check`, `terraform init -backend=false` y `terraform validate`.
+- stage `TerraformPlan`: opcional, solo aparece si el parametro manual `runTerraformPlan` esta en `true`.
+
+El pipeline no ejecuta `terraform apply`. El plan usa `allow_paid_resources=false` para mantener el modo de bajo costo por defecto. Para habilitar el plan en Azure DevOps hay que crear una service connection y reemplazar `TODO-AZURE-SERVICE-CONNECTION`.
 
 ## Regla de mantenimiento
 

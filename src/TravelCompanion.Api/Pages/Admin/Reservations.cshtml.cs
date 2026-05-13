@@ -4,24 +4,45 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using TravelCompanion.Api.Data;
 using TravelCompanion.Api.Models;
-using TravelCompanion.Shared;
 
 namespace TravelCompanion.Api.Pages.Admin;
 
 public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : PageModel
 {
+    public List<TripRow> Trips { get; private set; } = [];
     public List<ReservationRow> Reservations { get; private set; } = [];
     public List<SelectListItem> TripOptions { get; private set; } = [];
-    public List<SelectListItem> AccessLevelOptions { get; } = Enum.GetValues<ContentAccessLevel>()
-        .Select(value => new SelectListItem(value.ToString(), value.ToString()))
-        .ToList();
+    public List<SelectListItem> UserOptions { get; private set; } = [];
+    public List<SelectListItem> DestinationOptions { get; private set; } = [];
+    [TempData]
+    public string? StatusMessage { get; set; }
 
     [BindProperty]
     public ReservationInput Input { get; set; } = new();
 
-    public async Task OnGetAsync(Guid? editId)
+    [BindProperty]
+    public TripForm TripInput { get; set; } = new();
+
+    public Guid? SelectedTripId { get; private set; }
+
+    public async Task OnGetAsync(Guid? selectedTripId, Guid? editId, Guid? editTripId)
     {
-        await LoadPageDataAsync();
+        SelectedTripId = selectedTripId;
+        await LoadPageDataAsync(selectedTripId);
+
+        if (editTripId.HasValue)
+        {
+            var trip = await dbContext.Trips.FindAsync(editTripId.Value);
+            if (trip is not null)
+            {
+                TripInput = TripForm.FromEntity(trip);
+                SelectedTripId = trip.Id;
+            }
+        }
+        else
+        {
+            SetDefaultTripFormValues();
+        }
 
         if (editId.HasValue)
         {
@@ -29,21 +50,106 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
             if (reservation is not null)
             {
                 Input = ReservationInput.FromEntity(reservation);
+                SelectedTripId = reservation.TripId;
             }
         }
-        else if (TripOptions.Count > 0)
+        else
         {
-            Input.TripId = Guid.Parse(TripOptions[0].Value);
-            Input.Date = DateOnly.FromDateTime(DateTime.Today);
-            Input.StartsAt = new TimeOnly(9, 0);
+            SetDefaultReservationFormValues();
         }
+    }
+
+    public async Task<IActionResult> OnPostSaveTripAsync()
+    {
+        ModelState.Remove($"{nameof(Input)}.{nameof(Input.TripId)}");
+        ModelState.Remove($"{nameof(Input)}.{nameof(Input.Title)}");
+        ModelState.Remove($"{nameof(Input)}.{nameof(Input.City)}");
+        ModelState.Remove($"{nameof(Input)}.{nameof(Input.LocationName)}");
+        ModelState.Remove($"{nameof(Input)}.{nameof(Input.Address)}");
+        ModelState.Remove($"{nameof(Input)}.{nameof(Input.ConfirmationCode)}");
+        ModelState.Remove($"{nameof(Input)}.{nameof(Input.Notes)}");
+
+        if (TripInput.UserId == Guid.Empty)
+        {
+            ModelState.AddModelError($"{nameof(TripInput)}.{nameof(TripInput.UserId)}", "Selecciona un usuario.");
+        }
+
+        if (TripInput.DestinationId == Guid.Empty)
+        {
+            ModelState.AddModelError($"{nameof(TripInput)}.{nameof(TripInput.DestinationId)}", "Selecciona un destino.");
+        }
+
+        if (string.IsNullOrWhiteSpace(TripInput.TravelerName))
+        {
+            ModelState.AddModelError($"{nameof(TripInput)}.{nameof(TripInput.TravelerName)}", "El nombre del viajero es obligatorio.");
+        }
+
+        if (TripInput.EndsOn < TripInput.StartsOn)
+        {
+            ModelState.AddModelError($"{nameof(TripInput)}.{nameof(TripInput.EndsOn)}", "La fecha final no puede ser anterior al inicio.");
+        }
+
+        if (!ModelState.IsValid)
+        {
+            SelectedTripId = TripInput.Id;
+            await LoadPageDataAsync(SelectedTripId);
+            SetDefaultReservationFormValues();
+            return Page();
+        }
+
+        Trip trip;
+        if (TripInput.Id.HasValue)
+        {
+            trip = await dbContext.Trips.FindAsync(TripInput.Id.Value)
+                ?? throw new InvalidOperationException("Trip not found.");
+        }
+        else
+        {
+            trip = new Trip
+            {
+                Id = Guid.NewGuid(),
+                DestinationId = TripInput.DestinationId,
+                TravelerName = string.Empty
+            };
+            dbContext.Trips.Add(trip);
+        }
+
+        TripInput.ApplyTo(trip);
+        await dbContext.SaveChangesAsync();
+        return RedirectToPage(new { selectedTripId = trip.Id });
     }
 
     public async Task<IActionResult> OnPostSaveAsync()
     {
+        ModelState.Remove($"{nameof(TripInput)}.{nameof(TripInput.UserId)}");
+        ModelState.Remove($"{nameof(TripInput)}.{nameof(TripInput.DestinationId)}");
+        ModelState.Remove($"{nameof(TripInput)}.{nameof(TripInput.TravelerName)}");
+
+        if (Input.TripId == Guid.Empty)
+        {
+            ModelState.AddModelError($"{nameof(Input)}.{nameof(Input.TripId)}", "Selecciona un viaje.");
+        }
+
+        if (string.IsNullOrWhiteSpace(Input.Title))
+        {
+            ModelState.AddModelError($"{nameof(Input)}.{nameof(Input.Title)}", "El titulo es obligatorio.");
+        }
+
+        if (string.IsNullOrWhiteSpace(Input.City))
+        {
+            ModelState.AddModelError($"{nameof(Input)}.{nameof(Input.City)}", "La ciudad es obligatoria.");
+        }
+
+        if (string.IsNullOrWhiteSpace(Input.LocationName))
+        {
+            ModelState.AddModelError($"{nameof(Input)}.{nameof(Input.LocationName)}", "El lugar es obligatorio.");
+        }
+
         if (!ModelState.IsValid)
         {
-            await LoadPageDataAsync();
+            SelectedTripId = Input.TripId;
+            await LoadPageDataAsync(SelectedTripId);
+            SetDefaultTripFormValues();
             return Page();
         }
 
@@ -60,6 +166,7 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
                 Id = Guid.NewGuid(),
                 TripId = Input.TripId,
                 Title = string.Empty,
+                City = string.Empty,
                 LocationName = string.Empty,
                 Address = string.Empty,
                 ConfirmationCode = string.Empty,
@@ -70,36 +177,98 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
 
         Input.ApplyTo(reservation);
         await dbContext.SaveChangesAsync();
+        return RedirectToPage(new { selectedTripId = reservation.TripId });
+    }
+
+    public async Task<IActionResult> OnPostDeleteTripAsync(Guid id)
+    {
+        var trip = await dbContext.Trips
+            .Include(existingTrip => existingTrip.Reservations)
+            .FirstOrDefaultAsync(existingTrip => existingTrip.Id == id);
+
+        if (trip is null)
+        {
+            return RedirectToPage();
+        }
+
+        if (trip.Reservations.Count > 0)
+        {
+            StatusMessage = "No se puede borrar un viaje con reservas. Borra sus reservas primero.";
+            return RedirectToPage(new { selectedTripId = id });
+        }
+
+        dbContext.Trips.Remove(trip);
+        await dbContext.SaveChangesAsync();
         return RedirectToPage();
     }
 
-    public async Task<IActionResult> OnPostDeleteAsync(Guid id)
+    public async Task<IActionResult> OnPostDeleteAsync(Guid id, Guid? selectedTripId)
     {
         var reservation = await dbContext.Reservations.FindAsync(id);
         if (reservation is not null)
         {
+            selectedTripId = reservation.TripId;
             dbContext.Reservations.Remove(reservation);
             await dbContext.SaveChangesAsync();
         }
 
-        return RedirectToPage();
+        return RedirectToPage(new { selectedTripId });
     }
 
-    private async Task LoadPageDataAsync()
+    private async Task LoadPageDataAsync(Guid? selectedTripId)
     {
+        UserOptions = await dbContext.AppUsers
+            .AsNoTracking()
+            .OrderBy(user => user.Email)
+            .Select(user => new SelectListItem($"{user.DisplayName} ({user.Email})", user.Id.ToString()))
+            .ToListAsync();
+
+        DestinationOptions = await dbContext.Destinations
+            .AsNoTracking()
+            .OrderBy(destination => destination.Name)
+            .Select(destination => new SelectListItem(destination.Name, destination.Id.ToString()))
+            .ToListAsync();
+
         TripOptions = await dbContext.Trips
             .AsNoTracking()
             .Include(trip => trip.Destination)
-            .OrderBy(trip => trip.StartsOn)
+            .Include(trip => trip.AppUser)
+            .OrderByDescending(trip => trip.StartsOn)
             .Select(trip => new SelectListItem(
-                $"{trip.TravelerName} - {(trip.Destination != null ? trip.Destination.Name : "Unknown")}",
+                $"{trip.TravelerName} - {(trip.Destination != null ? trip.Destination.Name : "Unknown")} ({trip.StartsOn:yyyy-MM-dd})",
                 trip.Id.ToString()))
             .ToListAsync();
 
-        Reservations = await dbContext.Reservations
+        Trips = await dbContext.Trips
+            .AsNoTracking()
+            .Include(trip => trip.Destination)
+            .Include(trip => trip.AppUser)
+            .Include(trip => trip.Reservations)
+            .OrderByDescending(trip => trip.StartsOn)
+            .Select(trip => new TripRow(
+                trip.Id,
+                trip.AppUser != null ? trip.AppUser.Email : "-",
+                trip.TravelerName,
+                trip.Destination != null ? trip.Destination.Name : "Unknown",
+                trip.StartsOn,
+                trip.EndsOn,
+                trip.Reservations.Count))
+            .ToListAsync();
+
+        var reservationsQuery = dbContext.Reservations
             .AsNoTracking()
             .Include(reservation => reservation.Trip)
-            .ThenInclude(trip => trip!.Destination)
+                .ThenInclude(trip => trip!.Destination)
+            .Include(reservation => reservation.Trip)
+                .ThenInclude(trip => trip!.AppUser)
+            .AsQueryable();
+
+        if (selectedTripId.HasValue)
+        {
+            reservationsQuery = reservationsQuery.Where(reservation => reservation.TripId == selectedTripId.Value);
+        }
+
+        Reservations = await reservationsQuery
             .OrderBy(reservation => reservation.Date)
             .ThenBy(reservation => reservation.StartsAt)
             .Select(reservation => new ReservationRow(
@@ -110,12 +279,69 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
                 reservation.Date,
                 reservation.StartsAt,
                 reservation.Title,
+                reservation.City,
                 reservation.LocationName,
                 reservation.Address,
-                reservation.AccessLevel,
                 reservation.ConfirmationCode))
             .ToListAsync();
     }
+
+    private void SetDefaultTripFormValues()
+    {
+        if (TripInput.UserId == Guid.Empty && UserOptions.Count > 0)
+        {
+            TripInput.UserId = Guid.Parse(UserOptions[0].Value);
+        }
+
+        if (TripInput.DestinationId == Guid.Empty && DestinationOptions.Count > 0)
+        {
+            TripInput.DestinationId = Guid.Parse(DestinationOptions[0].Value);
+        }
+
+        if (TripInput.StartsOn == default)
+        {
+            TripInput.StartsOn = DateOnly.FromDateTime(DateTime.Today);
+        }
+
+        if (TripInput.EndsOn == default)
+        {
+            TripInput.EndsOn = TripInput.StartsOn.AddDays(7);
+        }
+    }
+
+    private void SetDefaultReservationFormValues()
+    {
+        if (Input.TripId == Guid.Empty)
+        {
+            if (SelectedTripId.HasValue)
+            {
+                Input.TripId = SelectedTripId.Value;
+            }
+            else if (TripOptions.Count > 0)
+            {
+                Input.TripId = Guid.Parse(TripOptions[0].Value);
+            }
+        }
+
+        if (Input.Date == default)
+        {
+            Input.Date = DateOnly.FromDateTime(DateTime.Today);
+        }
+
+        if (Input.StartsAt == default)
+        {
+            Input.StartsAt = new TimeOnly(9, 0);
+        }
+    }
+
+    public sealed record TripRow(
+        Guid Id,
+        string UserEmail,
+        string TravelerName,
+        string DestinationName,
+        DateOnly StartsOn,
+        DateOnly EndsOn,
+        int ReservationCount);
 
     public sealed record ReservationRow(
         Guid Id,
@@ -123,9 +349,9 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
         DateOnly Date,
         TimeOnly StartsAt,
         string Title,
+        string City,
         string LocationName,
         string Address,
-        ContentAccessLevel AccessLevel,
         string ConfirmationCode);
 
     public sealed class ReservationInput
@@ -135,11 +361,11 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
         public DateOnly Date { get; set; }
         public TimeOnly StartsAt { get; set; }
         public string Title { get; set; } = string.Empty;
+        public string City { get; set; } = string.Empty;
         public string LocationName { get; set; } = string.Empty;
         public string Address { get; set; } = string.Empty;
         public string ConfirmationCode { get; set; } = string.Empty;
         public string Notes { get; set; } = string.Empty;
-        public ContentAccessLevel AccessLevel { get; set; } = ContentAccessLevel.Paid;
 
         public static ReservationInput FromEntity(Reservation reservation)
         {
@@ -150,11 +376,11 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
                 Date = reservation.Date,
                 StartsAt = reservation.StartsAt,
                 Title = reservation.Title,
+                City = reservation.City,
                 LocationName = reservation.LocationName,
                 Address = reservation.Address,
                 ConfirmationCode = reservation.ConfirmationCode,
-                Notes = reservation.Notes,
-                AccessLevel = reservation.AccessLevel
+                Notes = reservation.Notes
             };
         }
 
@@ -164,11 +390,43 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
             reservation.Date = Date;
             reservation.StartsAt = StartsAt;
             reservation.Title = Title.Trim();
+            reservation.City = City.Trim();
             reservation.LocationName = LocationName.Trim();
             reservation.Address = Address.Trim();
             reservation.ConfirmationCode = ConfirmationCode.Trim();
             reservation.Notes = Notes.Trim();
-            reservation.AccessLevel = AccessLevel;
+        }
+    }
+
+    public sealed class TripForm
+    {
+        public Guid? Id { get; set; }
+        public Guid UserId { get; set; }
+        public Guid DestinationId { get; set; }
+        public string TravelerName { get; set; } = string.Empty;
+        public DateOnly StartsOn { get; set; }
+        public DateOnly EndsOn { get; set; }
+
+        public static TripForm FromEntity(Trip trip)
+        {
+            return new TripForm
+            {
+                Id = trip.Id,
+                UserId = trip.AppUserId ?? Guid.Empty,
+                DestinationId = trip.DestinationId,
+                TravelerName = trip.TravelerName,
+                StartsOn = trip.StartsOn,
+                EndsOn = trip.EndsOn
+            };
+        }
+
+        public void ApplyTo(Trip trip)
+        {
+            trip.AppUserId = UserId;
+            trip.DestinationId = DestinationId;
+            trip.TravelerName = (TravelerName ?? string.Empty).Trim();
+            trip.StartsOn = StartsOn;
+            trip.EndsOn = EndsOn;
         }
     }
 }

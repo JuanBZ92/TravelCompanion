@@ -5,21 +5,68 @@ using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Mobile.ViewModels;
 
-public sealed partial class PackagesViewModel(TravelCompanionApiClient apiClient) : ViewModelBase
+public sealed partial class PackagesViewModel(
+    AuthSessionService authSessionService,
+    MobileBootstrapStore bootstrapStore) : ViewModelBase
 {
-    public ObservableCollection<TravelPackageDto> Packages { get; } = [];
+    public ObservableCollection<PackageListItemViewModel> Packages { get; } = [];
 
     [RelayCommand]
     private Task LoadPackagesAsync()
     {
         return LoadAsync(async () =>
         {
-            Packages.Clear();
-            var packages = await apiClient.GetPackagesAsync();
-            foreach (var package in packages)
-            {
-                Packages.Add(package);
-            }
+            await LoadPackagesLocalFirstAsync();
         });
+    }
+
+    private async Task LoadPackagesLocalFirstAsync()
+    {
+        var token = await authSessionService.GetTokenAsync();
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            authSessionService.Clear();
+            await Shell.Current.GoToAsync("//login");
+            return;
+        }
+
+        var cached = await bootstrapStore.GetCachedAsync();
+        if (cached is not null)
+        {
+            ApplyPackages(cached.Value.Packages);
+            StatusMessage = OfflineCacheService.FormatSavedAt(cached.SavedAt);
+        }
+
+        try
+        {
+            var bootstrap = await bootstrapStore.RefreshAsync(token);
+            if (bootstrap is null)
+            {
+                authSessionService.Clear();
+                await Shell.Current.GoToAsync("//login");
+                return;
+            }
+
+            ApplyPackages(bootstrap.Packages);
+            StatusMessage = null;
+        }
+        catch
+        {
+            if (cached is null)
+            {
+                throw;
+            }
+
+            StatusMessage = $"Modo offline. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
+        }
+    }
+
+    private void ApplyPackages(IReadOnlyList<TravelPackageDto> packages)
+    {
+        Packages.Clear();
+        foreach (var package in packages)
+        {
+            Packages.Add(new PackageListItemViewModel(package));
+        }
     }
 }
