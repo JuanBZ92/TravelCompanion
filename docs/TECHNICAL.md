@@ -385,6 +385,7 @@ Patron de UI:
 - `Ideas`, `Mapa`, `Viaje` y `Packs` usan `CollectionView` con `ItemSizingStrategy=MeasureFirstItem`, filas de altura estable y footer inferior para evitar clipping cuando una celda entra parcialmente al viewport.
 - Las filas recicladas evitan `SwipeView` cuando no hay acciones reales de swipe, porque en Android agrega costo visible al crear celdas nuevas durante el scroll.
 - Las listas que navegan a detalle usan `SelectionMode=None` y abren con `TapGestureRecognizer`, evitando el estado visual seleccionado de Android al volver atras.
+- Los textos inmutables de celdas (titulo, descripcion, categoria, ciudad, horarios) usan bindings `Mode=OneTime` para reducir re-evaluaciones durante scroll.
 - Estilos globales en `Resources/Styles/Colors.xaml` y `Resources/Styles/Styles.xaml`.
 - Componentes visuales reutilizables via recursos XAML: `Headline`, `SubHeadline`, `Eyebrow`, `SectionTitle`, `Metadata`, `Card`, `SoftPanel`, `GoldPill` y `GhostButton`.
 - Assets visuales locales en `Resources/Images`: hero de Japon e iconos SVG para las tabs principales.
