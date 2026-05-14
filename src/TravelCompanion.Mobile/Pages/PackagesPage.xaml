@@ -31,7 +31,8 @@
         <RefreshView Grid.Row="1"
                      Command="{Binding LoadPackagesCommand}"
                      IsRefreshing="{Binding IsRefreshing, Mode=TwoWay}">
-            <CollectionView ItemsSource="{Binding Packages}">
+            <CollectionView ItemsSource="{Binding Packages}"
+                            ItemSizingStrategy="MeasureFirstItem">
                 <CollectionView.EmptyView>
                     <Label Text="Todavia no hay paquetes disponibles." HorizontalOptions="Center" VerticalOptions="Center" />
                 </CollectionView.EmptyView>
