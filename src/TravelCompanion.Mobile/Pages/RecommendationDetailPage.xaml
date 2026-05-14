@@ -24,21 +24,20 @@
                        Opacity="0.3" />
             </Border>
 
-            <VerticalStackLayout Padding="24" Spacing="24">
+            <VerticalStackLayout Padding="24" Spacing="8">
                 <!-- Title Section -->
-                <VerticalStackLayout Spacing="8">
-                    <Label Text="{Binding Recommendation.Category}"
-                           FontSize="12"
-                           TextTransform="Uppercase"
-                           TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
-                    <Label Text="{Binding Recommendation.Title}"
-                           FontSize="28"
-                           FontAttributes="Bold"
-                           TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
-                    <Label Text="{Binding Recommendation.Neighborhood}"
-                           FontSize="16"
-                           TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}" />
-                </VerticalStackLayout>
+                <Label Text="{Binding Recommendation.Category}"
+                       FontSize="12"
+                       TextTransform="Uppercase"
+                       TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
+                <Label Text="{Binding Recommendation.Title}"
+                       FontSize="28"
+                       FontAttributes="Bold"
+                       TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
+                <Label Text="{Binding Recommendation.Neighborhood}"
+                       FontSize="16"
+                       TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}"
+                       Margin="0,0,0,16" />
 
                 <!-- Reservation Info -->
                 <Border Padding="16"
@@ -76,49 +75,47 @@
                 </Border>
 
                 <!-- Description -->
-                <VerticalStackLayout Spacing="12">
-                    <Label Text="About This Experience"
-                           FontSize="14"
-                           FontAttributes="Bold"
-                           TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
-                    <Label Text="{Binding Recommendation.Description}"
-                           FontSize="14"
-                           LineHeight="1.6"
-                           TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}" />
-                </VerticalStackLayout>
+                <Label Text="About This Experience"
+                       FontSize="14"
+                       FontAttributes="Bold"
+                       TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
+                       Margin="0,16,0,0" />
+                <Label Text="{Binding Recommendation.Description}"
+                       FontSize="14"
+                       LineHeight="1.6"
+                       TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}" />
 
                 <!-- Location -->
-                <VerticalStackLayout Spacing="12">
-                    <Label Text="Location"
-                           FontSize="14"
-                           FontAttributes="Bold"
-                           TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
-                    <Label Text="{Binding Recommendation.Neighborhood}"
-                           FontSize="14"
-                           LineHeight="1.5"
-                           TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}" />
-                </VerticalStackLayout>
+                <Label Text="Location"
+                       FontSize="14"
+                       FontAttributes="Bold"
+                       TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
+                       Margin="0,16,0,0" />
+                <Label Text="{Binding Recommendation.Neighborhood}"
+                       FontSize="14"
+                       LineHeight="1.5"
+                       TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}" />
 
                 <!-- Action Buttons -->
-                <VerticalStackLayout Spacing="12" Margin="0,12,0,24">
-                    <Button Text="View on Map"
-                            Command="{Binding OpenMapsCommand}"
-                            IsEnabled="{Binding IsUnlocked}"
-                            BackgroundColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}"
-                            TextColor="{AppThemeBinding Light={StaticResource Paper}, Dark={StaticResource PrimaryDarkText}}"
-                            HeightRequest="48"
-                            CornerRadius="12"
-                            FontSize="16"
-                            FontAttributes="Bold" />
-                    <Button Text="Contact Concierge to Book"
-                            BackgroundColor="Transparent"
-                            TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
-                            BorderColor="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
-                            BorderWidth="1"
-                            HeightRequest="48"
-                            CornerRadius="12"
-                            FontSize="16" />
-                </VerticalStackLayout>
+                <BoxView HeightRequest="28" Color="Transparent" />
+                <Button Text="View on Map"
+                        Command="{Binding OpenMapsCommand}"
+                        IsEnabled="{Binding IsUnlocked}"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}"
+                        TextColor="{AppThemeBinding Light={StaticResource Paper}, Dark={StaticResource PrimaryDarkText}}"
+                        HeightRequest="48"
+                        CornerRadius="12"
+                        FontSize="16"
+                        FontAttributes="Bold" />
+                <Button Text="Contact Concierge to Book"
+                        BackgroundColor="Transparent"
+                        TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
+                        BorderColor="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
+                        BorderWidth="1"
+                        HeightRequest="48"
+                        CornerRadius="12"
+                        FontSize="16"
+                        Margin="0,0,0,24" />
             </VerticalStackLayout>
         </VerticalStackLayout>
     </ScrollView>

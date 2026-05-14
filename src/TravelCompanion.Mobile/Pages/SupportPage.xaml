@@ -9,17 +9,16 @@
              BackgroundColor="{AppThemeBinding Light={StaticResource PaperAlt}, Dark={StaticResource Night}}">
 
     <ScrollView>
-        <VerticalStackLayout Padding="24,16,24,24" Spacing="24">
+        <VerticalStackLayout Padding="24,16,24,24" Spacing="4">
             <!-- Header -->
-            <VerticalStackLayout Spacing="4">
-                <Label Text="Support"
-                       FontSize="24"
-                       FontAttributes="Bold"
-                       TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
-                <Label Text="We're here to help"
-                       FontSize="14"
-                       TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
-            </VerticalStackLayout>
+            <Label Text="Support"
+                   FontSize="24"
+                   FontAttributes="Bold"
+                   TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
+            <Label Text="We're here to help"
+                   FontSize="14"
+                   TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                   Margin="0,0,0,20" />
 
             <!-- Concierge Support -->
             <Border Padding="20"
@@ -29,36 +28,34 @@
                 <Border.StrokeShape>
                     <RoundRectangle CornerRadius="12" />
                 </Border.StrokeShape>
-                <VerticalStackLayout Spacing="16">
-                    <VerticalStackLayout Spacing="6">
-                        <Label Text="Your Concierge"
-                               FontSize="18"
-                               FontAttributes="Bold"
-                               TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
-                        <Label Text="24/7 assistance for reservations and recommendations"
-                               FontSize="14"
-                               LineHeight="1.5"
-                               TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}" />
-                    </VerticalStackLayout>
+                <VerticalStackLayout Spacing="6">
+                    <Label Text="Your Concierge"
+                           FontSize="18"
+                           FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
+                    <Label Text="24/7 assistance for reservations and recommendations"
+                           FontSize="14"
+                           LineHeight="1.5"
+                           TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}"
+                           Margin="0,0,0,10" />
 
-                    <VerticalStackLayout Spacing="10">
-                        <Button Text="Live Chat"
-                                BackgroundColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}"
-                                TextColor="{AppThemeBinding Light={StaticResource Paper}, Dark={StaticResource PrimaryDarkText}}" />
-                        <Button Text="Send Email"
-                                Style="{StaticResource GhostButton}" />
-                    </VerticalStackLayout>
+                    <Button Text="Live Chat"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}"
+                            TextColor="{AppThemeBinding Light={StaticResource Paper}, Dark={StaticResource PrimaryDarkText}}"
+                            Margin="0,0,0,4" />
+                    <Button Text="Send Email"
+                            Style="{StaticResource GhostButton}" />
                 </VerticalStackLayout>
             </Border>
 
             <!-- Quick Help -->
-            <VerticalStackLayout Spacing="12">
-                <Label Text="Quick Help"
-                       FontSize="16"
-                       FontAttributes="Bold"
-                       TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
+            <Label Text="Quick Help"
+                   FontSize="16"
+                   FontAttributes="Bold"
+                   TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
+                   Margin="0,20,0,0" />
 
-                <Border Padding="16"
+            <Border Padding="16"
                         BackgroundColor="{AppThemeBinding Light={StaticResource Paper}, Dark={StaticResource NightSurface}}"
                         Stroke="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
                         StrokeThickness="1">
@@ -111,7 +108,6 @@
                         </Grid>
                     </Grid>
                 </Border>
-            </VerticalStackLayout>
 
             <!-- Emergency Services -->
             <Border Padding="16"
@@ -141,72 +137,71 @@
             </Border>
 
             <!-- Account Section -->
-            <VerticalStackLayout Spacing="12">
-                <Label Text="Account"
-                       FontSize="16"
-                       FontAttributes="Bold"
-                       TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
+            <Label Text="Account"
+                   FontSize="16"
+                   FontAttributes="Bold"
+                   TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
+                   Margin="0,20,0,0" />
 
-                <Border Padding="20"
+            <Border Padding="20"
                         BackgroundColor="{AppThemeBinding Light={StaticResource Paper}, Dark={StaticResource NightSurface}}"
                         Stroke="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
                         StrokeThickness="1">
                     <Border.StrokeShape>
                         <RoundRectangle CornerRadius="12" />
                     </Border.StrokeShape>
-                    <VerticalStackLayout Spacing="16">
-                        <VerticalStackLayout Spacing="4">
-                            <Label Text="{Binding DisplayName}"
-                                   FontSize="18"
-                                   FontAttributes="Bold"
-                                   TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
-                            <Label Text="{Binding Email}"
-                                   FontSize="14"
-                                   TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
-                        </VerticalStackLayout>
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="{Binding DisplayName}"
+                               FontSize="18"
+                               FontAttributes="Bold"
+                               TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
+                        <Label Text="{Binding Email}"
+                               FontSize="14"
+                               TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                               Margin="0,0,0,12" />
 
                         <BoxView HeightRequest="1"
-                                 Color="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}" />
+                                 Color="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
+                                 Margin="0,0,0,12" />
 
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
-                            <VerticalStackLayout Spacing="4">
-                                <Label Text="Biometric Login"
-                                       FontSize="14"
-                                       FontAttributes="Bold"
-                                       TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
-                                <Label Text="Use Face ID or fingerprint to unlock"
-                                       FontSize="13"
-                                       TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
-                            </VerticalStackLayout>
-                            <Switch Grid.Column="1"
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16" Margin="0,0,0,12">
+                            <Label Text="Biometric Login"
+                                   FontSize="14"
+                                   FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
+                                   VerticalOptions="Start" />
+                            <Label Grid.Column="1"
+                                   Text="Use Face ID or fingerprint to unlock"
+                                   FontSize="13"
+                                   TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                                   VerticalOptions="Start"
+                                   Margin="0,2,0,0" />
+                            <Switch Grid.Column="2"
                                     IsToggled="{Binding IsBiometricEnabled}"
-                                    VerticalOptions="Center" />
+                                    VerticalOptions="Start" />
                         </Grid>
 
-                        <VerticalStackLayout Spacing="10">
-                            <Button Text="Lock App"
-                                    Command="{Binding LockCommand}"
-                                    BackgroundColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}"
-                                    TextColor="{AppThemeBinding Light={StaticResource Paper}, Dark={StaticResource PrimaryDarkText}}" />
-                            <Button Text="Sign Out"
-                                    Style="{StaticResource GhostButton}"
-                                    Command="{Binding LogoutCommand}" />
-                        </VerticalStackLayout>
+                        <Button Text="Lock App"
+                                Command="{Binding LockCommand}"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}"
+                                TextColor="{AppThemeBinding Light={StaticResource Paper}, Dark={StaticResource PrimaryDarkText}}"
+                                Margin="0,4,0,4" />
+                        <Button Text="Sign Out"
+                                Style="{StaticResource GhostButton}"
+                                Command="{Binding LogoutCommand}" />
                     </VerticalStackLayout>
                 </Border>
-            </VerticalStackLayout>
 
             <!-- Concierge Info -->
-            <VerticalStackLayout Spacing="4" Padding="0,8">
-                <Label Text="Your dedicated concierge:"
-                       FontSize="12"
-                       TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
-                       HorizontalOptions="Center" />
-                <Label Text="Don Pepe"
-                       FontSize="14"
-                       TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
-                       HorizontalOptions="Center" />
-            </VerticalStackLayout>
+            <Label Text="Your dedicated concierge:"
+                   FontSize="12"
+                   TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                   HorizontalOptions="Center"
+                   Margin="0,28,0,0" />
+            <Label Text="Don Pepe"
+                   FontSize="14"
+                   TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
+                   HorizontalOptions="Center" />
         </VerticalStackLayout>
     </ScrollView>
 </ContentPage>
