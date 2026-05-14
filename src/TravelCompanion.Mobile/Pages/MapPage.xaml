@@ -134,80 +134,82 @@
                         TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
             </Grid>
 
-            <CollectionView Grid.Row="2"
-                            ItemsSource="{Binding NearbyRecommendations}"
-                            ItemSizingStrategy="MeasureFirstItem"
-                            SelectionMode="None">
-                    <CollectionView.EmptyView>
-                        <VerticalStackLayout HorizontalOptions="Center"
-                                           VerticalOptions="Center"
-                                           Spacing="8"
-                                           Padding="24">
-                            <Label Text="No nearby places found"
-                                   FontSize="16"
-                                   TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
-                                   HorizontalOptions="Center" />
-                            <Label Text="Use refresh button to retry"
-                                   FontSize="13"
-                                   TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
-                                   HorizontalOptions="Center" />
-                        </VerticalStackLayout>
-                    </CollectionView.EmptyView>
-                    <CollectionView.ItemsLayout>
-                        <LinearItemsLayout Orientation="Vertical"
-                                           ItemSpacing="0"
-                                           SnapPointsType="None" />
-                    </CollectionView.ItemsLayout>
-                    <CollectionView.Footer>
-                        <BoxView HeightRequest="28" Opacity="0" />
-                    </CollectionView.Footer>
-                    <CollectionView.ItemTemplate>
-                        <DataTemplate x:DataType="dtos:RecommendationDto">
-                            <Grid HeightRequest="104"
-                                  Padding="0,14"
-                                  RowDefinitions="Auto,Auto,1"
-                                  ColumnDefinitions="*,86"
-                                  BackgroundColor="{AppThemeBinding Light={StaticResource PaperAlt}, Dark={StaticResource Night}}">
-                                <Grid.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding Source={x:Reference PageRoot}, Path=BindingContext.OpenRecommendationCommand}"
-                                                          CommandParameter="{Binding .}" />
-                                </Grid.GestureRecognizers>
-                                <Label Text="{Binding Title, Mode=OneTime}"
-                                       FontSize="17"
-                                       FontAttributes="Bold"
-                                       TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
-                                       LineBreakMode="TailTruncation"
-                                       MaxLines="1" />
-                                <Label Grid.Row="1"
-                                       Text="{Binding Neighborhood, Mode=OneTime}"
-                                       FontSize="13"
-                                       Margin="0,4,0,0"
-                                       TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
-                                       LineBreakMode="TailTruncation"
-                                       MaxLines="1" />
-                                <Label Grid.Column="1"
-                                       Text="{Binding DistanceKm, StringFormat='{0:F1} km', Mode=OneTime}"
-                                       FontSize="15"
-                                       FontAttributes="Bold"
-                                       TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}"
-                                       HorizontalTextAlignment="End" />
-                                <Label Grid.Row="1"
-                                       Grid.Column="1"
-                                       Text="{Binding Category, Mode=OneTime}"
-                                       FontSize="12"
-                                       Margin="0,4,0,0"
-                                       TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
-                                       HorizontalTextAlignment="End"
-                                       LineBreakMode="TailTruncation"
-                                       MaxLines="1" />
-                                <BoxView Grid.Row="2"
-                                         Grid.ColumnSpan="2"
-                                         HeightRequest="1"
-                                         Color="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}" />
-                            </Grid>
-                        </DataTemplate>
-                    </CollectionView.ItemTemplate>
-            </CollectionView>
+            <ScrollView Grid.Row="2"
+                        VerticalScrollBarVisibility="Never">
+                <VerticalStackLayout Spacing="0">
+                    <VerticalStackLayout HorizontalOptions="Center"
+                                         VerticalOptions="Center"
+                                         Spacing="8"
+                                         Padding="24"
+                                         IsVisible="False">
+                        <VerticalStackLayout.Triggers>
+                            <DataTrigger TargetType="VerticalStackLayout"
+                                         Binding="{Binding NearbyRecommendations.Count}"
+                                         Value="0">
+                                <Setter Property="IsVisible" Value="True" />
+                            </DataTrigger>
+                        </VerticalStackLayout.Triggers>
+                        <Label Text="No nearby places found"
+                               FontSize="16"
+                               TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                               HorizontalOptions="Center" />
+                        <Label Text="Use refresh button to retry"
+                               FontSize="13"
+                               TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                               HorizontalOptions="Center" />
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Spacing="0"
+                                         BindableLayout.ItemsSource="{Binding NearbyRecommendations}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="dtos:RecommendationDto">
+                                <Grid HeightRequest="104"
+                                      Padding="0,14"
+                                      RowDefinitions="Auto,Auto,1"
+                                      ColumnDefinitions="*,86"
+                                      BackgroundColor="{AppThemeBinding Light={StaticResource PaperAlt}, Dark={StaticResource Night}}">
+                                    <Grid.GestureRecognizers>
+                                        <TapGestureRecognizer Command="{Binding Source={x:Reference PageRoot}, Path=BindingContext.OpenRecommendationCommand}"
+                                                              CommandParameter="{Binding .}" />
+                                    </Grid.GestureRecognizers>
+                                    <Label Text="{Binding Title, Mode=OneTime}"
+                                           FontSize="17"
+                                           FontAttributes="Bold"
+                                           TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
+                                           LineBreakMode="TailTruncation"
+                                           MaxLines="1" />
+                                    <Label Grid.Row="1"
+                                           Text="{Binding Neighborhood, Mode=OneTime}"
+                                           FontSize="13"
+                                           Margin="0,4,0,0"
+                                           TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                                           LineBreakMode="TailTruncation"
+                                           MaxLines="1" />
+                                    <Label Grid.Column="1"
+                                           Text="{Binding DistanceKm, StringFormat='{0:F1} km', Mode=OneTime}"
+                                           FontSize="15"
+                                           FontAttributes="Bold"
+                                           TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}"
+                                           HorizontalTextAlignment="End" />
+                                    <Label Grid.Row="1"
+                                           Grid.Column="1"
+                                           Text="{Binding Category, Mode=OneTime}"
+                                           FontSize="12"
+                                           Margin="0,4,0,0"
+                                           TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                                           HorizontalTextAlignment="End"
+                                           LineBreakMode="TailTruncation"
+                                           MaxLines="1" />
+                                    <BoxView Grid.Row="2"
+                                             Grid.ColumnSpan="2"
+                                             HeightRequest="1"
+                                             Color="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}" />
+                                </Grid>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                    <BoxView HeightRequest="28" Opacity="0" />
+                </VerticalStackLayout>
+            </ScrollView>
         </Grid>
     </Grid>
 </ContentPage>

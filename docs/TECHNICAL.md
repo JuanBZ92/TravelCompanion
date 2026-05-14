@@ -382,8 +382,9 @@ Patron de UI:
 - ViewModels con CommunityToolkit.Mvvm.
 - DTOs compartidos desde `TravelCompanion.Shared`.
 - Las listas mobile mas sensibles a scroll usan filas livianas, altura estable y separadores simples en vez de cards pesadas con multiples bordes anidados.
-- `Ideas`, `Mapa`, `Viaje` y `Packs` usan `CollectionView` con `ItemSizingStrategy=MeasureFirstItem`, filas de altura estable y footer inferior para evitar clipping cuando una celda entra parcialmente al viewport.
-- Las filas recicladas evitan `SwipeView` cuando no hay acciones reales de swipe, porque en Android agrega costo visible al crear celdas nuevas durante el scroll.
+- `Ideas`, `Mapa`, `Viaje` y `Packs` renderizan la pagina visible completa con `ScrollView` + `BindableLayout`. Como estas pantallas estan paginadas o acotadas, se evita el costo de materializar celdas por primera vez mientras el usuario scrollea.
+- Los `CollectionView` que siguen en mobile quedan reservados para listas chicas de filtros/chips o escenarios donde la virtualizacion compense el costo de crear celdas al vuelo.
+- Las filas evitan `SwipeView` cuando no hay acciones reales de swipe, porque en Android agrega costo visible al crear vistas nuevas durante el scroll.
 - Las listas que navegan a detalle usan `SelectionMode=None` y abren con `TapGestureRecognizer`, evitando el estado visual seleccionado de Android al volver atras.
 - Los textos inmutables de celdas (titulo, descripcion, categoria, ciudad, horarios) usan bindings `Mode=OneTime` para reducir re-evaluaciones durante scroll.
 - Estilos globales en `Resources/Styles/Colors.xaml` y `Resources/Styles/Styles.xaml`.

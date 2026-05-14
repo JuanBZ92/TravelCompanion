@@ -149,21 +149,22 @@
         </VerticalStackLayout>
 
         <!-- Schedule List -->
-        <CollectionView Grid.Row="3"
-                        ItemsSource="{Binding Days}"
-                        IsGrouped="True"
-                        ItemSizingStrategy="MeasureFirstItem"
-                        SelectionMode="None">
-                <CollectionView.ItemsLayout>
-                    <LinearItemsLayout Orientation="Vertical"
-                                       ItemSpacing="0"
-                                       SnapPointsType="None" />
-                </CollectionView.ItemsLayout>
-                <CollectionView.EmptyView>
+        <ScrollView Grid.Row="3"
+                    VerticalScrollBarVisibility="Never">
+            <VerticalStackLayout Spacing="0">
+                <VerticalStackLayout Spacing="0"
+                                     IsVisible="False">
+                    <VerticalStackLayout.Triggers>
+                        <DataTrigger TargetType="VerticalStackLayout"
+                                     Binding="{Binding Days.Count}"
+                                     Value="0">
+                            <Setter Property="IsVisible" Value="True" />
+                        </DataTrigger>
+                    </VerticalStackLayout.Triggers>
                     <VerticalStackLayout HorizontalOptions="Center"
-                                       VerticalOptions="Center"
-                                       Spacing="8"
-                                       Padding="24">
+                                         VerticalOptions="Center"
+                                         Spacing="8"
+                                         Padding="24">
                         <Label Text="No reservations found"
                                FontSize="16"
                                TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
@@ -173,99 +174,107 @@
                                TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
                                HorizontalOptions="Center" />
                     </VerticalStackLayout>
-                </CollectionView.EmptyView>
-                <CollectionView.Footer>
-                    <BoxView HeightRequest="28" Opacity="0" />
-                </CollectionView.Footer>
-                <CollectionView.GroupHeaderTemplate>
-                    <DataTemplate x:DataType="viewModels:ScheduleDayViewModel">
-                        <Grid Padding="0,16,0,12" HeightRequest="54" ColumnDefinitions="*,Auto">
-                            <Label Text="{Binding DayLabel}"
-                                   FontSize="18"
-                                   FontAttributes="Bold"
-                                   TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
-                            <Label Grid.Column="1"
-                                   Text="{Binding CountLabel}"
-                                   FontSize="13"
-                                   TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
-                                   VerticalOptions="Center" />
-                        </Grid>
-                    </DataTemplate>
-                </CollectionView.GroupHeaderTemplate>
+                </VerticalStackLayout>
 
-                <CollectionView.ItemTemplate>
-                    <DataTemplate x:DataType="dtos:ScheduleItemDto">
-                        <Grid HeightRequest="132"
-                              Padding="0,14"
-                              RowDefinitions="Auto,Auto,Auto,Auto,Auto,1"
-                              ColumnDefinitions="58,*"
-                              BackgroundColor="{AppThemeBinding Light={StaticResource PaperAlt}, Dark={StaticResource Night}}">
-                            <Grid.GestureRecognizers>
-                                <TapGestureRecognizer Command="{Binding Source={x:Reference PageRoot}, Path=BindingContext.OpenScheduleItemCommand}"
-                                                      CommandParameter="{Binding .}" />
-                            </Grid.GestureRecognizers>
-                            <Label Text="{Binding StartsAt, StringFormat='{0:HH\\:mm}', Mode=OneTime}"
-                                   FontSize="13"
-                                   FontAttributes="Bold"
-                                   TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}"
-                                   HorizontalTextAlignment="Center"
-                                   VerticalOptions="Start" />
-                            <HorizontalStackLayout Grid.Column="1" Spacing="8">
-                                <Label Text="{Binding TypeLabel, Mode=OneTime}"
-                                       FontSize="11"
-                                       FontAttributes="Bold"
-                                       TextTransform="Uppercase"
-                                       TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}" />
-                                <Label Text="{Binding City, Mode=OneTime}"
-                                       FontSize="11"
-                                       FontAttributes="Bold"
-                                       TextTransform="Uppercase"
-                                       TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
-                                       LineBreakMode="TailTruncation"
-                                       MaxLines="1" />
-                            </HorizontalStackLayout>
-                            <Label Grid.Row="1"
-                                   Grid.Column="1"
-                                   Text="{Binding Title, Mode=OneTime}"
-                                   FontSize="17"
-                                   FontAttributes="Bold"
-                                   Margin="0,6,0,0"
-                                   TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
-                                   LineBreakMode="TailTruncation"
-                                   MaxLines="1" />
-                            <Label Grid.Row="2"
-                                   Grid.Column="1"
-                                   Text="{Binding MainDetail, Mode=OneTime}"
-                                   FontSize="13"
-                                   Margin="0,4,0,0"
-                                   TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}"
-                                   LineBreakMode="TailTruncation"
-                                   MaxLines="1" />
-                            <Label Grid.Row="3"
-                                   Grid.Column="1"
-                                   Text="{Binding SecondaryDetail, Mode=OneTime}"
-                                   FontSize="12"
-                                   Margin="0,2,0,0"
-                                   TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
-                                   LineBreakMode="TailTruncation"
-                                   MaxLines="1" />
-                            <Label Grid.Row="4"
-                                   Grid.Column="1"
-                                   Text="{Binding EndDisplay, Mode=OneTime}"
-                                   FontSize="12"
-                                   Margin="0,2,0,0"
-                                   IsVisible="{Binding HasEnd, Mode=OneTime}"
-                                   TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
-                                   LineBreakMode="TailTruncation"
-                                   MaxLines="1" />
+                <VerticalStackLayout Spacing="0"
+                                     BindableLayout.ItemsSource="{Binding Days}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="viewModels:ScheduleDayViewModel">
+                            <VerticalStackLayout Spacing="0">
+                                <Grid Padding="0,16,0,12" HeightRequest="54" ColumnDefinitions="*,Auto">
+                                    <Label Text="{Binding DayLabel}"
+                                           FontSize="18"
+                                           FontAttributes="Bold"
+                                           TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
+                                    <Label Grid.Column="1"
+                                           Text="{Binding CountLabel}"
+                                           FontSize="13"
+                                           TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                                           VerticalOptions="Center" />
+                                </Grid>
 
-                            <BoxView Grid.Row="5"
-                                     Grid.ColumnSpan="2"
-                                     HeightRequest="1"
-                                     Color="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}" />
-                        </Grid>
-                    </DataTemplate>
-                </CollectionView.ItemTemplate>
-        </CollectionView>
+                                <VerticalStackLayout Spacing="0"
+                                                     BindableLayout.ItemsSource="{Binding .}">
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate x:DataType="dtos:ScheduleItemDto">
+                                            <Grid HeightRequest="132"
+                                                  Padding="0,14"
+                                                  RowDefinitions="Auto,Auto,Auto,Auto,Auto,1"
+                                                  ColumnDefinitions="58,*"
+                                                  BackgroundColor="{AppThemeBinding Light={StaticResource PaperAlt}, Dark={StaticResource Night}}">
+                                                <Grid.GestureRecognizers>
+                                                    <TapGestureRecognizer Command="{Binding Source={x:Reference PageRoot}, Path=BindingContext.OpenScheduleItemCommand}"
+                                                                          CommandParameter="{Binding .}" />
+                                                </Grid.GestureRecognizers>
+                                                <Label Text="{Binding StartsAt, StringFormat='{0:HH\\:mm}', Mode=OneTime}"
+                                                       FontSize="13"
+                                                       FontAttributes="Bold"
+                                                       TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}"
+                                                       HorizontalTextAlignment="Center"
+                                                       VerticalOptions="Start" />
+                                                <HorizontalStackLayout Grid.Column="1" Spacing="8">
+                                                    <Label Text="{Binding TypeLabel, Mode=OneTime}"
+                                                           FontSize="11"
+                                                           FontAttributes="Bold"
+                                                           TextTransform="Uppercase"
+                                                           TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}" />
+                                                    <Label Text="{Binding City, Mode=OneTime}"
+                                                           FontSize="11"
+                                                           FontAttributes="Bold"
+                                                           TextTransform="Uppercase"
+                                                           TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                                                           LineBreakMode="TailTruncation"
+                                                           MaxLines="1" />
+                                                </HorizontalStackLayout>
+                                                <Label Grid.Row="1"
+                                                       Grid.Column="1"
+                                                       Text="{Binding Title, Mode=OneTime}"
+                                                       FontSize="17"
+                                                       FontAttributes="Bold"
+                                                       Margin="0,6,0,0"
+                                                       TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
+                                                       LineBreakMode="TailTruncation"
+                                                       MaxLines="1" />
+                                                <Label Grid.Row="2"
+                                                       Grid.Column="1"
+                                                       Text="{Binding MainDetail, Mode=OneTime}"
+                                                       FontSize="13"
+                                                       Margin="0,4,0,0"
+                                                       TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}"
+                                                       LineBreakMode="TailTruncation"
+                                                       MaxLines="1" />
+                                                <Label Grid.Row="3"
+                                                       Grid.Column="1"
+                                                       Text="{Binding SecondaryDetail, Mode=OneTime}"
+                                                       FontSize="12"
+                                                       Margin="0,2,0,0"
+                                                       TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                                                       LineBreakMode="TailTruncation"
+                                                       MaxLines="1" />
+                                                <Label Grid.Row="4"
+                                                       Grid.Column="1"
+                                                       Text="{Binding EndDisplay, Mode=OneTime}"
+                                                       FontSize="12"
+                                                       Margin="0,2,0,0"
+                                                       IsVisible="{Binding HasEnd, Mode=OneTime}"
+                                                       TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                                                       LineBreakMode="TailTruncation"
+                                                       MaxLines="1" />
+
+                                                <BoxView Grid.Row="5"
+                                                         Grid.ColumnSpan="2"
+                                                         HeightRequest="1"
+                                                         Color="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+                                </VerticalStackLayout>
+                            </VerticalStackLayout>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+                <BoxView HeightRequest="28" Opacity="0" />
+            </VerticalStackLayout>
+        </ScrollView>
     </Grid>
 </ContentPage>
