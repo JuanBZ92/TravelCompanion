@@ -53,14 +53,14 @@ public sealed class AuthSessionService
         Preferences.Default.Set(DisplayNameKey, session.DisplayName);
         Preferences.Default.Set(MustChangePasswordKey, session.MustChangePassword);
         Preferences.Default.Set(BiometricEnabledKey, !session.MustChangePassword);
-        await SecureStorage.Default.SetAsync(TokenKey, session.Token);
+        await SecureStorage.Default.SetAsync(TokenKey, session.Token).ConfigureAwait(false);
     }
 
     public async Task<string?> GetTokenAsync()
     {
         try
         {
-            return await SecureStorage.Default.GetAsync(TokenKey);
+            return await SecureStorage.Default.GetAsync(TokenKey).ConfigureAwait(false);
         }
         catch
         {

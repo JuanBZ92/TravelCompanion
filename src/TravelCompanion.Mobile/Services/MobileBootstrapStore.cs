@@ -27,7 +27,7 @@ public sealed class MobileBootstrapStore(
 
         var cached = await offlineCacheService.GetAsync<MobileBootstrapDto>(
             GetCacheKey(currentUserId, cacheScope),
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
 
         if (cached is not null)
         {
@@ -44,7 +44,7 @@ public sealed class MobileBootstrapStore(
         string? destinationSlug = null,
         CancellationToken cancellationToken = default)
     {
-        var bootstrap = await apiClient.GetMobileBootstrapAsync(token, destinationSlug, cancellationToken);
+        var bootstrap = await apiClient.GetMobileBootstrapAsync(token, destinationSlug, cancellationToken).ConfigureAwait(false);
         if (bootstrap is null)
         {
             return null;
@@ -56,7 +56,7 @@ public sealed class MobileBootstrapStore(
         await offlineCacheService.SaveAsync(
             GetCacheKey(currentUserId, cacheScope),
             bootstrap,
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
 
         _current = bootstrap;
         _currentSavedAt = savedAt;
