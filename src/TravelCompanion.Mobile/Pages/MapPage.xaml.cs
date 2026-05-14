@@ -14,11 +14,11 @@ namespace TravelCompanion.Mobile.Pages;
 public partial class MapPage : ContentPage
 {
     private readonly MapViewModel _viewModel;
-    private bool _loaded;
 
 #if !WINDOWS
     private readonly MauiMap _map;
     private readonly Dictionary<Pin, EventHandler<PinClickedEventArgs>> _pinHandlers = new();
+    private bool _isSubscribedToRecommendations;
 #endif
 
     public MapPage()
@@ -31,7 +31,6 @@ public partial class MapPage : ContentPage
         InitializeComponent();
         BindingContext = viewModel;
         _viewModel = viewModel;
-        _viewModel.NearbyRecommendations.CollectionChanged += OnNearbyRecommendationsChanged;
 
 #if !WINDOWS
         _map = new MauiMap(MapSpan.FromCenterAndRadius(
@@ -51,12 +50,17 @@ public partial class MapPage : ContentPage
     {
         base.OnAppearing();
 
-        if (_loaded)
+#if !WINDOWS
+        SubscribeToRecommendations();
+#endif
+
+        if (_viewModel.HasLoaded)
         {
+#if !WINDOWS
+            RefreshMapPins();
+#endif
             return;
         }
-
-        _loaded = true;
 
         try
         {
@@ -72,10 +76,9 @@ public partial class MapPage : ContentPage
     {
         base.OnDisappearing();
 
-        // Unsubscribe from collection changed to prevent memory leak
-        _viewModel.NearbyRecommendations.CollectionChanged -= OnNearbyRecommendationsChanged;
-
 #if !WINDOWS
+        UnsubscribeFromRecommendations();
+
         // Clean up all pin event handlers to prevent memory leaks
         foreach (var (pin, handler) in _pinHandlers)
         {
@@ -93,6 +96,28 @@ public partial class MapPage : ContentPage
     }
 
 #if !WINDOWS
+    private void SubscribeToRecommendations()
+    {
+        if (_isSubscribedToRecommendations)
+        {
+            return;
+        }
+
+        _viewModel.NearbyRecommendations.CollectionChanged += OnNearbyRecommendationsChanged;
+        _isSubscribedToRecommendations = true;
+    }
+
+    private void UnsubscribeFromRecommendations()
+    {
+        if (!_isSubscribedToRecommendations)
+        {
+            return;
+        }
+
+        _viewModel.NearbyRecommendations.CollectionChanged -= OnNearbyRecommendationsChanged;
+        _isSubscribedToRecommendations = false;
+    }
+
     private void RefreshMapPins()
     {
         // Unsubscribe all existing pin event handlers to prevent memory leaks

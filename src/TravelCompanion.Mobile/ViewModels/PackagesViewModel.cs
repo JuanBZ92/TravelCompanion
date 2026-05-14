@@ -7,9 +7,17 @@ namespace TravelCompanion.Mobile.ViewModels;
 
 public sealed partial class PackagesViewModel(
     AuthSessionService authSessionService,
-    MobileBootstrapStore bootstrapStore) : ViewModelBase
+    MobileBootstrapStore bootstrapStore) : ViewModelBase, ISessionStateResettable
 {
     public ObservableCollection<PackageListItemViewModel> Packages { get; } = [];
+    public bool ShowInitialLoading => IsBusy && Packages.Count == 0;
+    public bool ShowEmptyState => HasLoaded && !IsBusy && Packages.Count == 0;
+
+    public void ResetForNewSession()
+    {
+        ResetLoadState();
+        Packages.Clear();
+    }
 
     [RelayCommand]
     private Task LoadPackagesAsync()
@@ -68,5 +76,14 @@ public sealed partial class PackagesViewModel(
         {
             Packages.Add(new PackageListItemViewModel(package));
         }
+
+        OnPropertyChanged(nameof(ShowEmptyState));
+        OnPropertyChanged(nameof(ShowInitialLoading));
+    }
+
+    protected override void OnLoadStateChanged()
+    {
+        OnPropertyChanged(nameof(ShowInitialLoading));
+        OnPropertyChanged(nameof(ShowEmptyState));
     }
 }

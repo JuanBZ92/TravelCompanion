@@ -9,7 +9,7 @@ namespace TravelCompanion.Mobile.ViewModels;
 
 public sealed partial class MapViewModel(
     AuthSessionService sessionService,
-    MobileBootstrapStore bootstrapStore) : ViewModelBase
+    MobileBootstrapStore bootstrapStore) : ViewModelBase, ISessionStateResettable
 {
     private const decimal TokyoStationLatitude = 35.681236m;
     private const decimal TokyoStationLongitude = 139.767125m;
@@ -80,15 +80,33 @@ public sealed partial class MapViewModel(
             if (SetProperty(ref _totalItems, value))
             {
                 OnPropertyChanged(nameof(PageSummary));
+                OnPropertyChanged(nameof(HasNearbyRecommendations));
+                OnPropertyChanged(nameof(ShowInitialLoading));
+                OnPropertyChanged(nameof(ShowEmptyState));
             }
         }
     }
 
     public bool CanGoPrevious => CurrentPage > 1;
     public bool CanGoNext => CurrentPage < TotalPages;
+    public bool HasNearbyRecommendations => TotalItems > 0;
+    public bool ShowInitialLoading => IsBusy && !HasNearbyRecommendations;
+    public bool ShowEmptyState => HasLoaded && !IsBusy && !HasNearbyRecommendations;
     public string PageSummary => TotalItems == 0
         ? "0 lugares"
         : $"Pagina {CurrentPage} de {TotalPages} · {TotalItems} lugares";
+
+    public void ResetForNewSession()
+    {
+        ResetLoadState();
+        _allNearbyRecommendations.Clear();
+        NearbyRecommendations.Clear();
+        _entitlements = null;
+        SelectedRecommendation = null;
+        CurrentPage = 1;
+        TotalPages = 1;
+        TotalItems = 0;
+    }
 
     [RelayCommand]
     private Task LoadNearbyRecommendationsAsync()
@@ -273,5 +291,11 @@ public sealed partial class MapViewModel(
         OnPropertyChanged(nameof(CanGoPrevious));
         OnPropertyChanged(nameof(CanGoNext));
         OnPropertyChanged(nameof(PageSummary));
+    }
+
+    protected override void OnLoadStateChanged()
+    {
+        OnPropertyChanged(nameof(ShowInitialLoading));
+        OnPropertyChanged(nameof(ShowEmptyState));
     }
 }

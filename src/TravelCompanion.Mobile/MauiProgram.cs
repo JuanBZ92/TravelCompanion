@@ -74,11 +74,15 @@ public static class MauiProgram
         builder.Services.AddTransient<LoginViewModel>();
         builder.Services.AddTransient<BiometricUnlockViewModel>();
         builder.Services.AddTransient<ChangePasswordViewModel>();
-        builder.Services.AddTransient<RecommendationsViewModel>();
-        builder.Services.AddTransient<MapViewModel>();
-        builder.Services.AddTransient<ScheduleViewModel>();
+        builder.Services.AddSingleton<RecommendationsViewModel>();
+        builder.Services.AddSingleton<ISessionStateResettable>(sp => sp.GetRequiredService<RecommendationsViewModel>());
+        builder.Services.AddSingleton<MapViewModel>();
+        builder.Services.AddSingleton<ISessionStateResettable>(sp => sp.GetRequiredService<MapViewModel>());
+        builder.Services.AddSingleton<ScheduleViewModel>();
+        builder.Services.AddSingleton<ISessionStateResettable>(sp => sp.GetRequiredService<ScheduleViewModel>());
         builder.Services.AddTransient<ScheduleItemDetailViewModel>();
-        builder.Services.AddTransient<PackagesViewModel>();
+        builder.Services.AddSingleton<PackagesViewModel>();
+        builder.Services.AddSingleton<ISessionStateResettable>(sp => sp.GetRequiredService<PackagesViewModel>());
         builder.Services.AddTransient<RecommendationDetailViewModel>();
         builder.Services.AddTransient<SupportViewModel>();
 

@@ -10,7 +10,7 @@ namespace TravelCompanion.Mobile.ViewModels;
 public sealed partial class RecommendationsViewModel(
     FavoritesService favoritesService,
     AuthSessionService sessionService,
-    MobileBootstrapStore bootstrapStore) : ViewModelBase
+    MobileBootstrapStore bootstrapStore) : ViewModelBase, ISessionStateResettable
 {
     private const string AllCategories = "Todas";
     private const string FavoritesCategory = "Favoritos";
@@ -96,6 +96,8 @@ public sealed partial class RecommendationsViewModel(
             {
                 OnPropertyChanged(nameof(PageSummary));
                 OnPropertyChanged(nameof(HasRecommendations));
+                OnPropertyChanged(nameof(ShowInitialLoading));
+                OnPropertyChanged(nameof(ShowEmptyState));
             }
         }
     }
@@ -103,6 +105,8 @@ public sealed partial class RecommendationsViewModel(
     public bool CanGoPrevious => CurrentPage > 1;
     public bool CanGoNext => CurrentPage < TotalPages;
     public bool HasRecommendations => TotalItems > 0;
+    public bool ShowInitialLoading => IsBusy && !HasRecommendations;
+    public bool ShowEmptyState => HasLoaded && !IsBusy && !HasRecommendations;
     public bool IsPaging
     {
         get => _isPaging;
@@ -132,12 +136,32 @@ public sealed partial class RecommendationsViewModel(
 
     public void RefreshFavoriteState()
     {
+        var hasFavoriteFilter = SelectedCategory == FavoritesCategory;
         foreach (var recommendation in _allRecommendations)
         {
             recommendation.IsFavorite = favoritesService.IsFavorite(recommendation.Id);
         }
 
-        ApplyFilters(resetPage: false);
+        if (hasFavoriteFilter)
+        {
+            ApplyFilters(resetPage: false);
+        }
+    }
+
+    public void ResetForNewSession()
+    {
+        ResetLoadState();
+        _allRecommendations.Clear();
+        Recommendations.Clear();
+        RecommendationPages.Clear();
+        Categories.Clear();
+        Categories.Add(AllCategories);
+        Categories.Add(FavoritesCategory);
+        SelectedCategory = AllCategories;
+        CurrentPage = 1;
+        TotalPages = 1;
+        TotalItems = 0;
+        IsPaging = false;
     }
 
     [RelayCommand]
@@ -215,15 +239,7 @@ public sealed partial class RecommendationsViewModel(
 
     private void ApplyFilters(bool resetPage)
     {
-        // Get filtered items without intermediate ToList() allocation
-        var filtered = SelectedCategory switch
-        {
-            FavoritesCategory => (IEnumerable<RecommendationListItemViewModel>)_allRecommendations.Where(r => r.IsFavorite),
-            AllCategories => _allRecommendations,
-            _ => _allRecommendations.Where(r => r.Category == SelectedCategory)
-        };
-
-        var filteredItems = filtered.ToList();
+        var filteredItems = GetFilteredItems().ToList();
         TotalItems = filteredItems.Count;
         TotalPages = Math.Max(1, (int)Math.Ceiling(TotalItems / (double)SelectedPageSize));
 
@@ -238,18 +254,7 @@ public sealed partial class RecommendationsViewModel(
 
         RecommendationPages.Clear();
         Recommendations.Clear();
-        for (var pageNumber = 1; pageNumber <= TotalPages; pageNumber++)
-        {
-            var pageItems = filteredItems
-                .Skip((pageNumber - 1) * SelectedPageSize)
-                .Take(SelectedPageSize)
-                .ToList();
-
-            RecommendationPages.Add(new RecommendationPageViewModel(
-                pageNumber,
-                pageItems,
-                pageNumber == CurrentPage));
-        }
+        AddPage(filteredItems, CurrentPage, isVisible: true);
 
         foreach (var recommendation in GetCurrentPageItems())
         {
@@ -273,6 +278,8 @@ public sealed partial class RecommendationsViewModel(
 
     private void SetVisiblePage(int pageNumber)
     {
+        EnsurePageExists(pageNumber);
+
         foreach (var page in RecommendationPages)
         {
             page.IsVisible = page.PageNumber == pageNumber;
@@ -288,6 +295,40 @@ public sealed partial class RecommendationsViewModel(
     private IReadOnlyList<RecommendationListItemViewModel> GetCurrentPageItems()
     {
         return RecommendationPages.FirstOrDefault(page => page.PageNumber == CurrentPage)?.Items ?? [];
+    }
+
+    private void EnsurePageExists(int pageNumber)
+    {
+        if (RecommendationPages.Any(page => page.PageNumber == pageNumber))
+        {
+            return;
+        }
+
+        var filteredItems = GetFilteredItems().ToList();
+        AddPage(filteredItems, pageNumber, isVisible: false);
+    }
+
+    private void AddPage(IReadOnlyList<RecommendationListItemViewModel> filteredItems, int pageNumber, bool isVisible)
+    {
+        var pageItems = filteredItems
+            .Skip((pageNumber - 1) * SelectedPageSize)
+            .Take(SelectedPageSize)
+            .ToList();
+
+        RecommendationPages.Add(new RecommendationPageViewModel(
+            pageNumber,
+            pageItems,
+            isVisible));
+    }
+
+    private IEnumerable<RecommendationListItemViewModel> GetFilteredItems()
+    {
+        return SelectedCategory switch
+        {
+            FavoritesCategory => _allRecommendations.Where(r => r.IsFavorite),
+            AllCategories => _allRecommendations,
+            _ => _allRecommendations.Where(r => r.Category == SelectedCategory)
+        };
     }
 
     private static bool IsUnlocked(RecommendationDto recommendation, UserEntitlementsDto? entitlements)
@@ -360,5 +401,11 @@ public sealed partial class RecommendationsViewModel(
         OnPropertyChanged(nameof(CanGoPrevious));
         OnPropertyChanged(nameof(CanGoNext));
         OnPropertyChanged(nameof(PageSummary));
+    }
+
+    protected override void OnLoadStateChanged()
+    {
+        OnPropertyChanged(nameof(ShowInitialLoading));
+        OnPropertyChanged(nameof(ShowEmptyState));
     }
 }

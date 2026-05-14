@@ -149,6 +149,8 @@ Incluye:
 - detalle de reserva;
 - apertura de direccion en mapas.
 
+Al abrir `Viaje`, la app prioriza la informacion relevante desde el momento actual: selecciona el tipo de reserva de la reserva vigente o proxima mas cercana, oculta reservas ya vencidas y solo muestra ciudades con reservas futuras o vigentes.
+
 Este modulo apunta a cubrir viajes contratados o reservas gestionadas por el negocio.
 
 El ultimo paquete mobile descargado incluye el schedule disponible offline por usuario. Si no hay conexion, la app muestra la copia local y avisa la fecha/hora de guardado.
@@ -184,6 +186,7 @@ Funciona con estrategia `local first`:
 - luego intenta descargar datos frescos y actualiza la pantalla/copia local;
 - si falla la conexion, conserva la copia local y muestra un aviso de modo offline con la fecha/hora de guardado;
 - si no existe copia local, necesita conexion y muestra el error normal.
+- durante la primera carga sin contenido local, muestra un spinner en lugar de empty states prematuros.
 
 Pantallas cubiertas:
 

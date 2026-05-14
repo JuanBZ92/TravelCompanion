@@ -6,6 +6,7 @@ public abstract partial class ViewModelBase : ObservableObject
 {
     private bool _isBusy;
     private bool _isRefreshing;
+    private bool _hasLoaded;
     private string? _errorMessage;
     private string? _statusMessage;
     private CancellationTokenSource? _loadCancellationTokenSource;
@@ -18,11 +19,27 @@ public abstract partial class ViewModelBase : ObservableObject
             if (SetProperty(ref _isBusy, value))
             {
                 OnPropertyChanged(nameof(IsNotBusy));
+                OnPropertyChanged(nameof(IsInitialLoading));
+                OnLoadStateChanged();
             }
         }
     }
 
     public bool IsNotBusy => !IsBusy;
+    public bool IsInitialLoading => IsBusy && !HasLoaded;
+
+    public bool HasLoaded
+    {
+        get => _hasLoaded;
+        protected set
+        {
+            if (SetProperty(ref _hasLoaded, value))
+            {
+                OnPropertyChanged(nameof(IsInitialLoading));
+                OnLoadStateChanged();
+            }
+        }
+    }
 
     public bool IsRefreshing
     {
@@ -76,6 +93,7 @@ public abstract partial class ViewModelBase : ObservableObject
             ErrorMessage = null;
             StatusMessage = null;
             await loadAction();
+            HasLoaded = true;
         }
         catch (OperationCanceledException)
         {
@@ -112,6 +130,7 @@ public abstract partial class ViewModelBase : ObservableObject
             ErrorMessage = null;
             StatusMessage = null;
             await loadAction(cancellationToken);
+            HasLoaded = true;
         }
         catch (OperationCanceledException)
         {
@@ -126,5 +145,21 @@ public abstract partial class ViewModelBase : ObservableObject
             IsRefreshing = false;
             IsBusy = false;
         }
+    }
+
+    protected void ResetLoadState()
+    {
+        _loadCancellationTokenSource?.Cancel();
+        _loadCancellationTokenSource?.Dispose();
+        _loadCancellationTokenSource = null;
+        IsBusy = false;
+        IsRefreshing = false;
+        ErrorMessage = null;
+        StatusMessage = null;
+        HasLoaded = false;
+    }
+
+    protected virtual void OnLoadStateChanged()
+    {
     }
 }

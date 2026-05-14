@@ -6,7 +6,6 @@ namespace TravelCompanion.Mobile.Pages;
 public partial class PackagesPage : ContentPage
 {
     private readonly PackagesViewModel _viewModel;
-    private bool _loaded;
 
     public PackagesPage()
         : this(MauiProgram.Services.GetRequiredService<PackagesViewModel>())
@@ -24,12 +23,10 @@ public partial class PackagesPage : ContentPage
     {
         base.OnAppearing();
 
-        if (_loaded)
+        if (_viewModel.HasLoaded)
         {
             return;
         }
-
-        _loaded = true;
 
         try
         {
