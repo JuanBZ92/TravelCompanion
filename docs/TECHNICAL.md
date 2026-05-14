@@ -383,7 +383,7 @@ Patron de UI:
 - DTOs compartidos desde `TravelCompanion.Shared`.
 - Las listas mobile mas sensibles a scroll usan filas livianas, altura estable y separadores simples en vez de cards pesadas con multiples bordes anidados.
 - `Ideas`, `Mapa`, `Viaje` y `Packs` renderizan la pagina visible completa con `ScrollView` + `BindableLayout`. Como estas pantallas estan paginadas o acotadas, se evita el costo de materializar celdas por primera vez mientras el usuario scrollea.
-- `Ideas` prearma las paginas filtradas en memoria visual (`RecommendationPageViewModel`) y alterna visibilidad al paginar. Esto evita reconstruir la pagina 1 al volver desde pagina 2; el costo queda concentrado al cargar/refiltrar.
+- `Ideas` usa cache visual lazy por pagina (`RecommendationPageViewModel`): renderiza solo la pagina actual en la primera carga y conserva en memoria las paginas que el usuario ya visito. Esto evita una carga inicial pesada y mantiene rapido el regreso a paginas ya visitadas.
 - Los ViewModels de tabs principales (`Ideas`, `Mapa`, `Viaje`, `Packs`) son singletons durante la sesion mobile. Cada tab carga una vez en `OnAppearing`; al volver a una tab ya visitada se reutiliza el estado en memoria y el boton `refresh` queda como recarga manual.
 - El logout resetea esos estados de sesion para evitar mostrar contenido cacheado de otro usuario.
 - Las pantallas principales muestran spinner durante la primera carga solo cuando todavia no tienen contenido local para renderizar. Si existe snapshot local, se renderiza inmediatamente aunque el refresh de red siga en curso.
