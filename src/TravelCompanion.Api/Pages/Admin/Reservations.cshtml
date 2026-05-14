@@ -109,6 +109,11 @@
                 <span asp-validation-for="Input.TripId"></span>
             </div>
             <div>
+                <label asp-for="Input.Type" class="required">Tipo</label>
+                <select asp-for="Input.Type" asp-items="Model.TypeOptions"></select>
+                <span asp-validation-for="Input.Type"></span>
+            </div>
+            <div>
                 <label asp-for="Input.Date" class="required">Fecha</label>
                 <input asp-for="Input.Date" type="date" />
                 <span asp-validation-for="Input.Date"></span>
@@ -117,6 +122,16 @@
                 <label asp-for="Input.StartsAt" class="required">Hora</label>
                 <input asp-for="Input.StartsAt" type="time" />
                 <span asp-validation-for="Input.StartsAt"></span>
+            </div>
+            <div>
+                <label asp-for="Input.EndsOn">Fecha fin <span class="muted">(opcional)</span></label>
+                <input asp-for="Input.EndsOn" type="date" />
+                <span asp-validation-for="Input.EndsOn"></span>
+            </div>
+            <div>
+                <label asp-for="Input.EndsAt">Hora fin <span class="muted">(opcional)</span></label>
+                <input asp-for="Input.EndsAt" type="time" />
+                <span asp-validation-for="Input.EndsAt"></span>
             </div>
             <div>
                 <label asp-for="Input.Title" class="required">Titulo</label>
@@ -137,6 +152,39 @@
                 <label asp-for="Input.ConfirmationCode">Codigo <span class="muted">(opcional)</span></label>
                 <input asp-for="Input.ConfirmationCode" />
                 <span asp-validation-for="Input.ConfirmationCode"></span>
+            </div>
+        </div>
+        <h3 style="margin-top: 18px;">Datos de vuelo</h3>
+        <div class="form-grid">
+            <div>
+                <label asp-for="Input.Airline">Aerolinea <span class="muted">(vuelos)</span></label>
+                <input asp-for="Input.Airline" />
+                <span asp-validation-for="Input.Airline"></span>
+            </div>
+            <div>
+                <label asp-for="Input.FlightNumber">Numero de vuelo <span class="muted">(vuelos)</span></label>
+                <input asp-for="Input.FlightNumber" />
+                <span asp-validation-for="Input.FlightNumber"></span>
+            </div>
+            <div>
+                <label asp-for="Input.OriginName">Origen <span class="muted">(vuelos)</span></label>
+                <input asp-for="Input.OriginName" />
+                <span asp-validation-for="Input.OriginName"></span>
+            </div>
+            <div>
+                <label asp-for="Input.DestinationName">Destino <span class="muted">(vuelos)</span></label>
+                <input asp-for="Input.DestinationName" />
+                <span asp-validation-for="Input.DestinationName"></span>
+            </div>
+            <div>
+                <label asp-for="Input.OriginAirport">Aeropuerto origen <span class="muted">(opcional)</span></label>
+                <input asp-for="Input.OriginAirport" />
+                <span asp-validation-for="Input.OriginAirport"></span>
+            </div>
+            <div>
+                <label asp-for="Input.DestinationAirport">Aeropuerto destino <span class="muted">(opcional)</span></label>
+                <input asp-for="Input.DestinationAirport" />
+                <span asp-validation-for="Input.DestinationAirport"></span>
             </div>
         </div>
         <div style="margin-top: 12px;">
@@ -165,6 +213,7 @@
         <thead>
             <tr>
                 <th>Fecha</th>
+                <th>Tipo</th>
                 <th>Reserva</th>
                 <th>Ciudad</th>
                 <th>Lugar</th>
@@ -180,13 +229,14 @@
                     <strong>@reservation.Date.ToString("MMM d")</strong><br />
                     <span class="muted">@reservation.StartsAt.ToString("HH\\:mm")</span>
                 </td>
+                <td>@reservation.TypeLabel</td>
                 <td>
                     <strong>@reservation.Title</strong><br />
                     <span class="muted">@reservation.TripName</span>
                 </td>
                 <td>@reservation.City</td>
                 <td>
-                    @reservation.LocationName<br />
+                    @reservation.PlaceLabel<br />
                     <span class="muted">@reservation.Address</span>
                 </td>
                 <td>@reservation.ConfirmationCode</td>

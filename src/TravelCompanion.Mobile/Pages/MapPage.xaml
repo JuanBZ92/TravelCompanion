@@ -69,7 +69,7 @@
         </Grid>
 
         <!-- Nearby Places List -->
-        <Grid Grid.Row="1" Padding="24,24,24,0" RowDefinitions="Auto,*" RowSpacing="16">
+        <Grid Grid.Row="1" Padding="24,24,24,0" RowDefinitions="Auto,Auto,*" RowSpacing="14">
             <VerticalStackLayout Spacing="4">
                 <Label Text="Near You"
                        FontSize="24"
@@ -80,10 +80,52 @@
                        TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
             </VerticalStackLayout>
 
-            <RefreshView Grid.Row="1"
+            <Grid Grid.Row="1" ColumnDefinitions="40,*,40,76" ColumnSpacing="8" HeightRequest="40">
+                <Button Text="‹"
+                        Command="{Binding PreviousPageCommand}"
+                        IsEnabled="{Binding CanGoPrevious}"
+                        FontSize="18"
+                        Padding="0"
+                        HeightRequest="36"
+                        WidthRequest="36"
+                        CornerRadius="18"
+                        BackgroundColor="Transparent"
+                        BorderColor="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
+                        BorderWidth="1"
+                        TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
+                <Label Grid.Column="1"
+                       Text="{Binding PageSummary}"
+                       FontSize="12"
+                       TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                       HorizontalTextAlignment="Center"
+                       LineBreakMode="TailTruncation"
+                       VerticalOptions="Center" />
+                <Button Grid.Column="2" 
+                        Text="›"
+                        Command="{Binding NextPageCommand}"
+                        IsEnabled="{Binding CanGoNext}"
+                        FontSize="18"
+                        Padding="0"
+                        HeightRequest="36"
+                        WidthRequest="36"
+                        CornerRadius="18"
+                        BackgroundColor="Transparent"
+                        BorderColor="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
+                        BorderWidth="1"
+                        TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
+                <Picker Grid.Column="3"
+                        ItemsSource="{Binding PageSizeOptions}"
+                        SelectedItem="{Binding SelectedPageSize}"
+                        FontSize="12"
+                        HeightRequest="36"
+                        TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
+            </Grid>
+
+            <RefreshView Grid.Row="2"
                          Command="{Binding LoadNearbyRecommendationsCommand}"
                          IsRefreshing="{Binding IsRefreshing, Mode=TwoWay}">
                 <CollectionView ItemsSource="{Binding NearbyRecommendations}"
+                                ItemSizingStrategy="MeasureFirstItem"
                                 SelectionMode="Single"
                                 SelectedItem="{Binding SelectedRecommendation, Mode=TwoWay}"
                                 SelectionChangedCommand="{Binding OpenRecommendationCommand}"

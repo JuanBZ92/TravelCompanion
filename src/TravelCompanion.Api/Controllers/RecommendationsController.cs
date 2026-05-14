@@ -41,18 +41,39 @@ public sealed class RecommendationsController(TravelCompanionDbContext dbContext
         }
 
         var totalItems = await query.CountAsync(cancellationToken);
-        var recommendations = await query.ToListAsync(cancellationToken);
-
-        var response = recommendations
-            .Select(recommendation => ToDto(recommendation, latitude, longitude))
-            .OrderBy(recommendation => recommendation.DistanceKm ?? decimal.MaxValue)
-            .ThenBy(recommendation => recommendation.Title)
+        var pagedRecommendations = await ApplyOrdering(query, latitude, longitude)
             .Skip((pagination.Page - 1) * pagination.PageSize)
             .Take(pagination.PageSize)
+            .ToListAsync(cancellationToken);
+
+        var response = pagedRecommendations
+            .Select(recommendation => ToDto(recommendation, latitude, longitude))
             .ToList();
 
         var pagedResponse = response.ToPagedResult(pagination, totalItems);
         return HttpCache.OkOrNotModified(this, pagedResponse);
+    }
+
+    private static IQueryable<Recommendation> ApplyOrdering(
+        IQueryable<Recommendation> query,
+        decimal? latitude,
+        decimal? longitude)
+    {
+        if (!latitude.HasValue || !longitude.HasValue)
+        {
+            return query.OrderBy(recommendation => recommendation.Title);
+        }
+
+        var originLatitude = latitude.Value;
+        var originLongitude = longitude.Value;
+
+        // Orden por cercania aproximada en DB para evitar cargar todo en memoria.
+        // La distancia en km para UI se calcula luego solo para la pagina pedida.
+        return query
+            .OrderBy(recommendation =>
+                (recommendation.Latitude - originLatitude) * (recommendation.Latitude - originLatitude)
+                + (recommendation.Longitude - originLongitude) * (recommendation.Longitude - originLongitude))
+            .ThenBy(recommendation => recommendation.Title);
     }
 
     private static RecommendationDto ToDto(

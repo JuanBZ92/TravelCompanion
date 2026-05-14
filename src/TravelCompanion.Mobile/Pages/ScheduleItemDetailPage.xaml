@@ -8,10 +8,10 @@
     <ScrollView>
         <VerticalStackLayout Padding="22" Spacing="18">
             <VerticalStackLayout Spacing="6">
-                <Label Text="Reserva" Style="{StaticResource Eyebrow}" />
+                <Label Text="{Binding ScheduleItem.TypeLabel}" Style="{StaticResource Eyebrow}" />
                 <Label Text="{Binding ScheduleItem.Title}" Style="{StaticResource Headline}" />
                 <Label Text="{Binding ScheduleItem.City}" Style="{StaticResource Metadata}" TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}" />
-                <Label Text="{Binding ScheduleItem.LocationName}" Style="{StaticResource SubHeadline}" />
+                <Label Text="{Binding ScheduleItem.MainDetail}" Style="{StaticResource SubHeadline}" />
             </VerticalStackLayout>
 
             <Button Text="Abrir mapa"
@@ -22,10 +22,26 @@
                     <RoundRectangle CornerRadius="8" />
                 </Border.StrokeShape>
                 <VerticalStackLayout Spacing="8">
-                    <Label Text="Reserva" Style="{StaticResource SectionTitle}" />
+                    <Label Text="Horario" Style="{StaticResource SectionTitle}" />
                     <Label Text="{Binding ScheduleItem.Date, StringFormat='Fecha: {0:dddd, MMM d}'}" FontSize="14" />
-                    <Label Text="{Binding ScheduleItem.StartsAt, StringFormat='Hora: {0:HH\\:mm}'}" FontSize="14" />
+                    <Label Text="{Binding ScheduleItem.StartDisplay}" FontSize="14" />
+                    <Label Text="{Binding ScheduleItem.EndDisplay}" IsVisible="{Binding ScheduleItem.HasEnd}" FontSize="14" />
                     <Label Text="{Binding ScheduleItem.ConfirmationCode, StringFormat='Codigo: {0}'}" FontSize="14" FontAttributes="Bold" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Style="{StaticResource Card}">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="8" />
+                </Border.StrokeShape>
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="Detalle" Style="{StaticResource SectionTitle}" />
+                    <Label Text="{Binding ScheduleItem.MainDetail}" FontSize="14" />
+                    <Label Text="{Binding ScheduleItem.SecondaryDetail}" FontSize="14" />
+                    <Label Text="{Binding ScheduleItem.Airline, StringFormat='Aerolinea: {0}'}" IsVisible="{Binding ScheduleItem.HasAirline}" FontSize="14" />
+                    <Label Text="{Binding ScheduleItem.FlightNumber, StringFormat='Vuelo: {0}'}" IsVisible="{Binding ScheduleItem.HasFlightNumber}" FontSize="14" FontAttributes="Bold" />
+                    <Label Text="{Binding ScheduleItem.OriginAirport, StringFormat='Aeropuerto origen: {0}'}" IsVisible="{Binding ScheduleItem.HasOriginAirport}" FontSize="14" />
+                    <Label Text="{Binding ScheduleItem.DestinationAirport, StringFormat='Aeropuerto destino: {0}'}" IsVisible="{Binding ScheduleItem.HasDestinationAirport}" FontSize="14" />
                 </VerticalStackLayout>
             </Border>
 

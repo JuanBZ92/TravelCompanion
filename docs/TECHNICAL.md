@@ -96,14 +96,14 @@ Entidades principales:
 - `TravelPackage`: paquete de contenido o suscripcion.
 - `Recommendation`: recomendacion geolocalizada.
 - `Trip`: viaje contratado o demo.
-- `Reservation`: reserva dentro de un viaje (sin nivel de acceso propio).
+- `Reservation`: reserva dentro de un viaje (sin nivel de acceso propio), tipada como `Event`, `Flight` o `Lodging`.
 - `AppUser`: usuario de la app.
 - `AppUserSession`: sesion mobile con token opaco hasheado.
 - `UserEntitlement`: acceso concedido a un usuario por compra, paquete, destino o suscripcion.
 
 `Trip` tiene `AppUserId` opcional para asociar viajes/schedules a usuarios creados en el CMS.
 
-`Reservation` guarda `City` para diferenciar reservas de viajes multi-ciudad y habilitar filtros de schedule en mobile/CMS.
+`Reservation` guarda `City` para diferenciar reservas de viajes multi-ciudad y habilitar filtros de schedule en mobile/CMS. Tambien guarda campos especificos opcionales para vuelos (`Airline`, `FlightNumber`, origen/destino/aeropuertos) y hospedajes (`EndsOn`, `EndsAt` como check-out o llegada).
 
 `AppUser` guarda `PasswordHash`, `MustChangePassword`, `TemporaryPasswordIssuedAt` y `PasswordChangedAt`. Las passwords se hashean con `PasswordHasher<AppUser>`.
 
@@ -113,7 +113,7 @@ Indices principales orientados a query:
 - `TravelPackages`: `Slug` unico, compuesto `(DestinationId, Price)`.
 - `Recommendations`: compuestos `(DestinationId, Title)` y `(DestinationId, Category, Title)`.
 - `Trips`: compuestos `(AppUserId, StartsOn)` y `(DestinationId, StartsOn)`.
-- `Reservations`: compuesto `(TripId, Date, StartsAt)`.
+- `Reservations`: compuesto `(TripId, Date, StartsAt)` y `(TripId, Type, Date, StartsAt)`.
 - `AppUsers`: `Email` unico.
 - `AppUserSessions`: `TokenHash` unico y compuesto `(UserId, RevokedAt)`.
 - `UserEntitlements`: compuestos `(UserId, ExpiresAt)`, `(TravelPackageId, ExpiresAt)`, `(DestinationId, ExpiresAt)`.
@@ -128,6 +128,7 @@ Migraciones existentes:
 - `AddValidationAndQueryIndexes`
 - `AddReservationCity`
 - `RemoveReservationAccessLevel`
+- `AddReservationTypes`
 
 Comandos EF:
 
@@ -150,9 +151,14 @@ docker compose up -d
 
 - Destino `japon`.
 - Paquetes `Japon Essentials` y `Travel Companion Premium`.
-- Recomendaciones demo con distintos niveles de acceso.
+- Recomendaciones demo con distintos niveles de acceso. El seeder tambien inserta/actualiza un set ampliado de recomendaciones de Japon aunque la base local ya exista, para probar scroll, filtros, mapa y paginacion.
 - Viaje demo con reservas.
 - Usuario demo `demo@travelcompanion.local` con entitlements de paquete y suscripcion.
+- Usuarios de prueba:
+  - `usuariofree@travelcompanion.local` / `PasswordFree`: sin entitlements, solo contenido `Free` desbloqueado.
+  - `usuariosub@travelcompanion.local` / `PasswordSub`: entitlement `Subscription`, contenido `Free` y `Subscription` desbloqueado.
+  - `usuariopaid@travelcompanion.local` / `PasswordPAid`: entitlement `Paid`, contenido `Free` y `Paid` desbloqueado.
+- Cada usuario de prueba tiene un viaje asignado con eventos, vuelos y hospedajes en varias ciudades. Los viajes cubren entre 2 y 3 semanas para validar filtros de schedule, listas largas y scroll mobile.
 
 Tambien normaliza algunos datos demo viejos cuando venian de migraciones anteriores, sin reemplazar contenido general del admin.
 
@@ -220,6 +226,8 @@ page=1&pageSize=50
 }
 ```
 
+`GET /api/recommendations` pagina y ordena en base de datos (no en memoria). Cuando recibe `latitude`/`longitude`, ordena por cercania aproximada en SQL y luego calcula la distancia km final solo para los items de la pagina solicitada.
+
 `GET /api/destinations` y `GET /api/recommendations` usan HTTP caching con `ETag`, `If-None-Match` y `Cache-Control: public, max-age=300, must-revalidate`. El ETag se calcula sobre la respuesta final paginada, incluyendo filtros y distancia cuando aplica. Si el cliente reenvia el mismo ETag en `If-None-Match` y la respuesta no cambio, la API responde `304 Not Modified` sin body.
 
 `POST /api/auth/login` recibe:
@@ -240,12 +248,19 @@ Authorization: Bearer <token>
 ```
 
 El token completo solo se devuelve a la app. En base de datos se guarda su hash SHA-256.
+`LastSeenAt` de `AppUserSession` se actualiza de forma throttled (cada 15 minutos por sesion como maximo) para evitar escrituras en cada request autenticado.
 
-`GET /api/mobile/bootstrap` es un endpoint autenticado pensado para reducir llamadas iniciales desde mobile. Devuelve en una sola respuesta:
+Controles de acceso actuales para datos de usuario/viaje:
+
+- `/api/users/{userId}/entitlements` y `/api/users/{userId}/schedule`: solo el propio usuario autenticado por bearer token o un admin CMS logueado por cookie.
+- `/api/trips/{id}/schedule`: solo el usuario dueño del viaje o un admin CMS.
+- `/api/users/demo/entitlements`: solo admin CMS (endpoint de soporte/demo).
+
+`GET /api/mobile/bootstrap` es un endpoint autenticado pensado para reducir llamadas iniciales desde mobile. `destinationSlug` es opcional: si no se envia, la API selecciona el primer destino disponible por nombre. Devuelve en una sola respuesta:
 
 - destino seleccionado;
 - entitlements activos del usuario;
-- recomendaciones del destino;
+- recomendaciones del destino filtradas por acceso del usuario;
 - paquetes del destino con `isUnlocked`;
 - schedule vigente del usuario si existe.
 
@@ -306,7 +321,7 @@ Servicios principales:
 - `TravelCompanionApiClient`: cliente HTTP hacia la API.
 - `AuthSessionService`: guarda metadata de sesion en Preferences y token en SecureStorage.
 - `BiometricUnlockService`: integra autenticacion biometrica local con `Oscore.Maui.Biometric`.
-- `OfflineCacheService`: guarda snapshots JSON en `FileSystem.AppDataDirectory` para fallback offline.
+- `OfflineCacheService`: guarda snapshots offline cifrados (AES-GCM) en `FileSystem.AppDataDirectory` usando una clave simetrica por dispositivo protegida en `SecureStorage`.
 - `MobileBootstrapStore`: coordina el snapshot mobile agregado de Japon, lo expone local-first y evita que cada tab tenga que pedir endpoints separados.
 - `FavoritesService`: favoritos locales usando Preferences.
 
@@ -321,11 +336,12 @@ El flujo mobile actual:
 5. Si hay sesion valida y biometria habilitada, el arranque navega a `BiometricUnlockPage`.
 6. Si la biometria pasa, entra a la app; si falla/cancela, puede volver a login con password.
 7. Ideas, Mapa, Viaje y Packs usan `MobileBootstrapStore`, que lee primero el snapshot local y luego refresca `/api/mobile/bootstrap`.
-8. Mapa calcula distancia localmente desde las recomendaciones del bootstrap y pasa el estado de acceso al detalle.
-9. Viaje permite ver todo el schedule o filtrarlo por ciudad (`Todas las ciudades` + ciudades disponibles de las reservas).
-10. Cuenta permite activar/desactivar biometria.
-11. `Bloquear app` conserva token local y navega al desbloqueo biometrico/password.
-12. `Cerrar sesion` revoca la sesion en API, borra token local y exige login con password.
+8. Ideas y Mapa aplican paginacion local sobre las recomendaciones desbloqueadas para limitar el trabajo de render y mejorar scroll. El refresh conserva la pagina actual cuando los datos refrescados siguen teniendo esa pagina disponible.
+9. Mapa calcula distancia localmente desde las recomendaciones del bootstrap y pasa el estado de acceso al detalle.
+10. Viaje permite alternar por tipo de reserva (`Eventos`, `Vuelos`, `Hospedajes`) y luego filtrar por ciudad dentro del tipo seleccionado.
+11. Cuenta permite activar/desactivar biometria.
+12. `Bloquear app` conserva token local y navega al desbloqueo biometrico/password.
+13. `Cerrar sesion` revoca la sesion en API, borra token local y exige login con password.
 
 Las pantallas principales usan estrategia offline `local first`:
 
@@ -337,10 +353,17 @@ Las pantallas principales usan estrategia offline `local first`:
 
 Snapshots actuales:
 
-- bootstrap mobile de Japon por usuario, usado por Ideas, Mapa, Viaje y Packs;
+- bootstrap mobile por usuario y destino (cache key con `destinationSlug`), usado por Ideas, Mapa, Viaje y Packs;
 - recomendaciones cercanas, schedule y paquetes se derivan de ese bootstrap compartido.
 
 Los snapshots son de solo lectura para fallback. No hay sincronizacion bidireccional ni descarga offline de tiles de mapas o imagenes.
+
+Formato de cache offline:
+
+- El contenido sensible (schedule, recomendaciones, entitlements y paquetes) se serializa y cifra con AES-GCM.
+- La clave de cifrado se guarda en `SecureStorage` (`offline_cache_encryption_key_v1`).
+- El archivo local contiene solo un envelope cifrado (`version`, `nonce`, `tag`, `ciphertext`).
+- Si existe cache legacy en texto plano, se lee una vez y se migra automaticamente al formato cifrado.
 
 Decision vigente: por ahora no implementamos delta sync completo porque la app es mayormente read-only. La prioridad tecnica es mantener snapshots offline confiables, endpoints no chatty y agregar sync solo cuando existan mutaciones reales desde mobile.
 
@@ -358,6 +381,8 @@ Patron de UI:
 - Pages XAML.
 - ViewModels con CommunityToolkit.Mvvm.
 - DTOs compartidos desde `TravelCompanion.Shared`.
+- Las listas mobile mas sensibles a scroll usan filas livianas, altura estable y separadores simples en vez de cards pesadas con multiples bordes anidados.
+- `Ideas` y `Viaje` usan `CollectionView` con `ItemSizingStrategy=MeasureFirstItem`, filas de altura estable y footer inferior para evitar clipping cuando una celda entra parcialmente al viewport.
 - Estilos globales en `Resources/Styles/Colors.xaml` y `Resources/Styles/Styles.xaml`.
 - Componentes visuales reutilizables via recursos XAML: `Headline`, `SubHeadline`, `Eyebrow`, `SectionTitle`, `Metadata`, `Card`, `SoftPanel`, `GoldPill` y `GhostButton`.
 - Assets visuales locales en `Resources/Images`: hero de Japon e iconos SVG para las tabs principales.
@@ -395,9 +420,17 @@ Para usar un telefono fisico:
 4. Aceptar el prompt de confianza/RSA en el telefono.
 5. En Visual Studio, seleccionar el dispositivo Android en el dropdown de target y presionar F5.
 
-En Android fisico la app usa `http://127.0.0.1:5289` y depende de `adb reverse tcp:5289 tcp:5289` para llegar a la API que corre en la PC. `TravelCompanion.DevBootstrap` configura ese reverse automaticamente para dispositivos Android autorizados antes de iniciar API/mobile desde el perfil `Travel Companion Dev`.
+La app mobile resuelve su base URL con esta prioridad:
 
-En emulador Android la app usa `http://10.0.2.2:5289`, que es el alias del host desde el emulador.
+1. variable de entorno `TRAVELCOMPANION_API_BASE_URL`;
+2. fallback seguro por plataforma:
+   - Android emulador: `http://10.0.2.2:5289`;
+   - Android fisico: `http://127.0.0.1:5289` (via `adb reverse tcp:5289 tcp:5289`);
+   - resto: `https://localhost:7090`.
+
+HTTP solo se permite para hosts locales (`localhost`, `127.0.0.1`, `::1`, `10.0.2.2`) para desarrollo local, incluso al iniciar sin debugger desde Visual Studio. Para ambientes remotos/dev/staging/prod, `TRAVELCOMPANION_API_BASE_URL` debe apuntar a HTTPS.
+
+Android ya no usa cleartext global: `usesCleartextTraffic=false` con `network_security_config` que habilita excepciones de HTTP solo para esos hosts de desarrollo.
 
 Para verificar desde terminal:
 
@@ -444,7 +477,7 @@ Los entitlements se pueden asignar desde `/admin/users`. Cada entitlement puede 
 Regla actual:
 
 - `Free`: visible para todos.
-- `Paid`: desbloqueado por pago, suscripcion, bundle o acceso a destino/paquete.
+- `Paid`: desbloqueado por pago fijo, bundle o acceso explicito a destino/paquete.
 - `Subscription`: desbloqueado por suscripcion.
 - `Bundle`: desbloqueado por bundle o acceso a destino/paquete.
 - `AdminOnly`: bloqueado para la app publica.

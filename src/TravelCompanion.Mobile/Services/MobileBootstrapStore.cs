@@ -12,16 +12,21 @@ public sealed class MobileBootstrapStore(
     private Guid? _currentUserId;
 
     public async Task<OfflineCacheResult<MobileBootstrapDto>?> GetCachedAsync(
+        string? destinationSlug = null,
         CancellationToken cancellationToken = default)
     {
         var currentUserId = sessionService.CurrentUserId;
-        if (_current is not null && _currentUserId == currentUserId && _currentSavedAt.HasValue)
+        var cacheScope = NormalizeCacheScope(destinationSlug);
+        if (_current is not null
+            && _currentUserId == currentUserId
+            && _currentSavedAt.HasValue
+            && string.Equals(NormalizeCacheScope(_current.Destination.Slug), cacheScope, StringComparison.Ordinal))
         {
             return new OfflineCacheResult<MobileBootstrapDto>(_current, _currentSavedAt.Value);
         }
 
         var cached = await offlineCacheService.GetAsync<MobileBootstrapDto>(
-            GetCacheKey(currentUserId),
+            GetCacheKey(currentUserId, cacheScope),
             cancellationToken);
 
         if (cached is not null)
@@ -36,9 +41,10 @@ public sealed class MobileBootstrapStore(
 
     public async Task<MobileBootstrapDto?> RefreshAsync(
         string token,
+        string? destinationSlug = null,
         CancellationToken cancellationToken = default)
     {
-        var bootstrap = await apiClient.GetMobileBootstrapAsync(token, cancellationToken);
+        var bootstrap = await apiClient.GetMobileBootstrapAsync(token, destinationSlug, cancellationToken);
         if (bootstrap is null)
         {
             return null;
@@ -46,8 +52,9 @@ public sealed class MobileBootstrapStore(
 
         var savedAt = DateTimeOffset.UtcNow;
         var currentUserId = sessionService.CurrentUserId;
+        var cacheScope = NormalizeCacheScope(bootstrap.Destination.Slug);
         await offlineCacheService.SaveAsync(
-            GetCacheKey(currentUserId),
+            GetCacheKey(currentUserId, cacheScope),
             bootstrap,
             cancellationToken);
 
@@ -58,8 +65,18 @@ public sealed class MobileBootstrapStore(
         return bootstrap;
     }
 
-    private static string GetCacheKey(Guid? userId)
+    private static string GetCacheKey(Guid? userId, string cacheScope)
     {
-        return $"mobile-bootstrap-japon-{userId?.ToString() ?? "anonymous"}";
+        return $"mobile-bootstrap-{cacheScope}-{userId?.ToString() ?? "anonymous"}";
+    }
+
+    private static string NormalizeCacheScope(string? destinationSlug)
+    {
+        if (string.IsNullOrWhiteSpace(destinationSlug))
+        {
+            return "auto";
+        }
+
+        return destinationSlug.Trim().ToLowerInvariant();
     }
 }

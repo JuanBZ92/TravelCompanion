@@ -69,6 +69,7 @@ Comportamiento actual en la app:
 - La app consulta los accesos del usuario logueado.
 - Las recomendaciones aparecen como incluidas o bloqueadas segun el acceso.
 - El usuario demo tiene acceso a Japon Essentials y Travel Companion Premium.
+- Las cuentas de prueba separan escenarios: usuario free solo desbloquea contenido gratis, usuario subscription desbloquea gratis y suscripcion, usuario paid desbloquea gratis y pago fijo.
 
 ## App mobile
 
@@ -107,9 +108,13 @@ La tab `Ideas` permite:
 - ver recomendaciones curadas de Japon;
 - filtrar por categoria;
 - filtrar favoritos;
+- paginar resultados y elegir cuantas recomendaciones ver por pagina;
+- refrescar datos manteniendo la pagina actual cuando el filtro sigue siendo valido;
 - marcar o quitar favoritos;
 - ver barrio, descripcion, duracion sugerida y nivel de acceso;
 - abrir el detalle de una recomendacion.
+
+La app oculta recomendaciones que la cuenta no tiene desbloqueadas. Por ejemplo, el usuario free solo ve contenido gratis; el usuario de suscripcion ve gratis y suscripcion; el usuario paid ve gratis y pago fijo.
 
 Para que la experiencia inicial sea mas rapida y robusta, Ideas usa un paquete de datos mobile compartido con destino, recomendaciones, accesos, paquetes y schedule del usuario. Esa copia queda guardada para consulta offline.
 
@@ -125,7 +130,7 @@ La tab `Mapa` muestra recomendaciones cercanas.
 
 En plataformas mobile compatibles se usa mapa nativo. En Windows se muestra una experiencia fallback con lista cercana.
 
-La lista cercana se deriva del paquete mobile compartido y calcula distancias localmente. Eso evita otra llamada de red al entrar al mapa y permite consultar lugares cercanos con la copia offline.
+La lista cercana se deriva del paquete mobile compartido, calcula distancias localmente y muestra solo la pagina actual para evitar renderizar demasiados pins/list items juntos. Al refrescar, mantiene la pagina actual si sigue existiendo.
 
 ### Viaje
 
@@ -135,9 +140,12 @@ Incluye:
 
 - titulo del viaje;
 - fechas del viaje;
-- selector para ver todo el viaje o filtrar por ciudad;
+- selector superior para alternar entre eventos, vuelos y hospedajes;
+- selector para filtrar por ciudad dentro del tipo seleccionado;
 - reservas por dia;
-- ciudad, hora, lugar, direccion y codigo de confirmacion;
+- para eventos: ciudad, hora, lugar, direccion y codigo de confirmacion;
+- para vuelos: fecha/hora de salida, llegada, aerolinea, numero de vuelo, origen/destino y aeropuertos;
+- para hospedajes: alojamiento, direccion, dia/hora de check-in y dia/hora de check-out;
 - detalle de reserva;
 - apertura de direccion en mapas.
 
@@ -208,6 +216,9 @@ Funciones existentes:
 - CRUD de recomendaciones;
 - crear, editar y borrar viajes por usuario/destino;
 - CRUD de reservas dentro de cada viaje;
+- tipo de reserva: evento, vuelo u hospedaje;
+- campos especificos para vuelos (aerolinea, vuelo, origen/destino, aeropuertos);
+- campos especificos para hospedajes (check-in/check-out, direccion y alojamiento);
 - ciudad obligatoria por reserva para organizar viajes multi-ciudad;
 - salto directo desde un viaje hacia sus reservas filtradas;
 - crear y editar usuarios;
@@ -235,7 +246,7 @@ Estado actual:
 - API emite tokens opacos y guarda solo hash del token.
 - Los errores de validacion de login/cambio de password y paginacion se devuelven en formato consistente (`ValidationProblemDetails`) para que la app pueda mostrar mensajes de forma uniforme.
 - Mobile guarda la sesion local y usa token bearer para refrescar datos de viaje.
-- Mobile usa un bootstrap autenticado compartido para cargar recomendaciones, accesos, schedule y paquetes de Japon en menos llamadas.
+- Mobile usa un bootstrap autenticado compartido para cargar recomendaciones, accesos, schedule y paquetes del destino activo en menos llamadas.
 - Mobile deriva Ideas, Mapa, Viaje y Packs desde ese bootstrap y ve si cada contenido/paquete esta desbloqueado para su cuenta.
 - Mobile guarda una copia offline del bootstrap por usuario.
 - Mobile puede desbloquear una sesion local con biometria del dispositivo.
@@ -254,7 +265,8 @@ El modelo de entitlements ya prepara la app para compras, paquetes o suscripcion
 Contenido demo actual:
 
 - Destino: Japon.
-- Recomendaciones:
+- Recomendaciones: mas de 35 recomendaciones repartidas entre Tokyo, Kyoto, Osaka, Hiroshima, Miyajima, Sapporo y excursiones, con niveles `Free`, `Paid` y `Subscription` para probar scroll, filtros, mapa y paginacion.
+- Recomendaciones base:
   - Tsukiji Outer Market: gratis.
   - Fushimi Inari Taisha: pago fijo.
   - Dotonbori: suscripcion.
@@ -267,6 +279,10 @@ Contenido demo actual:
   - acceso a Japon Essentials;
   - acceso a Travel Companion Premium.
   - viaje demo de Japon asignado.
+- Usuarios de prueba:
+  - `usuariofree@travelcompanion.local` / `PasswordFree`: viaje de 2 semanas por Tokyo, Osaka y Kyoto; solo contenido gratis incluido.
+  - `usuariosub@travelcompanion.local` / `PasswordSub`: viaje de mas de 2 semanas por Tokyo, Kyoto, Osaka y Nara; contenido gratis y de suscripcion incluido.
+  - `usuariopaid@travelcompanion.local` / `PasswordPAid`: viaje de 3 semanas por Tokyo, Osaka, Kobe, Hiroshima, Miyajima, Sapporo y Otaru; contenido gratis y de pago fijo incluido.
 
 ## Roadmap funcional sugerido
 

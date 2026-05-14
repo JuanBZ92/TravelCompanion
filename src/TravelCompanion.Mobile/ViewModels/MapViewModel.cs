@@ -13,16 +13,82 @@ public sealed partial class MapViewModel(
 {
     private const decimal TokyoStationLatitude = 35.681236m;
     private const decimal TokyoStationLongitude = 139.767125m;
+    private readonly List<RecommendationDto> _allNearbyRecommendations = [];
     private UserEntitlementsDto? _entitlements;
     private RecommendationDto? _selectedRecommendation;
+    private int _selectedPageSize = 10;
+    private int _currentPage = 1;
+    private int _totalPages = 1;
+    private int _totalItems;
 
     public ObservableCollection<RecommendationDto> NearbyRecommendations { get; } = [];
+    public ObservableCollection<int> PageSizeOptions { get; } = [10, 20, 50];
 
     public RecommendationDto? SelectedRecommendation
     {
         get => _selectedRecommendation;
         set => SetProperty(ref _selectedRecommendation, value);
     }
+
+    public int SelectedPageSize
+    {
+        get => _selectedPageSize;
+        set
+        {
+            if (value <= 0)
+            {
+                return;
+            }
+
+            if (SetProperty(ref _selectedPageSize, value))
+            {
+                CurrentPage = 1;
+                ApplyCurrentPage();
+            }
+        }
+    }
+
+    public int CurrentPage
+    {
+        get => _currentPage;
+        private set
+        {
+            if (SetProperty(ref _currentPage, value))
+            {
+                OnPaginationChanged();
+            }
+        }
+    }
+
+    public int TotalPages
+    {
+        get => _totalPages;
+        private set
+        {
+            if (SetProperty(ref _totalPages, value))
+            {
+                OnPaginationChanged();
+            }
+        }
+    }
+
+    public int TotalItems
+    {
+        get => _totalItems;
+        private set
+        {
+            if (SetProperty(ref _totalItems, value))
+            {
+                OnPropertyChanged(nameof(PageSummary));
+            }
+        }
+    }
+
+    public bool CanGoPrevious => CurrentPage > 1;
+    public bool CanGoNext => CurrentPage < TotalPages;
+    public string PageSummary => TotalItems == 0
+        ? "0 lugares"
+        : $"Pagina {CurrentPage} de {TotalPages} · {TotalItems} lugares";
 
     [RelayCommand]
     private Task LoadNearbyRecommendationsAsync()
@@ -51,6 +117,30 @@ public sealed partial class MapViewModel(
             });
     }
 
+    [RelayCommand]
+    private void PreviousPage()
+    {
+        if (!CanGoPrevious)
+        {
+            return;
+        }
+
+        CurrentPage--;
+        ApplyCurrentPage();
+    }
+
+    [RelayCommand]
+    private void NextPage()
+    {
+        if (!CanGoNext)
+        {
+            return;
+        }
+
+        CurrentPage++;
+        ApplyCurrentPage();
+    }
+
     private async Task LoadNearbyRecommendationsLocalFirstAsync()
     {
         var token = await sessionService.GetTokenAsync();
@@ -61,11 +151,13 @@ public sealed partial class MapViewModel(
             return;
         }
 
+        var resetPage = _allNearbyRecommendations.Count == 0;
         var cached = await bootstrapStore.GetCachedAsync();
         if (cached is not null)
         {
-            ApplyBootstrap(cached.Value);
+            ApplyBootstrap(cached.Value, resetPage);
             StatusMessage = OfflineCacheService.FormatSavedAt(cached.SavedAt);
+            resetPage = false;
         }
 
         try
@@ -78,7 +170,7 @@ public sealed partial class MapViewModel(
                 return;
             }
 
-            ApplyBootstrap(bootstrap);
+            ApplyBootstrap(bootstrap, resetPage);
             StatusMessage = null;
         }
         catch
@@ -92,10 +184,11 @@ public sealed partial class MapViewModel(
         }
     }
 
-    private void ApplyBootstrap(MobileBootstrapDto bootstrap)
+    private void ApplyBootstrap(MobileBootstrapDto bootstrap, bool resetPage)
     {
         _entitlements = bootstrap.Entitlements;
         var recommendations = bootstrap.Recommendations
+            .Where(IsUnlocked)
             .Select(recommendation => recommendation with
             {
                 DistanceKm = CalculateDistanceKm(
@@ -108,13 +201,36 @@ public sealed partial class MapViewModel(
             .ThenBy(recommendation => recommendation.Title)
             .ToList();
 
-        ApplyRecommendations(recommendations);
+        ApplyRecommendations(recommendations, resetPage);
     }
 
-    private void ApplyRecommendations(IReadOnlyList<RecommendationDto> recommendations)
+    private void ApplyRecommendations(IReadOnlyList<RecommendationDto> recommendations, bool resetPage)
     {
+        _allNearbyRecommendations.Clear();
+        _allNearbyRecommendations.AddRange(recommendations);
+        if (resetPage)
+        {
+            CurrentPage = 1;
+        }
+
+        TotalItems = _allNearbyRecommendations.Count;
+        TotalPages = Math.Max(1, (int)Math.Ceiling(TotalItems / (double)SelectedPageSize));
+        ApplyCurrentPage();
+    }
+
+    private void ApplyCurrentPage()
+    {
+        TotalItems = _allNearbyRecommendations.Count;
+        TotalPages = Math.Max(1, (int)Math.Ceiling(TotalItems / (double)SelectedPageSize));
+        if (CurrentPage > TotalPages)
+        {
+            CurrentPage = TotalPages;
+        }
+
         NearbyRecommendations.Clear();
-        foreach (var recommendation in recommendations)
+        foreach (var recommendation in _allNearbyRecommendations
+            .Skip((CurrentPage - 1) * SelectedPageSize)
+            .Take(SelectedPageSize))
         {
             NearbyRecommendations.Add(recommendation);
         }
@@ -150,5 +266,12 @@ public sealed partial class MapViewModel(
         var c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
 
         return Math.Round((decimal)(earthRadiusKm * c), 2);
+    }
+
+    private void OnPaginationChanged()
+    {
+        OnPropertyChanged(nameof(CanGoPrevious));
+        OnPropertyChanged(nameof(CanGoNext));
+        OnPropertyChanged(nameof(PageSummary));
     }
 }

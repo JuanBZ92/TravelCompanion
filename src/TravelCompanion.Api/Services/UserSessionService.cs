@@ -9,6 +9,7 @@ namespace TravelCompanion.Api.Services;
 public sealed class UserSessionService(TravelCompanionDbContext dbContext)
 {
     private static readonly TimeSpan SessionLifetime = TimeSpan.FromDays(90);
+    private static readonly TimeSpan LastSeenUpdateInterval = TimeSpan.FromMinutes(15);
 
     public async Task<(AppUserSession Session, string Token)> CreateSessionAsync(
         AppUser user,
@@ -41,6 +42,7 @@ public sealed class UserSessionService(TravelCompanionDbContext dbContext)
         var tokenHash = HashToken(token);
         var now = DateTimeOffset.UtcNow;
         var session = await dbContext.AppUserSessions
+            .AsNoTracking()
             .Include(existingSession => existingSession.User)
             .ThenInclude(user => user!.Entitlements)
             .FirstOrDefaultAsync(existingSession =>
@@ -54,8 +56,18 @@ public sealed class UserSessionService(TravelCompanionDbContext dbContext)
             return null;
         }
 
-        session.LastSeenAt = now;
-        await dbContext.SaveChangesAsync(cancellationToken);
+        if (!session.LastSeenAt.HasValue || now - session.LastSeenAt.Value >= LastSeenUpdateInterval)
+        {
+            await dbContext.AppUserSessions
+                .Where(existingSession =>
+                    existingSession.Id == session.Id
+                    && (existingSession.LastSeenAt == null
+                        || existingSession.LastSeenAt < now - LastSeenUpdateInterval))
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(existingSession => existingSession.LastSeenAt, now),
+                    cancellationToken);
+        }
+
         return session.User;
     }
 

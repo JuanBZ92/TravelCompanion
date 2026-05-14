@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.Input;
 using TravelCompanion.Mobile.Pages;
 using TravelCompanion.Mobile.Services;
+using TravelCompanion.Shared;
 using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Mobile.ViewModels;
@@ -12,11 +13,13 @@ public sealed partial class ScheduleViewModel(
 {
     private const string AllCitiesKey = "All Cities";
     private readonly List<ScheduleItemDto> _allItems = [];
+    private ReservationType _selectedType = ReservationType.Event;
     private string _tripTitle = "Your Trip";
     private string? _tripDates;
     private ScheduleItemDto? _selectedItem;
 
     public ObservableCollection<ScheduleDayViewModel> Days { get; } = [];
+    public ObservableCollection<ScheduleTypeFilterViewModel> TypeFilters { get; } = [];
     public ObservableCollection<CityFilterViewModel> CityFilters { get; } = [];
 
     public string TripTitle
@@ -69,6 +72,19 @@ public sealed partial class ScheduleViewModel(
             {
                 ["ScheduleItem"] = item
             });
+    }
+
+    [RelayCommand]
+    private void ToggleTypeFilter(ReservationType type)
+    {
+        _selectedType = type;
+        foreach (var filter in TypeFilters)
+        {
+            filter.IsSelected = filter.Type == type;
+        }
+
+        UpdateCityFilters();
+        ApplyCityFilter();
     }
 
     [RelayCommand]
@@ -172,6 +188,7 @@ public sealed partial class ScheduleViewModel(
         TripDates = $"{schedule.StartsOn:MMM d} - {schedule.EndsOn:MMM d, yyyy}";
         _allItems.Clear();
         _allItems.AddRange(schedule.Items);
+        UpdateTypeFilters();
         UpdateCityFilters();
         ApplyCityFilter();
     }
@@ -182,8 +199,19 @@ public sealed partial class ScheduleViewModel(
         TripDates = "No reservations yet.";
         _allItems.Clear();
         Days.Clear();
+        TypeFilters.Clear();
+        UpdateTypeFilters();
         CityFilters.Clear();
         CityFilters.Add(new CityFilterViewModel(AllCitiesKey, isSelected: true));
+    }
+
+    private void UpdateTypeFilters()
+    {
+        TypeFilters.Clear();
+        foreach (var type in new[] { ReservationType.Event, ReservationType.Flight, ReservationType.Lodging })
+        {
+            TypeFilters.Add(new ScheduleTypeFilterViewModel(type, type == _selectedType));
+        }
     }
 
     private void UpdateCityFilters()
@@ -203,6 +231,7 @@ public sealed partial class ScheduleViewModel(
 
         // Add individual city filters
         var cities = _allItems
+            .Where(item => item.Type == _selectedType)
             .Select(item => NormalizeCity(item.City))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Order(StringComparer.OrdinalIgnoreCase)
@@ -238,9 +267,13 @@ public sealed partial class ScheduleViewModel(
             .FirstOrDefault(f => f.IsAllCities)?
             .IsSelected ?? true;
 
+        var itemsOfSelectedType = _allItems
+            .Where(item => item.Type == _selectedType)
+            .ToList();
+
         var filteredItems = allCitiesSelected || selectedCities.Count == 0
-            ? _allItems
-            : _allItems
+            ? itemsOfSelectedType
+            : itemsOfSelectedType
                 .Where(item => selectedCities.Contains(
                     NormalizeCity(item.City)))
                 .ToList();

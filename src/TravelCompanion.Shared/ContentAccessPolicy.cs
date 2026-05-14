@@ -14,7 +14,6 @@ public static class ContentAccessPolicy
         {
             ContentAccessLevel.Free => true,
             ContentAccessLevel.Paid => active.Contains(ContentAccessLevel.Paid)
-                || active.Contains(ContentAccessLevel.Subscription)
                 || active.Contains(ContentAccessLevel.Bundle)
                 || hasDestinationAccess
                 || hasPackageAccess,

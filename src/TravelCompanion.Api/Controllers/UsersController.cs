@@ -16,10 +16,15 @@ public sealed class UsersController(
     private const string DemoUserEmail = "demo@travelcompanion.local";
 
     [HttpGet("demo/entitlements")]
-    public Task<ActionResult<UserEntitlementsDto>> GetDemoEntitlements(
+    public async Task<ActionResult<UserEntitlementsDto>> GetDemoEntitlements(
         CancellationToken cancellationToken = default)
     {
-        return GetEntitlementsByEmailAsync(DemoUserEmail, cancellationToken);
+        if (!IsAdminRequest())
+        {
+            return Unauthorized();
+        }
+
+        return await GetEntitlementsByEmailAsync(DemoUserEmail, cancellationToken);
     }
 
     [HttpGet("{userId:guid}/entitlements")]
@@ -27,6 +32,12 @@ public sealed class UsersController(
         Guid userId,
         CancellationToken cancellationToken = default)
     {
+        var accessError = await EnsureCanAccessUserAsync(userId, cancellationToken);
+        if (accessError is not null)
+        {
+            return accessError;
+        }
+
         var user = await dbContext.AppUsers
             .AsNoTracking()
             .Include(user => user.Entitlements)
@@ -42,6 +53,12 @@ public sealed class UsersController(
         Guid userId,
         CancellationToken cancellationToken = default)
     {
+        var accessError = await EnsureCanAccessUserAsync(userId, cancellationToken);
+        if (accessError is not null)
+        {
+            return accessError;
+        }
+
         var schedule = await FindScheduleAsync(userId, cancellationToken);
         return schedule is null
             ? NotFound()
@@ -139,6 +156,29 @@ public sealed class UsersController(
                 .ToList());
     }
 
+    private bool IsAdminRequest()
+    {
+        return User.Identity?.IsAuthenticated == true && User.IsInRole("Admin");
+    }
+
+    private async Task<ActionResult?> EnsureCanAccessUserAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        if (IsAdminRequest())
+        {
+            return null;
+        }
+
+        var sessionUser = await sessionService.GetUserAsync(HttpContext, cancellationToken);
+        if (sessionUser is null)
+        {
+            return Unauthorized();
+        }
+
+        return sessionUser.Id == userId
+            ? null
+            : Forbid();
+    }
+
     private static TripScheduleDto ToScheduleDto(Trip trip)
     {
         return new TripScheduleDto(
@@ -152,14 +192,23 @@ public sealed class UsersController(
                 .ThenBy(reservation => reservation.StartsAt)
                 .Select(reservation => new ScheduleItemDto(
                     reservation.Id,
+                    reservation.Type,
                     reservation.Date,
                     reservation.StartsAt,
+                    reservation.EndsOn,
+                    reservation.EndsAt,
                     reservation.Title,
                     reservation.City,
                     reservation.LocationName,
                     reservation.Address,
                     reservation.ConfirmationCode,
-                    reservation.Notes))
+                    reservation.Notes,
+                    reservation.Airline,
+                    reservation.FlightNumber,
+                    reservation.OriginName,
+                    reservation.DestinationName,
+                    reservation.OriginAirport,
+                    reservation.DestinationAirport))
                 .ToList());
     }
 }

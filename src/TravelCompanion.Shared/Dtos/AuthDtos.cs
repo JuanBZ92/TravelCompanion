@@ -3,12 +3,12 @@ using System.ComponentModel.DataAnnotations;
 namespace TravelCompanion.Shared.Dtos;
 
 public sealed record LoginRequestDto(
-    [property: Required]
-    [property: EmailAddress]
-    [property: MaxLength(180)]
+    [param: Required]
+    [param: EmailAddress]
+    [param: MaxLength(180)]
     string Email,
-    [property: Required]
-    [property: MaxLength(256)]
+    [param: Required]
+    [param: MaxLength(256)]
     string Password);
 
 public sealed record ChangePasswordRequestDto(

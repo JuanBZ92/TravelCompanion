@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -5,6 +7,9 @@ namespace TravelCompanion.Mobile.Services;
 
 public sealed class OfflineCacheService
 {
+    private const string EncryptionKeyStorageKey = "offline_cache_encryption_key_v1";
+    private const string EncryptionVersion = "v1";
+    private static readonly byte[] EncryptionContext = Encoding.UTF8.GetBytes("travelcompanion-offline-cache");
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
         Converters = { new JsonStringEnumConverter() }
@@ -13,10 +18,7 @@ public sealed class OfflineCacheService
     public async Task SaveAsync<T>(string key, T value, CancellationToken cancellationToken = default)
     {
         var entry = new OfflineCacheEntry<T>(DateTimeOffset.UtcNow, value);
-        var json = JsonSerializer.Serialize(entry, JsonOptions);
-        var path = GetPath(key);
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        await File.WriteAllTextAsync(path, json, cancellationToken);
+        await SaveEntryEncryptedAsync(key, entry, cancellationToken);
     }
 
     public async Task<OfflineCacheResult<T>?> GetAsync<T>(string key, CancellationToken cancellationToken = default)
@@ -30,10 +32,22 @@ public sealed class OfflineCacheService
         try
         {
             var json = await File.ReadAllTextAsync(path, cancellationToken);
-            var entry = JsonSerializer.Deserialize<OfflineCacheEntry<T>>(json, JsonOptions);
-            return entry is null
-                ? null
-                : new OfflineCacheResult<T>(entry.Value, entry.SavedAt);
+
+            var encryptedEntry = await TryReadEncryptedEntryAsync<T>(json, cancellationToken);
+            if (encryptedEntry is not null)
+            {
+                return new OfflineCacheResult<T>(encryptedEntry.Value, encryptedEntry.SavedAt);
+            }
+
+            // Compatibilidad con caches legacy en texto plano; se migran automaticamente a cifrado.
+            var legacyEntry = JsonSerializer.Deserialize<OfflineCacheEntry<T>>(json, JsonOptions);
+            if (legacyEntry is null)
+            {
+                return null;
+            }
+
+            await SaveEntryEncryptedAsync(key, legacyEntry, cancellationToken);
+            return new OfflineCacheResult<T>(legacyEntry.Value, legacyEntry.SavedAt);
         }
         catch
         {
@@ -68,7 +82,106 @@ public sealed class OfflineCacheService
         return Path.Combine(FileSystem.AppDataDirectory, "offline-cache", $"{safeKey}.json");
     }
 
+    private async Task SaveEntryEncryptedAsync<T>(
+        string cacheKey,
+        OfflineCacheEntry<T> entry,
+        CancellationToken cancellationToken)
+    {
+        var key = await GetOrCreateEncryptionKeyAsync();
+        var nonce = RandomNumberGenerator.GetBytes(12);
+        var plaintext = JsonSerializer.SerializeToUtf8Bytes(entry, JsonOptions);
+        var ciphertext = new byte[plaintext.Length];
+        var tag = new byte[16];
+
+        try
+        {
+            using var aes = new AesGcm(key, tag.Length);
+            aes.Encrypt(nonce, plaintext, ciphertext, tag, EncryptionContext);
+
+            var envelope = new OfflineCacheEnvelope(
+                EncryptionVersion,
+                Convert.ToBase64String(nonce),
+                Convert.ToBase64String(tag),
+                Convert.ToBase64String(ciphertext));
+
+            var json = JsonSerializer.Serialize(envelope, JsonOptions);
+            var path = GetPath(cacheKey);
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            await File.WriteAllTextAsync(path, json, cancellationToken);
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(plaintext);
+            CryptographicOperations.ZeroMemory(ciphertext);
+            CryptographicOperations.ZeroMemory(tag);
+        }
+    }
+
+    private async Task<OfflineCacheEntry<T>?> TryReadEncryptedEntryAsync<T>(
+        string json,
+        CancellationToken cancellationToken)
+    {
+        var envelope = JsonSerializer.Deserialize<OfflineCacheEnvelope>(json, JsonOptions);
+        if (envelope is null || !string.Equals(envelope.Version, EncryptionVersion, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        byte[]? plaintext = null;
+        try
+        {
+            var nonce = Convert.FromBase64String(envelope.Nonce);
+            var tag = Convert.FromBase64String(envelope.Tag);
+            var ciphertext = Convert.FromBase64String(envelope.Ciphertext);
+
+            var key = await GetOrCreateEncryptionKeyAsync();
+            plaintext = new byte[ciphertext.Length];
+
+            using var aes = new AesGcm(key, tag.Length);
+            aes.Decrypt(nonce, ciphertext, tag, plaintext, EncryptionContext);
+
+            var entry = JsonSerializer.Deserialize<OfflineCacheEntry<T>>(plaintext, JsonOptions);
+            return entry;
+        }
+        catch
+        {
+            return null;
+        }
+        finally
+        {
+            if (plaintext is not null)
+            {
+                CryptographicOperations.ZeroMemory(plaintext);
+            }
+        }
+    }
+
+    private static async Task<byte[]> GetOrCreateEncryptionKeyAsync()
+    {
+        var encodedKey = await SecureStorage.Default.GetAsync(EncryptionKeyStorageKey);
+        if (!string.IsNullOrWhiteSpace(encodedKey))
+        {
+            try
+            {
+                var existingKey = Convert.FromBase64String(encodedKey);
+                if (existingKey.Length == 32)
+                {
+                    return existingKey;
+                }
+            }
+            catch
+            {
+                // Si el valor almacenado esta corrupto, regeneramos.
+            }
+        }
+
+        var newKey = RandomNumberGenerator.GetBytes(32);
+        await SecureStorage.Default.SetAsync(EncryptionKeyStorageKey, Convert.ToBase64String(newKey));
+        return newKey;
+    }
+
     private sealed record OfflineCacheEntry<T>(DateTimeOffset SavedAt, T Value);
+    private sealed record OfflineCacheEnvelope(string Version, string Nonce, string Tag, string Ciphertext);
 }
 
 public sealed record OfflineCacheResult<T>(T Value, DateTimeOffset SavedAt);

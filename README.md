@@ -62,6 +62,14 @@ Usuario: demo@travelcompanion.local
 Password temporal: TravelDemo!2026
 ```
 
+Base URL mobile:
+
+```text
+TRAVELCOMPANION_API_BASE_URL=https://localhost:7090
+```
+
+Si no se define la variable, MAUI usa fallback local para desarrollo (`http://127.0.0.1:5289` en Android fisico con `adb reverse`, `http://10.0.2.2:5289` en Android emulador, `https://localhost:7090` en Windows). En `Release` no se permite HTTP.
+
 Luego de cambiar la password temporal, la app puede desbloquear la sesion con biometria del dispositivo y fallback a password.
 Usar `Bloquear app` mantiene la sesion para biometria; `Cerrar sesion` borra la sesion y requiere password.
 

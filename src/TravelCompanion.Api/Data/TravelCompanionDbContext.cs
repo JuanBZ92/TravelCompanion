@@ -63,10 +63,21 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
         modelBuilder.Entity<Reservation>(entity =>
         {
             entity.HasIndex(reservation => new { reservation.TripId, reservation.Date, reservation.StartsAt });
+            entity.HasIndex(reservation => new { reservation.TripId, reservation.Type, reservation.Date, reservation.StartsAt });
+            entity.Property(reservation => reservation.Type)
+                .HasConversion<string>()
+                .HasMaxLength(32)
+                .HasDefaultValue(TravelCompanion.Shared.ReservationType.Event);
             entity.Property(reservation => reservation.Title).HasMaxLength(160);
             entity.Property(reservation => reservation.City).HasMaxLength(120);
             entity.Property(reservation => reservation.LocationName).HasMaxLength(160);
             entity.Property(reservation => reservation.ConfirmationCode).HasMaxLength(80);
+            entity.Property(reservation => reservation.Airline).HasMaxLength(120);
+            entity.Property(reservation => reservation.FlightNumber).HasMaxLength(40);
+            entity.Property(reservation => reservation.OriginName).HasMaxLength(160);
+            entity.Property(reservation => reservation.DestinationName).HasMaxLength(160);
+            entity.Property(reservation => reservation.OriginAirport).HasMaxLength(80);
+            entity.Property(reservation => reservation.DestinationAirport).HasMaxLength(80);
         });
 
         modelBuilder.Entity<AppUser>(entity =>

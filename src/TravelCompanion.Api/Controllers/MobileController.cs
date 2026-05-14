@@ -16,7 +16,7 @@ public sealed class MobileController(
 {
     [HttpGet("bootstrap")]
     public async Task<ActionResult<MobileBootstrapDto>> GetBootstrap(
-        [FromQuery] string destinationSlug = "japon",
+        [FromQuery] string? destinationSlug = null,
         CancellationToken cancellationToken = default)
     {
         var user = await sessionService.GetUserAsync(HttpContext, cancellationToken);
@@ -25,9 +25,17 @@ public sealed class MobileController(
             return Unauthorized();
         }
 
-        var destination = await dbContext.Destinations
-            .AsNoTracking()
-            .Where(existingDestination => existingDestination.Slug == destinationSlug)
+        var destinationsQuery = dbContext.Destinations
+            .AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(destinationSlug))
+        {
+            destinationsQuery = destinationsQuery
+                .Where(existingDestination => existingDestination.Slug == destinationSlug);
+        }
+
+        var destination = await destinationsQuery
+            .OrderBy(existingDestination => existingDestination.Name)
             .Select(existingDestination => new DestinationSummaryDto(
                 existingDestination.Id,
                 existingDestination.Name,
@@ -35,17 +43,26 @@ public sealed class MobileController(
                 existingDestination.Country,
                 existingDestination.HeroImageUrl,
                 existingDestination.ShortDescription))
-            .SingleOrDefaultAsync(cancellationToken);
+            .FirstOrDefaultAsync(cancellationToken);
 
         if (destination is null)
         {
             return NotFound();
         }
 
+        var entitlements = ToEntitlementsDto(user);
         var recommendations = await dbContext.Recommendations
             .AsNoTracking()
             .Where(recommendation => recommendation.DestinationId == destination.Id)
             .OrderBy(recommendation => recommendation.Title)
+            .ToListAsync(cancellationToken);
+
+        var unlockedRecommendations = recommendations
+            .Where(recommendation => ContentAccessPolicy.IsUnlocked(
+                recommendation.AccessLevel,
+                entitlements.AccessLevels,
+                entitlements.DestinationIds.Contains(recommendation.DestinationId),
+                hasPackageAccess: false))
             .Select(recommendation => new RecommendationDto(
                 recommendation.Id,
                 recommendation.DestinationId,
@@ -58,7 +75,7 @@ public sealed class MobileController(
                 recommendation.SuggestedDurationMinutes,
                 recommendation.AccessLevel,
                 null))
-            .ToListAsync(cancellationToken);
+            .ToList();
 
         var packages = await dbContext.TravelPackages
             .AsNoTracking()
@@ -67,13 +84,12 @@ public sealed class MobileController(
             .ToListAsync(cancellationToken);
 
         var schedule = await FindScheduleAsync(user.Id, cancellationToken);
-        var entitlements = ToEntitlementsDto(user);
 
         return Ok(new MobileBootstrapDto(
             DateTimeOffset.UtcNow,
             destination,
             entitlements,
-            recommendations,
+            unlockedRecommendations,
             packages.Select(package => ToPackageDto(package, user)).ToList(),
             schedule));
     }
@@ -103,14 +119,23 @@ public sealed class MobileController(
                     .ThenBy(reservation => reservation.StartsAt)
                     .Select(reservation => new ScheduleItemDto(
                         reservation.Id,
+                        reservation.Type,
                         reservation.Date,
                         reservation.StartsAt,
+                        reservation.EndsOn,
+                        reservation.EndsAt,
                         reservation.Title,
                         reservation.City,
                         reservation.LocationName,
                         reservation.Address,
                         reservation.ConfirmationCode,
-                        reservation.Notes))
+                        reservation.Notes,
+                        reservation.Airline,
+                        reservation.FlightNumber,
+                        reservation.OriginName,
+                        reservation.DestinationName,
+                        reservation.OriginAirport,
+                        reservation.DestinationAirport))
                     .ToList());
     }
 

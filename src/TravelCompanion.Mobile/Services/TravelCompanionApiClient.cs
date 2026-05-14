@@ -26,10 +26,11 @@ public sealed class TravelCompanionApiClient
     }
 
     public async Task<IReadOnlyList<TravelPackageDto>> GetPackagesAsync(
+        string? destinationSlug = null,
         string? token = null,
         CancellationToken cancellationToken = default)
     {
-        const string url = "api/packages?destinationSlug=japon&pageSize=100";
+        var url = BuildDestinationUrl("api/packages", destinationSlug, pageSize: 100);
         if (string.IsNullOrWhiteSpace(token))
         {
             return await GetPagedItemsAsync<TravelPackageDto>(url, cancellationToken);
@@ -103,9 +104,13 @@ public sealed class TravelCompanionApiClient
 
     public async Task<MobileBootstrapDto?> GetMobileBootstrapAsync(
         string token,
+        string? destinationSlug = null,
         CancellationToken cancellationToken = default)
     {
-        using var request = CreateAuthorizedRequest(HttpMethod.Get, "api/mobile/bootstrap?destinationSlug=japon", token);
+        var url = string.IsNullOrWhiteSpace(destinationSlug)
+            ? "api/mobile/bootstrap"
+            : $"api/mobile/bootstrap?destinationSlug={Uri.EscapeDataString(destinationSlug)}";
+        using var request = CreateAuthorizedRequest(HttpMethod.Get, url, token);
         using var response = await _httpClient.SendAsync(request, cancellationToken);
         return response.IsSuccessStatusCode
             ? await response.Content.ReadFromJsonAsync<MobileBootstrapDto>(JsonOptions, cancellationToken)
@@ -113,11 +118,12 @@ public sealed class TravelCompanionApiClient
     }
 
     public async Task<IReadOnlyList<RecommendationDto>> GetRecommendationsAsync(
+        string? destinationSlug = null,
         decimal? latitude = null,
         decimal? longitude = null,
         CancellationToken cancellationToken = default)
     {
-        var url = "api/recommendations?destinationSlug=japon&pageSize=100";
+        var url = BuildDestinationUrl("api/recommendations", destinationSlug, pageSize: 100);
         if (latitude.HasValue && longitude.HasValue)
         {
             url += $"&latitude={latitude.Value}&longitude={longitude.Value}";
@@ -171,5 +177,16 @@ public sealed class TravelCompanionApiClient
             cancellationToken);
 
         return result?.Items ?? [];
+    }
+
+    private static string BuildDestinationUrl(string basePath, string? destinationSlug, int pageSize)
+    {
+        var url = $"{basePath}?pageSize={pageSize}";
+        if (!string.IsNullOrWhiteSpace(destinationSlug))
+        {
+            url += $"&destinationSlug={Uri.EscapeDataString(destinationSlug)}";
+        }
+
+        return url;
     }
 }

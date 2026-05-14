@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using TravelCompanion.Api.Data;
 using TravelCompanion.Api.Models;
+using TravelCompanion.Shared;
 
 namespace TravelCompanion.Api.Pages.Admin;
 
@@ -14,6 +15,12 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
     public List<SelectListItem> TripOptions { get; private set; } = [];
     public List<SelectListItem> UserOptions { get; private set; } = [];
     public List<SelectListItem> DestinationOptions { get; private set; } = [];
+    public List<SelectListItem> TypeOptions { get; } =
+    [
+        new("Evento", ReservationType.Event.ToString()),
+        new("Vuelo", ReservationType.Flight.ToString()),
+        new("Hospedaje", ReservationType.Lodging.ToString())
+    ];
     [TempData]
     public string? StatusMessage { get; set; }
 
@@ -68,6 +75,12 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
         ModelState.Remove($"{nameof(Input)}.{nameof(Input.Address)}");
         ModelState.Remove($"{nameof(Input)}.{nameof(Input.ConfirmationCode)}");
         ModelState.Remove($"{nameof(Input)}.{nameof(Input.Notes)}");
+        ModelState.Remove($"{nameof(Input)}.{nameof(Input.Airline)}");
+        ModelState.Remove($"{nameof(Input)}.{nameof(Input.FlightNumber)}");
+        ModelState.Remove($"{nameof(Input)}.{nameof(Input.OriginName)}");
+        ModelState.Remove($"{nameof(Input)}.{nameof(Input.DestinationName)}");
+        ModelState.Remove($"{nameof(Input)}.{nameof(Input.OriginAirport)}");
+        ModelState.Remove($"{nameof(Input)}.{nameof(Input.DestinationAirport)}");
 
         if (TripInput.UserId == Guid.Empty)
         {
@@ -140,9 +153,32 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
             ModelState.AddModelError($"{nameof(Input)}.{nameof(Input.City)}", "La ciudad es obligatoria.");
         }
 
-        if (string.IsNullOrWhiteSpace(Input.LocationName))
+        if (Input.Type is not ReservationType.Flight && string.IsNullOrWhiteSpace(Input.LocationName))
         {
             ModelState.AddModelError($"{nameof(Input)}.{nameof(Input.LocationName)}", "El lugar es obligatorio.");
+        }
+
+        if (Input.Type == ReservationType.Flight)
+        {
+            if (string.IsNullOrWhiteSpace(Input.FlightNumber))
+            {
+                ModelState.AddModelError($"{nameof(Input)}.{nameof(Input.FlightNumber)}", "El numero de vuelo es obligatorio.");
+            }
+
+            if (string.IsNullOrWhiteSpace(Input.OriginName))
+            {
+                ModelState.AddModelError($"{nameof(Input)}.{nameof(Input.OriginName)}", "El origen es obligatorio.");
+            }
+
+            if (string.IsNullOrWhiteSpace(Input.DestinationName))
+            {
+                ModelState.AddModelError($"{nameof(Input)}.{nameof(Input.DestinationName)}", "El destino es obligatorio.");
+            }
+        }
+
+        if (Input.Type == ReservationType.Lodging && Input.EndsOn is null)
+        {
+            ModelState.AddModelError($"{nameof(Input)}.{nameof(Input.EndsOn)}", "La fecha de salida es obligatoria para hospedajes.");
         }
 
         if (!ModelState.IsValid)
@@ -165,6 +201,7 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
             {
                 Id = Guid.NewGuid(),
                 TripId = Input.TripId,
+                Type = Input.Type,
                 Title = string.Empty,
                 City = string.Empty,
                 LocationName = string.Empty,
@@ -278,11 +315,20 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
                     : "Unknown",
                 reservation.Date,
                 reservation.StartsAt,
+                reservation.EndsOn,
+                reservation.EndsAt,
+                reservation.Type,
                 reservation.Title,
                 reservation.City,
                 reservation.LocationName,
                 reservation.Address,
-                reservation.ConfirmationCode))
+                reservation.ConfirmationCode,
+                reservation.Airline,
+                reservation.FlightNumber,
+                reservation.OriginName,
+                reservation.DestinationName,
+                reservation.OriginAirport,
+                reservation.DestinationAirport))
             .ToListAsync();
     }
 
@@ -348,24 +394,54 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
         string TripName,
         DateOnly Date,
         TimeOnly StartsAt,
+        DateOnly? EndsOn,
+        TimeOnly? EndsAt,
+        ReservationType Type,
         string Title,
         string City,
         string LocationName,
         string Address,
-        string ConfirmationCode);
+        string ConfirmationCode,
+        string? Airline,
+        string? FlightNumber,
+        string? OriginName,
+        string? DestinationName,
+        string? OriginAirport,
+        string? DestinationAirport)
+    {
+        public string TypeLabel => Type switch
+        {
+            ReservationType.Flight => "Vuelo",
+            ReservationType.Lodging => "Hospedaje",
+            _ => "Evento"
+        };
+
+        public string PlaceLabel => Type == ReservationType.Flight
+            ? $"{OriginName} -> {DestinationName}"
+            : LocationName;
+    }
 
     public sealed class ReservationInput
     {
         public Guid? Id { get; set; }
         public Guid TripId { get; set; }
+        public ReservationType Type { get; set; } = ReservationType.Event;
         public DateOnly Date { get; set; }
         public TimeOnly StartsAt { get; set; }
+        public DateOnly? EndsOn { get; set; }
+        public TimeOnly? EndsAt { get; set; }
         public string Title { get; set; } = string.Empty;
         public string City { get; set; } = string.Empty;
         public string LocationName { get; set; } = string.Empty;
         public string Address { get; set; } = string.Empty;
         public string ConfirmationCode { get; set; } = string.Empty;
         public string Notes { get; set; } = string.Empty;
+        public string? Airline { get; set; }
+        public string? FlightNumber { get; set; }
+        public string? OriginName { get; set; }
+        public string? DestinationName { get; set; }
+        public string? OriginAirport { get; set; }
+        public string? DestinationAirport { get; set; }
 
         public static ReservationInput FromEntity(Reservation reservation)
         {
@@ -373,28 +449,51 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
             {
                 Id = reservation.Id,
                 TripId = reservation.TripId,
+                Type = reservation.Type,
                 Date = reservation.Date,
                 StartsAt = reservation.StartsAt,
+                EndsOn = reservation.EndsOn,
+                EndsAt = reservation.EndsAt,
                 Title = reservation.Title,
                 City = reservation.City,
                 LocationName = reservation.LocationName,
                 Address = reservation.Address,
                 ConfirmationCode = reservation.ConfirmationCode,
-                Notes = reservation.Notes
+                Notes = reservation.Notes,
+                Airline = reservation.Airline,
+                FlightNumber = reservation.FlightNumber,
+                OriginName = reservation.OriginName,
+                DestinationName = reservation.DestinationName,
+                OriginAirport = reservation.OriginAirport,
+                DestinationAirport = reservation.DestinationAirport
             };
         }
 
         public void ApplyTo(Reservation reservation)
         {
             reservation.TripId = TripId;
+            reservation.Type = Type;
             reservation.Date = Date;
             reservation.StartsAt = StartsAt;
+            reservation.EndsOn = EndsOn;
+            reservation.EndsAt = EndsAt;
             reservation.Title = Title.Trim();
             reservation.City = City.Trim();
             reservation.LocationName = LocationName.Trim();
             reservation.Address = Address.Trim();
             reservation.ConfirmationCode = ConfirmationCode.Trim();
             reservation.Notes = Notes.Trim();
+            reservation.Airline = NormalizeOptional(Airline);
+            reservation.FlightNumber = NormalizeOptional(FlightNumber);
+            reservation.OriginName = NormalizeOptional(OriginName);
+            reservation.DestinationName = NormalizeOptional(DestinationName);
+            reservation.OriginAirport = NormalizeOptional(OriginAirport);
+            reservation.DestinationAirport = NormalizeOptional(DestinationAirport);
+        }
+
+        private static string? NormalizeOptional(string? value)
+        {
+            return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
         }
     }
 
