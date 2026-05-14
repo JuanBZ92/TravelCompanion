@@ -131,7 +131,7 @@
                             <Label Text="{Binding DayLabel}"
                                    FontSize="18"
                                    FontAttributes="Bold"
-                                   TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
+                                   TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
                             <Label Grid.Column="1"
                                    Text="{Binding CountLabel}"
                                    FontSize="13"
@@ -196,7 +196,7 @@
                                         <Label Text="{Binding Title}"
                                                FontSize="18"
                                                FontAttributes="Bold"
-                                               TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
+                                               TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
                                         <Label Text="{Binding LocationName}"
                                                FontSize="14"
                                                TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}" />

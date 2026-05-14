@@ -34,7 +34,7 @@
                         <Label Text="Your Concierge"
                                FontSize="18"
                                FontAttributes="Bold"
-                               TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
+                               TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
                         <Label Text="24/7 assistance for reservations and recommendations"
                                FontSize="14"
                                LineHeight="1.5"
