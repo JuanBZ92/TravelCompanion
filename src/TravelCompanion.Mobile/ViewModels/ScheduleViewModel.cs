@@ -43,7 +43,7 @@ public sealed partial class ScheduleViewModel(
     [RelayCommand]
     private Task LoadScheduleAsync()
     {
-        return LoadAsync(async () =>
+        return LoadAsync(async ct =>
         {
             var token = await sessionService.GetTokenAsync();
             if (string.IsNullOrWhiteSpace(token))
@@ -53,7 +53,7 @@ public sealed partial class ScheduleViewModel(
                 return;
             }
 
-            await LoadScheduleLocalFirstAsync(token);
+            await LoadScheduleLocalFirstAsync(token, ct);
         });
     }
 
@@ -138,9 +138,9 @@ public sealed partial class ScheduleViewModel(
         ApplyCityFilter();
     }
 
-    private async Task LoadScheduleLocalFirstAsync(string token)
+    private async Task LoadScheduleLocalFirstAsync(string token, CancellationToken cancellationToken = default)
     {
-        var cached = await bootstrapStore.GetCachedAsync();
+        var cached = await bootstrapStore.GetCachedAsync(cancellationToken);
         if (cached is not null)
         {
             ApplyBootstrapSchedule(cached.Value);
@@ -149,7 +149,7 @@ public sealed partial class ScheduleViewModel(
 
         try
         {
-            var bootstrap = await bootstrapStore.RefreshAsync(token);
+            var bootstrap = await bootstrapStore.RefreshAsync(token, cancellationToken);
             if (bootstrap is null)
             {
                 sessionService.Clear();

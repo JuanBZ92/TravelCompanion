@@ -106,7 +106,7 @@ public sealed partial class RecommendationsViewModel(
     [RelayCommand]
     private Task LoadRecommendationsAsync()
     {
-        return LoadAsync(async () =>
+        return LoadAsync(async ct =>
         {
             var token = await sessionService.GetTokenAsync();
             if (string.IsNullOrWhiteSpace(token))
@@ -116,7 +116,7 @@ public sealed partial class RecommendationsViewModel(
                 return;
             }
 
-            await LoadBootstrapLocalFirstAsync(token);
+            await LoadBootstrapLocalFirstAsync(token, ct);
         });
     }
 
@@ -250,10 +250,10 @@ public sealed partial class RecommendationsViewModel(
             entitlements?.DestinationIds.Contains(recommendation.DestinationId) ?? false);
     }
 
-    private async Task LoadBootstrapLocalFirstAsync(string token)
+    private async Task LoadBootstrapLocalFirstAsync(string token, CancellationToken cancellationToken = default)
     {
         var resetPage = _allRecommendations.Count == 0;
-        var cached = await bootstrapStore.GetCachedAsync();
+        var cached = await bootstrapStore.GetCachedAsync(cancellationToken);
         if (cached is not null)
         {
             ApplyBootstrap(cached.Value, resetPage);
@@ -263,7 +263,7 @@ public sealed partial class RecommendationsViewModel(
 
         try
         {
-            var bootstrap = await bootstrapStore.RefreshAsync(token);
+            var bootstrap = await bootstrapStore.RefreshAsync(token, cancellationToken);
             if (bootstrap is null)
             {
                 sessionService.Clear();

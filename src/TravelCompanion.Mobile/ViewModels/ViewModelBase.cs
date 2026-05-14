@@ -8,6 +8,7 @@ public abstract partial class ViewModelBase : ObservableObject
     private bool _isRefreshing;
     private string? _errorMessage;
     private string? _statusMessage;
+    private CancellationTokenSource? _loadCancellationTokenSource;
 
     public bool IsBusy
     {
@@ -64,12 +65,57 @@ public abstract partial class ViewModelBase : ObservableObject
             return;
         }
 
+        // Cancel any previous load operation
+        _loadCancellationTokenSource?.Cancel();
+        _loadCancellationTokenSource?.Dispose();
+        _loadCancellationTokenSource = new CancellationTokenSource();
+
         try
         {
             IsBusy = true;
             ErrorMessage = null;
             StatusMessage = null;
             await loadAction();
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected when operation is cancelled - don't show error
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+        finally
+        {
+            IsRefreshing = false;
+            IsBusy = false;
+        }
+    }
+
+    protected async Task LoadAsync(Func<CancellationToken, Task> loadAction)
+    {
+        if (IsBusy)
+        {
+            return;
+        }
+
+        // Cancel any previous load operation
+        _loadCancellationTokenSource?.Cancel();
+        _loadCancellationTokenSource?.Dispose();
+        _loadCancellationTokenSource = new CancellationTokenSource();
+
+        var cancellationToken = _loadCancellationTokenSource.Token;
+
+        try
+        {
+            IsBusy = true;
+            ErrorMessage = null;
+            StatusMessage = null;
+            await loadAction(cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected when operation is cancelled - don't show error
         }
         catch (Exception ex)
         {

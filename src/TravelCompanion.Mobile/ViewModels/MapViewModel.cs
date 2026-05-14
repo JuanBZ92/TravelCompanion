@@ -93,9 +93,9 @@ public sealed partial class MapViewModel(
     [RelayCommand]
     private Task LoadNearbyRecommendationsAsync()
     {
-        return LoadAsync(async () =>
+        return LoadAsync(async ct =>
         {
-            await LoadNearbyRecommendationsLocalFirstAsync();
+            await LoadNearbyRecommendationsLocalFirstAsync(ct);
         });
     }
 
@@ -141,7 +141,7 @@ public sealed partial class MapViewModel(
         ApplyCurrentPage();
     }
 
-    private async Task LoadNearbyRecommendationsLocalFirstAsync()
+    private async Task LoadNearbyRecommendationsLocalFirstAsync(CancellationToken cancellationToken = default)
     {
         var token = await sessionService.GetTokenAsync();
         if (string.IsNullOrWhiteSpace(token))
@@ -152,7 +152,7 @@ public sealed partial class MapViewModel(
         }
 
         var resetPage = _allNearbyRecommendations.Count == 0;
-        var cached = await bootstrapStore.GetCachedAsync();
+        var cached = await bootstrapStore.GetCachedAsync(cancellationToken);
         if (cached is not null)
         {
             ApplyBootstrap(cached.Value, resetPage);
@@ -162,7 +162,7 @@ public sealed partial class MapViewModel(
 
         try
         {
-            var bootstrap = await bootstrapStore.RefreshAsync(token);
+            var bootstrap = await bootstrapStore.RefreshAsync(token, cancellationToken);
             if (bootstrap is null)
             {
                 sessionService.Clear();
