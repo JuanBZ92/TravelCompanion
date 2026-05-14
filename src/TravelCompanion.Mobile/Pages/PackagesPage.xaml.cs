@@ -1,3 +1,4 @@
+using System;
 using TravelCompanion.Mobile.ViewModels;
 
 namespace TravelCompanion.Mobile.Pages;
@@ -29,6 +30,14 @@ public partial class PackagesPage : ContentPage
         }
 
         _loaded = true;
-        await _viewModel.LoadPackagesCommand.ExecuteAsync(null);
+
+        try
+        {
+            await _viewModel.LoadPackagesCommand.ExecuteAsync(null);
+        }
+        catch (Exception ex)
+        {
+            _viewModel.ErrorMessage = $"Error loading packages: {ex.Message}";
+        }
     }
 }
