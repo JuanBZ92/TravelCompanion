@@ -169,6 +169,7 @@ Endpoints publicos actuales:
 - `GET /api/destinations`
 - `GET /api/packages?destinationSlug=japon`
 - `GET /api/recommendations?destinationSlug=japon&latitude=35.6762&longitude=139.6503`
+- `GET /api/mobile/discover?destinationSlug=japon`
 - `GET /api/mobile/bootstrap?destinationSlug=japon`
 - `POST /api/auth/login`
 - `POST /api/auth/change-password`
@@ -205,6 +206,8 @@ Observabilidad API:
   - `SlowRequestThresholdMs`;
   - `SlowDependencyThresholdMs`;
   - `CorrelationHeaderName`.
+- `GET /api/mobile/discover` agrega header `Server-Timing` con duraciones por fase (`session`, `destination`, `recommendations`, `total`) y un log estructurado con conteos. Es el endpoint rapido de la tab `Ideas`.
+- `GET /api/mobile/bootstrap` agrega header `Server-Timing` con duraciones por fase (`session`, `destination`, `recommendations`, `packages`, `schedule`, `total`) y un log estructurado con conteos. Esto permite separar si una demora mobile viene de autenticacion/sesion, query de recomendaciones, paquetes, schedule o serializacion/respuesta completa.
 
 Los listados `destinations`, `packages` y `recommendations` aceptan paginacion simple:
 
@@ -264,6 +267,13 @@ Controles de acceso actuales para datos de usuario/viaje:
 - paquetes del destino con `isUnlocked`;
 - schedule vigente del usuario si existe.
 
+`GET /api/mobile/discover` es un endpoint autenticado y mas chico para la primera carga de `Ideas`. Devuelve solo:
+
+- destino seleccionado;
+- recomendaciones del destino ya filtradas por acceso del usuario.
+
+La app usa este endpoint para pintar `Ideas` antes y luego precalienta `/api/mobile/bootstrap` en background para que `Mapa`, `Viaje` y `Packs` queden listos.
+
 `GET /api/packages` acepta token bearer opcional. Si recibe una sesion valida, devuelve cada `TravelPackageDto` con:
 
 - `requiredAccessLevel`: `Bundle` para pago fijo o `Subscription` para suscripciones.
@@ -322,10 +332,13 @@ Servicios principales:
 - `AuthSessionService`: guarda metadata de sesion en Preferences y token en SecureStorage.
 - `BiometricUnlockService`: integra autenticacion biometrica local con `Oscore.Maui.Biometric`.
 - `OfflineCacheService`: guarda snapshots offline cifrados (AES-GCM) en `FileSystem.AppDataDirectory` usando una clave simetrica por dispositivo protegida en `SecureStorage`.
-- `MobileBootstrapStore`: coordina el snapshot mobile agregado de Japon, lo expone local-first y evita que cada tab tenga que pedir endpoints separados.
+- `MobileBootstrapStore`: coordina el snapshot mobile agregado de Japon, lo expone local-first y evita que cada tab tenga que pedir endpoints separados. Tambien mantiene una ventana corta de frescura en memoria para que las tabs no vuelvan a refrescar `/api/mobile/bootstrap` inmediatamente despues de que otra tab ya lo actualizo.
+- `MobileBootstrapStore` coalesce refreshes concurrentes: si Discover esta precalentando bootstrap y otra tab lo pide al mismo tiempo, se reutiliza la misma request en vuelo.
+- `MobileDiscoverStore`: coordina el snapshot reducido de `Ideas` (`/api/mobile/discover`) para que la primera carga de recomendaciones no tenga que esperar schedule ni paquetes.
 - `FavoritesService`: favoritos locales usando Preferences.
 
 `TravelCompanionApiClient` usa opciones JSON compartidas con `JsonStringEnumConverter` para leer enums serializados como strings por la API.
+En builds Debug, el cliente mobile registra tiempos de `/api/mobile/discover` y `/api/mobile/bootstrap`: tiempo hasta headers, tiempo de body/deserializacion JSON y `Server-Timing` recibido desde la API. `MobileDiscoverStore` y `MobileBootstrapStore` registran hit/miss de cache en memoria/disco y tiempo de refresh/cacheado. `RecommendationsViewModel` registra tiempo de aplicar discover, filtros y cambios de pagina. Estos logs se ven en Output/Logcat y sirven para diagnosticar si una carga lenta viene de red/API, cache cifrado o render/aplicacion de UI.
 
 El flujo mobile actual:
 
@@ -335,25 +348,29 @@ El flujo mobile actual:
 4. Si `mustChangePassword = true`, navega a `ChangePasswordPage`.
 5. Si hay sesion valida y biometria habilitada, el arranque navega a `BiometricUnlockPage`.
 6. Si la biometria pasa, entra a la app; si falla/cancela, puede volver a login con password.
-7. Ideas, Mapa, Viaje y Packs usan `MobileBootstrapStore`, que lee primero el snapshot local y luego refresca `/api/mobile/bootstrap`.
-8. Ideas y Mapa aplican paginacion local sobre las recomendaciones desbloqueadas para limitar el trabajo de render y mejorar scroll. El refresh conserva la pagina actual cuando los datos refrescados siguen teniendo esa pagina disponible.
-9. Mapa calcula distancia localmente desde las recomendaciones del bootstrap y pasa el estado de acceso al detalle.
-10. Viaje permite alternar por tipo de reserva (`Eventos`, `Vuelos`, `Hospedajes`) y luego filtrar por ciudad dentro del tipo seleccionado.
-11. Cuenta permite activar/desactivar biometria.
-12. `Bloquear app` conserva token local y navega al desbloqueo biometrico/password.
-13. `Cerrar sesion` revoca la sesion en API, borra token local y exige login con password.
+7. Ideas usa `MobileDiscoverStore`, que lee primero el snapshot reducido local y luego refresca `/api/mobile/discover`.
+8. Despues de cargar Ideas, la app precalienta `/api/mobile/bootstrap` en background para Mapa, Viaje y Packs.
+9. Mapa, Viaje y Packs usan `MobileBootstrapStore`, que lee primero el snapshot local y luego refresca `/api/mobile/bootstrap` cuando hace falta.
+10. Ideas y Mapa aplican paginacion local sobre las recomendaciones desbloqueadas para limitar el trabajo de render y mejorar scroll. El refresh conserva la pagina actual cuando los datos refrescados siguen teniendo esa pagina disponible.
+11. Mapa calcula distancia localmente desde las recomendaciones del bootstrap y pasa el estado de acceso al detalle.
+12. Viaje permite alternar por tipo de reserva (`Eventos`, `Vuelos`, `Hospedajes`) y luego filtrar por ciudad dentro del tipo seleccionado.
+13. Cuenta permite activar/desactivar biometria.
+14. `Bloquear app` conserva token local y navega al desbloqueo biometrico/password.
+15. `Cerrar sesion` revoca la sesion en API, borra token local y exige login con password.
 
 Las pantallas principales usan estrategia offline `local first`:
 
 - leen primero el ultimo snapshot disponible y lo renderizan inmediatamente;
 - despues intentan descargar datos frescos;
+- si otra tab ya refresco el bootstrap recientemente, reutilizan ese snapshot fresco y evitan una segunda llamada de red inmediata;
 - si la descarga funciona, actualizan pantalla y snapshot local;
 - si falla la red/API, conservan la pantalla local y muestran `StatusMessage`;
 - si no existe snapshot, muestran el error normal.
 
 Snapshots actuales:
 
-- bootstrap mobile por usuario y destino (cache key con `destinationSlug`), usado por Ideas, Mapa, Viaje y Packs;
+- discover mobile por usuario y destino, usado por Ideas;
+- bootstrap mobile por usuario y destino (cache key con `destinationSlug`), usado por Mapa, Viaje y Packs, y precalentado despues de Ideas;
 - recomendaciones cercanas, schedule y paquetes se derivan de ese bootstrap compartido.
 
 Los snapshots son de solo lectura para fallback. No hay sincronizacion bidireccional ni descarga offline de tiles de mapas o imagenes.
@@ -385,9 +402,11 @@ Patron de UI:
 - `Ideas`, `Mapa`, `Viaje` y `Packs` renderizan la pagina visible completa con `ScrollView` + `BindableLayout`. Como estas pantallas estan paginadas o acotadas, se evita el costo de materializar celdas por primera vez mientras el usuario scrollea.
 - `Ideas` usa cache visual lazy por pagina (`RecommendationPageViewModel`): renderiza solo la pagina actual en la primera carga y conserva en memoria las paginas que el usuario ya visito. Esto evita una carga inicial pesada y mantiene rapido el regreso a paginas ya visitadas.
 - Los ViewModels de tabs principales (`Ideas`, `Mapa`, `Viaje`, `Packs`) son singletons durante la sesion mobile. Cada tab carga una vez en `OnAppearing`; al volver a una tab ya visitada se reutiliza el estado en memoria y el boton `refresh` queda como recarga manual.
+- Las Pages de tabs principales tambien son singletons y se asignan explicitamente al `Shell` al construir `AppShell`, para evitar reconstruir XAML al cambiar de tab.
 - El logout resetea esos estados de sesion para evitar mostrar contenido cacheado de otro usuario.
 - Las pantallas principales muestran spinner durante la primera carga solo cuando todavia no tienen contenido local para renderizar. Si existe snapshot local, se renderiza inmediatamente aunque el refresh de red siga en curso.
 - `Viaje` selecciona al abrir el tipo de reserva de la reserva vigente/proxima mas cercana, filtra reservas vencidas y muestra solo ciudades con reservas futuras o vigentes para ese tipo.
+- `Viaje` cachea secciones renderizables por tipo/filtro (`Eventos`, `Vuelos`, `Hospedajes`) y alterna visibilidad entre secciones, reduciendo reconstrucciones al cambiar de tipo.
 - Los `CollectionView` que siguen en mobile quedan reservados para listas chicas de filtros/chips o escenarios donde la virtualizacion compense el costo de crear celdas al vuelo.
 - Las filas evitan `SwipeView` cuando no hay acciones reales de swipe, porque en Android agrega costo visible al crear vistas nuevas durante el scroll.
 - Las listas que navegan a detalle usan `SelectionMode=None` y abren con `TapGestureRecognizer`, evitando el estado visual seleccionado de Android al volver atras.

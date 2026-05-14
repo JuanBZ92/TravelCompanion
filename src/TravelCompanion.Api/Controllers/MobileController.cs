@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TravelCompanion.Api.Data;
@@ -12,38 +13,74 @@ namespace TravelCompanion.Api.Controllers;
 [Route("api/mobile")]
 public sealed class MobileController(
     TravelCompanionDbContext dbContext,
-    UserSessionService sessionService) : ControllerBase
+    UserSessionService sessionService,
+    ILogger<MobileController> logger) : ControllerBase
 {
-    [HttpGet("bootstrap")]
-    public async Task<ActionResult<MobileBootstrapDto>> GetBootstrap(
+    [HttpGet("discover")]
+    public async Task<ActionResult<MobileDiscoverDto>> GetDiscover(
         [FromQuery] string? destinationSlug = null,
         CancellationToken cancellationToken = default)
     {
+        var totalStopwatch = Stopwatch.StartNew();
+
+        var userStopwatch = Stopwatch.StartNew();
         var user = await sessionService.GetUserAsync(HttpContext, cancellationToken);
+        userStopwatch.Stop();
         if (user is null)
         {
             return Unauthorized();
         }
 
-        var destinationsQuery = dbContext.Destinations
-            .AsNoTracking();
-
-        if (!string.IsNullOrWhiteSpace(destinationSlug))
+        var destinationStopwatch = Stopwatch.StartNew();
+        var destination = await FindDestinationAsync(destinationSlug, cancellationToken);
+        destinationStopwatch.Stop();
+        if (destination is null)
         {
-            destinationsQuery = destinationsQuery
-                .Where(existingDestination => existingDestination.Slug == destinationSlug);
+            return NotFound();
         }
 
-        var destination = await destinationsQuery
-            .OrderBy(existingDestination => existingDestination.Name)
-            .Select(existingDestination => new DestinationSummaryDto(
-                existingDestination.Id,
-                existingDestination.Name,
-                existingDestination.Slug,
-                existingDestination.Country,
-                existingDestination.HeroImageUrl,
-                existingDestination.ShortDescription))
-            .FirstOrDefaultAsync(cancellationToken);
+        var entitlements = ToEntitlementsDto(user);
+        var recommendationsStopwatch = Stopwatch.StartNew();
+        var recommendations = await GetUnlockedRecommendationsAsync(destination.Id, entitlements, cancellationToken);
+        recommendationsStopwatch.Stop();
+        totalStopwatch.Stop();
+
+        Response.Headers["Server-Timing"] = FormatServerTiming(
+            ("session", userStopwatch.Elapsed.TotalMilliseconds),
+            ("destination", destinationStopwatch.Elapsed.TotalMilliseconds),
+            ("recommendations", recommendationsStopwatch.Elapsed.TotalMilliseconds),
+            ("total", totalStopwatch.Elapsed.TotalMilliseconds));
+
+        logger.LogInformation(
+            "Mobile discover loaded in {ElapsedMs}ms. Destination={DestinationSlug}; Recommendations={RecommendationCount}.",
+            totalStopwatch.Elapsed.TotalMilliseconds,
+            destination.Slug,
+            recommendations.Count);
+
+        return Ok(new MobileDiscoverDto(
+            DateTimeOffset.UtcNow,
+            destination,
+            recommendations));
+    }
+
+    [HttpGet("bootstrap")]
+    public async Task<ActionResult<MobileBootstrapDto>> GetBootstrap(
+        [FromQuery] string? destinationSlug = null,
+        CancellationToken cancellationToken = default)
+    {
+        var totalStopwatch = Stopwatch.StartNew();
+
+        var userStopwatch = Stopwatch.StartNew();
+        var user = await sessionService.GetUserAsync(HttpContext, cancellationToken);
+        userStopwatch.Stop();
+        if (user is null)
+        {
+            return Unauthorized();
+        }
+
+        var destinationStopwatch = Stopwatch.StartNew();
+        var destination = await FindDestinationAsync(destinationSlug, cancellationToken);
+        destinationStopwatch.Stop();
 
         if (destination is null)
         {
@@ -51,39 +88,38 @@ public sealed class MobileController(
         }
 
         var entitlements = ToEntitlementsDto(user);
-        var recommendations = await dbContext.Recommendations
-            .AsNoTracking()
-            .Where(recommendation => recommendation.DestinationId == destination.Id)
-            .OrderBy(recommendation => recommendation.Title)
-            .ToListAsync(cancellationToken);
+        var recommendationsStopwatch = Stopwatch.StartNew();
+        var unlockedRecommendations = await GetUnlockedRecommendationsAsync(destination.Id, entitlements, cancellationToken);
+        recommendationsStopwatch.Stop();
 
-        var unlockedRecommendations = recommendations
-            .Where(recommendation => ContentAccessPolicy.IsUnlocked(
-                recommendation.AccessLevel,
-                entitlements.AccessLevels,
-                entitlements.DestinationIds.Contains(recommendation.DestinationId),
-                hasPackageAccess: false))
-            .Select(recommendation => new RecommendationDto(
-                recommendation.Id,
-                recommendation.DestinationId,
-                recommendation.Title,
-                recommendation.Category,
-                recommendation.Neighborhood,
-                recommendation.Description,
-                recommendation.Latitude,
-                recommendation.Longitude,
-                recommendation.SuggestedDurationMinutes,
-                recommendation.AccessLevel,
-                null))
-            .ToList();
-
+        var packagesStopwatch = Stopwatch.StartNew();
         var packages = await dbContext.TravelPackages
             .AsNoTracking()
             .Where(package => package.DestinationId == destination.Id)
             .OrderBy(package => package.Price)
             .ToListAsync(cancellationToken);
+        packagesStopwatch.Stop();
 
+        var scheduleStopwatch = Stopwatch.StartNew();
         var schedule = await FindScheduleAsync(user.Id, cancellationToken);
+        scheduleStopwatch.Stop();
+        totalStopwatch.Stop();
+
+        Response.Headers["Server-Timing"] = FormatServerTiming(
+            ("session", userStopwatch.Elapsed.TotalMilliseconds),
+            ("destination", destinationStopwatch.Elapsed.TotalMilliseconds),
+            ("recommendations", recommendationsStopwatch.Elapsed.TotalMilliseconds),
+            ("packages", packagesStopwatch.Elapsed.TotalMilliseconds),
+            ("schedule", scheduleStopwatch.Elapsed.TotalMilliseconds),
+            ("total", totalStopwatch.Elapsed.TotalMilliseconds));
+
+        logger.LogInformation(
+            "Mobile bootstrap loaded in {ElapsedMs}ms. Destination={DestinationSlug}; Recommendations={RecommendationCount}; Packages={PackageCount}; HasSchedule={HasSchedule}.",
+            totalStopwatch.Elapsed.TotalMilliseconds,
+            destination.Slug,
+            unlockedRecommendations.Count,
+            packages.Count,
+            schedule is not null);
 
         return Ok(new MobileBootstrapDto(
             DateTimeOffset.UtcNow,
@@ -205,5 +241,68 @@ public sealed class MobileController(
         return user.Entitlements
             .Where(entitlement => entitlement.ExpiresAt is null || entitlement.ExpiresAt > now)
             .ToList();
+    }
+
+    private async Task<DestinationSummaryDto?> FindDestinationAsync(
+        string? destinationSlug,
+        CancellationToken cancellationToken)
+    {
+        var destinationsQuery = dbContext.Destinations
+            .AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(destinationSlug))
+        {
+            destinationsQuery = destinationsQuery
+                .Where(existingDestination => existingDestination.Slug == destinationSlug);
+        }
+
+        return await destinationsQuery
+            .OrderBy(existingDestination => existingDestination.Name)
+            .Select(existingDestination => new DestinationSummaryDto(
+                existingDestination.Id,
+                existingDestination.Name,
+                existingDestination.Slug,
+                existingDestination.Country,
+                existingDestination.HeroImageUrl,
+                existingDestination.ShortDescription))
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    private async Task<IReadOnlyList<RecommendationDto>> GetUnlockedRecommendationsAsync(
+        Guid destinationId,
+        UserEntitlementsDto entitlements,
+        CancellationToken cancellationToken)
+    {
+        var recommendations = await dbContext.Recommendations
+            .AsNoTracking()
+            .Where(recommendation => recommendation.DestinationId == destinationId)
+            .OrderBy(recommendation => recommendation.Title)
+            .ToListAsync(cancellationToken);
+
+        return recommendations
+            .Where(recommendation => ContentAccessPolicy.IsUnlocked(
+                recommendation.AccessLevel,
+                entitlements.AccessLevels,
+                entitlements.DestinationIds.Contains(recommendation.DestinationId),
+                hasPackageAccess: false))
+            .Select(recommendation => new RecommendationDto(
+                recommendation.Id,
+                recommendation.DestinationId,
+                recommendation.Title,
+                recommendation.Category,
+                recommendation.Neighborhood,
+                recommendation.Description,
+                recommendation.Latitude,
+                recommendation.Longitude,
+                recommendation.SuggestedDurationMinutes,
+                recommendation.AccessLevel,
+                null))
+            .ToList();
+    }
+
+    private static string FormatServerTiming(params (string Name, double DurationMs)[] timings)
+    {
+        return string.Join(", ", timings.Select(timing =>
+            FormattableString.Invariant($"{timing.Name};dur={timing.DurationMs:0.##}")));
     }
 }

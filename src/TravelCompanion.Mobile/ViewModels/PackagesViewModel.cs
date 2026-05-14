@@ -42,6 +42,13 @@ public sealed partial class PackagesViewModel(
         if (cached is not null)
         {
             ApplyPackages(cached.Value.Packages);
+
+            if (bootstrapStore.HasFreshSnapshot())
+            {
+                StatusMessage = null;
+                return;
+            }
+
             StatusMessage = OfflineCacheService.FormatSavedAt(cached.SavedAt);
         }
 

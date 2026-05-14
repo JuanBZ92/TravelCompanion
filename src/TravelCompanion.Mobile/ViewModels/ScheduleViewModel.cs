@@ -13,15 +13,18 @@ public sealed partial class ScheduleViewModel(
 {
     private const string AllCitiesKey = "All Cities";
     private readonly List<ScheduleItemDto> _allItems = [];
+    private readonly Dictionary<string, ScheduleTypeSectionViewModel> _sectionCache = new(StringComparer.Ordinal);
     private ReservationType _selectedType = ReservationType.Event;
     private string _tripTitle = "Your Trip";
     private string? _tripDates;
     private ScheduleItemDto? _selectedItem;
+    private ScheduleTypeSectionViewModel? _activeSection;
 
     public ObservableCollection<ScheduleDayViewModel> Days { get; } = [];
+    public ObservableCollection<ScheduleTypeSectionViewModel> TypeSections { get; } = [];
     public ObservableCollection<ScheduleTypeFilterViewModel> TypeFilters { get; } = [];
     public ObservableCollection<CityFilterViewModel> CityFilters { get; } = [];
-    public bool HasScheduleItems => Days.Count > 0;
+    public bool HasScheduleItems => _activeSection?.Days.Count > 0;
     public bool ShowInitialLoading => IsBusy && !HasScheduleItems;
     public bool ShowEmptyState => HasLoaded && !IsBusy && !HasScheduleItems;
 
@@ -47,7 +50,10 @@ public sealed partial class ScheduleViewModel(
     {
         ResetLoadState();
         _allItems.Clear();
+        _sectionCache.Clear();
         Days.Clear();
+        TypeSections.Clear();
+        _activeSection = null;
         TypeFilters.Clear();
         CityFilters.Clear();
         _selectedType = ReservationType.Event;
@@ -160,6 +166,13 @@ public sealed partial class ScheduleViewModel(
         if (cached is not null)
         {
             ApplyBootstrapSchedule(cached.Value);
+
+            if (bootstrapStore.HasFreshSnapshot())
+            {
+                StatusMessage = null;
+                return;
+            }
+
             StatusMessage = OfflineCacheService.FormatSavedAt(cached.SavedAt);
         }
 
@@ -207,6 +220,7 @@ public sealed partial class ScheduleViewModel(
         _selectedType = GetInitialScheduleType(_allItems);
         UpdateTypeFilters();
         UpdateCityFilters();
+        RebuildDefaultTypeSections();
         ApplyCityFilter();
     }
 
@@ -215,7 +229,10 @@ public sealed partial class ScheduleViewModel(
         TripTitle = "Your Trip";
         TripDates = "No reservations yet.";
         _allItems.Clear();
+        _sectionCache.Clear();
         Days.Clear();
+        TypeSections.Clear();
+        _activeSection = null;
         TypeFilters.Clear();
         UpdateTypeFilters();
         CityFilters.Clear();
@@ -300,34 +317,103 @@ public sealed partial class ScheduleViewModel(
             .FirstOrDefault(f => f.IsAllCities)?
             .IsSelected ?? true;
 
+        ShowScheduleSection(_selectedType, selectedCities, allCitiesSelected);
+    }
+
+    private void RebuildDefaultTypeSections()
+    {
+        _sectionCache.Clear();
+        TypeSections.Clear();
+        foreach (var type in new[] { ReservationType.Event, ReservationType.Flight, ReservationType.Lodging })
+        {
+            var section = CreateScheduleSection(type, new HashSet<string>(StringComparer.OrdinalIgnoreCase), allCitiesSelected: true);
+            _sectionCache[section.CacheKey] = section;
+            TypeSections.Add(section);
+        }
+    }
+
+    private void ShowScheduleSection(
+        ReservationType type,
+        IReadOnlySet<string> selectedCities,
+        bool allCitiesSelected)
+    {
+        var section = GetOrCreateScheduleSection(type, selectedCities, allCitiesSelected);
+        foreach (var existingSection in TypeSections)
+        {
+            existingSection.IsVisible = ReferenceEquals(existingSection, section);
+        }
+
+        Days.Clear();
+        foreach (var day in section.Days)
+        {
+            Days.Add(day);
+        }
+
+        _activeSection = section;
+        section.IsVisible = true;
+
+        OnPropertyChanged(nameof(HasScheduleItems));
+        OnPropertyChanged(nameof(ShowInitialLoading));
+        OnPropertyChanged(nameof(ShowEmptyState));
+    }
+
+    private ScheduleTypeSectionViewModel GetOrCreateScheduleSection(
+        ReservationType type,
+        IReadOnlySet<string> selectedCities,
+        bool allCitiesSelected)
+    {
+        var cacheKey = GetSectionCacheKey(type, selectedCities, allCitiesSelected);
+        if (_sectionCache.TryGetValue(cacheKey, out var section))
+        {
+            return section;
+        }
+
+        section = CreateScheduleSection(type, selectedCities, allCitiesSelected);
+        _sectionCache[cacheKey] = section;
+        TypeSections.Add(section);
+        return section;
+    }
+
+    private ScheduleTypeSectionViewModel CreateScheduleSection(
+        ReservationType type,
+        IReadOnlySet<string> selectedCities,
+        bool allCitiesSelected)
+    {
         var now = DateTime.Now;
-        var itemsOfSelectedType = _allItems
-            .Where(item => item.Type == _selectedType)
+        var filteredItems = _allItems
+            .Where(item => item.Type == type)
             .Where(item => !IsPast(item, now));
 
-        var filteredItems = allCitiesSelected || selectedCities.Count == 0
-            ? itemsOfSelectedType
-            : itemsOfSelectedType.Where(item => selectedCities.Contains(NormalizeCity(item.City)));
+        if (!allCitiesSelected && selectedCities.Count > 0)
+        {
+            filteredItems = filteredItems.Where(item => selectedCities.Contains(NormalizeCity(item.City)));
+        }
 
-        // Group and build day list before updating collection
         var dayGroups = filteredItems
             .GroupBy(item => item.Date)
             .OrderBy(group => group.Key)
             .Select(group => new ScheduleDayViewModel(
                 group.Key,
                 group.OrderBy(item => item.StartsAt)))
-            .ToList(); // Only materialize final grouped result
+            .ToList();
 
-        // Clear and rebuild - still multiple events but unavoidable without ObservableRangeCollection
-        Days.Clear();
-        foreach (var day in dayGroups)
+        return new ScheduleTypeSectionViewModel(
+            type,
+            GetSectionCacheKey(type, selectedCities, allCitiesSelected),
+            dayGroups);
+    }
+
+    private static string GetSectionCacheKey(
+        ReservationType type,
+        IReadOnlySet<string> selectedCities,
+        bool allCitiesSelected)
+    {
+        if (allCitiesSelected || selectedCities.Count == 0)
         {
-            Days.Add(day);
+            return $"{type}|{AllCitiesKey}";
         }
 
-        OnPropertyChanged(nameof(HasScheduleItems));
-        OnPropertyChanged(nameof(ShowInitialLoading));
-        OnPropertyChanged(nameof(ShowEmptyState));
+        return $"{type}|{string.Join(";", selectedCities.Order(StringComparer.OrdinalIgnoreCase))}";
     }
 
     private static string NormalizeCity(string? city)

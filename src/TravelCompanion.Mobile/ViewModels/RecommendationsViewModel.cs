@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.Logging;
 using TravelCompanion.Mobile.Pages;
 using TravelCompanion.Mobile.Services;
 using TravelCompanion.Shared;
@@ -10,7 +12,9 @@ namespace TravelCompanion.Mobile.ViewModels;
 public sealed partial class RecommendationsViewModel(
     FavoritesService favoritesService,
     AuthSessionService sessionService,
-    MobileBootstrapStore bootstrapStore) : ViewModelBase, ISessionStateResettable
+    MobileBootstrapStore bootstrapStore,
+    MobileDiscoverStore discoverStore,
+    ILogger<RecommendationsViewModel> logger) : ViewModelBase, ISessionStateResettable
 {
     private const string AllCategories = "Todas";
     private const string FavoritesCategory = "Favoritos";
@@ -130,7 +134,7 @@ public sealed partial class RecommendationsViewModel(
                 return;
             }
 
-            await LoadBootstrapLocalFirstAsync(token, ct);
+            await LoadDiscoverLocalFirstAsync(token, ct);
         });
     }
 
@@ -239,6 +243,7 @@ public sealed partial class RecommendationsViewModel(
 
     private void ApplyFilters(bool resetPage)
     {
+        var stopwatch = Stopwatch.StartNew();
         var filteredItems = GetFilteredItems().ToList();
         TotalItems = filteredItems.Count;
         TotalPages = Math.Max(1, (int)Math.Ceiling(TotalItems / (double)SelectedPageSize));
@@ -260,6 +265,16 @@ public sealed partial class RecommendationsViewModel(
         {
             Recommendations.Add(recommendation);
         }
+
+        stopwatch.Stop();
+        logger.LogInformation(
+            "Recommendations filters applied in {ElapsedMs}ms. Category={Category}; ResetPage={ResetPage}; Page={CurrentPage}; PageSize={PageSize}; TotalItems={TotalItems}.",
+            stopwatch.Elapsed.TotalMilliseconds,
+            SelectedCategory,
+            resetPage,
+            CurrentPage,
+            SelectedPageSize,
+            TotalItems);
     }
 
     private async Task ChangePageAsync(int pageNumber)
@@ -270,10 +285,18 @@ public sealed partial class RecommendationsViewModel(
         }
 
         IsPaging = true;
+        var stopwatch = Stopwatch.StartNew();
         CurrentPage = pageNumber;
         await Task.Yield();
         SetVisiblePage(pageNumber);
         IsPaging = false;
+        stopwatch.Stop();
+
+        logger.LogInformation(
+            "Recommendations page changed in {ElapsedMs}ms. Page={PageNumber}; PageSize={PageSize}.",
+            stopwatch.Elapsed.TotalMilliseconds,
+            pageNumber,
+            SelectedPageSize);
     }
 
     private void SetVisiblePage(int pageNumber)
@@ -331,37 +354,38 @@ public sealed partial class RecommendationsViewModel(
         };
     }
 
-    private static bool IsUnlocked(RecommendationDto recommendation, UserEntitlementsDto? entitlements)
-    {
-        return ContentAccessPolicy.IsUnlocked(
-            recommendation.AccessLevel,
-            entitlements?.AccessLevels ?? [],
-            entitlements?.DestinationIds.Contains(recommendation.DestinationId) ?? false);
-    }
-
-    private async Task LoadBootstrapLocalFirstAsync(string token, CancellationToken cancellationToken = default)
+    private async Task LoadDiscoverLocalFirstAsync(string token, CancellationToken cancellationToken = default)
     {
         var resetPage = _allRecommendations.Count == 0;
-        var cached = await bootstrapStore.GetCachedAsync(cancellationToken: cancellationToken);
+        var cached = await discoverStore.GetCachedAsync(cancellationToken: cancellationToken);
         if (cached is not null)
         {
-            ApplyBootstrap(cached.Value, resetPage);
-            StatusMessage = OfflineCacheService.FormatSavedAt(cached.SavedAt);
+            ApplyDiscover(cached.Value, resetPage);
             resetPage = false;
+
+            if (discoverStore.HasFreshSnapshot())
+            {
+                StatusMessage = null;
+                _ = PrimeBootstrapAsync(token);
+                return;
+            }
+
+            StatusMessage = OfflineCacheService.FormatSavedAt(cached.SavedAt);
         }
 
         try
         {
-            var bootstrap = await bootstrapStore.RefreshAsync(token, cancellationToken: cancellationToken);
-            if (bootstrap is null)
+            var discover = await discoverStore.RefreshAsync(token, cancellationToken: cancellationToken);
+            if (discover is null)
             {
                 sessionService.Clear();
                 await Shell.Current.GoToAsync("//login");
                 return;
             }
 
-            ApplyBootstrap(bootstrap, resetPage);
+            ApplyDiscover(discover, resetPage);
             StatusMessage = null;
+            _ = PrimeBootstrapAsync(token);
         }
         catch
         {
@@ -374,17 +398,29 @@ public sealed partial class RecommendationsViewModel(
         }
     }
 
-    private void ApplyBootstrap(MobileBootstrapDto bootstrap, bool resetPage)
+    private async Task PrimeBootstrapAsync(string token)
     {
-        _allRecommendations.Clear();
-        foreach (var recommendation in bootstrap.Recommendations)
+        if (bootstrapStore.HasFreshSnapshot())
         {
-            var isUnlocked = IsUnlocked(recommendation, bootstrap.Entitlements);
-            if (!isUnlocked)
-            {
-                continue;
-            }
+            return;
+        }
 
+        try
+        {
+            await bootstrapStore.RefreshAsync(token).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Mobile bootstrap prefetch after discover failed.");
+        }
+    }
+
+    private void ApplyDiscover(MobileDiscoverDto discover, bool resetPage)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        _allRecommendations.Clear();
+        foreach (var recommendation in discover.Recommendations)
+        {
             _allRecommendations.Add(new RecommendationListItemViewModel(recommendation)
             {
                 IsFavorite = favoritesService.IsFavorite(recommendation.Id),
@@ -394,6 +430,14 @@ public sealed partial class RecommendationsViewModel(
 
         UpdateCategories();
         ApplyFilters(resetPage);
+        stopwatch.Stop();
+
+        logger.LogInformation(
+            "Recommendations discover applied in {ElapsedMs}ms. SourceRecommendations={SourceCount}; VisibleRecommendations={VisibleCount}; ResetPage={ResetPage}.",
+            stopwatch.Elapsed.TotalMilliseconds,
+            discover.Recommendations.Count,
+            _allRecommendations.Count,
+            resetPage);
     }
 
     private void OnPaginationChanged()

@@ -116,7 +116,7 @@ La tab `Ideas` permite:
 
 La app oculta recomendaciones que la cuenta no tiene desbloqueadas. Por ejemplo, el usuario free solo ve contenido gratis; el usuario de suscripcion ve gratis y suscripcion; el usuario paid ve gratis y pago fijo.
 
-Para que la experiencia inicial sea mas rapida y robusta, Ideas usa un paquete de datos mobile compartido con destino, recomendaciones, accesos, paquetes y schedule del usuario. Esa copia queda guardada para consulta offline.
+Para que la experiencia inicial sea mas rapida y robusta, Ideas usa un paquete reducido con destino y recomendaciones ya filtradas por acceso. Esa copia queda guardada para consulta offline. Despues de pintar Ideas, la app precarga en segundo plano el paquete mobile completo con mapa, schedule y packs para acelerar las otras tabs.
 
 El detalle de recomendacion permite:
 
@@ -130,7 +130,7 @@ La tab `Mapa` muestra recomendaciones cercanas.
 
 En plataformas mobile compatibles se usa mapa nativo. En Windows se muestra una experiencia fallback con lista cercana.
 
-La lista cercana se deriva del paquete mobile compartido, calcula distancias localmente y muestra solo la pagina actual para evitar renderizar demasiados pins/list items juntos. Al refrescar, mantiene la pagina actual si sigue existiendo.
+La lista cercana se deriva del paquete mobile completo precargado, calcula distancias localmente y muestra solo la pagina actual para evitar renderizar demasiados pins/list items juntos. Al refrescar, mantiene la pagina actual si sigue existiendo.
 
 ### Viaje
 
@@ -154,6 +154,7 @@ Al abrir `Viaje`, la app prioriza la informacion relevante desde el momento actu
 Este modulo apunta a cubrir viajes contratados o reservas gestionadas por el negocio.
 
 El ultimo paquete mobile descargado incluye el schedule disponible offline por usuario. Si no hay conexion, la app muestra la copia local y avisa la fecha/hora de guardado.
+La app mantiene preparadas las secciones de eventos, vuelos y hospedajes para que alternar entre tipos se sienta inmediato despues de la primera carga.
 
 ### Packs
 
@@ -249,9 +250,9 @@ Estado actual:
 - API emite tokens opacos y guarda solo hash del token.
 - Los errores de validacion de login/cambio de password y paginacion se devuelven en formato consistente (`ValidationProblemDetails`) para que la app pueda mostrar mensajes de forma uniforme.
 - Mobile guarda la sesion local y usa token bearer para refrescar datos de viaje.
-- Mobile usa un bootstrap autenticado compartido para cargar recomendaciones, accesos, schedule y paquetes del destino activo en menos llamadas.
-- Mobile deriva Ideas, Mapa, Viaje y Packs desde ese bootstrap y ve si cada contenido/paquete esta desbloqueado para su cuenta.
-- Mobile guarda una copia offline del bootstrap por usuario.
+- Mobile usa un endpoint autenticado reducido para Ideas, con destino y recomendaciones ya filtradas por acceso.
+- Mobile precarga un bootstrap autenticado compartido para Mapa, Viaje y Packs, con accesos, schedule y paquetes del destino activo.
+- Mobile guarda copias offline del discover reducido y del bootstrap completo por usuario.
 - Mobile puede desbloquear una sesion local con biometria del dispositivo.
 - `Bloquear app` mantiene la sesion local para poder usar biometria.
 - `Cerrar sesion` revoca y borra la sesion; despues hay que entrar con password.

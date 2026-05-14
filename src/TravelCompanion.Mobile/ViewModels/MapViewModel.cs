@@ -174,8 +174,15 @@ public sealed partial class MapViewModel(
         if (cached is not null)
         {
             ApplyBootstrap(cached.Value, resetPage);
-            StatusMessage = OfflineCacheService.FormatSavedAt(cached.SavedAt);
             resetPage = false;
+
+            if (bootstrapStore.HasFreshSnapshot())
+            {
+                StatusMessage = null;
+                return;
+            }
+
+            StatusMessage = OfflineCacheService.FormatSavedAt(cached.SavedAt);
         }
 
         try

@@ -4,20 +4,18 @@ using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Mobile.Services;
 
-public sealed class MobileBootstrapStore(
+public sealed class MobileDiscoverStore(
     TravelCompanionApiClient apiClient,
     AuthSessionService sessionService,
     OfflineCacheService offlineCacheService,
-    ILogger<MobileBootstrapStore> logger)
+    ILogger<MobileDiscoverStore> logger)
 {
     private static readonly TimeSpan DefaultFreshnessWindow = TimeSpan.FromMinutes(2);
-    private MobileBootstrapDto? _current;
+    private MobileDiscoverDto? _current;
     private DateTimeOffset? _currentSavedAt;
     private Guid? _currentUserId;
-    private readonly object _refreshLock = new();
-    private Task<MobileBootstrapDto?>? _refreshTask;
 
-    public async Task<OfflineCacheResult<MobileBootstrapDto>?> GetCachedAsync(
+    public async Task<OfflineCacheResult<MobileDiscoverDto>?> GetCachedAsync(
         string? destinationSlug = null,
         CancellationToken cancellationToken = default)
     {
@@ -31,19 +29,19 @@ public sealed class MobileBootstrapStore(
         {
             stopwatch.Stop();
             logger.LogInformation(
-                "Mobile bootstrap memory cache hit in {ElapsedMs}ms. Scope={CacheScope}.",
+                "Mobile discover memory cache hit in {ElapsedMs}ms. Scope={CacheScope}.",
                 stopwatch.Elapsed.TotalMilliseconds,
                 cacheScope);
-            return new OfflineCacheResult<MobileBootstrapDto>(_current, _currentSavedAt.Value);
+            return new OfflineCacheResult<MobileDiscoverDto>(_current, _currentSavedAt.Value);
         }
 
-        var cached = await offlineCacheService.GetAsync<MobileBootstrapDto>(
+        var cached = await offlineCacheService.GetAsync<MobileDiscoverDto>(
             GetCacheKey(currentUserId, cacheScope),
             cancellationToken).ConfigureAwait(false);
         stopwatch.Stop();
 
         logger.LogInformation(
-            "Mobile bootstrap disk cache {CacheResult} in {ElapsedMs}ms. Scope={CacheScope}.",
+            "Mobile discover disk cache {CacheResult} in {ElapsedMs}ms. Scope={CacheScope}.",
             cached is null ? "miss" : "hit",
             stopwatch.Elapsed.TotalMilliseconds,
             cacheScope);
@@ -58,83 +56,42 @@ public sealed class MobileBootstrapStore(
         return cached;
     }
 
-    public async Task<MobileBootstrapDto?> RefreshAsync(
+    public async Task<MobileDiscoverDto?> RefreshAsync(
         string token,
         string? destinationSlug = null,
         CancellationToken cancellationToken = default)
     {
-        Task<MobileBootstrapDto?> refreshTask;
-        lock (_refreshLock)
-        {
-            if (_refreshTask is null || _refreshTask.IsCompleted)
-            {
-                _refreshTask = RefreshCoreAsync(token, destinationSlug, cancellationToken);
-            }
-            else
-            {
-                logger.LogInformation("Mobile bootstrap refresh joined existing in-flight request.");
-            }
-
-            refreshTask = _refreshTask;
-        }
-
-        try
-        {
-            return await refreshTask.ConfigureAwait(false);
-        }
-        finally
-        {
-            if (refreshTask.IsCompleted)
-            {
-                lock (_refreshLock)
-                {
-                    if (ReferenceEquals(_refreshTask, refreshTask))
-                    {
-                        _refreshTask = null;
-                    }
-                }
-            }
-        }
-    }
-
-    private async Task<MobileBootstrapDto?> RefreshCoreAsync(
-        string token,
-        string? destinationSlug,
-        CancellationToken cancellationToken)
-    {
         var stopwatch = Stopwatch.StartNew();
-        var bootstrap = await apiClient.GetMobileBootstrapAsync(token, destinationSlug, cancellationToken).ConfigureAwait(false);
-        if (bootstrap is null)
+        var discover = await apiClient.GetMobileDiscoverAsync(token, destinationSlug, cancellationToken).ConfigureAwait(false);
+        if (discover is null)
         {
             stopwatch.Stop();
             logger.LogWarning(
-                "Mobile bootstrap refresh returned no data after {ElapsedMs}ms.",
+                "Mobile discover refresh returned no data after {ElapsedMs}ms.",
                 stopwatch.Elapsed.TotalMilliseconds);
             return null;
         }
 
         var savedAt = DateTimeOffset.UtcNow;
         var currentUserId = sessionService.CurrentUserId;
-        var cacheScope = NormalizeCacheScope(bootstrap.Destination.Slug);
+        var cacheScope = NormalizeCacheScope(discover.Destination.Slug);
         await offlineCacheService.SaveAsync(
             GetCacheKey(currentUserId, cacheScope),
-            bootstrap,
+            discover,
             cancellationToken).ConfigureAwait(false);
         stopwatch.Stop();
 
-        _current = bootstrap;
+        _current = discover;
         _currentSavedAt = savedAt;
         _currentUserId = currentUserId;
 
         logger.LogInformation(
-            "Mobile bootstrap refreshed and cached in {ElapsedMs}ms. Scope={CacheScope}; Recommendations={RecommendationCount}; Packages={PackageCount}; HasSchedule={HasSchedule}.",
+            "Mobile discover refreshed and cached in {ElapsedMs}ms. Scope={CacheScope}; Recommendations={RecommendationCount}.",
             stopwatch.Elapsed.TotalMilliseconds,
             cacheScope,
-            bootstrap.Recommendations.Count,
-            bootstrap.Packages.Count,
-            bootstrap.Schedule is not null);
+            discover.Recommendations.Count);
 
-        return bootstrap;
+        return discover;
     }
 
     public bool HasFreshSnapshot(string? destinationSlug = null, TimeSpan? maxAge = null)
@@ -152,7 +109,7 @@ public sealed class MobileBootstrapStore(
 
     private static string GetCacheKey(Guid? userId, string cacheScope)
     {
-        return $"mobile-bootstrap-{cacheScope}-{userId?.ToString() ?? "anonymous"}";
+        return $"mobile-discover-{cacheScope}-{userId?.ToString() ?? "anonymous"}";
     }
 
     private static string NormalizeCacheScope(string? destinationSlug)

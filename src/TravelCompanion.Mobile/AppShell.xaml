@@ -27,30 +27,35 @@
 
     <TabBar Route="main">
         <ShellContent
+            x:Name="RecommendationsTab"
             Title="Discover"
             Icon="tab_ideas.svg"
             ContentTemplate="{DataTemplate pages:RecommendationsPage}"
             Route="recommendations" />
 
         <ShellContent
+            x:Name="MapTab"
             Title="Map"
             Icon="tab_map.svg"
             ContentTemplate="{DataTemplate pages:MapPage}"
             Route="map" />
 
         <ShellContent
+            x:Name="ScheduleTab"
             Title="Schedule"
             Icon="tab_trip.svg"
             ContentTemplate="{DataTemplate pages:SchedulePage}"
             Route="schedule" />
 
         <ShellContent
+            x:Name="PackagesTab"
             Title="Packs"
             Icon="tab_packs.svg"
             ContentTemplate="{DataTemplate pages:PackagesPage}"
             Route="packages" />
 
         <ShellContent
+            x:Name="SupportTab"
             Title="Support"
             Icon="tab_account.svg"
             ContentTemplate="{DataTemplate pages:SupportPage}"

@@ -69,6 +69,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<BiometricUnlockService>();
         builder.Services.AddSingleton<OfflineCacheService>();
         builder.Services.AddSingleton<MobileBootstrapStore>();
+        builder.Services.AddSingleton<MobileDiscoverStore>();
         builder.Services.AddSingleton<FavoritesService>();
 
         builder.Services.AddTransient<LoginViewModel>();
@@ -89,12 +90,12 @@ public static class MauiProgram
         builder.Services.AddTransient<LoginPage>();
         builder.Services.AddTransient<BiometricUnlockPage>();
         builder.Services.AddTransient<ChangePasswordPage>();
-        builder.Services.AddTransient<RecommendationsPage>();
-        builder.Services.AddTransient<MapPage>();
-        builder.Services.AddTransient<SchedulePage>();
+        builder.Services.AddSingleton<RecommendationsPage>();
+        builder.Services.AddSingleton<MapPage>();
+        builder.Services.AddSingleton<SchedulePage>();
         builder.Services.AddTransient<ScheduleItemDetailPage>();
-        builder.Services.AddTransient<PackagesPage>();
-        builder.Services.AddTransient<SupportPage>();
+        builder.Services.AddSingleton<PackagesPage>();
+        builder.Services.AddSingleton<SupportPage>();
         builder.Services.AddTransient<RecommendationDetailPage>();
 
         var app = builder.Build();

@@ -10,6 +10,7 @@ public partial class AppShell : Shell
         InitializeComponent();
         Routing.RegisterRoute(nameof(RecommendationDetailPage), typeof(RecommendationDetailPage));
         Routing.RegisterRoute(nameof(ScheduleItemDetailPage), typeof(ScheduleItemDetailPage));
+        WarmMainTabPages();
 
         var sessionService = MauiProgram.Services.GetRequiredService<AuthSessionService>();
         if (sessionService.HasSession)
@@ -22,5 +23,14 @@ public partial class AppShell : Shell
 
             Dispatcher.Dispatch(async () => await GoToAsync(route));
         }
+    }
+
+    private void WarmMainTabPages()
+    {
+        RecommendationsTab.Content ??= MauiProgram.Services.GetRequiredService<RecommendationsPage>();
+        MapTab.Content ??= MauiProgram.Services.GetRequiredService<MapPage>();
+        ScheduleTab.Content ??= MauiProgram.Services.GetRequiredService<SchedulePage>();
+        PackagesTab.Content ??= MauiProgram.Services.GetRequiredService<PackagesPage>();
+        SupportTab.Content ??= MauiProgram.Services.GetRequiredService<SupportPage>();
     }
 }

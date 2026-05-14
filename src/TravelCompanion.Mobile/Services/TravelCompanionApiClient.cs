@@ -1,7 +1,9 @@
+using System.Diagnostics;
 using System.Net.Http.Json;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.Extensions.Logging;
 using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Mobile.Services;
@@ -14,10 +16,14 @@ public sealed class TravelCompanionApiClient
     };
 
     private readonly HttpClient _httpClient;
+    private readonly ILogger<TravelCompanionApiClient> _logger;
 
-    public TravelCompanionApiClient(HttpClient httpClient)
+    public TravelCompanionApiClient(
+        HttpClient httpClient,
+        ILogger<TravelCompanionApiClient> logger)
     {
         _httpClient = httpClient;
+        _logger = logger;
     }
 
     public async Task<IReadOnlyList<DestinationSummaryDto>> GetDestinationsAsync(CancellationToken cancellationToken = default)
@@ -110,11 +116,78 @@ public sealed class TravelCompanionApiClient
         var url = string.IsNullOrWhiteSpace(destinationSlug)
             ? "api/mobile/bootstrap"
             : $"api/mobile/bootstrap?destinationSlug={Uri.EscapeDataString(destinationSlug)}";
+
+        var stopwatch = Stopwatch.StartNew();
         using var request = CreateAuthorizedRequest(HttpMethod.Get, url, token);
-        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
-        return response.IsSuccessStatusCode
-            ? await response.Content.ReadFromJsonAsync<MobileBootstrapDto>(JsonOptions, cancellationToken).ConfigureAwait(false)
-            : null;
+        using var response = await _httpClient.SendAsync(
+            request,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken).ConfigureAwait(false);
+
+        var headersElapsedMs = stopwatch.Elapsed.TotalMilliseconds;
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning(
+                "Mobile bootstrap request failed with {StatusCode} after {ElapsedMs}ms.",
+                (int)response.StatusCode,
+                headersElapsedMs);
+            return null;
+        }
+
+        var bootstrap = await response.Content
+            .ReadFromJsonAsync<MobileBootstrapDto>(JsonOptions, cancellationToken)
+            .ConfigureAwait(false);
+        stopwatch.Stop();
+
+        _logger.LogInformation(
+            "Mobile bootstrap request completed in {ElapsedMs}ms. Headers={HeadersElapsedMs}ms; BodyAndJson={BodyElapsedMs}ms; ServerTiming={ServerTiming}.",
+            stopwatch.Elapsed.TotalMilliseconds,
+            headersElapsedMs,
+            stopwatch.Elapsed.TotalMilliseconds - headersElapsedMs,
+            GetServerTiming(response));
+
+        return bootstrap;
+    }
+
+    public async Task<MobileDiscoverDto?> GetMobileDiscoverAsync(
+        string token,
+        string? destinationSlug = null,
+        CancellationToken cancellationToken = default)
+    {
+        var url = string.IsNullOrWhiteSpace(destinationSlug)
+            ? "api/mobile/discover"
+            : $"api/mobile/discover?destinationSlug={Uri.EscapeDataString(destinationSlug)}";
+
+        var stopwatch = Stopwatch.StartNew();
+        using var request = CreateAuthorizedRequest(HttpMethod.Get, url, token);
+        using var response = await _httpClient.SendAsync(
+            request,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken).ConfigureAwait(false);
+
+        var headersElapsedMs = stopwatch.Elapsed.TotalMilliseconds;
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning(
+                "Mobile discover request failed with {StatusCode} after {ElapsedMs}ms.",
+                (int)response.StatusCode,
+                headersElapsedMs);
+            return null;
+        }
+
+        var discover = await response.Content
+            .ReadFromJsonAsync<MobileDiscoverDto>(JsonOptions, cancellationToken)
+            .ConfigureAwait(false);
+        stopwatch.Stop();
+
+        _logger.LogInformation(
+            "Mobile discover request completed in {ElapsedMs}ms. Headers={HeadersElapsedMs}ms; BodyAndJson={BodyElapsedMs}ms; ServerTiming={ServerTiming}.",
+            stopwatch.Elapsed.TotalMilliseconds,
+            headersElapsedMs,
+            stopwatch.Elapsed.TotalMilliseconds - headersElapsedMs,
+            GetServerTiming(response));
+
+        return discover;
     }
 
     public async Task<IReadOnlyList<RecommendationDto>> GetRecommendationsAsync(
@@ -188,5 +261,12 @@ public sealed class TravelCompanionApiClient
         }
 
         return url;
+    }
+
+    private static string GetServerTiming(HttpResponseMessage response)
+    {
+        return response.Headers.TryGetValues("Server-Timing", out var values)
+            ? string.Join(" | ", values)
+            : "none";
     }
 }
