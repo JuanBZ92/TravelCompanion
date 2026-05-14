@@ -22,7 +22,7 @@ public sealed class TravelCompanionApiClient
 
     public async Task<IReadOnlyList<DestinationSummaryDto>> GetDestinationsAsync(CancellationToken cancellationToken = default)
     {
-        return await GetPagedItemsAsync<DestinationSummaryDto>("api/destinations?pageSize=100", cancellationToken);
+        return await GetPagedItemsAsync<DestinationSummaryDto>("api/destinations?pageSize=100", cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<IReadOnlyList<TravelPackageDto>> GetPackagesAsync(
@@ -33,17 +33,17 @@ public sealed class TravelCompanionApiClient
         var url = BuildDestinationUrl("api/packages", destinationSlug, pageSize: 100);
         if (string.IsNullOrWhiteSpace(token))
         {
-            return await GetPagedItemsAsync<TravelPackageDto>(url, cancellationToken);
+            return await GetPagedItemsAsync<TravelPackageDto>(url, cancellationToken).ConfigureAwait(false);
         }
 
         using var request = CreateAuthorizedRequest(HttpMethod.Get, url, token);
-        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
-            return await ReadPagedItemsAsync<TravelPackageDto>(response.Content, cancellationToken);
+            return await ReadPagedItemsAsync<TravelPackageDto>(response.Content, cancellationToken).ConfigureAwait(false);
         }
 
-        return await GetPagedItemsAsync<TravelPackageDto>(url, cancellationToken);
+        return await GetPagedItemsAsync<TravelPackageDto>(url, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<AuthSessionDto?> LoginAsync(string email, string password, CancellationToken cancellationToken = default)
@@ -52,7 +52,7 @@ public sealed class TravelCompanionApiClient
             "api/auth/login",
             new LoginRequestDto(email, password),
             JsonOptions,
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
 
         if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
         {
@@ -60,7 +60,7 @@ public sealed class TravelCompanionApiClient
         }
 
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<AuthSessionDto>(JsonOptions, cancellationToken);
+        return await response.Content.ReadFromJsonAsync<AuthSessionDto>(JsonOptions, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task ChangePasswordAsync(
@@ -74,14 +74,14 @@ public sealed class TravelCompanionApiClient
             new ChangePasswordRequestDto(currentPassword, newPassword),
             options: JsonOptions);
 
-        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
     }
 
     public async Task LogoutAsync(string token, CancellationToken cancellationToken = default)
     {
         using var request = CreateAuthorizedRequest(HttpMethod.Post, "api/auth/logout", token);
-        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
     }
 
@@ -90,15 +90,15 @@ public sealed class TravelCompanionApiClient
         return await _httpClient.GetFromJsonAsync<UserEntitlementsDto>(
             "api/users/demo/entitlements",
             JsonOptions,
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<UserEntitlementsDto?> GetEntitlementsAsync(string token, CancellationToken cancellationToken = default)
     {
         using var request = CreateAuthorizedRequest(HttpMethod.Get, "api/me/entitlements", token);
-        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         return response.IsSuccessStatusCode
-            ? await response.Content.ReadFromJsonAsync<UserEntitlementsDto>(JsonOptions, cancellationToken)
+            ? await response.Content.ReadFromJsonAsync<UserEntitlementsDto>(JsonOptions, cancellationToken).ConfigureAwait(false)
             : null;
     }
 
@@ -111,9 +111,9 @@ public sealed class TravelCompanionApiClient
             ? "api/mobile/bootstrap"
             : $"api/mobile/bootstrap?destinationSlug={Uri.EscapeDataString(destinationSlug)}";
         using var request = CreateAuthorizedRequest(HttpMethod.Get, url, token);
-        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         return response.IsSuccessStatusCode
-            ? await response.Content.ReadFromJsonAsync<MobileBootstrapDto>(JsonOptions, cancellationToken)
+            ? await response.Content.ReadFromJsonAsync<MobileBootstrapDto>(JsonOptions, cancellationToken).ConfigureAwait(false)
             : null;
     }
 
@@ -129,7 +129,7 @@ public sealed class TravelCompanionApiClient
             url += $"&latitude={latitude.Value}&longitude={longitude.Value}";
         }
 
-        return await GetPagedItemsAsync<RecommendationDto>(url, cancellationToken);
+        return await GetPagedItemsAsync<RecommendationDto>(url, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<TripScheduleDto?> GetDemoScheduleAsync(CancellationToken cancellationToken = default)
@@ -137,15 +137,15 @@ public sealed class TravelCompanionApiClient
         return await _httpClient.GetFromJsonAsync<TripScheduleDto>(
             "api/trips/44444444-4444-4444-4444-444444444401/schedule",
             JsonOptions,
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<TripScheduleDto?> GetScheduleAsync(string token, CancellationToken cancellationToken = default)
     {
         using var request = CreateAuthorizedRequest(HttpMethod.Get, "api/me/schedule", token);
-        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         return response.IsSuccessStatusCode
-            ? await response.Content.ReadFromJsonAsync<TripScheduleDto>(JsonOptions, cancellationToken)
+            ? await response.Content.ReadFromJsonAsync<TripScheduleDto>(JsonOptions, cancellationToken).ConfigureAwait(false)
             : null;
     }
 
@@ -163,7 +163,7 @@ public sealed class TravelCompanionApiClient
         var result = await _httpClient.GetFromJsonAsync<PagedResultDto<T>>(
             url,
             JsonOptions,
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
 
         return result?.Items ?? [];
     }
@@ -174,7 +174,7 @@ public sealed class TravelCompanionApiClient
     {
         var result = await content.ReadFromJsonAsync<PagedResultDto<T>>(
             JsonOptions,
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
 
         return result?.Items ?? [];
     }

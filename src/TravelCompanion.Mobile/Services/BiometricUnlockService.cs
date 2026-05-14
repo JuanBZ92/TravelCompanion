@@ -8,7 +8,7 @@ public sealed class BiometricUnlockService(IBiometricAuthentication biometricAut
     {
         var availability = await biometricAuthentication.CheckAvailabilityAsync(
             Authenticator.Biometric,
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
 
         return availability.IsAvailable;
     }
@@ -24,7 +24,7 @@ public sealed class BiometricUnlockService(IBiometricAuthentication biometricAut
                 FallbackTitle = "Usar password",
                 Authenticators = Authenticator.Biometric
             },
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
 
         return result.IsSuccessful;
     }

@@ -18,7 +18,7 @@ public sealed class OfflineCacheService
     public async Task SaveAsync<T>(string key, T value, CancellationToken cancellationToken = default)
     {
         var entry = new OfflineCacheEntry<T>(DateTimeOffset.UtcNow, value);
-        await SaveEntryEncryptedAsync(key, entry, cancellationToken);
+        await SaveEntryEncryptedAsync(key, entry, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<OfflineCacheResult<T>?> GetAsync<T>(string key, CancellationToken cancellationToken = default)
@@ -31,9 +31,9 @@ public sealed class OfflineCacheService
 
         try
         {
-            var json = await File.ReadAllTextAsync(path, cancellationToken);
+            var json = await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false);
 
-            var encryptedEntry = await TryReadEncryptedEntryAsync<T>(json, cancellationToken);
+            var encryptedEntry = await TryReadEncryptedEntryAsync<T>(json, cancellationToken).ConfigureAwait(false);
             if (encryptedEntry is not null)
             {
                 return new OfflineCacheResult<T>(encryptedEntry.Value, encryptedEntry.SavedAt);
@@ -46,7 +46,7 @@ public sealed class OfflineCacheService
                 return null;
             }
 
-            await SaveEntryEncryptedAsync(key, legacyEntry, cancellationToken);
+            await SaveEntryEncryptedAsync(key, legacyEntry, cancellationToken).ConfigureAwait(false);
             return new OfflineCacheResult<T>(legacyEntry.Value, legacyEntry.SavedAt);
         }
         catch
@@ -87,7 +87,7 @@ public sealed class OfflineCacheService
         OfflineCacheEntry<T> entry,
         CancellationToken cancellationToken)
     {
-        var key = await GetOrCreateEncryptionKeyAsync();
+        var key = await GetOrCreateEncryptionKeyAsync().ConfigureAwait(false);
         var nonce = RandomNumberGenerator.GetBytes(12);
         var plaintext = JsonSerializer.SerializeToUtf8Bytes(entry, JsonOptions);
         var ciphertext = new byte[plaintext.Length];
@@ -107,7 +107,7 @@ public sealed class OfflineCacheService
             var json = JsonSerializer.Serialize(envelope, JsonOptions);
             var path = GetPath(cacheKey);
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            await File.WriteAllTextAsync(path, json, cancellationToken);
+            await File.WriteAllTextAsync(path, json, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
@@ -134,7 +134,7 @@ public sealed class OfflineCacheService
             var tag = Convert.FromBase64String(envelope.Tag);
             var ciphertext = Convert.FromBase64String(envelope.Ciphertext);
 
-            var key = await GetOrCreateEncryptionKeyAsync();
+            var key = await GetOrCreateEncryptionKeyAsync().ConfigureAwait(false);
             plaintext = new byte[ciphertext.Length];
 
             using var aes = new AesGcm(key, tag.Length);
@@ -158,7 +158,7 @@ public sealed class OfflineCacheService
 
     private static async Task<byte[]> GetOrCreateEncryptionKeyAsync()
     {
-        var encodedKey = await SecureStorage.Default.GetAsync(EncryptionKeyStorageKey);
+        var encodedKey = await SecureStorage.Default.GetAsync(EncryptionKeyStorageKey).ConfigureAwait(false);
         if (!string.IsNullOrWhiteSpace(encodedKey))
         {
             try
@@ -176,7 +176,7 @@ public sealed class OfflineCacheService
         }
 
         var newKey = RandomNumberGenerator.GetBytes(32);
-        await SecureStorage.Default.SetAsync(EncryptionKeyStorageKey, Convert.ToBase64String(newKey));
+        await SecureStorage.Default.SetAsync(EncryptionKeyStorageKey, Convert.ToBase64String(newKey)).ConfigureAwait(false);
         return newKey;
     }
 
