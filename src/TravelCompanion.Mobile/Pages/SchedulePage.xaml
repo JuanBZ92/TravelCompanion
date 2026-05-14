@@ -24,16 +24,20 @@
 
         <!-- Type and City Filters -->
         <VerticalStackLayout Grid.Row="1" Spacing="12">
-            <FlexLayout Wrap="Wrap"
-                        JustifyContent="Start"
-                        AlignItems="Start"
-                        BindableLayout.ItemsSource="{Binding TypeFilters}">
-                <BindableLayout.ItemTemplate>
+            <CollectionView ItemsSource="{Binding TypeFilters}"
+                            SelectionMode="None"
+                            HeightRequest="40">
+                <CollectionView.ItemsLayout>
+                    <LinearItemsLayout Orientation="Horizontal"
+                                       ItemSpacing="8" />
+                </CollectionView.ItemsLayout>
+                <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="viewModels:ScheduleTypeFilterViewModel">
                         <Border Padding="14,9"
                                 BackgroundColor="{Binding BackgroundColor}"
                                 Stroke="{Binding BorderColor}"
-                                StrokeThickness="1">
+                                StrokeThickness="1"
+                                VerticalOptions="Center">
                             <Border.StrokeShape>
                                 <RoundRectangle CornerRadius="20" />
                             </Border.StrokeShape>
@@ -44,11 +48,12 @@
                             <Label Text="{Binding Label}"
                                    FontSize="13"
                                    FontAttributes="Bold"
-                                   TextColor="{Binding TextColor}" />
+                                   TextColor="{Binding TextColor}"
+                                   VerticalOptions="Center" />
                         </Border>
                     </DataTemplate>
-                </BindableLayout.ItemTemplate>
-            </FlexLayout>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
 
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                 <Label Text="Cities"
@@ -68,16 +73,20 @@
             </Grid>
 
             <!-- Dynamic City Filter Chips -->
-            <FlexLayout Wrap="Wrap"
-                        JustifyContent="Start"
-                        AlignItems="Start"
-                        BindableLayout.ItemsSource="{Binding CityFilters}">
-                <BindableLayout.ItemTemplate>
+            <CollectionView ItemsSource="{Binding CityFilters}"
+                            SelectionMode="None"
+                            HeightRequest="40">
+                <CollectionView.ItemsLayout>
+                    <LinearItemsLayout Orientation="Horizontal"
+                                       ItemSpacing="8" />
+                </CollectionView.ItemsLayout>
+                <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="viewModels:CityFilterViewModel">
                         <Border Padding="12,8"
                                 BackgroundColor="{Binding BackgroundColor}"
                                 Stroke="{Binding BorderColor}"
-                                StrokeThickness="1">
+                                StrokeThickness="1"
+                                VerticalOptions="Center">
                             <Border.StrokeShape>
                                 <RoundRectangle CornerRadius="20" />
                             </Border.StrokeShape>
@@ -87,11 +96,12 @@
                             </Border.GestureRecognizers>
                             <Label Text="{Binding CityName}"
                                    FontSize="13"
-                                   TextColor="{Binding TextColor}" />
+                                   TextColor="{Binding TextColor}"
+                                   VerticalOptions="Center" />
                         </Border>
                     </DataTemplate>
-                </BindableLayout.ItemTemplate>
-            </FlexLayout>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
         </VerticalStackLayout>
 
         <!-- Status Messages -->
@@ -136,7 +146,9 @@
                             SelectionChangedCommandParameter="{Binding SelectedItem}">
                 <CollectionView.ItemsLayout>
                     <LinearItemsLayout Orientation="Vertical"
-                                       ItemSpacing="0" />
+                                       ItemSpacing="0"
+                                       SnapPointsType="None"
+                                       GroupHeadersCollapsed="False" />
                 </CollectionView.ItemsLayout>
                 <CollectionView.EmptyView>
                     <VerticalStackLayout HorizontalOptions="Center"
@@ -174,70 +186,72 @@
 
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="dtos:ScheduleItemDto">
-                        <Grid HeightRequest="132"
-                              RowDefinitions="*,1"
-                              BackgroundColor="{AppThemeBinding Light={StaticResource PaperAlt}, Dark={StaticResource Night}}">
-                            <Grid Padding="0,14"
-                                  ColumnDefinitions="58,*"
-                                  ColumnSpacing="12">
-                                <Label Text="{Binding StartsAt, StringFormat='{0:HH\\:mm}'}"
-                                       FontSize="13"
-                                       FontAttributes="Bold"
-                                       TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}"
-                                       HorizontalTextAlignment="Center"
-                                       VerticalOptions="Start" />
+                        <SwipeView>
+                            <Grid HeightRequest="132"
+                                  RowDefinitions="*,1"
+                                  BackgroundColor="{AppThemeBinding Light={StaticResource PaperAlt}, Dark={StaticResource Night}}">
+                                <Grid Padding="0,14"
+                                      ColumnDefinitions="58,*"
+                                      ColumnSpacing="12">
+                                    <Label Text="{Binding StartsAt, StringFormat='{0:HH\\:mm}'}"
+                                           FontSize="13"
+                                           FontAttributes="Bold"
+                                           TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}"
+                                           HorizontalTextAlignment="Center"
+                                           VerticalOptions="Start" />
 
-                                <Grid Grid.Column="1"
-                                      RowDefinitions="Auto,Auto,Auto"
-                                      RowSpacing="6">
-                                    <HorizontalStackLayout Spacing="8">
-                                        <Label Text="{Binding TypeLabel}"
-                                               FontSize="11"
-                                               FontAttributes="Bold"
-                                               TextTransform="Uppercase"
-                                               TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}" />
-                                        <Label Text="{Binding City}"
-                                               FontSize="11"
-                                               FontAttributes="Bold"
-                                               TextTransform="Uppercase"
-                                               TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
-                                               MaxLines="1"
-                                               LineBreakMode="TailTruncation" />
-                                    </HorizontalStackLayout>
+                                    <Grid Grid.Column="1"
+                                          RowDefinitions="Auto,Auto,Auto"
+                                          RowSpacing="6">
+                                        <HorizontalStackLayout Spacing="8">
+                                            <Label Text="{Binding TypeLabel}"
+                                                   FontSize="11"
+                                                   FontAttributes="Bold"
+                                                   TextTransform="Uppercase"
+                                                   TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}" />
+                                            <Label Text="{Binding City}"
+                                                   FontSize="11"
+                                                   FontAttributes="Bold"
+                                                   TextTransform="Uppercase"
+                                                   TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                                                   LineBreakMode="TailTruncation"
+                                                   MaxLines="1" />
+                                        </HorizontalStackLayout>
 
-                                    <VerticalStackLayout Grid.Row="1" Spacing="3">
-                                        <Label Text="{Binding Title}"
-                                               FontSize="17"
-                                               FontAttributes="Bold"
-                                               TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
-                                               MaxLines="1"
-                                               LineBreakMode="TailTruncation" />
-                                        <Label Text="{Binding MainDetail}"
-                                               FontSize="13"
-                                               TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}"
-                                               MaxLines="1"
-                                               LineBreakMode="TailTruncation" />
-                                        <Label Text="{Binding SecondaryDetail}"
+                                        <VerticalStackLayout Grid.Row="1" Spacing="3">
+                                            <Label Text="{Binding Title}"
+                                                   FontSize="17"
+                                                   FontAttributes="Bold"
+                                                   TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
+                                                   LineBreakMode="TailTruncation"
+                                                   MaxLines="1" />
+                                            <Label Text="{Binding MainDetail}"
+                                                   FontSize="13"
+                                                   TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}"
+                                                   LineBreakMode="TailTruncation"
+                                                   MaxLines="1" />
+                                            <Label Text="{Binding SecondaryDetail}"
+                                                   FontSize="12"
+                                                   TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                                                   LineBreakMode="TailTruncation"
+                                                   MaxLines="1" />
+                                        </VerticalStackLayout>
+
+                                        <Label Grid.Row="2"
+                                               Text="{Binding EndDisplay}"
                                                FontSize="12"
+                                               IsVisible="{Binding HasEnd}"
                                                TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
-                                               MaxLines="1"
-                                               LineBreakMode="TailTruncation" />
-                                    </VerticalStackLayout>
-
-                                    <Label Grid.Row="2"
-                                           Text="{Binding EndDisplay}"
-                                           FontSize="12"
-                                           IsVisible="{Binding HasEnd}"
-                                           TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
-                                           MaxLines="1"
-                                           LineBreakMode="TailTruncation" />
+                                               LineBreakMode="TailTruncation"
+                                               MaxLines="1" />
+                                    </Grid>
                                 </Grid>
-                            </Grid>
 
-                            <BoxView Grid.Row="1"
-                                     HeightRequest="1"
-                                     Color="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}" />
-                        </Grid>
+                                <BoxView Grid.Row="1"
+                                         HeightRequest="1"
+                                         Color="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}" />
+                            </Grid>
+                        </SwipeView>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
             </CollectionView>
