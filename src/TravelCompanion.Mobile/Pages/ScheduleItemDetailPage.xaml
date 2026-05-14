@@ -6,16 +6,15 @@
              x:DataType="viewModels:ScheduleItemDetailViewModel"
              Title="{Binding ScheduleItem.Title}">
     <ScrollView>
-        <VerticalStackLayout Padding="22" Spacing="18">
-            <VerticalStackLayout Spacing="6">
-                <Label Text="{Binding ScheduleItem.TypeLabel}" Style="{StaticResource Eyebrow}" />
-                <Label Text="{Binding ScheduleItem.Title}" Style="{StaticResource Headline}" />
-                <Label Text="{Binding ScheduleItem.City}" Style="{StaticResource Metadata}" TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}" />
-                <Label Text="{Binding ScheduleItem.MainDetail}" Style="{StaticResource SubHeadline}" />
-            </VerticalStackLayout>
+        <VerticalStackLayout Padding="22" Spacing="6">
+            <Label Text="{Binding ScheduleItem.TypeLabel}" Style="{StaticResource Eyebrow}" />
+            <Label Text="{Binding ScheduleItem.Title}" Style="{StaticResource Headline}" />
+            <Label Text="{Binding ScheduleItem.City}" Style="{StaticResource Metadata}" TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}" />
+            <Label Text="{Binding ScheduleItem.MainDetail}" Style="{StaticResource SubHeadline}" Margin="0,0,0,12" />
 
             <Button Text="Abrir mapa"
-                    Command="{Binding OpenMapsCommand}" />
+                    Command="{Binding OpenMapsCommand}"
+                    Margin="0,0,0,12" />
 
             <Border Style="{StaticResource Card}">
                 <Border.StrokeShape>
