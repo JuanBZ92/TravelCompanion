@@ -118,15 +118,6 @@
                             HeightRequest="48"
                             CornerRadius="12"
                             FontSize="16" />
-                    <Button Text="{Binding FavoriteButtonText}"
-                            Command="{Binding ToggleFavoriteCommand}"
-                            BackgroundColor="Transparent"
-                            TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}"
-                            BorderColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}"
-                            BorderWidth="1"
-                            HeightRequest="48"
-                            CornerRadius="12"
-                            FontSize="16" />
                 </VerticalStackLayout>
             </VerticalStackLayout>
         </VerticalStackLayout>

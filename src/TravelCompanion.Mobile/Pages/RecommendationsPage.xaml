@@ -99,6 +99,28 @@
                                            Opacity="0.3" />
                                 </Border>
 
+                                <!-- Favorite Star Button -->
+                                <Border Padding="8"
+                                        Margin="12"
+                                        BackgroundColor="{AppThemeBinding Light={StaticResource Paper}, Dark={StaticResource NightSurface}}"
+                                        Stroke="Transparent"
+                                        StrokeThickness="0"
+                                        HorizontalOptions="End"
+                                        VerticalOptions="Start">
+                                    <Border.StrokeShape>
+                                        <RoundRectangle CornerRadius="20" />
+                                    </Border.StrokeShape>
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer Command="{Binding Source={x:Reference PageRoot}, Path=BindingContext.ToggleFavoriteCommand}"
+                                                              CommandParameter="{Binding .}" />
+                                    </Border.GestureRecognizers>
+                                    <Label Text="{Binding FavoriteGlyph}"
+                                           FontSize="20"
+                                           TextColor="{AppThemeBinding Light={StaticResource Gold}, Dark={StaticResource Gold}}"
+                                           HorizontalOptions="Center"
+                                           VerticalOptions="Center" />
+                                </Border>
+
                                 <!-- Content -->
                                 <Grid Grid.Row="1"
                                       Padding="16"
