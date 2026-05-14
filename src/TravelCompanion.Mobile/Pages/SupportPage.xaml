@@ -202,7 +202,7 @@
                        FontSize="12"
                        TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
                        HorizontalOptions="Center" />
-                <Label Text="Yuki Tanaka"
+                <Label Text="Don Pepe"
                        FontSize="14"
                        TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
                        HorizontalOptions="Center" />

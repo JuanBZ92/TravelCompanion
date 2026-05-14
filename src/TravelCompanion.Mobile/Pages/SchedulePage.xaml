@@ -45,8 +45,6 @@
             <FlexLayout Wrap="Wrap"
                         JustifyContent="Start"
                         AlignItems="Start"
-                        RowSpacing="8"
-                        ColumnSpacing="8"
                         BindableLayout.ItemsSource="{Binding CityFilters}">
                 <BindableLayout.ItemTemplate>
                     <DataTemplate x:DataType="viewModels:CityFilterViewModel">

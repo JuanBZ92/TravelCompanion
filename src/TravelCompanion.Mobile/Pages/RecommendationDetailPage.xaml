@@ -41,6 +41,7 @@
                 </VerticalStackLayout>
 
                 <!-- Details Info -->
+                <!-- Reservation Info --><!--
                 <Border Padding="16"
                         BackgroundColor="{AppThemeBinding Light={StaticResource Mist}, Dark={StaticResource NightSurface}}"
                         Stroke="Transparent"
