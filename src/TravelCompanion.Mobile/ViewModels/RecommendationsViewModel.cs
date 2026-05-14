@@ -253,7 +253,7 @@ public sealed partial class RecommendationsViewModel(
     private async Task LoadBootstrapLocalFirstAsync(string token, CancellationToken cancellationToken = default)
     {
         var resetPage = _allRecommendations.Count == 0;
-        var cached = await bootstrapStore.GetCachedAsync(cancellationToken);
+        var cached = await bootstrapStore.GetCachedAsync(cancellationToken: cancellationToken);
         if (cached is not null)
         {
             ApplyBootstrap(cached.Value, resetPage);
@@ -263,7 +263,7 @@ public sealed partial class RecommendationsViewModel(
 
         try
         {
-            var bootstrap = await bootstrapStore.RefreshAsync(token, cancellationToken);
+            var bootstrap = await bootstrapStore.RefreshAsync(token, cancellationToken: cancellationToken);
             if (bootstrap is null)
             {
                 sessionService.Clear();

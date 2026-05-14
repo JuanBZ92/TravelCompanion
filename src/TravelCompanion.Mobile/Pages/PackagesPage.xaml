@@ -33,34 +33,63 @@
                      IsRefreshing="{Binding IsRefreshing, Mode=TwoWay}">
             <CollectionView ItemsSource="{Binding Packages}"
                             ItemSizingStrategy="MeasureFirstItem">
+                <CollectionView.ItemsLayout>
+                    <LinearItemsLayout Orientation="Vertical"
+                                       ItemSpacing="0"
+                                       SnapPointsType="None" />
+                </CollectionView.ItemsLayout>
                 <CollectionView.EmptyView>
                     <Label Text="Todavia no hay paquetes disponibles." HorizontalOptions="Center" VerticalOptions="Center" />
                 </CollectionView.EmptyView>
+                <CollectionView.Footer>
+                    <BoxView HeightRequest="28" Opacity="0" />
+                </CollectionView.Footer>
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="itemViewModels:PackageListItemViewModel">
-                        <Border Style="{StaticResource Card}" Margin="0,0,0,12">
-                            <Border.StrokeShape>
-                                <RoundRectangle CornerRadius="8" />
-                            </Border.StrokeShape>
-                            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="8">
-                                <Label Text="{Binding Name}" Style="{StaticResource SectionTitle}" />
+                        <Grid HeightRequest="136"
+                              RowDefinitions="*,1"
+                              BackgroundColor="{AppThemeBinding Light={StaticResource Mist}, Dark={StaticResource Night}}">
+                            <Grid Padding="0,14"
+                                  ColumnDefinitions="*,Auto"
+                                  RowDefinitions="Auto,Auto,Auto"
+                                  ColumnSpacing="12"
+                                  RowSpacing="8">
+                                <Label Text="{Binding Name}"
+                                       Style="{StaticResource SectionTitle}"
+                                       LineBreakMode="TailTruncation"
+                                       MaxLines="1" />
                                 <Label Grid.Column="1"
                                        Text="{Binding Price}"
                                        FontSize="14"
                                        FontAttributes="Bold"
                                        TextColor="{AppThemeBinding Light={StaticResource Gold}, Dark={StaticResource GoldSoft}}" />
-                                <Label Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding Description}" FontSize="14" />
-                                <HorizontalStackLayout Grid.Row="2" Grid.ColumnSpan="2" Spacing="8">
-                                    <Label Text="{Binding PackageType}" Style="{StaticResource Metadata}" />
-                                    <Label Text="{Binding RequiredAccess}" Style="{StaticResource Metadata}" />
-                                </HorizontalStackLayout>
-                                <Label Grid.Row="3"
+                                <Label Grid.Row="1"
                                        Grid.ColumnSpan="2"
-                                       Text="{Binding AccessStatus}"
-                                       Style="{StaticResource Metadata}"
-                                       TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}" />
+                                       Text="{Binding Description}"
+                                       FontSize="14"
+                                       TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}"
+                                       LineBreakMode="TailTruncation"
+                                       MaxLines="2" />
+                                <Grid Grid.Row="2"
+                                      Grid.ColumnSpan="2"
+                                      ColumnDefinitions="*,Auto"
+                                      ColumnSpacing="10">
+                                    <HorizontalStackLayout Spacing="8">
+                                        <Label Text="{Binding PackageType}" Style="{StaticResource Metadata}" />
+                                        <Label Text="{Binding RequiredAccess}" Style="{StaticResource Metadata}" />
+                                    </HorizontalStackLayout>
+                                    <Label Grid.Column="1"
+                                           Text="{Binding AccessStatus}"
+                                           Style="{StaticResource Metadata}"
+                                           TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}"
+                                           LineBreakMode="TailTruncation"
+                                           MaxLines="1" />
+                                </Grid>
                             </Grid>
-                        </Border>
+                            <BoxView Grid.Row="1"
+                                     HeightRequest="1"
+                                     Color="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}" />
+                        </Grid>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
             </CollectionView>

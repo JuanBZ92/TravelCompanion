@@ -382,7 +382,9 @@ Patron de UI:
 - ViewModels con CommunityToolkit.Mvvm.
 - DTOs compartidos desde `TravelCompanion.Shared`.
 - Las listas mobile mas sensibles a scroll usan filas livianas, altura estable y separadores simples en vez de cards pesadas con multiples bordes anidados.
-- `Ideas` y `Viaje` usan `CollectionView` con `ItemSizingStrategy=MeasureFirstItem`, filas de altura estable y footer inferior para evitar clipping cuando una celda entra parcialmente al viewport.
+- `Ideas`, `Mapa`, `Viaje` y `Packs` usan `CollectionView` con `ItemSizingStrategy=MeasureFirstItem`, filas de altura estable y footer inferior para evitar clipping cuando una celda entra parcialmente al viewport.
+- Las filas recicladas evitan `SwipeView` cuando no hay acciones reales de swipe, porque en Android agrega costo visible al crear celdas nuevas durante el scroll.
+- Las listas que navegan a detalle usan `SelectionMode=None` y abren con `TapGestureRecognizer`, evitando el estado visual seleccionado de Android al volver atras.
 - Estilos globales en `Resources/Styles/Colors.xaml` y `Resources/Styles/Styles.xaml`.
 - Componentes visuales reutilizables via recursos XAML: `Headline`, `SubHeadline`, `Eyebrow`, `SectionTitle`, `Metadata`, `Card`, `SoftPanel`, `GoldPill` y `GhostButton`.
 - Assets visuales locales en `Resources/Images`: hero de Japon e iconos SVG para las tabs principales.

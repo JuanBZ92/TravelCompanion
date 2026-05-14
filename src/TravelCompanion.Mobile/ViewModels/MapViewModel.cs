@@ -152,7 +152,7 @@ public sealed partial class MapViewModel(
         }
 
         var resetPage = _allNearbyRecommendations.Count == 0;
-        var cached = await bootstrapStore.GetCachedAsync(cancellationToken);
+        var cached = await bootstrapStore.GetCachedAsync(cancellationToken: cancellationToken);
         if (cached is not null)
         {
             ApplyBootstrap(cached.Value, resetPage);
@@ -162,7 +162,7 @@ public sealed partial class MapViewModel(
 
         try
         {
-            var bootstrap = await bootstrapStore.RefreshAsync(token, cancellationToken);
+            var bootstrap = await bootstrapStore.RefreshAsync(token, cancellationToken: cancellationToken);
             if (bootstrap is null)
             {
                 sessionService.Clear();

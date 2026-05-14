@@ -140,7 +140,7 @@ public sealed partial class ScheduleViewModel(
 
     private async Task LoadScheduleLocalFirstAsync(string token, CancellationToken cancellationToken = default)
     {
-        var cached = await bootstrapStore.GetCachedAsync(cancellationToken);
+        var cached = await bootstrapStore.GetCachedAsync(cancellationToken: cancellationToken);
         if (cached is not null)
         {
             ApplyBootstrapSchedule(cached.Value);
@@ -149,7 +149,7 @@ public sealed partial class ScheduleViewModel(
 
         try
         {
-            var bootstrap = await bootstrapStore.RefreshAsync(token, cancellationToken);
+            var bootstrap = await bootstrapStore.RefreshAsync(token, cancellationToken: cancellationToken);
             if (bootstrap is null)
             {
                 sessionService.Clear();
