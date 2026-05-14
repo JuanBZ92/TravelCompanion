@@ -1,3 +1,4 @@
+using System;
 using TravelCompanion.Mobile.ViewModels;
 
 namespace TravelCompanion.Mobile.Pages;
@@ -30,6 +31,14 @@ public partial class RecommendationsPage : ContentPage
         }
 
         _loaded = true;
-        await _viewModel.LoadRecommendationsCommand.ExecuteAsync(null);
+
+        try
+        {
+            await _viewModel.LoadRecommendationsCommand.ExecuteAsync(null);
+        }
+        catch (Exception ex)
+        {
+            _viewModel.ErrorMessage = $"Error loading recommendations: {ex.Message}";
+        }
     }
 }

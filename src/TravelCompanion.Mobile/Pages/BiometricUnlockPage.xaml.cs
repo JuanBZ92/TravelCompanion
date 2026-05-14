@@ -1,3 +1,4 @@
+using System;
 using TravelCompanion.Mobile.ViewModels;
 
 namespace TravelCompanion.Mobile.Pages;
@@ -21,6 +22,14 @@ public partial class BiometricUnlockPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-        await _viewModel.TryAutoUnlockAsync();
+
+        try
+        {
+            await _viewModel.TryAutoUnlockAsync();
+        }
+        catch (Exception ex)
+        {
+            _viewModel.ErrorMessage = $"Error during auto-unlock: {ex.Message}";
+        }
     }
 }

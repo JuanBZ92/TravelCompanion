@@ -1,3 +1,4 @@
+using System;
 using TravelCompanion.Mobile.ViewModels;
 
 namespace TravelCompanion.Mobile.Pages;
@@ -29,6 +30,14 @@ public partial class SchedulePage : ContentPage
         }
 
         _loaded = true;
-        await _viewModel.LoadScheduleCommand.ExecuteAsync(null);
+
+        try
+        {
+            await _viewModel.LoadScheduleCommand.ExecuteAsync(null);
+        }
+        catch (Exception ex)
+        {
+            _viewModel.ErrorMessage = $"Error loading schedule: {ex.Message}";
+        }
     }
 }

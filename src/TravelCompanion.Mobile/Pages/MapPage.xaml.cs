@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Specialized;
 using TravelCompanion.Mobile.ViewModels;
 using TravelCompanion.Shared.Dtos;
@@ -56,7 +57,15 @@ public partial class MapPage : ContentPage
         }
 
         _loaded = true;
-        await _viewModel.LoadNearbyRecommendationsCommand.ExecuteAsync(null);
+
+        try
+        {
+            await _viewModel.LoadNearbyRecommendationsCommand.ExecuteAsync(null);
+        }
+        catch (Exception ex)
+        {
+            _viewModel.ErrorMessage = $"Error loading map: {ex.Message}";
+        }
     }
 
     protected override void OnDisappearing()
