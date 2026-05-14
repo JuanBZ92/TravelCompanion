@@ -156,8 +156,8 @@
                                      IsVisible="False">
                     <VerticalStackLayout.Triggers>
                         <DataTrigger TargetType="VerticalStackLayout"
-                                     Binding="{Binding Days.Count}"
-                                     Value="0">
+                                     Binding="{Binding ShowEmptyState}"
+                                     Value="True">
                             <Setter Property="IsVisible" Value="True" />
                         </DataTrigger>
                     </VerticalStackLayout.Triggers>
@@ -165,7 +165,7 @@
                                          VerticalOptions="Center"
                                          Spacing="8"
                                          Padding="24">
-                        <Label Text="No reservations found"
+                        <Label Text="No upcoming reservations found"
                                FontSize="16"
                                TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
                                HorizontalOptions="Center" />
@@ -278,5 +278,18 @@
                 <BoxView HeightRequest="28" Opacity="0" />
             </VerticalStackLayout>
         </ScrollView>
+
+        <VerticalStackLayout Grid.Row="3"
+                             Spacing="12"
+                             HorizontalOptions="Center"
+                             VerticalOptions="Center"
+                             IsVisible="{Binding ShowInitialLoading}">
+            <ActivityIndicator IsRunning="{Binding ShowInitialLoading}"
+                               WidthRequest="28"
+                               HeightRequest="28" />
+            <Label Text="Cargando reservas"
+                   FontSize="13"
+                   TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
+        </VerticalStackLayout>
     </Grid>
 </ContentPage>

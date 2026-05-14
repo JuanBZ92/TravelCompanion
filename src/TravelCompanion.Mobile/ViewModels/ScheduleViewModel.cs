@@ -21,6 +21,9 @@ public sealed partial class ScheduleViewModel(
     public ObservableCollection<ScheduleDayViewModel> Days { get; } = [];
     public ObservableCollection<ScheduleTypeFilterViewModel> TypeFilters { get; } = [];
     public ObservableCollection<CityFilterViewModel> CityFilters { get; } = [];
+    public bool HasScheduleItems => Days.Count > 0;
+    public bool ShowInitialLoading => IsBusy && !HasScheduleItems;
+    public bool ShowEmptyState => HasLoaded && !IsBusy && !HasScheduleItems;
 
     public string TripTitle
     {
@@ -201,6 +204,7 @@ public sealed partial class ScheduleViewModel(
         TripDates = $"{schedule.StartsOn:MMM d} - {schedule.EndsOn:MMM d, yyyy}";
         _allItems.Clear();
         _allItems.AddRange(schedule.Items);
+        _selectedType = GetInitialScheduleType(_allItems);
         UpdateTypeFilters();
         UpdateCityFilters();
         ApplyCityFilter();
@@ -216,6 +220,9 @@ public sealed partial class ScheduleViewModel(
         UpdateTypeFilters();
         CityFilters.Clear();
         CityFilters.Add(new CityFilterViewModel(AllCitiesKey, isSelected: true));
+        OnPropertyChanged(nameof(HasScheduleItems));
+        OnPropertyChanged(nameof(ShowInitialLoading));
+        OnPropertyChanged(nameof(ShowEmptyState));
     }
 
     private void UpdateTypeFilters()
@@ -248,8 +255,10 @@ public sealed partial class ScheduleViewModel(
         newFilters.Add(new CityFilterViewModel(AllCitiesKey, isSelected: allCitiesSelected));
 
         // Add individual city filters
+        var now = DateTime.Now;
         var cities = _allItems
             .Where(item => item.Type == _selectedType)
+            .Where(item => !IsPast(item, now))
             .Select(item => NormalizeCity(item.City))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Order(StringComparer.OrdinalIgnoreCase);
@@ -291,8 +300,10 @@ public sealed partial class ScheduleViewModel(
             .FirstOrDefault(f => f.IsAllCities)?
             .IsSelected ?? true;
 
-        // Filter without intermediate ToList() allocations
-        var itemsOfSelectedType = _allItems.Where(item => item.Type == _selectedType);
+        var now = DateTime.Now;
+        var itemsOfSelectedType = _allItems
+            .Where(item => item.Type == _selectedType)
+            .Where(item => !IsPast(item, now));
 
         var filteredItems = allCitiesSelected || selectedCities.Count == 0
             ? itemsOfSelectedType
@@ -313,10 +324,60 @@ public sealed partial class ScheduleViewModel(
         {
             Days.Add(day);
         }
+
+        OnPropertyChanged(nameof(HasScheduleItems));
+        OnPropertyChanged(nameof(ShowInitialLoading));
+        OnPropertyChanged(nameof(ShowEmptyState));
     }
 
     private static string NormalizeCity(string? city)
     {
         return string.IsNullOrWhiteSpace(city) ? "Unknown City" : city.Trim();
+    }
+
+    private static ReservationType GetInitialScheduleType(IReadOnlyList<ScheduleItemDto> items)
+    {
+        var now = DateTime.Now;
+        return items
+            .Where(item => !IsPast(item, now))
+            .OrderBy(item => GetTimelineSortValue(item, now))
+            .ThenBy(item => item.StartsAt)
+            .Select(item => item.Type)
+            .FirstOrDefault(ReservationType.Event);
+    }
+
+    private static bool IsPast(ScheduleItemDto item, DateTime now)
+    {
+        return GetEndDateTime(item) < now;
+    }
+
+    private static DateTime GetTimelineSortValue(ScheduleItemDto item, DateTime now)
+    {
+        var start = GetStartDateTime(item);
+        var end = GetEndDateTime(item);
+        if (start <= now && end >= now)
+        {
+            return now;
+        }
+
+        return start;
+    }
+
+    private static DateTime GetStartDateTime(ScheduleItemDto item)
+    {
+        return item.Date.ToDateTime(item.StartsAt);
+    }
+
+    private static DateTime GetEndDateTime(ScheduleItemDto item)
+    {
+        var endDate = item.EndsOn ?? item.Date;
+        var endTime = item.EndsAt ?? item.StartsAt;
+        return endDate.ToDateTime(endTime);
+    }
+
+    protected override void OnLoadStateChanged()
+    {
+        OnPropertyChanged(nameof(ShowInitialLoading));
+        OnPropertyChanged(nameof(ShowEmptyState));
     }
 }

@@ -96,6 +96,8 @@ public sealed partial class RecommendationsViewModel(
             {
                 OnPropertyChanged(nameof(PageSummary));
                 OnPropertyChanged(nameof(HasRecommendations));
+                OnPropertyChanged(nameof(ShowInitialLoading));
+                OnPropertyChanged(nameof(ShowEmptyState));
             }
         }
     }
@@ -103,6 +105,8 @@ public sealed partial class RecommendationsViewModel(
     public bool CanGoPrevious => CurrentPage > 1;
     public bool CanGoNext => CurrentPage < TotalPages;
     public bool HasRecommendations => TotalItems > 0;
+    public bool ShowInitialLoading => IsBusy && !HasRecommendations;
+    public bool ShowEmptyState => HasLoaded && !IsBusy && !HasRecommendations;
     public bool IsPaging
     {
         get => _isPaging;
@@ -376,5 +380,11 @@ public sealed partial class RecommendationsViewModel(
         OnPropertyChanged(nameof(CanGoPrevious));
         OnPropertyChanged(nameof(CanGoNext));
         OnPropertyChanged(nameof(PageSummary));
+    }
+
+    protected override void OnLoadStateChanged()
+    {
+        OnPropertyChanged(nameof(ShowInitialLoading));
+        OnPropertyChanged(nameof(ShowEmptyState));
     }
 }

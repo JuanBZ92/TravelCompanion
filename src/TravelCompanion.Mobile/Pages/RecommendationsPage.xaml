@@ -133,8 +133,8 @@
                                          IsVisible="False">
                         <VerticalStackLayout.Triggers>
                             <DataTrigger TargetType="VerticalStackLayout"
-                                         Binding="{Binding HasRecommendations}"
-                                         Value="False">
+                                         Binding="{Binding ShowEmptyState}"
+                                         Value="True">
                                 <Setter Property="IsVisible" Value="True" />
                             </DataTrigger>
                         </VerticalStackLayout.Triggers>
@@ -248,6 +248,19 @@
                            TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
                 </HorizontalStackLayout>
             </Border>
+
+            <VerticalStackLayout Grid.Row="1"
+                                 Spacing="12"
+                                 HorizontalOptions="Center"
+                                 VerticalOptions="Center"
+                                 IsVisible="{Binding ShowInitialLoading}">
+                <ActivityIndicator IsRunning="{Binding ShowInitialLoading}"
+                                   WidthRequest="28"
+                                   HeightRequest="28" />
+                <Label Text="Cargando recomendaciones"
+                       FontSize="13"
+                       TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
+            </VerticalStackLayout>
         </Grid>
     </Grid>
 </ContentPage>

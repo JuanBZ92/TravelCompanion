@@ -19,16 +19,26 @@ public abstract partial class ViewModelBase : ObservableObject
             if (SetProperty(ref _isBusy, value))
             {
                 OnPropertyChanged(nameof(IsNotBusy));
+                OnPropertyChanged(nameof(IsInitialLoading));
+                OnLoadStateChanged();
             }
         }
     }
 
     public bool IsNotBusy => !IsBusy;
+    public bool IsInitialLoading => IsBusy && !HasLoaded;
 
     public bool HasLoaded
     {
         get => _hasLoaded;
-        protected set => SetProperty(ref _hasLoaded, value);
+        protected set
+        {
+            if (SetProperty(ref _hasLoaded, value))
+            {
+                OnPropertyChanged(nameof(IsInitialLoading));
+                OnLoadStateChanged();
+            }
+        }
     }
 
     public bool IsRefreshing
@@ -147,5 +157,9 @@ public abstract partial class ViewModelBase : ObservableObject
         ErrorMessage = null;
         StatusMessage = null;
         HasLoaded = false;
+    }
+
+    protected virtual void OnLoadStateChanged()
+    {
     }
 }
