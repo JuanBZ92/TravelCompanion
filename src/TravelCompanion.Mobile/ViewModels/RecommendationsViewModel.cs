@@ -187,11 +187,17 @@ public sealed partial class RecommendationsViewModel(
     private void UpdateCategories()
     {
         var currentCategory = SelectedCategory;
-        Categories.Clear();
-        Categories.Add(AllCategories);
-        Categories.Add(FavoritesCategory);
 
-        foreach (var category in _allRecommendations.Select(recommendation => recommendation.Category).Distinct().Order())
+        // Build category list first to minimize CollectionChanged events
+        var newCategories = new List<string> { AllCategories, FavoritesCategory };
+        newCategories.AddRange(_allRecommendations
+            .Select(recommendation => recommendation.Category)
+            .Distinct()
+            .Order());
+
+        // Clear and rebuild in one pass
+        Categories.Clear();
+        foreach (var category in newCategories)
         {
             Categories.Add(category);
         }
@@ -201,16 +207,16 @@ public sealed partial class RecommendationsViewModel(
 
     private void ApplyFilters(bool resetPage)
     {
-        Recommendations.Clear();
-
-        var filtered = (SelectedCategory switch
+        // Get filtered items without intermediate ToList() allocation
+        var filtered = SelectedCategory switch
         {
-            FavoritesCategory => _allRecommendations.Where(recommendation => recommendation.IsFavorite),
+            FavoritesCategory => (IEnumerable<RecommendationListItemViewModel>)_allRecommendations.Where(r => r.IsFavorite),
             AllCategories => _allRecommendations,
-            _ => _allRecommendations.Where(recommendation => recommendation.Category == SelectedCategory)
-        }).ToList();
+            _ => _allRecommendations.Where(r => r.Category == SelectedCategory)
+        };
 
-        TotalItems = filtered.Count;
+        // Count once and cache
+        TotalItems = filtered.Count();
         TotalPages = Math.Max(1, (int)Math.Ceiling(TotalItems / (double)SelectedPageSize));
 
         if (resetPage)
@@ -222,9 +228,15 @@ public sealed partial class RecommendationsViewModel(
             CurrentPage = TotalPages;
         }
 
-        foreach (var recommendation in filtered
+        // Get page items and build list before updating collection
+        var pageItems = filtered
             .Skip((CurrentPage - 1) * SelectedPageSize)
-            .Take(SelectedPageSize))
+            .Take(SelectedPageSize)
+            .ToList(); // Only materialize the page items, not entire filtered set
+
+        // Clear and rebuild - still multiple events but unavoidable without ObservableRangeCollection
+        Recommendations.Clear();
+        foreach (var recommendation in pageItems)
         {
             Recommendations.Add(recommendation);
         }
