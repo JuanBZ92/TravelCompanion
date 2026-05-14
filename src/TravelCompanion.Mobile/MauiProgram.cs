@@ -1,4 +1,8 @@
 using Microsoft.Extensions.Logging;
+#if ANDROID
+using AndroidX.RecyclerView.Widget;
+using Microsoft.Maui.Controls.Handlers.Items;
+#endif
 #if !WINDOWS
 using Microsoft.Maui.Controls.Maps;
 #endif
@@ -22,6 +26,29 @@ public static class MauiProgram
 #if !WINDOWS
             .UseMauiMaps()
 #endif
+            .ConfigureMauiHandlers(handlers =>
+            {
+#if ANDROID
+                CollectionViewHandler.Mapper.AppendToMapping("TravelCompanionListPerformance", (handler, _) =>
+                {
+                    if (handler.PlatformView is not RecyclerView recyclerView)
+                    {
+                        return;
+                    }
+
+                    recyclerView.SetItemViewCacheSize(16);
+                    recyclerView.SetItemAnimator(null);
+
+                    recyclerView.GetRecycledViewPool()?.SetMaxRecycledViews(0, 32);
+
+                    if (recyclerView.GetLayoutManager() is LinearLayoutManager layoutManager)
+                    {
+                        layoutManager.ItemPrefetchEnabled = true;
+                        layoutManager.InitialPrefetchItemCount = 8;
+                    }
+                });
+#endif
+            })
             .ConfigureFonts(fonts =>
             {
                 fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");

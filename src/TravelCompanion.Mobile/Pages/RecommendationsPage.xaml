@@ -76,7 +76,7 @@
 
         <!-- Recommendations List -->
         <Grid Grid.Row="3" RowDefinitions="Auto,*" RowSpacing="12">
-            <Grid ColumnDefinitions="40,*,40" ColumnSpacing="8" HeightRequest="40">
+            <Grid ColumnDefinitions="40,*,40,40" ColumnSpacing="8" HeightRequest="40">
                 <Button Text="‹"
                         Command="{Binding PreviousPageCommand}"
                         IsEnabled="{Binding CanGoPrevious}"
@@ -109,12 +109,22 @@
                         BorderColor="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
                         BorderWidth="1"
                         TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
+                <Button Grid.Column="3"
+                        Text="↻"
+                        Command="{Binding LoadRecommendationsCommand}"
+                        FontSize="16"
+                        Padding="0"
+                        HeightRequest="36"
+                        WidthRequest="36"
+                        CornerRadius="18"
+                        BackgroundColor="Transparent"
+                        BorderColor="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
+                        BorderWidth="1"
+                        TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
             </Grid>
 
-        <RefreshView Grid.Row="1"
-                     Command="{Binding LoadRecommendationsCommand}"
-                     IsRefreshing="{Binding IsRefreshing, Mode=TwoWay}">
-            <CollectionView ItemsSource="{Binding Recommendations}"
+            <CollectionView Grid.Row="1"
+                            ItemsSource="{Binding Recommendations}"
                             ItemSizingStrategy="MeasureFirstItem"
                             SelectionMode="None">
                 <CollectionView.ItemsLayout>
@@ -131,7 +141,7 @@
                                FontSize="16"
                                TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
                                HorizontalOptions="Center" />
-                        <Label Text="Pull to refresh"
+                        <Label Text="Use refresh button to retry"
                                FontSize="13"
                                TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
                                HorizontalOptions="Center" />
@@ -143,71 +153,66 @@
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="itemViewModels:RecommendationListItemViewModel">
                         <Grid HeightRequest="136"
-                              RowDefinitions="*,1"
+                              Padding="0,14"
+                              RowDefinitions="Auto,Auto,Auto,1"
+                              ColumnDefinitions="*,44"
                               BackgroundColor="{AppThemeBinding Light={StaticResource PaperAlt}, Dark={StaticResource Night}}">
-                            <Grid Padding="0,14"
-                                  RowDefinitions="Auto,Auto"
-                                  ColumnDefinitions="*,44"
-                                  RowSpacing="10"
-                                  ColumnSpacing="12">
-                                <VerticalStackLayout Spacing="4">
-                                    <VerticalStackLayout.GestureRecognizers>
-                                        <TapGestureRecognizer Command="{Binding Source={x:Reference PageRoot}, Path=BindingContext.OpenRecommendationCommand}"
-                                                              CommandParameter="{Binding .}" />
-                                    </VerticalStackLayout.GestureRecognizers>
-                                    <Label Text="{Binding Title, Mode=OneTime}"
-                                           FontSize="17"
-                                           FontAttributes="Bold"
-                                           TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
-                                           LineBreakMode="TailTruncation"
-                                           MaxLines="2" />
-                                    <Label Text="{Binding Description, Mode=OneTime}"
-                                           FontSize="14"
-                                           TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
-                                           LineBreakMode="TailTruncation"
-                                           MaxLines="2" />
-                                </VerticalStackLayout>
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding Source={x:Reference PageRoot}, Path=BindingContext.OpenRecommendationCommand}"
+                                                      CommandParameter="{Binding .}" />
+                            </Grid.GestureRecognizers>
+                            <Label Text="{Binding Title, Mode=OneTime}"
+                                   FontSize="17"
+                                   FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
+                                   LineBreakMode="TailTruncation"
+                                   MaxLines="2" />
+                            <Label Grid.Row="1"
+                                   Text="{Binding Description, Mode=OneTime}"
+                                   FontSize="14"
+                                   Margin="0,4,0,0"
+                                   TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                                   LineBreakMode="TailTruncation"
+                                   MaxLines="2" />
 
-                                <Label Grid.Column="1"
-                                       Text="{Binding FavoriteGlyph}"
-                                       FontSize="22"
-                                       TextColor="{AppThemeBinding Light={StaticResource Gold}, Dark={StaticResource Gold}}"
-                                       HorizontalTextAlignment="Center"
-                                       VerticalTextAlignment="Center"
-                                       WidthRequest="40"
-                                       HeightRequest="40">
-                                    <Label.GestureRecognizers>
-                                        <TapGestureRecognizer Command="{Binding Source={x:Reference PageRoot}, Path=BindingContext.ToggleFavoriteCommand}"
-                                                              CommandParameter="{Binding .}" />
-                                    </Label.GestureRecognizers>
-                                </Label>
+                            <Label Grid.Column="1"
+                                   Grid.RowSpan="2"
+                                   Text="{Binding FavoriteGlyph}"
+                                   FontSize="22"
+                                   Margin="0,2,0,0"
+                                   TextColor="{AppThemeBinding Light={StaticResource Gold}, Dark={StaticResource Gold}}"
+                                   HorizontalTextAlignment="Center"
+                                   VerticalTextAlignment="Start"
+                                   WidthRequest="40"
+                                   HeightRequest="40">
+                                <Label.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding Source={x:Reference PageRoot}, Path=BindingContext.ToggleFavoriteCommand}"
+                                                          CommandParameter="{Binding .}" />
+                                </Label.GestureRecognizers>
+                            </Label>
 
-                                <HorizontalStackLayout Grid.Row="1" Grid.ColumnSpan="2" Spacing="8">
-                                    <HorizontalStackLayout.GestureRecognizers>
-                                        <TapGestureRecognizer Command="{Binding Source={x:Reference PageRoot}, Path=BindingContext.OpenRecommendationCommand}"
-                                                              CommandParameter="{Binding .}" />
-                                    </HorizontalStackLayout.GestureRecognizers>
-                                    <Label Text="{Binding Category, Mode=OneTime}"
-                                           FontSize="12"
-                                           TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
-                                    <Label Text="•"
-                                           FontSize="12"
-                                           TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
-                                    <Label Text="{Binding Neighborhood, Mode=OneTime}"
-                                           FontSize="12"
-                                           TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
-                                           LineBreakMode="TailTruncation"
-                                           MaxLines="1" />
-                                </HorizontalStackLayout>
-                            </Grid>
-                            <BoxView Grid.Row="1"
+                            <HorizontalStackLayout Grid.Row="2" Grid.ColumnSpan="2" Spacing="8" Margin="0,10,0,0">
+                                <Label Text="{Binding Category, Mode=OneTime}"
+                                       FontSize="12"
+                                       TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
+                                <Label Text="•"
+                                       FontSize="12"
+                                       TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
+                                <Label Text="{Binding Neighborhood, Mode=OneTime}"
+                                       FontSize="12"
+                                       TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                                       LineBreakMode="TailTruncation"
+                                       MaxLines="1" />
+                            </HorizontalStackLayout>
+
+                            <BoxView Grid.Row="3"
+                                     Grid.ColumnSpan="2"
                                      HeightRequest="1"
                                      Color="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}" />
                         </Grid>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
             </CollectionView>
-        </RefreshView>
         </Grid>
     </Grid>
 </ContentPage>
