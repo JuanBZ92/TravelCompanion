@@ -66,42 +66,45 @@
                                      BindableLayout.ItemsSource="{Binding Packages}">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="itemViewModels:PackageListItemViewModel">
-                            <Grid HeightRequest="136"
-                                  Padding="0,14"
-                                  RowDefinitions="Auto,Auto,Auto,1"
-                                  ColumnDefinitions="*,Auto"
-                                  BackgroundColor="{AppThemeBinding Light={StaticResource Mist}, Dark={StaticResource Night}}">
-                                <Label Text="{Binding Name}"
-                                       Style="{StaticResource SectionTitle}"
-                                       LineBreakMode="TailTruncation"
-                                       MaxLines="1" />
-                                <Label Grid.Column="1"
-                                       Text="{Binding Price}"
-                                       FontSize="14"
-                                       FontAttributes="Bold"
-                                       TextColor="{AppThemeBinding Light={StaticResource Gold}, Dark={StaticResource GoldSoft}}" />
-                                <Label Grid.Row="1"
-                                       Grid.ColumnSpan="2"
-                                       Text="{Binding Description}"
-                                       FontSize="14"
-                                       Margin="0,8,0,0"
-                                       TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}"
-                                       LineBreakMode="TailTruncation"
-                                       MaxLines="2" />
-                                <HorizontalStackLayout Grid.Row="2" Grid.ColumnSpan="2" Spacing="8" Margin="0,8,0,0">
-                                    <Label Text="{Binding PackageType}" Style="{StaticResource Metadata}" />
-                                    <Label Text="{Binding RequiredAccess}" Style="{StaticResource Metadata}" />
-                                    <Label Text="{Binding AccessStatus}"
-                                           Style="{StaticResource Metadata}"
-                                           TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}"
+                            <Border HeightRequest="136"
+                                    Padding="14"
+                                    Margin="0,0,0,10"
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource Paper}, Dark={StaticResource NightSurface}}"
+                                    Stroke="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
+                                    StrokeThickness="1">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="8" />
+                                </Border.StrokeShape>
+                                <Grid RowDefinitions="Auto,Auto,Auto"
+                                      ColumnDefinitions="*,Auto">
+                                    <Label Text="{Binding Name}"
+                                           Style="{StaticResource SectionTitle}"
                                            LineBreakMode="TailTruncation"
                                            MaxLines="1" />
-                                </HorizontalStackLayout>
-                                <BoxView Grid.Row="3"
-                                         Grid.ColumnSpan="2"
-                                         HeightRequest="1"
-                                         Color="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}" />
-                            </Grid>
+                                    <Label Grid.Column="1"
+                                           Text="{Binding Price}"
+                                           FontSize="14"
+                                           FontAttributes="Bold"
+                                           TextColor="{AppThemeBinding Light={StaticResource Gold}, Dark={StaticResource GoldSoft}}" />
+                                    <Label Grid.Row="1"
+                                           Grid.ColumnSpan="2"
+                                           Text="{Binding Description}"
+                                           FontSize="14"
+                                           Margin="0,8,0,0"
+                                           TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}"
+                                           LineBreakMode="TailTruncation"
+                                           MaxLines="2" />
+                                    <HorizontalStackLayout Grid.Row="2" Grid.ColumnSpan="2" Spacing="8" Margin="0,9,0,0">
+                                        <Label Text="{Binding PackageType}" Style="{StaticResource Metadata}" />
+                                        <Label Text="{Binding RequiredAccess}" Style="{StaticResource Metadata}" />
+                                        <Label Text="{Binding AccessStatus}"
+                                               Style="{StaticResource Metadata}"
+                                               TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}"
+                                               LineBreakMode="TailTruncation"
+                                               MaxLines="1" />
+                                    </HorizontalStackLayout>
+                                </Grid>
+                            </Border>
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
                 </VerticalStackLayout>

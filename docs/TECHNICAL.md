@@ -388,6 +388,7 @@ Patron de UI:
 - Las filas evitan `SwipeView` cuando no hay acciones reales de swipe, porque en Android agrega costo visible al crear vistas nuevas durante el scroll.
 - Las listas que navegan a detalle usan `SelectionMode=None` y abren con `TapGestureRecognizer`, evitando el estado visual seleccionado de Android al volver atras.
 - Los textos inmutables de celdas (titulo, descripcion, categoria, ciudad, horarios) usan bindings `Mode=OneTime` para reducir re-evaluaciones durante scroll.
+- Las cards de listas principales usan bordes sobrios de radio bajo, sin sombras, para mantener estilo minimalista y bajo costo visual.
 - Estilos globales en `Resources/Styles/Colors.xaml` y `Resources/Styles/Styles.xaml`.
 - Componentes visuales reutilizables via recursos XAML: `Headline`, `SubHeadline`, `Eyebrow`, `SectionTitle`, `Metadata`, `Card`, `SoftPanel`, `GoldPill` y `GhostButton`.
 - Assets visuales locales en `Resources/Images`: hero de Japon e iconos SVG para las tabs principales.
