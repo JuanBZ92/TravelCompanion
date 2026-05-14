@@ -207,10 +207,14 @@ public sealed partial class ScheduleViewModel(
 
     private void UpdateTypeFilters()
     {
+        // Build filter list first to minimize CollectionChanged events
+        var types = new[] { ReservationType.Event, ReservationType.Flight, ReservationType.Lodging };
+        var newFilters = types.Select(type => new ScheduleTypeFilterViewModel(type, type == _selectedType)).ToList();
+
         TypeFilters.Clear();
-        foreach (var type in new[] { ReservationType.Event, ReservationType.Flight, ReservationType.Lodging })
+        foreach (var filter in newFilters)
         {
-            TypeFilters.Add(new ScheduleTypeFilterViewModel(type, type == _selectedType));
+            TypeFilters.Add(filter);
         }
     }
 
@@ -222,36 +226,43 @@ public sealed partial class ScheduleViewModel(
             .Select(f => f.CityName)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        CityFilters.Clear();
+        // Build complete filter list first to minimize CollectionChanged events
+        var newFilters = new List<CityFilterViewModel>();
 
         // Add "All Cities" filter
         var allCitiesSelected = currentSelections.Count == 0 ||
                                currentSelections.Contains(AllCitiesKey);
-        CityFilters.Add(new CityFilterViewModel(AllCitiesKey, isSelected: allCitiesSelected));
+        newFilters.Add(new CityFilterViewModel(AllCitiesKey, isSelected: allCitiesSelected));
 
         // Add individual city filters
         var cities = _allItems
             .Where(item => item.Type == _selectedType)
             .Select(item => NormalizeCity(item.City))
             .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Order(StringComparer.OrdinalIgnoreCase)
-            .ToList();
+            .Order(StringComparer.OrdinalIgnoreCase);
 
         foreach (var city in cities)
         {
             var isSelected = currentSelections.Contains(city);
-            CityFilters.Add(new CityFilterViewModel(city, isSelected: isSelected));
+            newFilters.Add(new CityFilterViewModel(city, isSelected: isSelected));
         }
 
-        // If we had selections but none of them exist anymore, select "All Cities"
+        // If we had selections but none exist anymore, select "All Cities"
         if (currentSelections.Count > 0 &&
-            !CityFilters.Any(f => !f.IsAllCities && f.IsSelected))
+            !newFilters.Any(f => !f.IsAllCities && f.IsSelected))
         {
-            var allCities = CityFilters.FirstOrDefault(f => f.IsAllCities);
+            var allCities = newFilters.FirstOrDefault(f => f.IsAllCities);
             if (allCities is not null)
             {
                 allCities.IsSelected = true;
             }
+        }
+
+        // Clear and rebuild in one pass
+        CityFilters.Clear();
+        foreach (var filter in newFilters)
+        {
+            CityFilters.Add(filter);
         }
     }
 
@@ -267,25 +278,27 @@ public sealed partial class ScheduleViewModel(
             .FirstOrDefault(f => f.IsAllCities)?
             .IsSelected ?? true;
 
-        var itemsOfSelectedType = _allItems
-            .Where(item => item.Type == _selectedType)
-            .ToList();
+        // Filter without intermediate ToList() allocations
+        var itemsOfSelectedType = _allItems.Where(item => item.Type == _selectedType);
 
         var filteredItems = allCitiesSelected || selectedCities.Count == 0
             ? itemsOfSelectedType
-            : itemsOfSelectedType
-                .Where(item => selectedCities.Contains(
-                    NormalizeCity(item.City)))
-                .ToList();
+            : itemsOfSelectedType.Where(item => selectedCities.Contains(NormalizeCity(item.City)));
 
-        Days.Clear();
-        foreach (var group in filteredItems
+        // Group and build day list before updating collection
+        var dayGroups = filteredItems
             .GroupBy(item => item.Date)
-            .OrderBy(group => group.Key))
-        {
-            Days.Add(new ScheduleDayViewModel(
+            .OrderBy(group => group.Key)
+            .Select(group => new ScheduleDayViewModel(
                 group.Key,
-                group.OrderBy(item => item.StartsAt)));
+                group.OrderBy(item => item.StartsAt)))
+            .ToList(); // Only materialize final grouped result
+
+        // Clear and rebuild - still multiple events but unavoidable without ObservableRangeCollection
+        Days.Clear();
+        foreach (var day in dayGroups)
+        {
+            Days.Add(day);
         }
     }
 
