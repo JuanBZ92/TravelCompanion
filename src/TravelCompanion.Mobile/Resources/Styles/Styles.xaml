@@ -178,7 +178,6 @@
         <Setter Property="FontFamily" Value="OpenSansSemibold" />
         <Setter Property="FontSize" Value="28" />
         <Setter Property="LineHeight" Value="1.2" />
-        <Setter Property="LetterSpacing" Value="-0.5" />
     </Style>
 
     <Style TargetType="Label" x:Key="SubHeadline">
@@ -192,14 +191,12 @@
         <Setter Property="FontFamily" Value="OpenSansRegular" />
         <Setter Property="FontSize" Value="12" />
         <Setter Property="TextTransform" Value="Uppercase" />
-        <Setter Property="LetterSpacing" Value="0.5" />
     </Style>
 
     <Style TargetType="Label" x:Key="SectionTitle">
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
         <Setter Property="FontFamily" Value="OpenSansSemibold" />
         <Setter Property="FontSize" Value="18" />
-        <Setter Property="LetterSpacing" Value="-0.3" />
     </Style>
 
     <Style TargetType="Label" x:Key="Metadata">
@@ -211,7 +208,6 @@
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
         <Setter Property="FontFamily" Value="OpenSansSemibold" />
         <Setter Property="FontSize" Value="24" />
-        <Setter Property="LetterSpacing" Value="-0.5" />
     </Style>
 
     <Style TargetType="Label" x:Key="Body">

@@ -15,8 +15,7 @@
                 <Label Text="Support"
                        FontSize="24"
                        FontAttributes="Bold"
-                       TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
-                       LetterSpacing="-0.5" />
+                       TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"/>
                 <Label Text="We're here to help"
                        FontSize="14"
                        TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
@@ -35,8 +34,7 @@
                         <Label Text="Your Concierge"
                                FontSize="18"
                                FontAttributes="Bold"
-                               TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
-                               LetterSpacing="-0.3" />
+                               TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"/>
                         <Label Text="24/7 assistance for reservations and recommendations"
                                FontSize="14"
                                LineHeight="1.5"
@@ -204,7 +202,7 @@
                        FontSize="12"
                        TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
                        HorizontalOptions="Center" />
-                <Label Text="Yuki Tanaka"
+                <Label Text="Don Pepe"
                        FontSize="14"
                        TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
                        HorizontalOptions="Center" />
