@@ -125,7 +125,7 @@
                          Command="{Binding LoadNearbyRecommendationsCommand}"
                          IsRefreshing="{Binding IsRefreshing, Mode=TwoWay}">
                 <CollectionView ItemsSource="{Binding NearbyRecommendations}"
-                                ItemSizingStrategy="MeasureFirstItem"
+                                ItemSizingStrategy="MeasureAllItems"
                                 SelectionMode="Single"
                                 SelectedItem="{Binding SelectedRecommendation, Mode=TwoWay}"
                                 SelectionChangedCommand="{Binding OpenRecommendationCommand}"
@@ -155,34 +155,38 @@
                                 <Border.StrokeShape>
                                     <RoundRectangle CornerRadius="12" />
                                 </Border.StrokeShape>
-                                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="6">
-                                    <VerticalStackLayout Spacing="4">
-                                        <Label Text="{Binding Title}"
-                                               FontSize="18"
-                                               FontAttributes="Bold"
-                                               TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"/>
-                                        <Label Text="{Binding Neighborhood}"
-                                               FontSize="14"
-                                               TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
-                                    </VerticalStackLayout>
+                                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,4,Auto,6,Auto" ColumnSpacing="12">
+                                    <!-- Title -->
+                                    <Label Grid.Row="0"
+                                           Text="{Binding Title, Mode=OneTime}"
+                                           FontSize="18"
+                                           FontAttributes="Bold"
+                                           TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"/>
+                                    <!-- Neighborhood -->
+                                    <Label Grid.Row="2"
+                                           Text="{Binding Neighborhood, Mode=OneTime}"
+                                           FontSize="14"
+                                           TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
+                                    <!-- Category -->
+                                    <Label Grid.Row="4" Grid.ColumnSpan="2"
+                                           Text="{Binding Category, Mode=OneTime}"
+                                           FontSize="12"
+                                           TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
 
-                                    <VerticalStackLayout Grid.Column="1" Spacing="2" HorizontalOptions="End">
-                                        <Label Text="{Binding DistanceKm, StringFormat='{0:F1} km'}"
-                                               FontSize="16"
-                                               FontAttributes="Bold"
-                                               TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}"
-                                               HorizontalTextAlignment="End" />
-                                        <Label Text="away"
-                                               FontSize="12"
-                                               TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
-                                               HorizontalTextAlignment="End" />
-                                    </VerticalStackLayout>
-
-                                    <HorizontalStackLayout Grid.Row="1" Grid.ColumnSpan="2" Spacing="8">
-                                        <Label Text="{Binding Category}"
-                                               FontSize="12"
-                                               TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
-                                    </HorizontalStackLayout>
+                                    <!-- Distance -->
+                                    <Label Grid.Column="1" Grid.Row="0"
+                                           Text="{Binding DistanceKm, StringFormat='{0:F1} km', Mode=OneTime}"
+                                           FontSize="16"
+                                           FontAttributes="Bold"
+                                           TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}"
+                                           HorizontalTextAlignment="End"
+                                           VerticalOptions="Start" />
+                                    <Label Grid.Column="1" Grid.Row="2"
+                                           Text="away"
+                                           FontSize="12"
+                                           TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                                           HorizontalTextAlignment="End"
+                                           VerticalOptions="Start" />
                                 </Grid>
                             </Border>
                         </DataTemplate>

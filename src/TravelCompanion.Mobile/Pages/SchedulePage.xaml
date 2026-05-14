@@ -139,7 +139,7 @@
                      IsRefreshing="{Binding IsRefreshing, Mode=TwoWay}">
             <CollectionView ItemsSource="{Binding Days}"
                             IsGrouped="True"
-                            ItemSizingStrategy="MeasureFirstItem"
+                            ItemSizingStrategy="MeasureAllItems"
                             SelectionMode="Single"
                             SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
                             SelectionChangedCommand="{Binding OpenScheduleItemCommand}"
@@ -191,57 +191,60 @@
                                   BackgroundColor="{AppThemeBinding Light={StaticResource PaperAlt}, Dark={StaticResource Night}}">
                                 <Grid Padding="0,14"
                                       ColumnDefinitions="58,*"
+                                      RowDefinitions="Auto,6,Auto,3,Auto,3,Auto,6,Auto"
                                       ColumnSpacing="12">
-                                    <Label Text="{Binding StartsAt, StringFormat='{0:HH\\:mm}'}"
+                                    <!-- Time -->
+                                    <Label Grid.RowSpan="9"
+                                           Text="{Binding StartsAt, StringFormat='{0:HH\\:mm}', Mode=OneTime}"
                                            FontSize="13"
                                            FontAttributes="Bold"
                                            TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}"
                                            HorizontalTextAlignment="Center"
                                            VerticalOptions="Start" />
 
-                                    <Grid Grid.Column="1"
-                                          RowDefinitions="Auto,Auto,Auto"
-                                          RowSpacing="6">
-                                        <HorizontalStackLayout Spacing="8">
-                                            <Label Text="{Binding TypeLabel}"
-                                                   FontSize="11"
-                                                   FontAttributes="Bold"
-                                                   TextTransform="Uppercase"
-                                                   TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}" />
-                                            <Label Text="{Binding City}"
-                                                   FontSize="11"
-                                                   FontAttributes="Bold"
-                                                   TextTransform="Uppercase"
-                                                   TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
-                                                   LineBreakMode="TailTruncation"
-                                                   MaxLines="1" />
-                                        </HorizontalStackLayout>
-
-                                        <VerticalStackLayout Grid.Row="1" Spacing="3">
-                                            <Label Text="{Binding Title}"
-                                                   FontSize="17"
-                                                   FontAttributes="Bold"
-                                                   TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
-                                                   LineBreakMode="TailTruncation"
-                                                   MaxLines="1" />
-                                            <Label Text="{Binding MainDetail}"
-                                                   FontSize="13"
-                                                   TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}"
-                                                   LineBreakMode="TailTruncation"
-                                                   MaxLines="1" />
-                                            <Label Text="{Binding SecondaryDetail}"
-                                                   FontSize="12"
-                                                   TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
-                                                   LineBreakMode="TailTruncation"
-                                                   MaxLines="1" />
-                                        </VerticalStackLayout>
-
-                                        <Label Grid.Row="2"
-                                               Text="{Binding EndDisplay}"
-                                               FontSize="12"
-                                               IsVisible="{Binding HasEnd}"
+                                    <!-- Type and City -->
+                                    <Grid Grid.Column="1" Grid.Row="0" ColumnDefinitions="Auto,8,*">
+                                        <Label Text="{Binding TypeLabel, Mode=OneTime}"
+                                               FontSize="11"
+                                               FontAttributes="Bold"
+                                               TextTransform="Uppercase"
+                                               TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}" />
+                                        <Label Grid.Column="2"
+                                               Text="{Binding City, Mode=OneTime}"
+                                               FontSize="11"
+                                               FontAttributes="Bold"
+                                               TextTransform="Uppercase"
                                                TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
-                                               LineBreakMode="TailTruncation"
+                                               LineBreakMode="TailTruncation" />
+                                    </Grid>
+
+                                    <!-- Title -->
+                                    <Label Grid.Column="1" Grid.Row="2"
+                                           Text="{Binding Title, Mode=OneTime}"
+                                           FontSize="17"
+                                           FontAttributes="Bold"
+                                           TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
+                                           LineBreakMode="TailTruncation" />
+                                    <!-- Main Detail -->
+                                    <Label Grid.Column="1" Grid.Row="4"
+                                           Text="{Binding MainDetail, Mode=OneTime}"
+                                           FontSize="13"
+                                           TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}"
+                                           LineBreakMode="TailTruncation" />
+                                    <!-- Secondary Detail -->
+                                    <Label Grid.Column="1" Grid.Row="6"
+                                           Text="{Binding SecondaryDetail, Mode=OneTime}"
+                                           FontSize="12"
+                                           TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                                           LineBreakMode="TailTruncation" />
+
+                                    <!-- End Display -->
+                                    <Label Grid.Column="1" Grid.Row="8"
+                                           Text="{Binding EndDisplay, Mode=OneTime}"
+                                           FontSize="12"
+                                           IsVisible="{Binding HasEnd, Mode=OneTime}"
+                                           TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                                           LineBreakMode="TailTruncation"
                                                MaxLines="1" />
                                     </Grid>
                                 </Grid>

@@ -115,7 +115,7 @@
                      Command="{Binding LoadRecommendationsCommand}"
                      IsRefreshing="{Binding IsRefreshing, Mode=TwoWay}">
             <CollectionView ItemsSource="{Binding Recommendations}"
-                            ItemSizingStrategy="MeasureFirstItem"
+                            ItemSizingStrategy="MeasureAllItems"
                             SelectionMode="Single"
                             SelectedItem="{Binding SelectedRecommendation, Mode=TwoWay}"
                             SelectionChangedCommand="{Binding OpenRecommendationCommand}"
@@ -149,26 +149,44 @@
                             <Grid HeightRequest="136"
                                   RowDefinitions="*,1"
                                   BackgroundColor="{AppThemeBinding Light={StaticResource PaperAlt}, Dark={StaticResource Night}}">
-                                <Grid Padding="0,14"
-                                      RowDefinitions="Auto,Auto"
+                                <Grid Padding="0,14,0,10"
+                                      RowDefinitions="Auto,4,Auto,10,Auto"
                                       ColumnDefinitions="*,44"
-                                      RowSpacing="10"
                                       ColumnSpacing="12">
-                                    <VerticalStackLayout Spacing="4">
-                                        <Label Text="{Binding Title}"
-                                               FontSize="17"
-                                               FontAttributes="Bold"
-                                               TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
-                                               LineBreakMode="TailTruncation"
-                                               MaxLines="2" />
-                                        <Label Text="{Binding Description}"
-                                               FontSize="14"
+                                    <!-- Title -->
+                                    <Label Grid.Row="0"
+                                           Text="{Binding Title, Mode=OneTime}"
+                                           FontSize="17"
+                                           FontAttributes="Bold"
+                                           TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
+                                           LineBreakMode="TailTruncation"
+                                           MaxLines="2" />
+                                    <!-- Description -->
+                                    <Label Grid.Row="2"
+                                           Text="{Binding Description, Mode=OneTime}"
+                                           FontSize="14"
+                                           TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                                           LineBreakMode="TailTruncation"
+                                           MaxLines="2" />
+                                    <!-- Metadata -->
+                                    <Grid Grid.Row="4" Grid.ColumnSpan="2" ColumnDefinitions="Auto,Auto,Auto,*">
+                                        <Label Text="{Binding Category, Mode=OneTime}"
+                                               FontSize="12"
+                                               TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
+                                        <Label Grid.Column="1"
+                                               Text=" • "
+                                               FontSize="12"
+                                               TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
+                                        <Label Grid.Column="2"
+                                               Text="{Binding Neighborhood, Mode=OneTime}"
+                                               FontSize="12"
                                                TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
-                                               LineBreakMode="TailTruncation"
-                                               MaxLines="2" />
-                                    </VerticalStackLayout>
+                                               LineBreakMode="TailTruncation" />
+                                    </Grid>
 
+                                    <!-- Favorite Button -->
                                     <Button Grid.Column="1"
+                                            Grid.RowSpan="5"
                                             Text="{Binding FavoriteGlyph}"
                                             Command="{Binding Source={x:Reference PageRoot}, Path=BindingContext.ToggleFavoriteCommand}"
                                             CommandParameter="{Binding .}"
@@ -178,21 +196,8 @@
                                             HeightRequest="40"
                                             CornerRadius="20"
                                             BackgroundColor="Transparent"
+                                            VerticalOptions="Start"
                                             TextColor="{AppThemeBinding Light={StaticResource Gold}, Dark={StaticResource Gold}}" />
-
-                                    <HorizontalStackLayout Grid.Row="1" Grid.ColumnSpan="2" Spacing="8">
-                                        <Label Text="{Binding Category}"
-                                               FontSize="12"
-                                               TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
-                                        <Label Text="•"
-                                               FontSize="12"
-                                               TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
-                                        <Label Text="{Binding Neighborhood}"
-                                               FontSize="12"
-                                               TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
-                                               LineBreakMode="TailTruncation"
-                                               MaxLines="1" />
-                                    </HorizontalStackLayout>
                                 </Grid>
                                 <BoxView Grid.Row="1"
                                          HeightRequest="1"
