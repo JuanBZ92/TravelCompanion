@@ -17,6 +17,7 @@ public partial class MapPage : ContentPage
 
 #if !WINDOWS
     private readonly MauiMap _map;
+    private readonly Dictionary<Pin, EventHandler<PinClickedEventArgs>> _pinHandlers = new();
 #endif
 
     public MapPage()
@@ -58,6 +59,23 @@ public partial class MapPage : ContentPage
         await _viewModel.LoadNearbyRecommendationsCommand.ExecuteAsync(null);
     }
 
+    protected override void OnDisappearing()
+    {
+        base.OnDisappearing();
+
+        // Unsubscribe from collection changed to prevent memory leak
+        _viewModel.NearbyRecommendations.CollectionChanged -= OnNearbyRecommendationsChanged;
+
+#if !WINDOWS
+        // Clean up all pin event handlers to prevent memory leaks
+        foreach (var (pin, handler) in _pinHandlers)
+        {
+            pin.MarkerClicked -= handler;
+        }
+        _pinHandlers.Clear();
+#endif
+    }
+
     private void OnNearbyRecommendationsChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
 #if !WINDOWS
@@ -68,6 +86,12 @@ public partial class MapPage : ContentPage
 #if !WINDOWS
     private void RefreshMapPins()
     {
+        // Unsubscribe all existing pin event handlers to prevent memory leaks
+        foreach (var (pin, handler) in _pinHandlers)
+        {
+            pin.MarkerClicked -= handler;
+        }
+        _pinHandlers.Clear();
         _map.Pins.Clear();
 
         foreach (var recommendation in _viewModel.NearbyRecommendations)
@@ -80,12 +104,15 @@ public partial class MapPage : ContentPage
                 Location = new Location((double)recommendation.Latitude, (double)recommendation.Longitude)
             };
 
-            pin.MarkerClicked += async (_, args) =>
+            // Store handler reference to enable proper cleanup
+            EventHandler<PinClickedEventArgs> handler = async (_, args) =>
             {
                 args.HideInfoWindow = false;
                 await OpenRecommendationAsync(recommendation);
             };
 
+            _pinHandlers[pin] = handler;
+            pin.MarkerClicked += handler;
             _map.Pins.Add(pin);
         }
 
