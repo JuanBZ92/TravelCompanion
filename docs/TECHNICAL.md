@@ -383,6 +383,7 @@ Patron de UI:
 - DTOs compartidos desde `TravelCompanion.Shared`.
 - Las listas mobile mas sensibles a scroll usan filas livianas, altura estable y separadores simples en vez de cards pesadas con multiples bordes anidados.
 - `Ideas`, `Mapa`, `Viaje` y `Packs` renderizan la pagina visible completa con `ScrollView` + `BindableLayout`. Como estas pantallas estan paginadas o acotadas, se evita el costo de materializar celdas por primera vez mientras el usuario scrollea.
+- `Ideas` prearma las paginas filtradas en memoria visual (`RecommendationPageViewModel`) y alterna visibilidad al paginar. Esto evita reconstruir la pagina 1 al volver desde pagina 2; el costo queda concentrado al cargar/refiltrar.
 - Los `CollectionView` que siguen en mobile quedan reservados para listas chicas de filtros/chips o escenarios donde la virtualizacion compense el costo de crear celdas al vuelo.
 - Las filas evitan `SwipeView` cuando no hay acciones reales de swipe, porque en Android agrega costo visible al crear vistas nuevas durante el scroll.
 - Las listas que navegan a detalle usan `SelectionMode=None` y abren con `TapGestureRecognizer`, evitando el estado visual seleccionado de Android al volver atras.

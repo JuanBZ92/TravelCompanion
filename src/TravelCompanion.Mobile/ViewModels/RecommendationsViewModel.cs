@@ -21,8 +21,10 @@ public sealed partial class RecommendationsViewModel(
     private int _currentPage = 1;
     private int _totalPages = 1;
     private int _totalItems;
+    private bool _isPaging;
 
     public ObservableCollection<RecommendationListItemViewModel> Recommendations { get; } = [];
+    public ObservableCollection<RecommendationPageViewModel> RecommendationPages { get; } = [];
     public ObservableCollection<string> Categories { get; } = [AllCategories, FavoritesCategory];
     public ObservableCollection<int> PageSizeOptions { get; } = [10, 20, 50];
 
@@ -93,12 +95,20 @@ public sealed partial class RecommendationsViewModel(
             if (SetProperty(ref _totalItems, value))
             {
                 OnPropertyChanged(nameof(PageSummary));
+                OnPropertyChanged(nameof(HasRecommendations));
             }
         }
     }
 
     public bool CanGoPrevious => CurrentPage > 1;
     public bool CanGoNext => CurrentPage < TotalPages;
+    public bool HasRecommendations => TotalItems > 0;
+    public bool IsPaging
+    {
+        get => _isPaging;
+        private set => SetProperty(ref _isPaging, value);
+    }
+
     public string PageSummary => TotalItems == 0
         ? "0 resultados"
         : $"Pagina {CurrentPage} de {TotalPages} · {TotalItems} resultados";
@@ -161,27 +171,25 @@ public sealed partial class RecommendationsViewModel(
     }
 
     [RelayCommand]
-    private void PreviousPage()
+    private async Task PreviousPageAsync()
     {
         if (!CanGoPrevious)
         {
             return;
         }
 
-        CurrentPage--;
-        ApplyFilters(resetPage: false);
+        await ChangePageAsync(CurrentPage - 1);
     }
 
     [RelayCommand]
-    private void NextPage()
+    private async Task NextPageAsync()
     {
         if (!CanGoNext)
         {
             return;
         }
 
-        CurrentPage++;
-        ApplyFilters(resetPage: false);
+        await ChangePageAsync(CurrentPage + 1);
     }
 
     private void UpdateCategories()
@@ -215,8 +223,8 @@ public sealed partial class RecommendationsViewModel(
             _ => _allRecommendations.Where(r => r.Category == SelectedCategory)
         };
 
-        // Count once and cache
-        TotalItems = filtered.Count();
+        var filteredItems = filtered.ToList();
+        TotalItems = filteredItems.Count;
         TotalPages = Math.Max(1, (int)Math.Ceiling(TotalItems / (double)SelectedPageSize));
 
         if (resetPage)
@@ -228,18 +236,58 @@ public sealed partial class RecommendationsViewModel(
             CurrentPage = TotalPages;
         }
 
-        // Get page items and build list before updating collection
-        var pageItems = filtered
-            .Skip((CurrentPage - 1) * SelectedPageSize)
-            .Take(SelectedPageSize)
-            .ToList(); // Only materialize the page items, not entire filtered set
-
-        // Clear and rebuild - still multiple events but unavoidable without ObservableRangeCollection
+        RecommendationPages.Clear();
         Recommendations.Clear();
-        foreach (var recommendation in pageItems)
+        for (var pageNumber = 1; pageNumber <= TotalPages; pageNumber++)
+        {
+            var pageItems = filteredItems
+                .Skip((pageNumber - 1) * SelectedPageSize)
+                .Take(SelectedPageSize)
+                .ToList();
+
+            RecommendationPages.Add(new RecommendationPageViewModel(
+                pageNumber,
+                pageItems,
+                pageNumber == CurrentPage));
+        }
+
+        foreach (var recommendation in GetCurrentPageItems())
         {
             Recommendations.Add(recommendation);
         }
+    }
+
+    private async Task ChangePageAsync(int pageNumber)
+    {
+        if (pageNumber < 1 || pageNumber > TotalPages || pageNumber == CurrentPage)
+        {
+            return;
+        }
+
+        IsPaging = true;
+        CurrentPage = pageNumber;
+        await Task.Yield();
+        SetVisiblePage(pageNumber);
+        IsPaging = false;
+    }
+
+    private void SetVisiblePage(int pageNumber)
+    {
+        foreach (var page in RecommendationPages)
+        {
+            page.IsVisible = page.PageNumber == pageNumber;
+        }
+
+        Recommendations.Clear();
+        foreach (var recommendation in GetCurrentPageItems())
+        {
+            Recommendations.Add(recommendation);
+        }
+    }
+
+    private IReadOnlyList<RecommendationListItemViewModel> GetCurrentPageItems()
+    {
+        return RecommendationPages.FirstOrDefault(page => page.PageNumber == CurrentPage)?.Items ?? [];
     }
 
     private static bool IsUnlocked(RecommendationDto recommendation, UserEntitlementsDto? entitlements)
