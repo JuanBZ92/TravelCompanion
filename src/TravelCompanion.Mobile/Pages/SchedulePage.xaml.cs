@@ -6,7 +6,6 @@ namespace TravelCompanion.Mobile.Pages;
 public partial class SchedulePage : ContentPage
 {
     private readonly ScheduleViewModel _viewModel;
-    private bool _loaded;
 
     public SchedulePage()
         : this(MauiProgram.Services.GetRequiredService<ScheduleViewModel>())
@@ -24,12 +23,10 @@ public partial class SchedulePage : ContentPage
     {
         base.OnAppearing();
 
-        if (_loaded)
+        if (_viewModel.HasLoaded)
         {
             return;
         }
-
-        _loaded = true;
 
         try
         {

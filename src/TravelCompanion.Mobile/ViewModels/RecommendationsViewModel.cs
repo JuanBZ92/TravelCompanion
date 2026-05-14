@@ -10,7 +10,7 @@ namespace TravelCompanion.Mobile.ViewModels;
 public sealed partial class RecommendationsViewModel(
     FavoritesService favoritesService,
     AuthSessionService sessionService,
-    MobileBootstrapStore bootstrapStore) : ViewModelBase
+    MobileBootstrapStore bootstrapStore) : ViewModelBase, ISessionStateResettable
 {
     private const string AllCategories = "Todas";
     private const string FavoritesCategory = "Favoritos";
@@ -138,6 +138,22 @@ public sealed partial class RecommendationsViewModel(
         }
 
         ApplyFilters(resetPage: false);
+    }
+
+    public void ResetForNewSession()
+    {
+        ResetLoadState();
+        _allRecommendations.Clear();
+        Recommendations.Clear();
+        RecommendationPages.Clear();
+        Categories.Clear();
+        Categories.Add(AllCategories);
+        Categories.Add(FavoritesCategory);
+        SelectedCategory = AllCategories;
+        CurrentPage = 1;
+        TotalPages = 1;
+        TotalItems = 0;
+        IsPaging = false;
     }
 
     [RelayCommand]

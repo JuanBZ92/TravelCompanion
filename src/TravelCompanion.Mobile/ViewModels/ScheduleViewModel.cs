@@ -9,7 +9,7 @@ namespace TravelCompanion.Mobile.ViewModels;
 
 public sealed partial class ScheduleViewModel(
     AuthSessionService sessionService,
-    MobileBootstrapStore bootstrapStore) : ViewModelBase
+    MobileBootstrapStore bootstrapStore) : ViewModelBase, ISessionStateResettable
 {
     private const string AllCitiesKey = "All Cities";
     private readonly List<ScheduleItemDto> _allItems = [];
@@ -38,6 +38,19 @@ public sealed partial class ScheduleViewModel(
     {
         get => _selectedItem;
         set => SetProperty(ref _selectedItem, value);
+    }
+
+    public void ResetForNewSession()
+    {
+        ResetLoadState();
+        _allItems.Clear();
+        Days.Clear();
+        TypeFilters.Clear();
+        CityFilters.Clear();
+        _selectedType = ReservationType.Event;
+        TripTitle = "Your Trip";
+        TripDates = null;
+        SelectedItem = null;
     }
 
     [RelayCommand]

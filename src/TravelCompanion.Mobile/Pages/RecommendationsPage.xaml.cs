@@ -6,7 +6,6 @@ namespace TravelCompanion.Mobile.Pages;
 public partial class RecommendationsPage : ContentPage
 {
     private readonly RecommendationsViewModel _viewModel;
-    private bool _loaded;
 
     public RecommendationsPage()
         : this(MauiProgram.Services.GetRequiredService<RecommendationsViewModel>())
@@ -24,13 +23,11 @@ public partial class RecommendationsPage : ContentPage
     {
         base.OnAppearing();
 
-        if (_loaded)
+        if (_viewModel.HasLoaded)
         {
             _viewModel.RefreshFavoriteState();
             return;
         }
-
-        _loaded = true;
 
         try
         {

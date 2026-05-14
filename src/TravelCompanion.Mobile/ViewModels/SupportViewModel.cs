@@ -5,7 +5,8 @@ namespace TravelCompanion.Mobile.ViewModels;
 
 public sealed partial class SupportViewModel(
     TravelCompanionApiClient apiClient,
-    AuthSessionService sessionService) : ViewModelBase
+    AuthSessionService sessionService,
+    IEnumerable<ISessionStateResettable> sessionStateResetters) : ViewModelBase
 {
     public string DisplayName => sessionService.CurrentDisplayName ?? "Cuenta";
 
@@ -44,6 +45,11 @@ public sealed partial class SupportViewModel(
         }
 
         sessionService.Clear();
+        foreach (var resetter in sessionStateResetters)
+        {
+            resetter.ResetForNewSession();
+        }
+
         await Shell.Current.GoToAsync("//login");
     }
 }
