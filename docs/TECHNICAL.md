@@ -494,6 +494,29 @@ Ejemplo Android apuntando a Azure:
 dotnet publish src\TravelCompanion.Mobile\TravelCompanion.Mobile.csproj -f net10.0-android -c Release -p:TravelCompanionApiBaseUrl=https://tu-api.azurewebsites.net
 ```
 
+Script de publicacion mobile:
+
+```powershell
+.\scripts\Publish-Mobile.ps1 -Platform Android -InstallAndroid
+.\scripts\Publish-Mobile.ps1 -Platform Android -ApiUrl https://app-tc-dev-q352ao.azurewebsites.net -InstallAndroid
+```
+
+El script intenta leer `infra/terraform` output `api_url` si no se pasa `-ApiUrl`; si no puede, usa la URL dev publicada. Copia el APK/AAB generado a `artifacts/mobile`.
+
+Para iOS, el publish debe correr en macOS por restricciones de Apple/Xcode:
+
+```powershell
+pwsh -File scripts/Publish-Mobile.ps1 -Platform iOS -ApiUrl https://app-tc-dev-q352ao.azurewebsites.net -ArchiveIos
+```
+
+Desde Windows se puede disparar en una Mac por SSH si el repo ya existe en esa Mac:
+
+```powershell
+.\scripts\Publish-Mobile.ps1 -Platform iOS -MacHost mi-mac.local -MacUser juan -MacRepoPath "/Users/juan/TravelCompanion" -ArchiveIos
+```
+
+Para instalar en iPhone real hace falta signing/provisioning de Apple configurado en la Mac. Si no esta configurado globalmente, el script acepta `-CodesignKey` y `-CodesignProvision`.
+
 En Android Debug, `TravelCompanion.Mobile.csproj` define `EmbedAssembliesIntoApk=true`. Esto deshabilita el Fast Deployment de assemblies y evita crashes al abrir la app desde el telefono o con Ctrl+F5 cuando la carpeta temporal `files/.__override__` queda vacia despues de un clean/rebuild. El despliegue inicial puede tardar un poco mas, pero el APK queda autocontenido para desarrollo.
 
 Para verificar desde terminal:

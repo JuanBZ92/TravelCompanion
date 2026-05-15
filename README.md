@@ -73,6 +73,20 @@ Si no se define la variable, MAUI usa fallback local para desarrollo (`http://12
 Luego de cambiar la password temporal, la app puede desbloquear la sesion con biometria del dispositivo y fallback a password.
 Usar `Bloquear app` mantiene la sesion para biometria; `Cerrar sesion` borra la sesion y requiere password.
 
+## Builds mobile compartibles
+
+Android APK apuntando a la API cloud e instalando por USB:
+
+```powershell
+.\scripts\Publish-Mobile.ps1 -Platform Android -InstallAndroid
+```
+
+iOS debe publicarse desde macOS/Xcode. Desde la Mac, en la raiz del repo:
+
+```powershell
+pwsh -File scripts/Publish-Mobile.ps1 -Platform iOS -ArchiveIos
+```
+
 ## Verificacion
 
 ```powershell
