@@ -180,6 +180,11 @@ variable "postgres_admin_password" {
     condition     = !var.allow_paid_resources || try(length(var.postgres_admin_password) >= 16, false)
     error_message = "postgres_admin_password must be at least 16 characters when allow_paid_resources is true."
   }
+
+  validation {
+    condition     = !var.allow_paid_resources || try(!can(regex(";", var.postgres_admin_password)), false)
+    error_message = "postgres_admin_password cannot contain semicolons because it is embedded in a PostgreSQL connection string."
+  }
 }
 
 variable "postgres_firewall_rules" {

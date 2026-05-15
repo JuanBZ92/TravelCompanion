@@ -53,10 +53,11 @@ Terraform tiene un interruptor de seguridad:
 En modo base/minimo se crean:
 
 - Resource Group.
-- Storage Account y container privado `media`.
 - Key Vault.
 - Log Analytics Workspace.
 - Application Insights.
+
+Storage para media existe como recurso opcional (`enable_media_storage = true`), pero esta apagado por defecto porque la API todavia no sube imagenes/vouchers a Azure.
 
 En modo MVP cloud completo se agregan:
 
@@ -65,6 +66,8 @@ En modo MVP cloud completo se agregan:
 - Azure Database for PostgreSQL Flexible Server.
 - Base PostgreSQL `travel_companion`.
 - Secretos productivos en Key Vault.
+
+El modo shareable minimo vive en `infra/terraform/share-mvp.tfvars.example`: crea Web App + PostgreSQL + secretos + observabilidad con caps bajos, pero mantiene Storage apagado.
 
 ```mermaid
 flowchart TD
@@ -172,6 +175,8 @@ Cada ambiente deberia tener su propio state. Para empezar podemos trabajar con `
 - Empezamos con endpoint publico de PostgreSQL + firewall para mantener simple el MVP.
 - App Service accede a Postgres usando la regla `AllowAzureServices`.
 - Los secretos se guardan en Key Vault y la Web App los lee con Managed Identity.
+- La password de PostgreSQL no debe contener `;`; Terraform lo valida porque esa password forma parte de una connection string.
+- En App Service Linux, el ZIP de deploy debe usar separadores `/`; si se empaqueta desde Windows, usar el flujo documentado en `infra/terraform/README.md`.
 - El deploy del codigo todavia no lo hace Terraform; Terraform crea infraestructura. La primera pipeline Azure DevOps compila y valida, pero no publica ni aplica cambios.
 
 ## Hardening futuro

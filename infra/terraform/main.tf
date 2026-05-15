@@ -16,6 +16,7 @@ locals {
   name_prefix          = lower("${var.resource_prefix}-${var.environment}")
   compact_name_prefix  = replace(local.name_prefix, "-", "")
   postgres_location    = coalesce(var.postgres_location, var.location)
+  postgres_name_region = replace(lower(local.postgres_location), " ", "")
   storage_account_name = substr("st${local.compact_name_prefix}${random_string.resource_suffix.result}", 0, 24)
 
   common_tags = merge(
@@ -170,6 +171,12 @@ resource "azurerm_key_vault" "main" {
       "Set"
     ]
   }
+
+  lifecycle {
+    # La API usa un azurerm_key_vault_access_policy separado porque su
+    # principal_id existe recien despues de crear la Web App.
+    ignore_changes = [access_policy]
+  }
 }
 
 # Base de datos administrada. Para MVP usamos endpoint publico + firewall.
@@ -177,7 +184,7 @@ resource "azurerm_key_vault" "main" {
 resource "azurerm_postgresql_flexible_server" "main" {
   count = var.allow_paid_resources ? 1 : 0
 
-  name                          = "psql-${local.name_prefix}-${random_string.resource_suffix.result}"
+  name                          = "psql-${local.name_prefix}-${local.postgres_name_region}-${random_string.resource_suffix.result}"
   location                      = local.postgres_location
   resource_group_name           = azurerm_resource_group.main.name
   version                       = var.postgres_version
@@ -187,6 +194,12 @@ resource "azurerm_postgresql_flexible_server" "main" {
   storage_mb                    = var.postgres_storage_mb
   public_network_access_enabled = true
   tags                          = local.common_tags
+
+  lifecycle {
+    # Azure puede asignar/normalizar la zona del Flexible Server. Evitamos que
+    # un apply futuro intente recrear o mover el server por esa diferencia.
+    ignore_changes = [zone]
+  }
 }
 
 resource "azurerm_postgresql_flexible_server_database" "app" {
@@ -289,7 +302,25 @@ resource "azurerm_linux_web_app" "api" {
     }
   }
 
+  logs {
+    application_logs {
+      file_system_level = "Information"
+    }
+
+    http_logs {
+      file_system {
+        retention_in_days = 3
+        retention_in_mb   = 100
+      }
+    }
+  }
+
   app_settings = merge(local.api_base_app_settings, local.api_media_app_settings)
+
+  lifecycle {
+    # Application Insights agrega este hidden-link tag automaticamente.
+    ignore_changes = [tags["hidden-link: /app-insights-resource-id"]]
+  }
 }
 
 # Permite que la identidad administrada de la Web App lea secretos del vault.

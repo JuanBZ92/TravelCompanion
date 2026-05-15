@@ -54,10 +54,20 @@ El directorio `infra/terraform` contiene:
 - `main.tf`: recursos Azure.
 - `outputs.tf`: valores utiles post-deploy.
 - `terraform.tfvars.example`: ejemplo local sin secretos reales.
+- `share-mvp.tfvars.example`: ejemplo para levantar el minimo cloud que permite compartir una build mobile sin depender de localhost/USB.
 
 La explicacion practica de Terraform, state y flujo de trabajo esta en `docs/INFRASTRUCTURE.md`.
 
 La primera version mantiene PostgreSQL con endpoint publico y firewall. Para produccion madura, el siguiente hardening sera VNet integration/private endpoint.
+
+Notas operativas del ambiente cloud dev:
+
+- Region principal: `westeurope`.
+- Region PostgreSQL dev: configurable con `postgres_location`; puede diferir de la principal si la suscripcion free trial restringe PostgreSQL en una region.
+- La password de PostgreSQL no puede contener `;`, porque se embebe en una connection string almacenada en Key Vault.
+- La Web App usa Managed Identity para leer secretos de Key Vault.
+- El deploy manual de App Service Linux debe usar un ZIP con paths `/`; en Windows evitar `Compress-Archive` para este caso y usar el script de `infra/terraform/README.md`.
+- El primer arranque cloud sobre una DB nueva puede tardar 1 a 2 minutos por migraciones y seed.
 
 ## Desarrollo local
 

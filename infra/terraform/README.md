@@ -102,6 +102,8 @@ Editar `terraform.tfvars` y reemplazar:
 
 `terraform.tfvars` esta ignorado por Git porque contiene secretos.
 
+La password de PostgreSQL no debe contener `;` porque se embebe en una connection string. Terraform valida esto para evitar que Npgsql interprete parte de la password como si fuera una clave de configuracion.
+
 ## Comandos
 
 ```powershell
@@ -138,11 +140,28 @@ Esto aplica solamente cuando `allow_paid_resources = true`, porque en modo base/
 
 ```powershell
 dotnet publish ..\..\src\TravelCompanion.Api\TravelCompanion.Api.csproj -c Release -o .\publish
-Compress-Archive -Path .\publish\* -DestinationPath .\travelcompanion-api.zip -Force
-az webapp deploy --resource-group "$(terraform output -raw resource_group_name)" --name "$(terraform output -raw api_app_name)" --src-path .\travelcompanion-api.zip --type zip
+
+$zipPath = Join-Path (Get-Location) "travelcompanion-api.zip"
+if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
+$publishPath = (Resolve-Path .\publish).Path
+$zip = [System.IO.Compression.ZipFile]::Open($zipPath, [System.IO.Compression.ZipArchiveMode]::Create)
+try {
+  Get-ChildItem -Path $publishPath -Recurse -File | ForEach-Object {
+    $entry = $_.FullName.Substring($publishPath.Length + 1).Replace("\", "/")
+    [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $_.FullName, $entry) | Out-Null
+  }
+} finally {
+  $zip.Dispose()
+}
+
+az webapp deploy --resource-group "$(terraform output -raw resource_group_name)" --name "$(terraform output -raw api_app_name)" --src-path .\travelcompanion-api.zip --type zip --clean true --restart true
 ```
 
 Despues deberia moverse a GitHub Actions.
+
+En App Service Linux conviene crear el ZIP con paths `/` como en el ejemplo anterior. `Compress-Archive` en Windows puede guardar entries con `\`, y Kudu/rsync puede fallar al desplegar archivos bajo `wwwroot` o `runtimes`.
+
+El primer arranque de una base nueva puede tardar cerca de 1 a 2 minutos porque la API aplica migraciones y ejecuta seed. Despues de ver `Application started` en logs, los endpoints deberian responder normalmente.
 
 ## Build mobile apuntando a Azure
 
