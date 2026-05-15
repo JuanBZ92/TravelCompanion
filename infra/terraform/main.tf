@@ -15,6 +15,7 @@ locals {
   # ambientes dev/staging/prod sea mas predecible.
   name_prefix          = lower("${var.resource_prefix}-${var.environment}")
   compact_name_prefix  = replace(local.name_prefix, "-", "")
+  postgres_location    = coalesce(var.postgres_location, var.location)
   storage_account_name = substr("st${local.compact_name_prefix}${random_string.resource_suffix.result}", 0, 24)
 
   common_tags = merge(
@@ -177,7 +178,7 @@ resource "azurerm_postgresql_flexible_server" "main" {
   count = var.allow_paid_resources ? 1 : 0
 
   name                          = "psql-${local.name_prefix}-${random_string.resource_suffix.result}"
-  location                      = azurerm_resource_group.main.location
+  location                      = local.postgres_location
   resource_group_name           = azurerm_resource_group.main.name
   version                       = var.postgres_version
   administrator_login           = var.postgres_admin_login

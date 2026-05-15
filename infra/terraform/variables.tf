@@ -137,6 +137,12 @@ variable "postgres_version" {
   default     = "16"
 }
 
+variable "postgres_location" {
+  description = "Azure region for PostgreSQL Flexible Server. Leave null to use location. Useful when a free-trial subscription restricts PostgreSQL in the main region."
+  type        = string
+  default     = null
+}
+
 variable "postgres_sku_name" {
   # B_Standard_B1ms es economico. Para prod real, mirar General Purpose.
   description = "Azure Database for PostgreSQL Flexible Server SKU."

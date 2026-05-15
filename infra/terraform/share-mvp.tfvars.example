@@ -22,11 +22,12 @@ app_insights_sampling_percentage = 10
 
 enable_budget_alerts       = true
 monthly_budget_amount      = 15
-budget_alert_start_date    = "2026-01-01T00:00:00Z"
+budget_alert_start_date    = "2026-05-01T00:00:00Z"
 budget_alert_contact_roles = ["Owner"]
 budget_alert_contact_emails = []
 
 postgres_version       = "16"
+postgres_location      = "northeurope"
 postgres_sku_name      = "B_Standard_B1ms"
 postgres_storage_mb    = 32768
 postgres_database_name = "travel_companion"
