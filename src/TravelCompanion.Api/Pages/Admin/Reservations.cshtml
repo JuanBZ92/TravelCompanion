@@ -124,7 +124,7 @@
             </div>
             <div>
                 <label asp-for="Input.Type" class="required">Tipo</label>
-                <select asp-for="Input.Type" asp-items="Model.TypeOptions"></select>
+                <select asp-for="Input.Type" asp-items="Model.TypeOptions" data-reservation-type></select>
                 <span asp-validation-for="Input.Type"></span>
             </div>
             <div>
@@ -147,7 +147,7 @@
                 <input asp-for="Input.City" />
                 <span asp-validation-for="Input.City"></span>
             </div>
-            <div>
+            <div data-reservation-section="Event,Lodging">
                 <label asp-for="Input.LocationName" class="required">Lugar <span class="muted">(eventos/hospedajes)</span></label>
                 <input asp-for="Input.LocationName" />
                 <span asp-validation-for="Input.LocationName"></span>
@@ -159,7 +159,7 @@
             </div>
         </div>
         </div>
-        <div class="field-group">
+        <div class="field-group" data-reservation-section="Flight,Lodging">
             <h3>Fin / hospedaje</h3>
             <p class="form-hint">Usa estos campos para checkout de hospedajes o llegada de vuelos.</p>
             <div class="form-grid">
@@ -175,7 +175,7 @@
                 </div>
             </div>
         </div>
-        <div class="field-group">
+        <div class="field-group" data-reservation-section="Flight">
             <h3>Datos de vuelo</h3>
         <div class="form-grid">
             <div>
@@ -210,7 +210,7 @@
             </div>
         </div>
         </div>
-        <div style="margin-top: 12px;">
+        <div style="margin-top: 12px;" data-reservation-section="Event,Lodging">
             <label asp-for="Input.Address">Direccion <span class="muted">(opcional)</span></label>
             <input asp-for="Input.Address" />
             <span asp-validation-for="Input.Address"></span>

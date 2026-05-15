@@ -21,22 +21,15 @@ public static class ProductAccessModel
             IsCustomerProduct: false),
         new(
             ContentAccessLevel.Paid,
-            "Pago fijo",
-            "Contenido desbloqueado por compra puntual o acceso explicito al destino.",
-            CanBeRequiredByContent: true,
-            CanBeGrantedToUser: true,
+            "Paquete pago",
+            "Acceso a un paquete puntual comprado o asignado al usuario.",
+            CanBeRequiredByContent: false,
+            CanBeGrantedToUser: false,
             IsCustomerProduct: true),
         new(
             ContentAccessLevel.Subscription,
             "Suscripcion",
-            "Contenido disponible para usuarios con suscripcion activa.",
-            CanBeRequiredByContent: true,
-            CanBeGrantedToUser: true,
-            IsCustomerProduct: true),
-        new(
-            ContentAccessLevel.Bundle,
-            "Paquete",
-            "Contenido incluido en un paquete reutilizable asignado al usuario.",
+            "Acceso a todos los paquetes de un destino/pais y contenido exclusivo mientras la suscripcion este activa.",
             CanBeRequiredByContent: true,
             CanBeGrantedToUser: true,
             IsCustomerProduct: true),
@@ -68,5 +61,5 @@ public static class ProductAccessModel
     public static string GetLabel(ContentAccessLevel level) => Get(level).Label;
 
     public static ContentAccessLevel GetPackageGrantLevel(bool isSubscription) =>
-        isSubscription ? ContentAccessLevel.Subscription : ContentAccessLevel.Bundle;
+        ContentAccessLevel.Paid;
 }

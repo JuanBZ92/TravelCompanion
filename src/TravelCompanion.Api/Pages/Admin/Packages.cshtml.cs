@@ -156,7 +156,7 @@ public sealed class PackagesModel(TravelCompanionDbContext dbContext) : PageMode
         {
             Id = Guid.NewGuid(),
             UserId = user.Id,
-            AccessLevel = ContentAccessPolicy.GetPackageGrantLevel(package.IsSubscription),
+            AccessLevel = ContentAccessLevel.Paid,
             DestinationId = package.DestinationId,
             TravelPackageId = package.Id,
             GrantedAt = now,
@@ -277,8 +277,8 @@ public sealed class PackagesModel(TravelCompanionDbContext dbContext) : PageMode
         bool IsSubscription,
         int EntitlementCount)
     {
-        public ContentAccessLevel GrantLevel => ContentAccessPolicy.GetPackageGrantLevel(IsSubscription);
-        public string ProductTypeLabel => ProductAccessModel.GetLabel(GrantLevel);
+        public ContentAccessLevel GrantLevel => ContentAccessLevel.Paid;
+        public string ProductTypeLabel => "Paquete pago";
     }
 
     public sealed record AssignedUserRow(
@@ -347,7 +347,7 @@ public sealed class PackagesModel(TravelCompanionDbContext dbContext) : PageMode
             package.Currency = string.IsNullOrWhiteSpace(Currency)
                 ? "USD"
                 : Currency.Trim().ToUpperInvariant();
-            package.IsSubscription = IsSubscription;
+            package.IsSubscription = false;
         }
     }
 }

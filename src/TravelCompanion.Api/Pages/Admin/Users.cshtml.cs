@@ -189,10 +189,23 @@ public sealed class UsersModel(
             return Page();
         }
 
+        if (selectedPackage is null
+            && EntitlementInput.AccessLevel == ContentAccessLevel.Subscription
+            && !EntitlementInput.DestinationId.HasValue)
+        {
+            ModelState.AddModelError($"{nameof(EntitlementInput)}.{nameof(EntitlementInput.DestinationId)}", "Selecciona el destino de la suscripcion.");
+        }
+
+        if (!ModelState.IsValid)
+        {
+            await LoadPageDataAsync();
+            return Page();
+        }
+
         var destinationId = EntitlementInput.DestinationId ?? selectedPackage?.DestinationId;
         var accessLevel = selectedPackage is null
             ? EntitlementInput.AccessLevel
-            : ContentAccessPolicy.GetPackageGrantLevel(selectedPackage.IsSubscription);
+            : ContentAccessLevel.Paid;
 
         var entitlement = new UserEntitlement
         {
@@ -352,7 +365,7 @@ public sealed class UsersModel(
         public Guid UserId { get; set; }
 
         [Required(ErrorMessage = "Selecciona un tipo de acceso.")]
-        public ContentAccessLevel AccessLevel { get; set; } = ContentAccessLevel.Paid;
+        public ContentAccessLevel AccessLevel { get; set; } = ContentAccessLevel.Subscription;
 
         public Guid? DestinationId { get; set; }
 

@@ -12,6 +12,11 @@ public static class DatabaseSeeder
     private static readonly Guid PremiumPackageId = Guid.Parse("22222222-2222-2222-2222-222222222202");
     private static readonly Guid FushimiInariRecommendationId = Guid.Parse("33333333-3333-3333-3333-333333333302");
     private static readonly Guid DotonboriRecommendationId = Guid.Parse("33333333-3333-3333-3333-333333333303");
+    private static readonly IReadOnlySet<Guid> PremiumPackageRecommendationIds = Enumerable
+        .Range(328, 9)
+        .Select(CreateRecommendationId)
+        .Append(DotonboriRecommendationId)
+        .ToHashSet();
     private static readonly Guid OmakaseReservationId = Guid.Parse("55555555-5555-5555-5555-555555555502");
     private static readonly Guid DemoUserId = Guid.Parse("66666666-6666-6666-6666-666666666601");
     private static readonly Guid FreeUserId = Guid.Parse("66666666-6666-6666-6666-666666666602");
@@ -42,6 +47,8 @@ public static class DatabaseSeeder
         await SeedAccessScenarioUsersAsync(dbContext, passwordHasher);
 
         await dbContext.SaveChangesAsync();
+        await SyncSeedRecommendationPackageLinksAsync(dbContext);
+        await dbContext.SaveChangesAsync();
     }
 
     private static void SeedJapanContent(TravelCompanionDbContext dbContext)
@@ -56,31 +63,31 @@ public static class DatabaseSeeder
             ShortDescription = "Tokyo, Kyoto y Osaka con planes curados, barrios caminables y reservas organizadas."
         };
 
-        japan.Packages.AddRange(
-        [
-            new TravelPackage
-            {
-                Id = JapanEssentialsPackageId,
-                DestinationId = japan.Id,
-                Name = "Japon Essentials",
-                Slug = "japon-essentials",
-                Description = "Guia curada con recomendaciones, mapa y tips practicos para un primer viaje.",
-                Price = 19.99m,
-                Currency = "USD",
-                IsSubscription = false
-            },
-            new TravelPackage
-            {
-                Id = PremiumPackageId,
-                DestinationId = japan.Id,
-                Name = "Travel Companion Premium",
-                Slug = "travel-companion-premium",
-                Description = "Acceso a todos los destinos, updates y soporte prioritario.",
-                Price = 8.99m,
-                Currency = "USD",
-                IsSubscription = true
-            }
-        ]);
+        var essentialsPackage = new TravelPackage
+        {
+            Id = JapanEssentialsPackageId,
+            DestinationId = japan.Id,
+            Name = "Japon Essentials",
+            Slug = "japon-essentials",
+            Description = "Guia curada con recomendaciones, mapa y tips practicos para un primer viaje.",
+            Price = 19.99m,
+            Currency = "USD",
+            IsSubscription = false
+        };
+
+        var premiumPackage = new TravelPackage
+        {
+            Id = PremiumPackageId,
+            DestinationId = japan.Id,
+            Name = "Japon Premium Pack",
+            Slug = "japon-premium-pack",
+            Description = "Recomendaciones premium para experiencias, restaurantes y rutas mas curadas.",
+            Price = 8.99m,
+            Currency = "USD",
+            IsSubscription = false
+        };
+
+        japan.Packages.AddRange([essentialsPackage, premiumPackage]);
 
         japan.Recommendations.AddRange(
         [
@@ -108,7 +115,8 @@ public static class DatabaseSeeder
                 Latitude = 34.967140m,
                 Longitude = 135.772671m,
                 SuggestedDurationMinutes = 120,
-                AccessLevel = ContentAccessLevel.Paid
+                AccessLevel = ContentAccessLevel.Paid,
+                Packages = [essentialsPackage]
             },
             new Recommendation
             {
@@ -121,7 +129,8 @@ public static class DatabaseSeeder
                 Latitude = 34.668723m,
                 Longitude = 135.501297m,
                 SuggestedDurationMinutes = 120,
-                AccessLevel = ContentAccessLevel.Subscription
+                AccessLevel = ContentAccessLevel.Paid,
+                Packages = [premiumPackage]
             }
         ]);
 
@@ -220,7 +229,7 @@ public static class DatabaseSeeder
                 {
                     Id = Guid.Parse("77777777-7777-7777-7777-777777777701"),
                     UserId = DemoUserId,
-                    AccessLevel = ContentAccessLevel.Bundle,
+                    AccessLevel = ContentAccessLevel.Paid,
                     DestinationId = JapanDestinationId,
                     TravelPackageId = JapanEssentialsPackageId,
                     GrantedAt = now,
@@ -232,7 +241,7 @@ public static class DatabaseSeeder
                     UserId = DemoUserId,
                     AccessLevel = ContentAccessLevel.Subscription,
                     DestinationId = JapanDestinationId,
-                    TravelPackageId = PremiumPackageId,
+                    TravelPackageId = null,
                     GrantedAt = now,
                     ExpiresAt = now.AddYears(1),
                     Source = "seed-subscription"
@@ -246,7 +255,17 @@ public static class DatabaseSeeder
 
     private static async Task NormalizeDemoDataAsync(TravelCompanionDbContext dbContext, IPasswordHasher<AppUser> passwordHasher)
     {
+        var premiumPackage = await dbContext.TravelPackages.FindAsync(PremiumPackageId);
+        if (premiumPackage is not null)
+        {
+            premiumPackage.Name = "Japon Premium Pack";
+            premiumPackage.Slug = "japon-premium-pack";
+            premiumPackage.Description = "Recomendaciones premium para experiencias, restaurantes y rutas mas curadas.";
+            premiumPackage.IsSubscription = false;
+        }
+
         var recommendations = await dbContext.Recommendations
+            .Include(recommendation => recommendation.Packages)
             .Where(recommendation => recommendation.Id == FushimiInariRecommendationId
                 || recommendation.Id == DotonboriRecommendationId)
             .ToListAsync();
@@ -260,10 +279,12 @@ public static class DatabaseSeeder
             }
 
             if (recommendation.Id == DotonboriRecommendationId
-                && recommendation.AccessLevel == ContentAccessLevel.Free)
+                && recommendation.AccessLevel != ContentAccessLevel.Paid)
             {
-                recommendation.AccessLevel = ContentAccessLevel.Subscription;
+                recommendation.AccessLevel = ContentAccessLevel.Paid;
             }
+
+            await ApplyRecommendationPackageLinksAsync(dbContext, recommendation);
         }
 
         var reservationsWithoutCity = await dbContext.Reservations
@@ -341,6 +362,16 @@ public static class DatabaseSeeder
             demoUser.TemporaryPasswordIssuedAt = DateTimeOffset.UtcNow;
             demoUser.PasswordHash = passwordHasher.HashPassword(demoUser, "TravelDemo!2026");
         }
+
+        var demoSubscription = await dbContext.UserEntitlements
+            .FirstOrDefaultAsync(entitlement => entitlement.Id == Guid.Parse("77777777-7777-7777-7777-777777777702"));
+        if (demoSubscription is not null)
+        {
+            demoSubscription.AccessLevel = ContentAccessLevel.Subscription;
+            demoSubscription.DestinationId = JapanDestinationId;
+            demoSubscription.TravelPackageId = null;
+            demoSubscription.Source = "seed-subscription";
+        }
     }
 
     private static async Task SeedAdditionalJapanRecommendationsAsync(TravelCompanionDbContext dbContext)
@@ -348,15 +379,43 @@ public static class DatabaseSeeder
         foreach (var recommendation in CreateAdditionalJapanRecommendations())
         {
             var existingRecommendation = await dbContext.Recommendations
+                .Include(existing => existing.Packages)
                 .FirstOrDefaultAsync(existing => existing.Id == recommendation.Id);
 
             if (existingRecommendation is null)
             {
+                await ApplyRecommendationPackageLinksAsync(dbContext, recommendation);
                 dbContext.Recommendations.Add(recommendation);
                 continue;
             }
 
             ApplyRecommendation(existingRecommendation, recommendation);
+            await ApplyRecommendationPackageLinksAsync(dbContext, existingRecommendation);
+        }
+    }
+
+    private static async Task ApplyRecommendationPackageLinksAsync(
+        TravelCompanionDbContext dbContext,
+        Recommendation recommendation)
+    {
+        recommendation.Packages.Clear();
+
+        var packageId = GetSeedPackageId(recommendation);
+
+        if (!packageId.HasValue)
+        {
+            return;
+        }
+
+        var package = dbContext.ChangeTracker
+            .Entries<TravelPackage>()
+            .Select(entry => entry.Entity)
+            .FirstOrDefault(existingPackage => existingPackage.Id == packageId.Value)
+            ?? await dbContext.TravelPackages.FindAsync(packageId.Value);
+
+        if (package is not null)
+        {
+            recommendation.Packages.Add(package);
         }
     }
 
@@ -401,15 +460,15 @@ public static class DatabaseSeeder
         CreateJapanRecommendation(326, "Naoshima art day", "Culture", "Naoshima", "Plan de arte contemporaneo con ferries y tiempos armados.", 34.459723m, 133.995620m, 420, ContentAccessLevel.Paid),
         CreateJapanRecommendation(327, "Kobe beef dinner", "Food", "Sannomiya, Kobe", "Reserva sugerida para una cena especial sin improvisar.", 34.694139m, 135.194739m, 120, ContentAccessLevel.Paid),
 
-        CreateJapanRecommendation(328, "Tokyo first-night food crawl", "Food", "Ebisu, Tokyo", "Itinerario nocturno suave para llegar cansado y aun asi comer muy bien.", 35.646690m, 139.710106m, 150, ContentAccessLevel.Subscription),
-        CreateJapanRecommendation(329, "Private sake tasting", "Food", "Nihonbashi, Tokyo", "Degustacion guiada para entender estilos de sake sin hacerlo tecnico.", 35.682839m, 139.774502m, 105, ContentAccessLevel.Subscription),
-        CreateJapanRecommendation(330, "Kamakura coastal day", "Nature", "Kamakura", "Dia armado entre templos, tren local y costa, evitando traslados torpes.", 35.319225m, 139.546686m, 360, ContentAccessLevel.Subscription),
-        CreateJapanRecommendation(331, "Hakone overnight route", "Nature", "Hakone", "Ruta de una noche con ryokan, lago y vistas al Fuji si el clima acompana.", 35.232382m, 139.106935m, 480, ContentAccessLevel.Subscription),
-        CreateJapanRecommendation(332, "Kyoto hidden gardens", "Culture", "Kyoto", "Seleccion de jardines menos obvios para equilibrar templos famosos.", 35.026244m, 135.798047m, 180, ContentAccessLevel.Subscription),
-        CreateJapanRecommendation(333, "Pontocho dinner shortlist", "Food", "Pontocho, Kyoto", "Lista curada de restaurantes por presupuesto y disponibilidad tipica.", 35.006043m, 135.770013m, 120, ContentAccessLevel.Subscription),
-        CreateJapanRecommendation(334, "Nara with lunch timing", "Culture", "Nara", "Excursion a Nara con orden sugerido para evitar horas pico.", 34.685087m, 135.805000m, 300, ContentAccessLevel.Subscription),
-        CreateJapanRecommendation(335, "Osaka cocktail night", "Nightlife", "Kitashinchi, Osaka", "Bares tranquilos y elegantes para una noche adulta en Osaka.", 34.696754m, 135.497568m, 150, ContentAccessLevel.Subscription),
-        CreateJapanRecommendation(336, "Hiroshima okonomiyaki counter", "Food", "Hiroshima", "Counter recomendado para probar estilo Hiroshima sin hacer cola eterna.", 34.392801m, 132.461683m, 90, ContentAccessLevel.Subscription),
+        CreateJapanRecommendation(328, "Tokyo first-night food crawl", "Food", "Ebisu, Tokyo", "Itinerario nocturno suave para llegar cansado y aun asi comer muy bien.", 35.646690m, 139.710106m, 150, ContentAccessLevel.Paid),
+        CreateJapanRecommendation(329, "Private sake tasting", "Food", "Nihonbashi, Tokyo", "Degustacion guiada para entender estilos de sake sin hacerlo tecnico.", 35.682839m, 139.774502m, 105, ContentAccessLevel.Paid),
+        CreateJapanRecommendation(330, "Kamakura coastal day", "Nature", "Kamakura", "Dia armado entre templos, tren local y costa, evitando traslados torpes.", 35.319225m, 139.546686m, 360, ContentAccessLevel.Paid),
+        CreateJapanRecommendation(331, "Hakone overnight route", "Nature", "Hakone", "Ruta de una noche con ryokan, lago y vistas al Fuji si el clima acompana.", 35.232382m, 139.106935m, 480, ContentAccessLevel.Paid),
+        CreateJapanRecommendation(332, "Kyoto hidden gardens", "Culture", "Kyoto", "Seleccion de jardines menos obvios para equilibrar templos famosos.", 35.026244m, 135.798047m, 180, ContentAccessLevel.Paid),
+        CreateJapanRecommendation(333, "Pontocho dinner shortlist", "Food", "Pontocho, Kyoto", "Lista curada de restaurantes por presupuesto y disponibilidad tipica.", 35.006043m, 135.770013m, 120, ContentAccessLevel.Paid),
+        CreateJapanRecommendation(334, "Nara with lunch timing", "Culture", "Nara", "Excursion a Nara con orden sugerido para evitar horas pico.", 34.685087m, 135.805000m, 300, ContentAccessLevel.Paid),
+        CreateJapanRecommendation(335, "Osaka cocktail night", "Nightlife", "Kitashinchi, Osaka", "Bares tranquilos y elegantes para una noche adulta en Osaka.", 34.696754m, 135.497568m, 150, ContentAccessLevel.Paid),
+        CreateJapanRecommendation(336, "Hiroshima okonomiyaki counter", "Food", "Hiroshima", "Counter recomendado para probar estilo Hiroshima sin hacer cola eterna.", 34.392801m, 132.461683m, 90, ContentAccessLevel.Paid),
         CreateJapanRecommendation(337, "Miyajima low tide timing", "Nature", "Miyajima", "Plan ajustado a marea para ver el torii y subir parcialmente el monte.", 34.279632m, 132.315007m, 300, ContentAccessLevel.Subscription),
         CreateJapanRecommendation(338, "Kanazawa garden and sushi", "Culture", "Kanazawa", "Dia elegante entre Kenrokuen, barrios historicos y sushi local.", 36.561325m, 136.656205m, 360, ContentAccessLevel.Subscription),
         CreateJapanRecommendation(339, "Takayama old town morning", "Culture", "Takayama", "Recorrido de manana para mercado, casco antiguo y comida regional.", 36.142849m, 137.252765m, 240, ContentAccessLevel.Subscription)
@@ -427,7 +486,7 @@ public static class DatabaseSeeder
         ContentAccessLevel accessLevel) =>
         new()
         {
-            Id = Guid.Parse($"33333333-3333-3333-3333-333333333{idSuffix:000}"),
+            Id = CreateRecommendationId(idSuffix),
             DestinationId = JapanDestinationId,
             Title = title,
             Category = category,
@@ -438,6 +497,62 @@ public static class DatabaseSeeder
             SuggestedDurationMinutes = suggestedDurationMinutes,
             AccessLevel = accessLevel
         };
+
+    private static Guid? GetSeedPackageId(Recommendation recommendation)
+    {
+        if (recommendation.AccessLevel != ContentAccessLevel.Paid)
+        {
+            return null;
+        }
+
+        return PremiumPackageRecommendationIds.Contains(recommendation.Id)
+            ? PremiumPackageId
+            : JapanEssentialsPackageId;
+    }
+
+    private static Guid CreateRecommendationId(int idSuffix) =>
+        Guid.Parse($"33333333-3333-3333-3333-333333333{idSuffix:000}");
+
+    private static async Task SyncSeedRecommendationPackageLinksAsync(TravelCompanionDbContext dbContext)
+    {
+        var seedRecommendationIds = CreateAdditionalJapanRecommendations()
+            .Select(recommendation => recommendation.Id)
+            .Append(FushimiInariRecommendationId)
+            .Append(DotonboriRecommendationId)
+            .ToHashSet();
+
+        var joinRows = dbContext.Set<Dictionary<string, object>>("RecommendationTravelPackages");
+        var existingRows = await joinRows
+            .Where(row => seedRecommendationIds.Contains(EF.Property<Guid>(row, "RecommendationId")))
+            .ToListAsync();
+
+        joinRows.RemoveRange(existingRows);
+        await dbContext.SaveChangesAsync();
+
+        var paidSeedRecommendations = await dbContext.Recommendations
+            .AsNoTracking()
+            .Where(recommendation => seedRecommendationIds.Contains(recommendation.Id))
+            .Where(recommendation => recommendation.AccessLevel == ContentAccessLevel.Paid)
+            .Select(recommendation => new
+            {
+                recommendation.Id,
+                recommendation.AccessLevel
+            })
+            .ToListAsync();
+
+        foreach (var recommendation in paidSeedRecommendations)
+        {
+            var packageId = PremiumPackageRecommendationIds.Contains(recommendation.Id)
+                ? PremiumPackageId
+                : JapanEssentialsPackageId;
+
+            joinRows.Add(new Dictionary<string, object>
+            {
+                ["RecommendationId"] = recommendation.Id,
+                ["TravelPackageId"] = packageId
+            });
+        }
+    }
 
     private static async Task SeedAccessScenarioUsersAsync(TravelCompanionDbContext dbContext, IPasswordHasher<AppUser> passwordHasher)
     {
@@ -457,7 +572,7 @@ public static class DatabaseSeeder
             "UsuarioSub",
             "PasswordSub",
             ContentAccessLevel.Subscription,
-            PremiumPackageId,
+            packageId: null,
             expiresAt: DateTimeOffset.UtcNow.AddYears(1));
 
         await EnsureScenarioUserAsync(
@@ -567,7 +682,9 @@ public static class DatabaseSeeder
         }
 
         entitlement.AccessLevel = accessLevel.Value;
-        entitlement.DestinationId = null;
+        entitlement.DestinationId = accessLevel == ContentAccessLevel.Subscription
+            ? JapanDestinationId
+            : null;
         entitlement.TravelPackageId = packageId;
         entitlement.GrantedAt = now;
         entitlement.ExpiresAt = expiresAt;

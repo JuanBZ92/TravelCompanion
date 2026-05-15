@@ -12,9 +12,13 @@ public sealed class RecommendationsModel(TravelCompanionDbContext dbContext) : P
 {
     public List<RecommendationRow> Recommendations { get; private set; } = [];
     public List<SelectListItem> DestinationOptions { get; private set; } = [];
-    public List<SelectListItem> AccessLevelOptions { get; } = ProductAccessModel.ContentAccessOptions
-        .Select(definition => new SelectListItem(definition.Label, definition.Level.ToString()))
-        .ToList();
+    public List<SelectListItem> PackageOptions { get; private set; } = [];
+    public List<SelectListItem> AccessLevelOptions { get; } =
+    [
+        new("Free", ContentAccessLevel.Free.ToString()),
+        new("Suscripcion", ContentAccessLevel.Subscription.ToString()),
+        new("Paquete", ContentAccessLevel.Paid.ToString())
+    ];
 
     [BindProperty]
     public RecommendationInput Input { get; set; } = new();
@@ -25,7 +29,9 @@ public sealed class RecommendationsModel(TravelCompanionDbContext dbContext) : P
 
         if (editId.HasValue)
         {
-            var recommendation = await dbContext.Recommendations.FindAsync(editId.Value);
+            var recommendation = await dbContext.Recommendations
+                .Include(existingRecommendation => existingRecommendation.Packages)
+                .FirstOrDefaultAsync(existingRecommendation => existingRecommendation.Id == editId.Value);
             if (recommendation is not null)
             {
                 Input = RecommendationInput.FromEntity(recommendation);
@@ -64,6 +70,30 @@ public sealed class RecommendationsModel(TravelCompanionDbContext dbContext) : P
             ModelState.AddModelError($"{nameof(Input)}.{nameof(Input.SuggestedDurationMinutes)}", "La duracion debe ser mayor a cero.");
         }
 
+        var selectedPackageIds = Input.AccessLevel == ContentAccessLevel.Paid
+            ? Input.PackageIds.Distinct().ToList()
+            : [];
+        var selectedPackages = selectedPackageIds.Count == 0
+            ? []
+            : await dbContext.TravelPackages
+                .Where(package => selectedPackageIds.Contains(package.Id))
+                .ToListAsync();
+
+        if (selectedPackages.Count != selectedPackageIds.Count)
+        {
+            ModelState.AddModelError($"{nameof(Input)}.{nameof(Input.PackageIds)}", "Selecciona paquetes validos.");
+        }
+
+        if (selectedPackages.Any(package => package.DestinationId != Input.DestinationId))
+        {
+            ModelState.AddModelError($"{nameof(Input)}.{nameof(Input.PackageIds)}", "Los paquetes deben pertenecer al mismo destino que la recomendacion.");
+        }
+
+        if (Input.AccessLevel == ContentAccessLevel.Paid && selectedPackageIds.Count == 0)
+        {
+            ModelState.AddModelError($"{nameof(Input)}.{nameof(Input.PackageIds)}", "Selecciona al menos un paquete.");
+        }
+
         if (!ModelState.IsValid)
         {
             await LoadPageDataAsync();
@@ -73,7 +103,9 @@ public sealed class RecommendationsModel(TravelCompanionDbContext dbContext) : P
         Recommendation recommendation;
         if (Input.Id.HasValue)
         {
-            recommendation = await dbContext.Recommendations.FindAsync(Input.Id.Value)
+            recommendation = await dbContext.Recommendations
+                .Include(existingRecommendation => existingRecommendation.Packages)
+                .FirstOrDefaultAsync(existingRecommendation => existingRecommendation.Id == Input.Id.Value)
                 ?? throw new InvalidOperationException("Recommendation not found.");
         }
         else
@@ -91,6 +123,9 @@ public sealed class RecommendationsModel(TravelCompanionDbContext dbContext) : P
         }
 
         Input.ApplyTo(recommendation);
+        recommendation.Packages.Clear();
+        recommendation.Packages.AddRange(selectedPackages);
+
         await dbContext.SaveChangesAsync();
         return RedirectToPage();
     }
@@ -115,20 +150,38 @@ public sealed class RecommendationsModel(TravelCompanionDbContext dbContext) : P
             .Select(destination => new SelectListItem(destination.Name, destination.Id.ToString()))
             .ToListAsync();
 
-        Recommendations = await dbContext.Recommendations
+        PackageOptions = await dbContext.TravelPackages
+            .AsNoTracking()
+            .Include(package => package.Destination)
+            .OrderBy(package => package.Destination!.Name)
+            .ThenBy(package => package.Name)
+            .Select(package => new SelectListItem(
+                $"{package.Name} ({(package.Destination != null ? package.Destination.Name : "Unknown")})",
+                package.Id.ToString()))
+            .ToListAsync();
+
+        var recommendations = await dbContext.Recommendations
             .AsNoTracking()
             .Include(recommendation => recommendation.Destination)
+            .Include(recommendation => recommendation.Packages)
             .OrderBy(recommendation => recommendation.Title)
+            .ToListAsync();
+
+        Recommendations = recommendations
             .Select(recommendation => new RecommendationRow(
                 recommendation.Id,
                 recommendation.Destination != null ? recommendation.Destination.Name : "Unknown",
                 recommendation.Title,
                 recommendation.Category,
                 recommendation.AccessLevel,
+                recommendation.Packages
+                    .OrderBy(package => package.Name)
+                    .Select(package => package.Name)
+                    .ToList(),
                 recommendation.Neighborhood,
                 recommendation.Latitude,
                 recommendation.Longitude))
-            .ToListAsync();
+            .ToList();
     }
 
     public sealed record RecommendationRow(
@@ -137,11 +190,20 @@ public sealed class RecommendationsModel(TravelCompanionDbContext dbContext) : P
         string Title,
         string Category,
         ContentAccessLevel AccessLevel,
+        IReadOnlyList<string> PackageNames,
         string Neighborhood,
         decimal Latitude,
         decimal Longitude)
     {
         public string AccessLevelLabel => ProductAccessModel.GetLabel(AccessLevel);
+        public string AccessSummary => PackageNames.Count == 0
+            ? AccessLevel switch
+            {
+                ContentAccessLevel.Free => "Free",
+                ContentAccessLevel.Subscription => "Suscripcion",
+                _ => AccessLevelLabel
+            }
+            : string.Join(", ", PackageNames);
     }
 
     public sealed class RecommendationInput
@@ -156,6 +218,7 @@ public sealed class RecommendationsModel(TravelCompanionDbContext dbContext) : P
         public decimal Longitude { get; set; }
         public int SuggestedDurationMinutes { get; set; } = 60;
         public ContentAccessLevel AccessLevel { get; set; } = ContentAccessLevel.Free;
+        public List<Guid> PackageIds { get; set; } = [];
 
         public static RecommendationInput FromEntity(Recommendation recommendation)
         {
@@ -170,7 +233,8 @@ public sealed class RecommendationsModel(TravelCompanionDbContext dbContext) : P
                 Latitude = recommendation.Latitude,
                 Longitude = recommendation.Longitude,
                 SuggestedDurationMinutes = recommendation.SuggestedDurationMinutes,
-                AccessLevel = recommendation.AccessLevel
+                AccessLevel = recommendation.AccessLevel,
+                PackageIds = recommendation.Packages.Select(package => package.Id).ToList()
             };
         }
 

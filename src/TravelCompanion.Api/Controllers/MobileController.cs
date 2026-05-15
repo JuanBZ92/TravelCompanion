@@ -177,14 +177,12 @@ public sealed class MobileController(
 
     private static TravelPackageDto ToPackageDto(TravelPackage package, AppUser user)
     {
-        var requiredAccessLevel = ContentAccessPolicy.GetPackageGrantLevel(package.IsSubscription);
-
         var activeEntitlements = GetActiveEntitlements(user);
-        var isUnlocked = ContentAccessPolicy.IsUnlocked(
-            requiredAccessLevel,
-            activeEntitlements.Select(entitlement => entitlement.AccessLevel),
-            activeEntitlements.Any(entitlement => entitlement.DestinationId == package.DestinationId),
-            activeEntitlements.Any(entitlement => entitlement.TravelPackageId == package.Id));
+        var requiredAccessLevel = ContentAccessLevel.Paid;
+        var isUnlocked = activeEntitlements.Any(entitlement => entitlement.TravelPackageId == package.Id)
+            || activeEntitlements.Any(entitlement =>
+                entitlement.AccessLevel == ContentAccessLevel.Subscription
+                && entitlement.DestinationId == package.DestinationId);
 
         return new TravelPackageDto(
             package.Id,
@@ -273,16 +271,13 @@ public sealed class MobileController(
     {
         var recommendations = await dbContext.Recommendations
             .AsNoTracking()
+            .Include(recommendation => recommendation.Packages)
             .Where(recommendation => recommendation.DestinationId == destinationId)
             .OrderBy(recommendation => recommendation.Title)
             .ToListAsync(cancellationToken);
 
         return recommendations
-            .Where(recommendation => ContentAccessPolicy.IsUnlocked(
-                recommendation.AccessLevel,
-                entitlements.AccessLevels,
-                entitlements.DestinationIds.Contains(recommendation.DestinationId),
-                hasPackageAccess: false))
+            .Where(recommendation => IsRecommendationUnlocked(recommendation, entitlements))
             .Select(recommendation => new RecommendationDto(
                 recommendation.Id,
                 recommendation.DestinationId,
@@ -294,8 +289,18 @@ public sealed class MobileController(
                 recommendation.Longitude,
                 recommendation.SuggestedDurationMinutes,
                 recommendation.AccessLevel,
+                recommendation.Packages.Select(package => package.Id).ToList(),
                 null))
             .ToList();
+    }
+
+    private static bool IsRecommendationUnlocked(Recommendation recommendation, UserEntitlementsDto entitlements)
+    {
+        return ContentAccessPolicy.IsRecommendationUnlocked(
+            entitlements,
+            recommendation.AccessLevel,
+            recommendation.DestinationId,
+            recommendation.Packages.Select(package => package.Id).ToList());
     }
 
     private static string FormatServerTiming(params (string Name, double DurationMs)[] timings)

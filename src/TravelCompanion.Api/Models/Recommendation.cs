@@ -15,4 +15,5 @@ public sealed class Recommendation
     public decimal Longitude { get; set; }
     public int SuggestedDurationMinutes { get; set; }
     public ContentAccessLevel AccessLevel { get; set; } = ContentAccessLevel.Free;
+    public List<TravelPackage> Packages { get; set; } = [];
 }

@@ -47,6 +47,26 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
             entity.Property(recommendation => recommendation.AccessLevel)
                 .HasConversion<string>()
                 .HasMaxLength(32);
+            entity.HasMany(recommendation => recommendation.Packages)
+                .WithMany(package => package.Recommendations)
+                .UsingEntity<Dictionary<string, object>>(
+                    "RecommendationTravelPackages",
+                    right => right
+                        .HasOne<TravelPackage>()
+                        .WithMany()
+                        .HasForeignKey("TravelPackageId")
+                        .OnDelete(DeleteBehavior.Cascade),
+                    left => left
+                        .HasOne<Recommendation>()
+                        .WithMany()
+                        .HasForeignKey("RecommendationId")
+                        .OnDelete(DeleteBehavior.Cascade),
+                    join =>
+                    {
+                        join.ToTable("RecommendationTravelPackages");
+                        join.HasKey("RecommendationId", "TravelPackageId");
+                        join.HasIndex("TravelPackageId");
+                    });
         });
 
         modelBuilder.Entity<Trip>(entity =>

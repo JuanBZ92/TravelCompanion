@@ -1,12 +1,15 @@
 :root {
     color-scheme: light dark;
     font-family: "Segoe UI", system-ui, sans-serif;
-    --bg: #f6f8fa;
+    --bg: #f4f2ed;
     --surface: #ffffff;
+    --surface-soft: #fbfaf7;
     --text: #17212b;
     --muted: #66717d;
-    --line: #d8dee4;
-    --accent: #176f6d;
+    --line: #ded8cc;
+    --accent: #0f5f5b;
+    --accent-soft: #e8f3f1;
+    --gold: #ad8a3a;
     --danger: #b42318;
     --danger-bg: #fff4f2;
     --danger-line: #f3b8b0;
@@ -27,7 +30,7 @@ body {
     border-bottom: 1px solid var(--line);
     display: flex;
     justify-content: space-between;
-    padding: 14px 28px;
+    padding: 16px 28px;
 }
 
 .brand {
@@ -43,18 +46,42 @@ nav {
 
 nav a {
     color: var(--muted);
+    font-size: 14px;
+    font-weight: 600;
     text-decoration: none;
 }
 
 .shell {
     margin: 0 auto;
-    max-width: 1180px;
-    padding: 28px;
+    max-width: 1220px;
+    padding: 30px;
 }
 
 h1 {
-    font-size: 30px;
+    font-size: 32px;
+    letter-spacing: 0;
     margin: 0 0 6px;
+}
+
+h2 {
+    font-size: 18px;
+    margin: 0 0 6px;
+}
+
+.page-heading {
+    align-items: end;
+    display: flex;
+    gap: 18px;
+    justify-content: space-between;
+    margin-bottom: 22px;
+}
+
+.eyebrow {
+    color: var(--gold);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0;
+    text-transform: uppercase;
 }
 
 .lede {
@@ -69,10 +96,11 @@ h1 {
 }
 
 .panel {
-    background: var(--surface);
+    background: linear-gradient(180deg, var(--surface), var(--surface-soft));
     border: 1px solid var(--line);
     border-radius: 8px;
-    padding: 18px;
+    box-shadow: 0 1px 2px rgba(23, 33, 43, .04);
+    padding: 20px;
 }
 
 .metric {
@@ -109,6 +137,14 @@ textarea {
     font: inherit;
     padding: 9px 10px;
     width: 100%;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+    border-color: var(--accent);
+    outline: 2px solid var(--accent-soft);
+    outline-offset: 1px;
 }
 
 .input-validation-error {
@@ -190,7 +226,9 @@ button,
 
 .button.secondary,
 button.secondary {
-    background: #66717d;
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--text);
 }
 
 .button.danger,
@@ -206,15 +244,17 @@ table {
 th,
 td {
     border-bottom: 1px solid var(--line);
-    padding: 11px 8px;
+    padding: 13px 10px;
     text-align: left;
     vertical-align: top;
 }
 
 th {
     color: var(--muted);
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
+    letter-spacing: 0;
+    text-transform: uppercase;
 }
 
 .row-actions {
@@ -268,13 +308,43 @@ th {
 }
 
 .badge {
-    background: var(--bg);
+    background: var(--surface-soft);
     border: 1px solid var(--line);
     border-radius: 999px;
     color: var(--muted);
     display: inline-block;
     font-size: 12px;
     padding: 4px 9px;
+}
+
+.chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.chip {
+    background: var(--accent-soft);
+    border: 1px solid rgba(15, 95, 91, .18);
+    border-radius: 999px;
+    color: var(--accent);
+    display: inline-flex;
+    font-size: 12px;
+    font-weight: 650;
+    line-height: 1;
+    padding: 6px 9px;
+}
+
+.chip.subtle {
+    background: var(--surface-soft);
+    border-color: var(--line);
+    color: var(--muted);
+}
+
+.mono {
+    color: var(--muted);
+    font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+    font-size: 12px;
 }
 
 .field-group {
@@ -292,10 +362,13 @@ th {
     :root {
         --bg: #11161c;
         --surface: #171d24;
+        --surface-soft: #1c232b;
         --text: #e8edf2;
         --muted: #a7b0ba;
         --line: #303943;
         --accent: #58b7b2;
+        --accent-soft: #153532;
+        --gold: #d9bc6b;
         --danger: #ffb4a8;
         --danger-bg: #2b1716;
         --danger-line: #7f2d25;

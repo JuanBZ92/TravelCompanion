@@ -1,62 +1,153 @@
 using TravelCompanion.Shared;
+using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Shared.Tests;
 
 public sealed class ContentAccessPolicyTests
 {
+    private static readonly Guid JapanDestinationId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private static readonly Guid FranceDestinationId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+    private static readonly Guid EssentialsPackageId = Guid.Parse("33333333-3333-3333-3333-333333333333");
+    private static readonly Guid PremiumPackageId = Guid.Parse("44444444-4444-4444-4444-444444444444");
+    private static readonly Guid FrancePackageId = Guid.Parse("55555555-5555-5555-5555-555555555555");
+
     [Fact]
-    public void Free_content_is_visible_without_entitlements()
+    public void Free_recommendation_without_packages_is_visible_without_entitlements()
     {
-        var isUnlocked = ContentAccessPolicy.IsUnlocked(ContentAccessLevel.Free, []);
+        var isUnlocked = ContentAccessPolicy.IsRecommendationUnlocked(
+            entitlements: null,
+            ContentAccessLevel.Free,
+            JapanDestinationId,
+            []);
 
         Assert.True(isUnlocked);
     }
 
     [Fact]
-    public void Free_user_does_not_unlock_paid_or_subscription_content()
+    public void Packaged_recommendation_is_locked_without_package_or_destination_subscription()
     {
-        Assert.False(ContentAccessPolicy.IsUnlocked(ContentAccessLevel.Paid, []));
-        Assert.False(ContentAccessPolicy.IsUnlocked(ContentAccessLevel.Subscription, []));
-        Assert.False(ContentAccessPolicy.IsUnlocked(ContentAccessLevel.Bundle, []));
+        var isUnlocked = ContentAccessPolicy.IsRecommendationUnlocked(
+            entitlements: null,
+            ContentAccessLevel.Free,
+            JapanDestinationId,
+            [EssentialsPackageId]);
+
+        Assert.False(isUnlocked);
     }
 
     [Fact]
-    public void Paid_user_unlocks_paid_content_only()
+    public void Paid_package_grant_unlocks_only_that_package()
     {
-        var activeLevels = new[] { ContentAccessLevel.Paid };
+        var entitlements = CreateEntitlements(
+            accessLevels: [ContentAccessLevel.Paid],
+            packageIds: [EssentialsPackageId]);
 
-        Assert.True(ContentAccessPolicy.IsUnlocked(ContentAccessLevel.Paid, activeLevels));
-        Assert.False(ContentAccessPolicy.IsUnlocked(ContentAccessLevel.Subscription, activeLevels));
-        Assert.False(ContentAccessPolicy.IsUnlocked(ContentAccessLevel.Bundle, activeLevels));
+        Assert.True(ContentAccessPolicy.IsPackageUnlocked(entitlements, JapanDestinationId, EssentialsPackageId));
+        Assert.False(ContentAccessPolicy.IsPackageUnlocked(entitlements, JapanDestinationId, PremiumPackageId));
     }
 
     [Fact]
-    public void Subscription_user_unlocks_subscription_content_only()
+    public void Destination_subscription_unlocks_every_package_in_that_destination()
     {
-        var activeLevels = new[] { ContentAccessLevel.Subscription };
+        var entitlements = CreateEntitlements(
+            accessLevels: [ContentAccessLevel.Subscription],
+            destinationIds: [JapanDestinationId],
+            entitlements:
+            [
+                new UserEntitlementDto(
+                    Guid.NewGuid(),
+                    ContentAccessLevel.Subscription,
+                    JapanDestinationId,
+                    null,
+                    DateTimeOffset.UtcNow,
+                    null,
+                    Source: "test")
+            ]);
 
-        Assert.True(ContentAccessPolicy.IsUnlocked(ContentAccessLevel.Subscription, activeLevels));
-        Assert.False(ContentAccessPolicy.IsUnlocked(ContentAccessLevel.Paid, activeLevels));
-        Assert.False(ContentAccessPolicy.IsUnlocked(ContentAccessLevel.Bundle, activeLevels));
+        Assert.True(ContentAccessPolicy.IsPackageUnlocked(entitlements, JapanDestinationId, EssentialsPackageId));
+        Assert.True(ContentAccessPolicy.IsPackageUnlocked(entitlements, JapanDestinationId, PremiumPackageId));
     }
 
     [Fact]
-    public void Bundle_user_unlocks_paid_and_package_content()
+    public void Destination_subscription_unlocks_subscription_recommendation_without_packages()
     {
-        var activeLevels = new[] { ContentAccessLevel.Bundle };
+        var entitlements = CreateEntitlements(
+            accessLevels: [ContentAccessLevel.Subscription],
+            destinationIds: [JapanDestinationId],
+            entitlements:
+            [
+                new UserEntitlementDto(
+                    Guid.NewGuid(),
+                    ContentAccessLevel.Subscription,
+                    JapanDestinationId,
+                    null,
+                    DateTimeOffset.UtcNow,
+                    null,
+                    Source: "test")
+            ]);
 
-        Assert.True(ContentAccessPolicy.IsUnlocked(ContentAccessLevel.Paid, activeLevels));
-        Assert.True(ContentAccessPolicy.IsUnlocked(ContentAccessLevel.Bundle, activeLevels));
-        Assert.False(ContentAccessPolicy.IsUnlocked(ContentAccessLevel.Subscription, activeLevels));
+        var isUnlocked = ContentAccessPolicy.IsRecommendationUnlocked(
+            entitlements,
+            ContentAccessLevel.Subscription,
+            JapanDestinationId,
+            []);
+
+        Assert.True(isUnlocked);
     }
 
-    [Theory]
-    [InlineData(false, ContentAccessLevel.Bundle)]
-    [InlineData(true, ContentAccessLevel.Subscription)]
-    public void Package_type_maps_to_the_expected_grant_level(bool isSubscription, ContentAccessLevel expectedGrantLevel)
+    [Fact]
+    public void Subscription_recommendation_without_packages_is_locked_without_destination_subscription()
     {
-        var grantLevel = ProductAccessModel.GetPackageGrantLevel(isSubscription);
+        var isUnlocked = ContentAccessPolicy.IsRecommendationUnlocked(
+            entitlements: null,
+            ContentAccessLevel.Subscription,
+            JapanDestinationId,
+            []);
 
-        Assert.Equal(expectedGrantLevel, grantLevel);
+        Assert.False(isUnlocked);
+    }
+
+    [Fact]
+    public void Destination_subscription_does_not_unlock_other_destinations()
+    {
+        var entitlements = CreateEntitlements(
+            accessLevels: [ContentAccessLevel.Subscription],
+            destinationIds: [JapanDestinationId],
+            entitlements:
+            [
+                new UserEntitlementDto(
+                    Guid.NewGuid(),
+                    ContentAccessLevel.Subscription,
+                    JapanDestinationId,
+                    null,
+                    DateTimeOffset.UtcNow,
+                    null,
+                    Source: "test")
+            ]);
+
+        Assert.False(ContentAccessPolicy.IsPackageUnlocked(entitlements, FranceDestinationId, FrancePackageId));
+    }
+
+    [Fact]
+    public void Package_type_always_maps_to_package_grant()
+    {
+        Assert.Equal(ContentAccessLevel.Paid, ProductAccessModel.GetPackageGrantLevel(isSubscription: false));
+        Assert.Equal(ContentAccessLevel.Paid, ProductAccessModel.GetPackageGrantLevel(isSubscription: true));
+    }
+
+    private static UserEntitlementsDto CreateEntitlements(
+        IReadOnlyList<ContentAccessLevel>? accessLevels = null,
+        IReadOnlyList<Guid>? destinationIds = null,
+        IReadOnlyList<Guid>? packageIds = null,
+        IReadOnlyList<UserEntitlementDto>? entitlements = null)
+    {
+        return new UserEntitlementsDto(
+            Guid.NewGuid(),
+            "test@travelcompanion.local",
+            "Test User",
+            accessLevels ?? [],
+            destinationIds ?? [],
+            packageIds ?? [],
+            entitlements ?? []);
     }
 }

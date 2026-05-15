@@ -5,7 +5,7 @@
 }
 
 <h1>Packages</h1>
-<p class="lede">Paquetes de pago fijo o suscripcion que habilitan contenido y pueden activarse para usuarios.</p>
+<p class="lede">Paquetes pagos por destino que habilitan contenido y pueden activarse para usuarios.</p>
 
 @if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
 {
@@ -52,13 +52,7 @@
                 <input asp-for="Input.Currency" maxlength="3" />
                 <span asp-validation-for="Input.Currency"></span>
             </div>
-            <div>
-                <label asp-for="Input.IsSubscription" class="required">Tipo</label>
-                <select asp-for="Input.IsSubscription">
-                    <option value="false">Pago fijo</option>
-                    <option value="true">Suscripcion</option>
-                </select>
-            </div>
+            <input type="hidden" asp-for="Input.IsSubscription" value="false" />
         </div>
         <div style="margin-top: 12px;">
             <label asp-for="Input.Description">Descripcion <span class="muted">(opcional)</span></label>
