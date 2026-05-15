@@ -82,4 +82,12 @@ public partial class RecommendationsPage : ContentPage
             _viewModel.ToggleFavoriteCommand.Execute(recommendation);
         }
     }
+
+    private void OnCategoryFilterTapped(object? sender, TappedEventArgs e)
+    {
+        if ((sender as BindableObject)?.BindingContext is CategoryFilterViewModel filter)
+        {
+            _viewModel.SelectCategoryCommand.Execute(filter);
+        }
+    }
 }
