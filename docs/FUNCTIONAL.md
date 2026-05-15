@@ -9,9 +9,8 @@ Travel Companion es una app movil companion de viajes para vender contenido cura
 La idea principal es ofrecer paquetes especificos, por ejemplo Japon, que pueden estar detras de:
 
 - contenido gratuito;
-- pago fijo;
-- suscripcion;
-- bundles o paquetes;
+- paquetes pagos;
+- suscripcion por destino/pais;
 - contenido solo administrable.
 
 El usuario final deberia poder descubrir recomendaciones, verlas por cercania, guardar favoritos, abrir ubicaciones en mapas y consultar un schedule si contrato el viaje o tiene reservas gestionadas.
@@ -40,7 +39,7 @@ Necesita:
 - entrar con login;
 - crear y editar recomendaciones;
 - crear y editar reservas del schedule;
-- definir si el contenido es gratis, pago, suscripcion o paquete.
+- definir si el contenido es gratis, interno o asociado a paquetes pagos.
 
 ## Destinos y paquetes
 
@@ -49,28 +48,39 @@ El destino demo actual es Japon.
 Paquetes demo:
 
 - `Japon Essentials`: paquete de pago fijo con recomendaciones, mapa y tips practicos.
-- `Travel Companion Premium`: suscripcion con acceso ampliado, updates y soporte prioritario.
+- `Japon Premium Pack`: paquete pago con recomendaciones premium.
+
+La suscripcion no es un paquete: se asigna al destino Japon y desbloquea todos sus paquetes.
 
 La estructura busca permitir mas destinos en el futuro sin cambiar la base conceptual del producto.
+
+Modelo funcional vigente:
+
+- un destino representa el pais o region vendible;
+- cada destino puede tener muchos paquetes reutilizables;
+- las recomendaciones gratis pueden quedar sueltas como `Free`;
+- las recomendaciones exclusivas para suscriptores pueden quedar sueltas como `Subscription`;
+- las recomendaciones pagas pueden asociarse a uno o mas paquetes;
+- los usuarios se asignan a paquetes desde el CMS;
+- el schedule pertenece al viaje gestionado para un usuario y no depende de paquetes ni niveles free/paid/subscription.
 
 ## Niveles de acceso
 
 Los niveles funcionales actuales son:
 
 - `Free`: contenido gratuito.
-- `Paid`: contenido disponible con pago fijo.
-- `Subscription`: contenido incluido con suscripcion activa.
-- `Bundle`: contenido incluido por paquete o bundle.
+- `Paid`: acceso a un paquete puntual comprado/asignado.
+- `Subscription`: acceso activo a todos los paquetes de un destino/pais.
 - `AdminOnly`: contenido interno, no publico.
 
 Comportamiento actual en la app:
 
-- Las recomendaciones muestran su tipo de acceso.
+- Las recomendaciones muestran su tipo de acceso o paquetes asociados.
 - La app consulta los accesos del usuario logueado.
 - Las recomendaciones aparecen como incluidas o bloqueadas segun el acceso.
-- Las cuentas de prueba separan escenarios: usuario free solo desbloquea contenido gratis, usuario subscription desbloquea gratis y suscripcion, usuario paid desbloquea gratis y pago fijo.
-- Los paquetes son productos reutilizables por destino: un paquete de pago fijo concede `Bundle`; un paquete de suscripcion concede `Subscription`.
-- El usuario demo tiene acceso a Japon Essentials y Travel Companion Premium.
+- Las cuentas de prueba separan escenarios: usuario free solo desbloquea contenido gratis, usuario subscription desbloquea todos los paquetes de Japon, usuario paid desbloquea solo el paquete fijo asignado.
+- Los paquetes son productos reutilizables por destino: asignar un paquete puntual concede `Paid`; asignar una suscripcion al destino concede `Subscription` y desbloquea todos los paquetes de ese destino.
+- El usuario demo tiene acceso a Japon Essentials y suscripcion de Japon.
 
 ## App mobile
 
@@ -115,7 +125,7 @@ La tab `Ideas` permite:
 - ver barrio, descripcion, duracion sugerida y nivel de acceso;
 - abrir el detalle de una recomendacion.
 
-La app oculta recomendaciones que la cuenta no tiene desbloqueadas. Por ejemplo, el usuario free solo ve contenido gratis; el usuario de suscripcion ve gratis y suscripcion; el usuario paid ve gratis y pago fijo.
+La app oculta recomendaciones que la cuenta no tiene desbloqueadas. Por ejemplo, el usuario free solo ve contenido gratis; el usuario de suscripcion ve gratis, recomendaciones exclusivas de suscripcion y todos los paquetes del destino; el usuario paid ve gratis y el paquete puntual asignado.
 
 Para que la experiencia inicial sea mas rapida y robusta, Ideas usa un paquete reducido con destino y recomendaciones ya filtradas por acceso. Esa copia queda guardada para consulta offline. Despues de pintar Ideas, la app precarga en segundo plano el paquete mobile completo con mapa, schedule y packs para acelerar las otras tabs.
 
@@ -154,6 +164,7 @@ Incluye:
 Al abrir `Viaje`, la app prioriza la informacion relevante desde el momento actual: selecciona el tipo de reserva de la reserva vigente o proxima mas cercana, oculta reservas ya vencidas y solo muestra ciudades con reservas futuras o vigentes.
 
 Este modulo apunta a cubrir viajes contratados o reservas gestionadas por el negocio.
+No forma parte del modelo comercial de paquetes: si un usuario tiene un viaje armado por el negocio, ve su schedule; si no, puede usar la app con recomendaciones segun su acceso.
 
 El ultimo paquete mobile descargado incluye el schedule disponible offline por usuario. Si no hay conexion, la app muestra la copia local y avisa la fecha/hora de guardado.
 La app mantiene preparadas las secciones de eventos, vuelos y hospedajes y renderiza el viaje como una lista agrupada por dia, para que alternar entre tipos se sienta inmediato despues de la primera carga incluso en viajes largos.
@@ -222,9 +233,11 @@ Funciones existentes:
 - crear, editar y borrar paquetes reutilizables sin accesos asociados;
 - seleccionar un paquete y asignarle muchos usuarios sin crear paquetes por persona;
 - ocultar del selector de asignacion a usuarios que ya tienen acceso activo al paquete;
-- CRUD de recomendaciones;
+- CRUD de recomendaciones con acceso `Free`, `Suscripcion` o `Paquete`;
+- asociacion de recomendaciones a uno o mas paquetes cuando el acceso elegido es `Paquete`;
 - crear, editar y borrar viajes por usuario/destino;
 - CRUD de reservas dentro de cada viaje;
+- mostrar solo los campos relevantes para evento, vuelo u hospedaje al cargar reservas;
 - tipo de reserva: evento, vuelo u hospedaje;
 - campos especificos para vuelos (aerolinea, vuelo, origen/destino, aeropuertos);
 - campos especificos para hospedajes (check-in/check-out, direccion y alojamiento);
@@ -287,12 +300,12 @@ Contenido demo actual:
   - `demo@travelcompanion.local`
   - password temporal `TravelDemo!2026`;
   - acceso a Japon Essentials;
-  - acceso a Travel Companion Premium.
+  - suscripcion activa a Japon.
   - viaje demo de Japon asignado.
 - Usuarios de prueba:
   - `usuariofree@travelcompanion.local` / `PasswordFree`: viaje de 2 semanas por Tokyo, Osaka y Kyoto; solo contenido gratis incluido.
-  - `usuariosub@travelcompanion.local` / `PasswordSub`: viaje de mas de 2 semanas por Tokyo, Kyoto, Osaka y Nara; contenido gratis y de suscripcion incluido.
-  - `usuariopaid@travelcompanion.local` / `PasswordPAid`: viaje de 3 semanas por Tokyo, Osaka, Kobe, Hiroshima, Miyajima, Sapporo y Otaru; contenido gratis y de pago fijo incluido.
+  - `usuariosub@travelcompanion.local` / `PasswordSub`: viaje de mas de 2 semanas por Tokyo, Kyoto, Osaka y Nara; contenido gratis y todos los paquetes de Japon incluidos por suscripcion.
+  - `usuariopaid@travelcompanion.local` / `PasswordPAid`: viaje de 3 semanas por Tokyo, Osaka, Kobe, Hiroshima, Miyajima, Sapporo y Otaru; contenido gratis y el paquete Japon Essentials incluido.
 
 ## Roadmap funcional sugerido
 

@@ -156,7 +156,7 @@ public sealed class PackagesModel(TravelCompanionDbContext dbContext) : PageMode
         {
             Id = Guid.NewGuid(),
             UserId = user.Id,
-            AccessLevel = ContentAccessPolicy.GetPackageGrantLevel(package.IsSubscription),
+            AccessLevel = ContentAccessLevel.Paid,
             DestinationId = package.DestinationId,
             TravelPackageId = package.Id,
             GrantedAt = now,
@@ -277,8 +277,8 @@ public sealed class PackagesModel(TravelCompanionDbContext dbContext) : PageMode
         bool IsSubscription,
         int EntitlementCount)
     {
-        public ContentAccessLevel GrantLevel => ContentAccessPolicy.GetPackageGrantLevel(IsSubscription);
-        public string ProductTypeLabel => ProductAccessModel.GetLabel(GrantLevel);
+        public ContentAccessLevel GrantLevel => ContentAccessLevel.Paid;
+        public string ProductTypeLabel => "Paquete pago";
     }
 
     public sealed record AssignedUserRow(
@@ -312,7 +312,7 @@ public sealed class PackagesModel(TravelCompanionDbContext dbContext) : PageMode
         public string Slug { get; set; } = string.Empty;
 
         [StringLength(500, ErrorMessage = "La descripcion no puede superar 500 caracteres.")]
-        public string Description { get; set; } = string.Empty;
+        public string? Description { get; set; }
 
         [Range(0, 999999, ErrorMessage = "El precio no puede ser negativo.")]
         public decimal Price { get; set; }
@@ -347,7 +347,7 @@ public sealed class PackagesModel(TravelCompanionDbContext dbContext) : PageMode
             package.Currency = string.IsNullOrWhiteSpace(Currency)
                 ? "USD"
                 : Currency.Trim().ToUpperInvariant();
-            package.IsSubscription = IsSubscription;
+            package.IsSubscription = false;
         }
     }
 }

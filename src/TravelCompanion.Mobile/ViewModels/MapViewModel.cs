@@ -268,10 +268,11 @@ public sealed partial class MapViewModel(
 
     private bool IsUnlocked(RecommendationDto recommendation)
     {
-        return ContentAccessPolicy.IsUnlocked(
+        return ContentAccessPolicy.IsRecommendationUnlocked(
+            _entitlements,
             recommendation.AccessLevel,
-            _entitlements?.AccessLevels ?? [],
-            _entitlements?.DestinationIds.Contains(recommendation.DestinationId) ?? false);
+            recommendation.DestinationId,
+            recommendation.PackageIds);
     }
 
     private static decimal CalculateDistanceKm(

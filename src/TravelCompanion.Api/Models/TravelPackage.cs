@@ -11,4 +11,5 @@ public sealed class TravelPackage
     public decimal Price { get; set; }
     public required string Currency { get; set; }
     public bool IsSubscription { get; set; }
+    public List<Recommendation> Recommendations { get; set; } = [];
 }

@@ -53,7 +53,7 @@
         <div class="section-header">
             <div>
                 <h2>Asignar acceso</h2>
-                <p class="muted">Usa paquetes cuando el acceso pertenece a un producto vendible. Usa destino/tipo solo para excepciones puntuales.</p>
+                <p class="muted">Asigna suscripcion por destino o un paquete puntual. La suscripcion desbloquea todos los paquetes del destino.</p>
             </div>
         </div>
         @if (Model.UserOptions.Count == 0)
@@ -76,14 +76,14 @@
                         <span asp-validation-for="EntitlementInput.AccessLevel"></span>
                     </div>
                     <div>
-                        <label asp-for="EntitlementInput.DestinationId">Destino <span class="muted">(opcional)</span></label>
+                        <label asp-for="EntitlementInput.DestinationId">Destino <span class="muted">(requerido para suscripcion)</span></label>
                         <select asp-for="EntitlementInput.DestinationId" asp-items="Model.DestinationOptions"></select>
                         <span asp-validation-for="EntitlementInput.DestinationId"></span>
                     </div>
                     <div>
                         <label asp-for="EntitlementInput.TravelPackageId">Paquete <span class="muted">(opcional)</span></label>
                         <select asp-for="EntitlementInput.TravelPackageId" asp-items="Model.PackageOptions"></select>
-                        <p class="muted">Si eliges paquete, el tipo se ajusta automaticamente a paquete o suscripcion.</p>
+                        <p class="muted">Si eliges paquete, el tipo se ajusta automaticamente a paquete.</p>
                         <span asp-validation-for="EntitlementInput.TravelPackageId"></span>
                     </div>
                     <div>

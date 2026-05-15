@@ -107,6 +107,8 @@ Entidades principales:
 
 `AppUser` guarda `PasswordHash`, `MustChangePassword`, `TemporaryPasswordIssuedAt` y `PasswordChangedAt`. Las passwords se hashean con `PasswordHasher<AppUser>`.
 
+`Recommendation` y `TravelPackage` tienen una relacion muchos-a-muchos mediante `RecommendationTravelPackages`. Si una recomendacion tiene paquetes asociados, el desbloqueo se basa en que el usuario tenga alguno de esos paquetes activos o una suscripcion activa al destino de la recomendacion. Si no tiene paquetes asociados, `Free` queda visible para todos y `Subscription` queda visible solo para usuarios con suscripcion activa al destino; `AdminOnly` queda oculto.
+
 Indices principales orientados a query:
 
 - `Destinations`: `Slug` unico.
@@ -150,10 +152,10 @@ docker compose up -d
 `DatabaseSeeder` crea datos demo de Japon si no existen:
 
 - Destino `japon`.
-- Paquetes `Japon Essentials` y `Travel Companion Premium`.
+- Paquetes `Japon Essentials` y `Japon Premium Pack`.
 - Recomendaciones demo con distintos niveles de acceso. El seeder tambien inserta/actualiza un set ampliado de recomendaciones de Japon aunque la base local ya exista, para probar scroll, filtros, mapa y paginacion.
 - Viaje demo con reservas.
-- Usuario demo `demo@travelcompanion.local` con entitlements de paquete y suscripcion.
+- Usuario demo `demo@travelcompanion.local` con entitlement de paquete y suscripcion al destino Japon.
 - Usuarios de prueba:
   - `usuariofree@travelcompanion.local` / `PasswordFree`: sin entitlements, solo contenido `Free` desbloqueado.
   - `usuariosub@travelcompanion.local` / `PasswordSub`: entitlement `Subscription`, contenido `Free` y `Subscription` desbloqueado.
@@ -276,7 +278,7 @@ La app usa este endpoint para pintar `Ideas` antes y luego precalienta `/api/mob
 
 `GET /api/packages` acepta token bearer opcional. Si recibe una sesion valida, devuelve cada `TravelPackageDto` con:
 
-- `requiredAccessLevel`: `Bundle` para pago fijo o `Subscription` para suscripciones.
+- `requiredAccessLevel`: `Paid` para paquete pago.
 - `isUnlocked`: calculado contra entitlements activos del usuario, destino y paquete.
 
 Sin token, los paquetes se devuelven como no desbloqueados.
@@ -288,7 +290,7 @@ El admin vive en Razor Pages:
 - `/admin`: dashboard.
 - `/admin/destinations`: CRUD simple de destinos.
 - `/admin/packages`: CRUD simple de paquetes por destino y gestion de usuarios asignados al paquete seleccionado.
-- `/admin/recommendations`: CRUD simple de recomendaciones.
+- `/admin/recommendations`: CRUD simple de recomendaciones con selector de acceso `Free`, `Suscripcion` o `Paquete`; el selector multi-paquete aparece solo cuando corresponde.
 - `/admin/reservations`: gestion de viajes por usuario/destino y CRUD de reservas por viaje.
 - `/admin/users`: gestion de usuarios y asignacion/eliminacion de entitlements.
 - `/login` y `/logout`: autenticacion por cookie.
@@ -301,7 +303,8 @@ Reglas CMS actuales:
 - Los slugs de destinos y paquetes se normalizan a minusculas y reemplazan espacios por guiones.
 - No se puede borrar un destino con paquetes, recomendaciones o viajes asociados.
 - No se puede borrar un paquete con entitlements de usuario asociados.
-- Al activar un paquete desde `/admin/packages`, el entitlement se crea con scope de paquete y destino. Los paquetes de suscripcion generan `Subscription`; los de pago fijo generan `Bundle`.
+- Al activar un paquete desde `/admin/packages`, el entitlement se crea con scope de paquete y destino usando `Paid`.
+- La suscripcion no es un paquete: se asigna al destino/pais desde `/admin/users` usando `Subscription`.
 - Un paquete es reutilizable: se crea una vez y puede tener muchos usuarios asignados mediante entitlements. La asignacion filtra usuarios que ya tienen acceso activo al paquete para evitar duplicados.
 - En `/admin/reservations`, `Ver reservas` filtra el viaje y navega al bloque de reservas con ancla `#reservations-list`.
 - No se puede borrar un viaje con reservas asociadas; primero hay que borrar sus reservas.
@@ -499,7 +502,6 @@ El enum compartido `ContentAccessLevel` diferencia contenido:
 - `Free`
 - `Paid`
 - `Subscription`
-- `Bundle`
 - `AdminOnly`
 
 El modelo comercial compartido vive en `ProductAccessModel`. Define labels, descripcion y si cada nivel puede usarse como requisito de contenido o como grant manual a usuarios.
@@ -508,8 +510,8 @@ La politica compartida `ContentAccessPolicy` centraliza la evaluacion de acceso.
 
 Los paquetes reutilizables se mapean a grants de usuario mediante `ProductAccessModel.GetPackageGrantLevel`:
 
-- paquete de pago fijo: `Bundle`;
-- paquete de suscripcion: `Subscription`.
+- paquete asignado a usuario: `Paid`;
+- suscripcion asignada a destino/pais: `Subscription`, sin `TravelPackageId`.
 
 Los entitlements se pueden asignar desde `/admin/users`. Cada entitlement puede tener:
 
@@ -523,12 +525,17 @@ Los entitlements se pueden asignar desde `/admin/users`. Cada entitlement puede 
 Regla actual:
 
 - `Free`: visible para todos.
-- `Paid`: desbloqueado por pago fijo, bundle o acceso explicito a destino/paquete.
-- `Subscription`: desbloqueado solo por suscripcion activa.
-- `Bundle`: desbloqueado por paquete/bundle o acceso a destino/paquete.
+- `Paid`: entitlement de usuario atado a un paquete puntual.
+- `Subscription`: entitlement de usuario atado a un destino; desbloquea todos los paquetes de ese destino y recomendaciones exclusivas sin paquete.
 - `AdminOnly`: bloqueado para la app publica.
 
 Las reglas estan cubiertas por `tests/TravelCompanion.Shared.Tests/ContentAccessPolicyTests.cs`, y el pipeline ejecuta esos tests ademas del build de API.
+
+La suite inicial de tests queda dividida asi:
+
+- `tests/TravelCompanion.Shared.Tests`: reglas puras compartidas, por ejemplo matriz de acceso y grants de paquetes.
+- `tests/TravelCompanion.Api.Tests`: reglas de API/Admin que no necesitan levantar UI, empezando por validacion de inputs opcionales del CMS para evitar `required` implicitos no deseados.
+- Futuro `tests/TravelCompanion.Mobile.Tests`: ViewModels y servicios mobile con TFM `net10.0`, evitando referenciar TFMs de plataforma como `net10.0-android` para que xUnit corra en desktop/CI.
 
 ## Verificacion
 
@@ -536,6 +543,8 @@ Comando recomendado antes de cerrar cambios:
 
 ```powershell
 dotnet build TravelCompanion.sln
+dotnet test tests\TravelCompanion.Shared.Tests\TravelCompanion.Shared.Tests.csproj
+dotnet test tests\TravelCompanion.Api.Tests\TravelCompanion.Api.Tests.csproj
 ```
 
 Para validar API local:

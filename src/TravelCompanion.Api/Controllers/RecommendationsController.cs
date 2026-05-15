@@ -27,6 +27,7 @@ public sealed class RecommendationsController(TravelCompanionDbContext dbContext
 
         var query = dbContext.Recommendations
             .AsNoTracking()
+            .Include(recommendation => recommendation.Packages)
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(destinationSlug))
@@ -96,6 +97,7 @@ public sealed class RecommendationsController(TravelCompanionDbContext dbContext
             recommendation.Longitude,
             recommendation.SuggestedDurationMinutes,
             recommendation.AccessLevel,
+            recommendation.Packages.Select(package => package.Id).ToList(),
             distanceKm);
     }
 

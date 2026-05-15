@@ -13,4 +13,5 @@ public sealed record RecommendationDto(
     decimal Longitude,
     int SuggestedDurationMinutes,
     ContentAccessLevel AccessLevel,
+    IReadOnlyList<Guid> PackageIds,
     decimal? DistanceKm);

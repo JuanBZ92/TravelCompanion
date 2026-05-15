@@ -142,9 +142,9 @@ public sealed class DestinationsModel(TravelCompanionDbContext dbContext) : Page
         public Guid? Id { get; set; }
         public string Name { get; set; } = string.Empty;
         public string Slug { get; set; } = string.Empty;
-        public string Country { get; set; } = string.Empty;
-        public string HeroImageUrl { get; set; } = string.Empty;
-        public string ShortDescription { get; set; } = string.Empty;
+        public string? Country { get; set; }
+        public string? HeroImageUrl { get; set; }
+        public string? ShortDescription { get; set; }
 
         public static DestinationInput FromEntity(Destination destination)
         {

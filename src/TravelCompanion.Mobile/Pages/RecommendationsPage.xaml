@@ -79,7 +79,7 @@
         <!-- Recommendations List -->
         <Grid Grid.Row="3" RowDefinitions="Auto,*" RowSpacing="12">
             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" HeightRequest="40">
-                <Button Text="‹ Anterior"
+                <Button Text="‹ "
                         Command="{Binding PreviousPageCommand}"
                         IsEnabled="{Binding CanGoPrevious}"
                         Style="{StaticResource PagerButton}" />
@@ -91,7 +91,7 @@
                        LineBreakMode="TailTruncation"
                        VerticalOptions="Center" />
                 <Button Grid.Column="2"
-                        Text="Siguiente ›"
+                        Text=" ›"
                         Command="{Binding NextPageCommand}"
                         IsEnabled="{Binding CanGoNext}"
                         Style="{StaticResource PagerButton}" />

@@ -4,11 +4,21 @@
     ViewData["Title"] = "Recommendations";
 }
 
-<h1>Recommendations</h1>
-<p class="lede">Lugares curados que aparecen en recomendaciones y mapa.</p>
+<div class="page-heading">
+    <div>
+        <h1>Recommendations</h1>
+        <p class="lede">Lugares curados que aparecen en recomendaciones y mapa.</p>
+    </div>
+    <span class="eyebrow">Contenido</span>
+</div>
 
 <section class="panel">
-    <h2>@(Model.Input.Id.HasValue ? "Editar recomendacion" : "Nueva recomendacion")</h2>
+    <div class="section-header">
+        <div>
+            <h2>@(Model.Input.Id.HasValue ? "Editar recomendacion" : "Nueva recomendacion")</h2>
+            <p class="form-hint">Define si la recomendacion es gratis, exclusiva para suscripcion o parte de uno o mas paquetes.</p>
+        </div>
+    </div>
     <form method="post" asp-page-handler="Save">
         <div asp-validation-summary="All"></div>
         <input type="hidden" asp-for="Input.Id" />
@@ -50,8 +60,15 @@
             </div>
             <div>
                 <label asp-for="Input.AccessLevel" class="required">Acceso</label>
-                <select asp-for="Input.AccessLevel" asp-items="Model.AccessLevelOptions"></select>
+                <select asp-for="Input.AccessLevel" asp-items="Model.AccessLevelOptions" data-recommendation-access></select>
                 <span asp-validation-for="Input.AccessLevel"></span>
+                <p class="form-hint">Suscripcion desbloquea contenido exclusivo para suscriptores del destino.</p>
+            </div>
+            <div data-recommendation-package-field>
+                <label asp-for="Input.PackageIds" class="required">Paquetes</label>
+                <select asp-for="Input.PackageIds" asp-items="Model.PackageOptions" multiple size="5"></select>
+                <span asp-validation-for="Input.PackageIds"></span>
+                <p class="form-hint">Puedes seleccionar varios paquetes. Los suscriptores del destino tambien los desbloquean.</p>
             </div>
         </div>
         <div style="margin-top: 12px;">
@@ -70,39 +87,55 @@
 </section>
 
 <section class="panel" style="margin-top: 18px;">
-    <table>
-        <thead>
-            <tr>
-                <th>Titulo</th>
-                <th>Categoria</th>
-                <th>Acceso</th>
-                <th>Barrio</th>
-                <th>Coordenadas</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-        @foreach (var recommendation in Model.Recommendations)
-        {
-            <tr>
-                <td>
-                    <strong>@recommendation.Title</strong><br />
-                    <span class="muted">@recommendation.DestinationName</span>
-                </td>
-                <td>@recommendation.Category</td>
-                <td>@recommendation.AccessLevelLabel</td>
-                <td>@recommendation.Neighborhood</td>
-                <td>@recommendation.Latitude, @recommendation.Longitude</td>
-                <td>
-                    <div class="row-actions">
-                        <a class="button secondary" asp-page="/Admin/Recommendations" asp-route-editId="@recommendation.Id">Editar</a>
-                        <form method="post" asp-page-handler="Delete" asp-route-id="@recommendation.Id">
-                            <button class="danger" type="submit">Borrar</button>
-                        </form>
-                    </div>
-                </td>
-            </tr>
-        }
-        </tbody>
-    </table>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Titulo</th>
+                    <th>Categoria</th>
+                    <th>Paquetes</th>
+                    <th>Barrio</th>
+                    <th>Coordenadas</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var recommendation in Model.Recommendations)
+            {
+                <tr>
+                    <td>
+                        <strong>@recommendation.Title</strong><br />
+                        <span class="muted">@recommendation.DestinationName</span>
+                    </td>
+                    <td><span class="badge">@recommendation.Category</span></td>
+                    <td>
+                        <div class="chip-list">
+                            @if (recommendation.PackageNames.Count > 0)
+                            {
+                                foreach (var packageName in recommendation.PackageNames)
+                                {
+                                    <span class="chip">@packageName</span>
+                                }
+                            }
+                            else
+                            {
+                                <span class="chip subtle">@recommendation.AccessSummary</span>
+                            }
+                        </div>
+                    </td>
+                    <td>@recommendation.Neighborhood</td>
+                    <td><span class="mono">@recommendation.Latitude, @recommendation.Longitude</span></td>
+                    <td>
+                        <div class="row-actions">
+                            <a class="button secondary" asp-page="/Admin/Recommendations" asp-route-editId="@recommendation.Id">Editar</a>
+                            <form method="post" asp-page-handler="Delete" asp-route-id="@recommendation.Id">
+                                <button class="danger" type="submit">Borrar</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
 </section>

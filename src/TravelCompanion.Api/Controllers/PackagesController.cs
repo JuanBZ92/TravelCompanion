@@ -57,14 +57,12 @@ public sealed class PackagesController(
 
     private static TravelPackageDto ToDto(TravelPackage package, AppUser? user)
     {
-        var requiredAccessLevel = ContentAccessPolicy.GetPackageGrantLevel(package.IsSubscription);
-
         var activeEntitlements = GetActiveEntitlements(user);
-        var isUnlocked = ContentAccessPolicy.IsUnlocked(
-            requiredAccessLevel,
-            activeEntitlements.Select(entitlement => entitlement.AccessLevel),
-            activeEntitlements.Any(entitlement => entitlement.DestinationId == package.DestinationId),
-            activeEntitlements.Any(entitlement => entitlement.TravelPackageId == package.Id));
+        var requiredAccessLevel = ContentAccessLevel.Paid;
+        var isUnlocked = activeEntitlements.Any(entitlement => entitlement.TravelPackageId == package.Id)
+            || activeEntitlements.Any(entitlement =>
+                entitlement.AccessLevel == ContentAccessLevel.Subscription
+                && entitlement.DestinationId == package.DestinationId);
 
         return new TravelPackageDto(
             package.Id,
