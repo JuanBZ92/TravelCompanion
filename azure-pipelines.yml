@@ -59,6 +59,12 @@ stages:
     - script: dotnet build src/TravelCompanion.Api/TravelCompanion.Api.csproj --configuration $(buildConfiguration) --no-restore
       displayName: Build API
 
+    - script: dotnet restore tests/TravelCompanion.Shared.Tests/TravelCompanion.Shared.Tests.csproj
+      displayName: Restore tests
+
+    - script: dotnet test tests/TravelCompanion.Shared.Tests/TravelCompanion.Shared.Tests.csproj --configuration $(buildConfiguration) --no-restore
+      displayName: Test shared rules
+
 - stage: TerraformValidate
   displayName: Validate Terraform
   jobs:

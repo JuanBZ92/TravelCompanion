@@ -16,7 +16,7 @@ public sealed class RecommendationListItemViewModel(RecommendationDto recommenda
     public string Neighborhood => Recommendation.Neighborhood;
     public string Description => Recommendation.Description;
     public int SuggestedDurationMinutes => Recommendation.SuggestedDurationMinutes;
-    public string AccessLevel => GetAccessLevelText(Recommendation.AccessLevel);
+    public string AccessLevel => ProductAccessModel.GetLabel(Recommendation.AccessLevel);
     public decimal? DistanceKm => Recommendation.DistanceKm;
 
     public bool IsFavorite
@@ -48,16 +48,4 @@ public sealed class RecommendationListItemViewModel(RecommendationDto recommenda
     public string FavoriteLabel => IsFavorite ? "Quitar favorito" : "Guardar favorito";
     public string AccessStatus => IsUnlocked ? "Incluido" : "Bloqueado";
 
-    private static string GetAccessLevelText(ContentAccessLevel accessLevel)
-    {
-        return accessLevel switch
-        {
-            ContentAccessLevel.Free => "Gratis",
-            ContentAccessLevel.Paid => "Pago fijo",
-            ContentAccessLevel.Subscription => "Suscripcion",
-            ContentAccessLevel.Bundle => "Paquete",
-            ContentAccessLevel.AdminOnly => "Admin",
-            _ => accessLevel.ToString()
-        };
-    }
 }

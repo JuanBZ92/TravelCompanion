@@ -68,8 +68,9 @@ Comportamiento actual en la app:
 - Las recomendaciones muestran su tipo de acceso.
 - La app consulta los accesos del usuario logueado.
 - Las recomendaciones aparecen como incluidas o bloqueadas segun el acceso.
-- El usuario demo tiene acceso a Japon Essentials y Travel Companion Premium.
 - Las cuentas de prueba separan escenarios: usuario free solo desbloquea contenido gratis, usuario subscription desbloquea gratis y suscripcion, usuario paid desbloquea gratis y pago fijo.
+- Los paquetes son productos reutilizables por destino: un paquete de pago fijo concede `Bundle`; un paquete de suscripcion concede `Subscription`.
+- El usuario demo tiene acceso a Japon Essentials y Travel Companion Premium.
 
 ## App mobile
 

@@ -154,7 +154,7 @@ public sealed class PackagesModel(TravelCompanionDbContext dbContext) : PageMode
         {
             Id = Guid.NewGuid(),
             UserId = user.Id,
-            AccessLevel = package.IsSubscription ? ContentAccessLevel.Subscription : ContentAccessLevel.Bundle,
+            AccessLevel = ContentAccessPolicy.GetPackageGrantLevel(package.IsSubscription),
             DestinationId = package.DestinationId,
             TravelPackageId = package.Id,
             GrantedAt = now,
@@ -256,7 +256,11 @@ public sealed class PackagesModel(TravelCompanionDbContext dbContext) : PageMode
         decimal Price,
         string Currency,
         bool IsSubscription,
-        int EntitlementCount);
+        int EntitlementCount)
+    {
+        public ContentAccessLevel GrantLevel => ContentAccessPolicy.GetPackageGrantLevel(IsSubscription);
+        public string ProductTypeLabel => ProductAccessModel.GetLabel(GrantLevel);
+    }
 
     public sealed record AssignedUserRow(
         Guid EntitlementId,
@@ -269,6 +273,8 @@ public sealed class PackagesModel(TravelCompanionDbContext dbContext) : PageMode
         public string Status => ExpiresAt is not null && ExpiresAt <= DateTimeOffset.UtcNow
             ? "Expirado"
             : "Activo";
+
+        public string AccessLevelLabel => ProductAccessModel.GetLabel(AccessLevel);
     }
 
     public sealed class PackageInput
