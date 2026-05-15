@@ -142,6 +142,7 @@ Incluye:
 - fechas del viaje;
 - selector superior para alternar entre eventos, vuelos y hospedajes;
 - selector para filtrar por ciudad dentro del tipo seleccionado;
+- filtros visualmente sobrios y compactos para que el viaje mantenga una sensacion refinada aun con muchas ciudades;
 - reservas por dia;
 - para eventos: ciudad, hora, lugar, direccion y codigo de confirmacion;
 - para vuelos: fecha/hora de salida, llegada, aerolinea, numero de vuelo, origen/destino y aeropuertos;
@@ -188,6 +189,8 @@ Funciona con estrategia `local first`:
 - si falla la conexion, conserva la copia local y muestra un aviso de modo offline con la fecha/hora de guardado;
 - si no existe copia local, necesita conexion y muestra el error normal.
 - durante la primera carga sin contenido local, muestra un spinner en lugar de empty states prematuros.
+- las tabs con datos muestran la ultima actualizacion disponible y un boton `Reintentar` dentro de los errores para recuperar sin buscar el refresh del header.
+- los controles permanentes se mantienen sobrios: la paginacion usa texto discreto en lugar de botones circulares y las tabs no muestran refresh visual en el header.
 
 Pantallas cubiertas:
 

@@ -194,6 +194,7 @@ public sealed partial class ScheduleViewModel(
         if (cached is not null)
         {
             ApplyBootstrapSchedule(cached.Value);
+            MarkLastUpdated(cached.SavedAt);
 
             if (bootstrapStore.HasFreshSnapshot())
             {
@@ -215,6 +216,7 @@ public sealed partial class ScheduleViewModel(
             }
 
             ApplyBootstrapSchedule(bootstrap);
+            MarkLastUpdated(DateTimeOffset.UtcNow);
             StatusMessage = null;
         }
         catch

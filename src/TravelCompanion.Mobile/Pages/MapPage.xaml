@@ -41,30 +41,28 @@
 
             <!-- Status Messages Overlay -->
             <VerticalStackLayout Padding="24,24,24,0" Spacing="8" VerticalOptions="Start">
-                <Border Padding="12"
-                        BackgroundColor="{AppThemeBinding Light={StaticResource AccentSoft}, Dark={StaticResource NightSurfaceAlt}}"
-                        Stroke="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
-                        StrokeThickness="1"
+                <Border Style="{StaticResource NoticePanel}"
                         IsVisible="{Binding HasStatus}">
-                    <Border.StrokeShape>
-                        <RoundRectangle CornerRadius="12" />
-                    </Border.StrokeShape>
                     <Label Text="{Binding StatusMessage}"
                            FontSize="13"
                            TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}" />
                 </Border>
 
-                <Border Padding="12"
-                        BackgroundColor="{AppThemeBinding Light={StaticResource RoseSoft}, Dark={StaticResource NightSurfaceAlt}}"
-                        Stroke="{AppThemeBinding Light={StaticResource Rose}, Dark={StaticResource NightLine}}"
-                        StrokeThickness="1"
+                <Border Style="{StaticResource ErrorPanel}"
                         IsVisible="{Binding HasError}">
-                    <Border.StrokeShape>
-                        <RoundRectangle CornerRadius="12" />
-                    </Border.StrokeShape>
-                    <Label Text="{Binding ErrorMessage}"
-                           FontSize="13"
-                           TextColor="{AppThemeBinding Light={StaticResource Rose}, Dark={StaticResource Paper}}" />
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <Label Text="{Binding ErrorMessage}"
+                               FontSize="13"
+                               TextColor="{AppThemeBinding Light={StaticResource Rose}, Dark={StaticResource Paper}}"
+                               VerticalOptions="Center" />
+                        <Button Grid.Column="1"
+                                Text="Reintentar"
+                                Command="{Binding LoadNearbyRecommendationsCommand}"
+                                Style="{StaticResource GhostButton}"
+                                FontSize="12"
+                                Padding="12,8"
+                                MinimumHeightRequest="34" />
+                    </Grid>
                 </Border>
             </VerticalStackLayout>
         </Grid>
@@ -79,21 +77,17 @@
                 <Label Text="Places within walking distance"
                        FontSize="14"
                        TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
+                <Label Text="{Binding LastUpdatedMessage}"
+                       FontSize="12"
+                       TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                       IsVisible="{Binding HasLastUpdated}" />
             </VerticalStackLayout>
 
-            <Grid Grid.Row="1" ColumnDefinitions="40,*,40,40,76" ColumnSpacing="8" HeightRequest="40">
-                <Button Text="‹"
+            <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto,76" ColumnSpacing="8" HeightRequest="40">
+                <Button Text="‹ "
                         Command="{Binding PreviousPageCommand}"
                         IsEnabled="{Binding CanGoPrevious}"
-                        FontSize="18"
-                        Padding="0"
-                        HeightRequest="36"
-                        WidthRequest="36"
-                        CornerRadius="18"
-                        BackgroundColor="Transparent"
-                        BorderColor="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
-                        BorderWidth="1"
-                        TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
+                        Style="{StaticResource PagerButton}" />
                 <Label Grid.Column="1"
                        Text="{Binding PageSummary}"
                        FontSize="12"
@@ -102,31 +96,11 @@
                        LineBreakMode="TailTruncation"
                        VerticalOptions="Center" />
                 <Button Grid.Column="2" 
-                        Text="›"
+                        Text=" ›"
                         Command="{Binding NextPageCommand}"
                         IsEnabled="{Binding CanGoNext}"
-                        FontSize="18"
-                        Padding="0"
-                        HeightRequest="36"
-                        WidthRequest="36"
-                        CornerRadius="18"
-                        BackgroundColor="Transparent"
-                        BorderColor="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
-                        BorderWidth="1"
-                        TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
-                <Button Grid.Column="3"
-                        Text="↻"
-                        Command="{Binding LoadNearbyRecommendationsCommand}"
-                        FontSize="16"
-                        Padding="0"
-                        HeightRequest="36"
-                        WidthRequest="36"
-                        CornerRadius="18"
-                        BackgroundColor="Transparent"
-                        BorderColor="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
-                        BorderWidth="1"
-                        TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
-                <Picker Grid.Column="4"
+                        Style="{StaticResource PagerButton}" />
+                <Picker Grid.Column="3"
                         ItemsSource="{Binding PageSizeOptions}"
                         SelectedItem="{Binding SelectedPageSize}"
                         FontSize="12"
@@ -153,7 +127,7 @@
                                FontSize="16"
                                TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
                                HorizontalOptions="Center" />
-                        <Label Text="Use refresh button to retry"
+                        <Label Text="Cambia de pagina o intenta nuevamente"
                                FontSize="13"
                                TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
                                HorizontalOptions="Center" />

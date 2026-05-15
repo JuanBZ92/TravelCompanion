@@ -236,6 +236,26 @@
         </Setter>
     </Style>
 
+    <Style TargetType="Border" x:Key="NoticePanel">
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Mist}, Dark={StaticResource NightSurfaceAlt}}" />
+        <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}" />
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="Padding" Value="12,10" />
+        <Setter Property="StrokeShape">
+            <RoundRectangle CornerRadius="8" />
+        </Setter>
+    </Style>
+
+    <Style TargetType="Border" x:Key="ErrorPanel">
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource RoseSoft}, Dark={StaticResource NightSurfaceAlt}}" />
+        <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource Rose}, Dark={StaticResource NightLine}}" />
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="Padding" Value="12" />
+        <Setter Property="StrokeShape">
+            <RoundRectangle CornerRadius="8" />
+        </Setter>
+    </Style>
+
     <Style TargetType="Border" x:Key="GoldPill">
         <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource GoldSoft}, Dark={StaticResource NightSurfaceAlt}}" />
         <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource GoldSoft}, Dark={StaticResource NightLine}}" />
@@ -256,6 +276,18 @@
         <Setter Property="Padding" Value="18,14"/>
         <Setter Property="MinimumHeightRequest" Value="48"/>
         <Setter Property="MinimumWidthRequest" Value="48"/>
+    </Style>
+
+    <Style TargetType="Button" x:Key="PagerButton">
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}" />
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="BorderWidth" Value="0" />
+        <Setter Property="FontFamily" Value="OpenSansSemibold" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Padding" Value="8,6" />
+        <Setter Property="MinimumHeightRequest" Value="34" />
+        <Setter Property="MinimumWidthRequest" Value="72" />
+        <Setter Property="CornerRadius" Value="6" />
     </Style>
 
     <Style TargetType="Border" x:Key="Chip">

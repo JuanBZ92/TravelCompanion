@@ -20,6 +20,10 @@
             <Label Text="Handpicked experiences"
                    FontSize="14"
                    TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
+            <Label Text="{Binding LastUpdatedMessage}"
+                   FontSize="12"
+                   TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                   IsVisible="{Binding HasLastUpdated}" />
         </VerticalStackLayout>
 
         <!-- Filters and paging -->
@@ -47,48 +51,38 @@
 
         <!-- Status/Error Messages -->
         <VerticalStackLayout Grid.Row="2" Spacing="8">
-            <Border Padding="12"
-                    BackgroundColor="{AppThemeBinding Light={StaticResource AccentSoft}, Dark={StaticResource NightSurfaceAlt}}"
-                    Stroke="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
-                    StrokeThickness="1"
+            <Border Style="{StaticResource NoticePanel}"
                     IsVisible="{Binding HasStatus}">
-                <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="12" />
-                </Border.StrokeShape>
                 <Label Text="{Binding StatusMessage}"
                        FontSize="13"
                        TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}" />
             </Border>
 
-            <Border Padding="12"
-                    BackgroundColor="{AppThemeBinding Light={StaticResource RoseSoft}, Dark={StaticResource NightSurfaceAlt}}"
-                    Stroke="{AppThemeBinding Light={StaticResource Rose}, Dark={StaticResource NightLine}}"
-                    StrokeThickness="1"
+            <Border Style="{StaticResource ErrorPanel}"
                     IsVisible="{Binding HasError}">
-                <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="12" />
-                </Border.StrokeShape>
-                <Label Text="{Binding ErrorMessage}"
-                       FontSize="13"
-                       TextColor="{AppThemeBinding Light={StaticResource Rose}, Dark={StaticResource Paper}}" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <Label Text="{Binding ErrorMessage}"
+                           FontSize="13"
+                           TextColor="{AppThemeBinding Light={StaticResource Rose}, Dark={StaticResource Paper}}"
+                           VerticalOptions="Center" />
+                    <Button Grid.Column="1"
+                            Text="Reintentar"
+                            Command="{Binding LoadRecommendationsCommand}"
+                            Style="{StaticResource GhostButton}"
+                            FontSize="12"
+                            Padding="12,8"
+                            MinimumHeightRequest="34" />
+                </Grid>
             </Border>
         </VerticalStackLayout>
 
         <!-- Recommendations List -->
         <Grid Grid.Row="3" RowDefinitions="Auto,*" RowSpacing="12">
-            <Grid ColumnDefinitions="40,*,40,40" ColumnSpacing="8" HeightRequest="40">
-                <Button Text="‹"
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" HeightRequest="40">
+                <Button Text="‹ Anterior"
                         Command="{Binding PreviousPageCommand}"
                         IsEnabled="{Binding CanGoPrevious}"
-                        FontSize="18"
-                        Padding="0"
-                        HeightRequest="36"
-                        WidthRequest="36"
-                        CornerRadius="18"
-                        BackgroundColor="Transparent"
-                        BorderColor="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
-                        BorderWidth="1"
-                        TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
+                        Style="{StaticResource PagerButton}" />
                 <Label Grid.Column="1"
                        Text="{Binding PageSummary}"
                        FontSize="12"
@@ -97,30 +91,10 @@
                        LineBreakMode="TailTruncation"
                        VerticalOptions="Center" />
                 <Button Grid.Column="2"
-                        Text="›"
+                        Text="Siguiente ›"
                         Command="{Binding NextPageCommand}"
                         IsEnabled="{Binding CanGoNext}"
-                        FontSize="18"
-                        Padding="0"
-                        HeightRequest="36"
-                        WidthRequest="36"
-                        CornerRadius="18"
-                        BackgroundColor="Transparent"
-                        BorderColor="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
-                        BorderWidth="1"
-                        TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
-                <Button Grid.Column="3"
-                        Text="↻"
-                        Command="{Binding LoadRecommendationsCommand}"
-                        FontSize="16"
-                        Padding="0"
-                        HeightRequest="36"
-                        WidthRequest="36"
-                        CornerRadius="18"
-                        BackgroundColor="Transparent"
-                        BorderColor="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
-                        BorderWidth="1"
-                        TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
+                        Style="{StaticResource PagerButton}" />
             </Grid>
 
             <ScrollView Grid.Row="1"
@@ -142,7 +116,7 @@
                                FontSize="16"
                                TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
                                HorizontalOptions="Center" />
-                        <Label Text="Use refresh button to retry"
+                        <Label Text="Cambia el filtro o intenta nuevamente"
                                FontSize="13"
                                TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
                                HorizontalOptions="Center" />

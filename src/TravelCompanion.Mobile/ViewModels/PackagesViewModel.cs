@@ -42,6 +42,7 @@ public sealed partial class PackagesViewModel(
         if (cached is not null)
         {
             ApplyPackages(cached.Value.Packages);
+            MarkLastUpdated(cached.SavedAt);
 
             if (bootstrapStore.HasFreshSnapshot())
             {
@@ -63,6 +64,7 @@ public sealed partial class PackagesViewModel(
             }
 
             ApplyPackages(bootstrap.Packages);
+            MarkLastUpdated(DateTimeOffset.UtcNow);
             StatusMessage = null;
         }
         catch

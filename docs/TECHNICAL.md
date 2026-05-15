@@ -385,6 +385,8 @@ Formato de cache offline:
 
 Decision vigente: por ahora no implementamos delta sync completo porque la app es mayormente read-only. La prioridad tecnica es mantener snapshots offline confiables, endpoints no chatty y agregar sync solo cuando existan mutaciones reales desde mobile.
 
+Mejora futura de performance mobile: medir y reducir el costo de lectura/deserializacion del cache cifrado en frio. En las pruebas Android reales, luego de corregir el scope `auto`/`japon`, el cache cross-tab queda en memory hit, pero el primer `disk cache hit` de `MobileDiscoverStore` puede tardar cientos de milisegundos. Queda anotado optimizar ese primer acceso si vuelve a ser perceptible, por ejemplo con warm-up en background, source generation de JSON o reutilizando un snapshot ya disponible en memoria desde bootstrap.
+
 La biometria desbloquea localmente una sesion ya existente. La autenticacion real contra el backend sigue siendo email/password + token bearer.
 
 La pantalla de login tambien muestra acceso a biometria cuando existe una sesion local habilitada. Si el usuario cerro sesion completamente, no se muestra porque el token fue revocado y eliminado.
@@ -406,8 +408,12 @@ Patron de UI:
 - Las Pages de tabs principales tambien son singletons y se asignan explicitamente al `Shell` al construir `AppShell`, para evitar reconstruir XAML al cambiar de tab.
 - El logout resetea esos estados de sesion para evitar mostrar contenido cacheado de otro usuario.
 - Las pantallas principales muestran spinner durante la primera carga solo cuando todavia no tienen contenido local para renderizar. Si existe snapshot local, se renderiza inmediatamente aunque el refresh de red siga en curso.
+- Las tabs con datos remotos (`Ideas`, `Mapa`, `Viaje`, `Packs`) exponen `LastUpdatedMessage` desde `ViewModelBase` para mostrar la ultima copia renderizada, ya venga de cache offline o de refresh fresco.
+- Los estados de error usan panel uniforme con accion `Reintentar` conectada al comando de carga de cada tab; los estados informativos/offline usan `NoticePanel` y se mantienen visualmente sobrios. Las tabs principales no muestran botones de refresh permanentes en headers; la recarga manual queda contextualizada en estados de error.
+- Los controles de paginacion usan `PagerButton`: botones de texto/chevron sin borde circular para mantener una UI mas sobria y menos pesada.
 - `Viaje` selecciona al abrir el tipo de reserva de la reserva vigente/proxima mas cercana, filtra reservas vencidas y muestra solo ciudades con reservas futuras o vigentes para ese tipo.
 - `Viaje` usa `CollectionView` agrupado por dia para recuperar virtualizacion en viajes largos, con filas de reserva de altura estable y headers de dia. Tambien cachea secciones por tipo/filtro (`Eventos`, `Vuelos`, `Hospedajes`) para reducir reconstrucciones al cambiar de tipo.
+- Los filtros de `Viaje` usan controles compactos y sobrios: selector de tipo con fondo claro y acento sutil, ciudades como filtros secundarios de baja presencia visual, y sin bloques oscuros pesados en el header.
 - Los taps de filas/chips en `Ideas`, `Mapa` y `Viaje` usan handlers livianos en code-behind en vez de bindings `Source={x:Reference ...}` dentro de templates calientes. Esto elimina los warnings XAML `XC0025` y reduce bindings dinamicos durante scroll/render.
 - Los `CollectionView` que siguen en mobile quedan reservados para listas chicas de filtros/chips o escenarios donde la virtualizacion compense el costo de crear celdas al vuelo.
 - Las filas evitan `SwipeView` cuando no hay acciones reales de swipe, porque en Android agrega costo visible al crear vistas nuevas durante el scroll.

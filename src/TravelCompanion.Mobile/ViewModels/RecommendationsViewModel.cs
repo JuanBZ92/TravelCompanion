@@ -369,6 +369,7 @@ public sealed partial class RecommendationsViewModel(
         if (cached is not null)
         {
             ApplyDiscover(cached.Value, resetPage);
+            MarkLastUpdated(cached.SavedAt);
             resetPage = false;
 
             if (discoverStore.HasFreshSnapshot())
@@ -392,6 +393,7 @@ public sealed partial class RecommendationsViewModel(
             }
 
             ApplyDiscover(discover, resetPage);
+            MarkLastUpdated(DateTimeOffset.UtcNow);
             StatusMessage = null;
             _ = PrimeBootstrapAsync(token);
         }

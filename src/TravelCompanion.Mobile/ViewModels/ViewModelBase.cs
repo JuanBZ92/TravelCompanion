@@ -9,6 +9,7 @@ public abstract partial class ViewModelBase : ObservableObject
     private bool _hasLoaded;
     private string? _errorMessage;
     private string? _statusMessage;
+    private string? _lastUpdatedMessage;
     private CancellationTokenSource? _loadCancellationTokenSource;
 
     public bool IsBusy
@@ -74,6 +75,20 @@ public abstract partial class ViewModelBase : ObservableObject
     }
 
     public bool HasStatus => !string.IsNullOrWhiteSpace(StatusMessage);
+
+    public string? LastUpdatedMessage
+    {
+        get => _lastUpdatedMessage;
+        set
+        {
+            if (SetProperty(ref _lastUpdatedMessage, value))
+            {
+                OnPropertyChanged(nameof(HasLastUpdated));
+            }
+        }
+    }
+
+    public bool HasLastUpdated => !string.IsNullOrWhiteSpace(LastUpdatedMessage);
 
     protected async Task LoadAsync(Func<Task> loadAction)
     {
@@ -156,7 +171,13 @@ public abstract partial class ViewModelBase : ObservableObject
         IsRefreshing = false;
         ErrorMessage = null;
         StatusMessage = null;
+        LastUpdatedMessage = null;
         HasLoaded = false;
+    }
+
+    protected void MarkLastUpdated(DateTimeOffset savedAt)
+    {
+        LastUpdatedMessage = $"Actualizado {savedAt.ToLocalTime():dd/MM HH:mm}";
     }
 
     protected virtual void OnLoadStateChanged()

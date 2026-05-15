@@ -6,9 +6,10 @@ namespace TravelCompanion.Mobile.ViewModels;
 public sealed partial class ScheduleTypeFilterViewModel : ObservableObject
 {
     private static readonly Color AccentColor = Color.FromArgb("#3D3329");
-    private static readonly Color MistColor = Color.FromArgb("#F5F3F0");
-    private static readonly Color PaperColor = Color.FromArgb("#FCFBF9");
-    private static readonly Color InkColor = Color.FromArgb("#1A1714");
+    private static readonly Color PaperColor = Color.FromArgb("#FFFFFF");
+    private static readonly Color MutedColor = Color.FromArgb("#8A8078");
+    private static readonly Color TransparentColor = Color.FromArgb("#00FFFFFF");
+    private static readonly Color GoldColor = Color.FromArgb("#B8956A");
     private static readonly Color LineColor = Color.FromArgb("#1A171414");
 
     private bool _isSelected;
@@ -42,7 +43,7 @@ public sealed partial class ScheduleTypeFilterViewModel : ObservableObject
         }
     }
 
-    public Color BackgroundColor => IsSelected ? AccentColor : MistColor;
-    public Color TextColor => IsSelected ? PaperColor : InkColor;
-    public Color BorderColor => IsSelected ? AccentColor : LineColor;
+    public Color BackgroundColor => IsSelected ? PaperColor : TransparentColor;
+    public Color TextColor => IsSelected ? AccentColor : MutedColor;
+    public Color BorderColor => IsSelected ? GoldColor : LineColor;
 }

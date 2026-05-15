@@ -180,6 +180,7 @@ public sealed partial class MapViewModel(
         if (cached is not null)
         {
             ApplyBootstrap(cached.Value, resetPage);
+            MarkLastUpdated(cached.SavedAt);
             resetPage = false;
 
             if (bootstrapStore.HasFreshSnapshot())
@@ -202,6 +203,7 @@ public sealed partial class MapViewModel(
             }
 
             ApplyBootstrap(bootstrap, resetPage);
+            MarkLastUpdated(DateTimeOffset.UtcNow);
             StatusMessage = null;
         }
         catch
