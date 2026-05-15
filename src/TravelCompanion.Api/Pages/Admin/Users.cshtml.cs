@@ -22,9 +22,8 @@ public sealed class UsersModel(
     public List<SelectListItem> UserOptions { get; private set; } = [];
     public List<SelectListItem> DestinationOptions { get; private set; } = [];
     public List<SelectListItem> PackageOptions { get; private set; } = [];
-    public List<SelectListItem> AccessLevelOptions { get; } = Enum.GetValues<ContentAccessLevel>()
-        .Where(value => value != ContentAccessLevel.Free && value != ContentAccessLevel.AdminOnly)
-        .Select(value => new SelectListItem(value.ToString(), value.ToString()))
+    public List<SelectListItem> AccessLevelOptions { get; } = ProductAccessModel.UserGrantOptions
+        .Select(definition => new SelectListItem(definition.Label, definition.Level.ToString()))
         .ToList();
 
     [TempData]
@@ -193,7 +192,7 @@ public sealed class UsersModel(
         var destinationId = EntitlementInput.DestinationId ?? selectedPackage?.DestinationId;
         var accessLevel = selectedPackage is null
             ? EntitlementInput.AccessLevel
-            : selectedPackage.IsSubscription ? ContentAccessLevel.Subscription : ContentAccessLevel.Bundle;
+            : ContentAccessPolicy.GetPackageGrantLevel(selectedPackage.IsSubscription);
 
         var entitlement = new UserEntitlement
         {
@@ -313,6 +312,8 @@ public sealed class UsersModel(
         public string Status => ExpiresAt is not null && ExpiresAt <= DateTimeOffset.UtcNow
             ? "Expirado"
             : "Activo";
+
+        public string AccessLevelLabel => ProductAccessModel.GetLabel(AccessLevel);
     }
 
     public sealed class UserForm

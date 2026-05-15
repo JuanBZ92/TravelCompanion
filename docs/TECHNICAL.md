@@ -502,7 +502,14 @@ El enum compartido `ContentAccessLevel` diferencia contenido:
 - `Bundle`
 - `AdminOnly`
 
+El modelo comercial compartido vive en `ProductAccessModel`. Define labels, descripcion y si cada nivel puede usarse como requisito de contenido o como grant manual a usuarios.
+
 La politica compartida `ContentAccessPolicy` centraliza la evaluacion de acceso. La app mobile consulta los entitlements del usuario logueado y marca recomendaciones como incluidas o bloqueadas. La API tambien usa la misma politica para marcar paquetes como desbloqueados cuando `/api/packages` recibe token bearer.
+
+Los paquetes reutilizables se mapean a grants de usuario mediante `ProductAccessModel.GetPackageGrantLevel`:
+
+- paquete de pago fijo: `Bundle`;
+- paquete de suscripcion: `Subscription`.
 
 Los entitlements se pueden asignar desde `/admin/users`. Cada entitlement puede tener:
 
@@ -517,9 +524,11 @@ Regla actual:
 
 - `Free`: visible para todos.
 - `Paid`: desbloqueado por pago fijo, bundle o acceso explicito a destino/paquete.
-- `Subscription`: desbloqueado por suscripcion.
-- `Bundle`: desbloqueado por bundle o acceso a destino/paquete.
+- `Subscription`: desbloqueado solo por suscripcion activa.
+- `Bundle`: desbloqueado por paquete/bundle o acceso a destino/paquete.
 - `AdminOnly`: bloqueado para la app publica.
+
+Las reglas estan cubiertas por `tests/TravelCompanion.Shared.Tests/ContentAccessPolicyTests.cs`, y el pipeline ejecuta esos tests ademas del build de API.
 
 ## Verificacion
 

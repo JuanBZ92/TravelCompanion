@@ -96,16 +96,6 @@ public sealed partial class RecommendationDetailViewModel(FavoritesService favor
         await Map.Default.OpenAsync(location, options);
     }
 
-    private static string GetAccessLevelText(ContentAccessLevel accessLevel)
-    {
-        return accessLevel switch
-        {
-            ContentAccessLevel.Free => "Gratis",
-            ContentAccessLevel.Paid => "Pago fijo",
-            ContentAccessLevel.Subscription => "Suscripcion",
-            ContentAccessLevel.Bundle => "Paquete",
-            ContentAccessLevel.AdminOnly => "Admin",
-            _ => accessLevel.ToString()
-        };
-    }
+    private static string GetAccessLevelText(ContentAccessLevel accessLevel) =>
+        ProductAccessModel.GetLabel(accessLevel);
 }

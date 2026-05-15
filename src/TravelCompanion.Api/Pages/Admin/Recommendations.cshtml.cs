@@ -12,8 +12,8 @@ public sealed class RecommendationsModel(TravelCompanionDbContext dbContext) : P
 {
     public List<RecommendationRow> Recommendations { get; private set; } = [];
     public List<SelectListItem> DestinationOptions { get; private set; } = [];
-    public List<SelectListItem> AccessLevelOptions { get; } = Enum.GetValues<ContentAccessLevel>()
-        .Select(value => new SelectListItem(value.ToString(), value.ToString()))
+    public List<SelectListItem> AccessLevelOptions { get; } = ProductAccessModel.ContentAccessOptions
+        .Select(definition => new SelectListItem(definition.Label, definition.Level.ToString()))
         .ToList();
 
     [BindProperty]
@@ -139,7 +139,10 @@ public sealed class RecommendationsModel(TravelCompanionDbContext dbContext) : P
         ContentAccessLevel AccessLevel,
         string Neighborhood,
         decimal Latitude,
-        decimal Longitude);
+        decimal Longitude)
+    {
+        public string AccessLevelLabel => ProductAccessModel.GetLabel(AccessLevel);
+    }
 
     public sealed class RecommendationInput
     {

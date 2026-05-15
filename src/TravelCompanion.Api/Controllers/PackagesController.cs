@@ -57,9 +57,7 @@ public sealed class PackagesController(
 
     private static TravelPackageDto ToDto(TravelPackage package, AppUser? user)
     {
-        var requiredAccessLevel = package.IsSubscription
-            ? ContentAccessLevel.Subscription
-            : ContentAccessLevel.Bundle;
+        var requiredAccessLevel = ContentAccessPolicy.GetPackageGrantLevel(package.IsSubscription);
 
         var activeEntitlements = GetActiveEntitlements(user);
         var isUnlocked = ContentAccessPolicy.IsUnlocked(

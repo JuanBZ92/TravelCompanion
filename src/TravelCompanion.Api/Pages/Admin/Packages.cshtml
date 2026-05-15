@@ -99,7 +99,7 @@
                 </td>
                 <td>@package.DestinationName</td>
                 <td>@package.Currency @package.Price.ToString("0.00")</td>
-                <td>@(package.IsSubscription ? "Suscripcion" : "Pago fijo")</td>
+                <td>@package.ProductTypeLabel</td>
                 <td>@package.EntitlementCount usuario(s)</td>
                 <td>
                     <div class="row-actions">
@@ -169,7 +169,7 @@
                             <span class="muted">@user.Email</span>
                         </td>
                         <td>
-                            @user.AccessLevel<br />
+                            @user.AccessLevelLabel<br />
                             <span class="muted">@user.Status</span>
                         </td>
                         <td>
