@@ -7,6 +7,12 @@
     --muted: #66717d;
     --line: #d8dee4;
     --accent: #176f6d;
+    --danger: #b42318;
+    --danger-bg: #fff4f2;
+    --danger-line: #f3b8b0;
+    --success-bg: #ecfdf3;
+    --success-line: #abefc6;
+    --success-text: #067647;
 }
 
 body {
@@ -105,13 +111,23 @@ textarea {
     width: 100%;
 }
 
+.input-validation-error {
+    border-color: var(--danger);
+    background: var(--danger-bg);
+}
+
+.input-validation-error:focus {
+    outline: 2px solid var(--danger-line);
+    outline-offset: 1px;
+}
+
 textarea {
     min-height: 96px;
 }
 
 .field-validation-error,
 .validation-summary-errors {
-    color: #b42318;
+    color: var(--danger);
     font-size: 13px;
 }
 
@@ -121,11 +137,25 @@ textarea {
 }
 
 .validation-summary-errors {
-    background: #fff4f2;
-    border: 1px solid #f3b8b0;
+    background: var(--danger-bg);
+    border: 1px solid var(--danger-line);
     border-radius: 6px;
     margin-bottom: 14px;
     padding: 10px 12px;
+}
+
+.notice {
+    background: var(--success-bg);
+    border: 1px solid var(--success-line);
+    border-radius: 6px;
+    color: var(--success-text);
+    margin-bottom: 14px;
+    padding: 10px 12px;
+}
+
+.notice code {
+    color: inherit;
+    font-weight: 700;
 }
 
 .validation-summary-errors ul {
@@ -226,6 +256,38 @@ th {
     padding: 10px 12px;
 }
 
+.section-header {
+    align-items: start;
+    display: flex;
+    gap: 16px;
+    justify-content: space-between;
+}
+
+.section-header h2 {
+    margin-bottom: 4px;
+}
+
+.badge {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--muted);
+    display: inline-block;
+    font-size: 12px;
+    padding: 4px 9px;
+}
+
+.field-group {
+    border-top: 1px solid var(--line);
+    margin-top: 18px;
+    padding-top: 16px;
+}
+
+.field-group h3 {
+    font-size: 16px;
+    margin: 0 0 10px;
+}
+
 @media (prefers-color-scheme: dark) {
     :root {
         --bg: #11161c;
@@ -234,5 +296,11 @@ th {
         --muted: #a7b0ba;
         --line: #303943;
         --accent: #58b7b2;
+        --danger: #ffb4a8;
+        --danger-bg: #2b1716;
+        --danger-line: #7f2d25;
+        --success-bg: #0f2418;
+        --success-line: #1f6b3b;
+        --success-text: #abefc6;
     }
 }

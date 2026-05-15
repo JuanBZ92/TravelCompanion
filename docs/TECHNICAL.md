@@ -297,12 +297,12 @@ El admin vive en Razor Pages:
 
 Reglas CMS actuales:
 
-- Los formularios muestran errores de validacion y marcan campos obligatorios con `*`.
+- Los formularios muestran errores de validacion, marcan campos obligatorios con `*` y resaltan inputs invalidos con estado visual propio.
 - Los slugs de destinos y paquetes se normalizan a minusculas y reemplazan espacios por guiones.
 - No se puede borrar un destino con paquetes, recomendaciones o viajes asociados.
 - No se puede borrar un paquete con entitlements de usuario asociados.
 - Al activar un paquete desde `/admin/packages`, el entitlement se crea con scope de paquete y destino. Los paquetes de suscripcion generan `Subscription`; los de pago fijo generan `Bundle`.
-- Un paquete es reutilizable: se crea una vez y puede tener muchos usuarios asignados mediante entitlements.
+- Un paquete es reutilizable: se crea una vez y puede tener muchos usuarios asignados mediante entitlements. La asignacion filtra usuarios que ya tienen acceso activo al paquete para evitar duplicados.
 - En `/admin/reservations`, `Ver reservas` filtra el viaje y navega al bloque de reservas con ancla `#reservations-list`.
 - No se puede borrar un viaje con reservas asociadas; primero hay que borrar sus reservas.
 

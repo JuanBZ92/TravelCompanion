@@ -9,13 +9,19 @@
 
 @if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
 {
-    <section class="panel" style="margin-bottom: 18px;">
+    <section class="alert">
         <strong>@Model.StatusMessage</strong>
     </section>
 }
 
 <section class="panel">
-    <h2>@(Model.TripInput.Id.HasValue ? "Editar viaje" : "Nuevo viaje")</h2>
+    <div class="section-header">
+        <div>
+            <h2>@(Model.TripInput.Id.HasValue ? "Editar viaje" : "Nuevo viaje")</h2>
+            <p class="muted">Un viaje pertenece a un usuario y agrupa todas sus reservas por destino.</p>
+        </div>
+        <span class="badge">Itinerario</span>
+    </div>
     <form method="post" asp-page-handler="SaveTrip">
         <div asp-validation-summary="All"></div>
         <input type="hidden" asp-for="TripInput.Id" />
@@ -98,10 +104,18 @@
 </section>
 
 <section class="panel" style="margin-top: 18px;">
-    <h2>@(Model.Input.Id.HasValue ? "Editar reserva" : "Nueva reserva")</h2>
+    <div class="section-header">
+        <div>
+            <h2>@(Model.Input.Id.HasValue ? "Editar reserva" : "Nueva reserva")</h2>
+            <p class="muted">Completa los datos comunes y luego solo los campos especificos del tipo de reserva.</p>
+        </div>
+        <span class="badge">Evento / vuelo / hospedaje</span>
+    </div>
     <form method="post" asp-page-handler="Save">
         <div asp-validation-summary="All"></div>
         <input type="hidden" asp-for="Input.Id" />
+        <div class="field-group">
+            <h3>Datos comunes</h3>
         <div class="form-grid">
             <div>
                 <label asp-for="Input.TripId" class="required">Viaje</label>
@@ -124,16 +138,6 @@
                 <span asp-validation-for="Input.StartsAt"></span>
             </div>
             <div>
-                <label asp-for="Input.EndsOn">Fecha fin <span class="muted">(opcional)</span></label>
-                <input asp-for="Input.EndsOn" type="date" />
-                <span asp-validation-for="Input.EndsOn"></span>
-            </div>
-            <div>
-                <label asp-for="Input.EndsAt">Hora fin <span class="muted">(opcional)</span></label>
-                <input asp-for="Input.EndsAt" type="time" />
-                <span asp-validation-for="Input.EndsAt"></span>
-            </div>
-            <div>
                 <label asp-for="Input.Title" class="required">Titulo</label>
                 <input asp-for="Input.Title" />
                 <span asp-validation-for="Input.Title"></span>
@@ -154,7 +158,25 @@
                 <span asp-validation-for="Input.ConfirmationCode"></span>
             </div>
         </div>
-        <h3 style="margin-top: 18px;">Datos de vuelo</h3>
+        </div>
+        <div class="field-group">
+            <h3>Fin / hospedaje</h3>
+            <p class="form-hint">Usa estos campos para checkout de hospedajes o llegada de vuelos.</p>
+            <div class="form-grid">
+                <div>
+                    <label asp-for="Input.EndsOn">Fecha fin <span class="muted">(opcional)</span></label>
+                    <input asp-for="Input.EndsOn" type="date" />
+                    <span asp-validation-for="Input.EndsOn"></span>
+                </div>
+                <div>
+                    <label asp-for="Input.EndsAt">Hora fin <span class="muted">(opcional)</span></label>
+                    <input asp-for="Input.EndsAt" type="time" />
+                    <span asp-validation-for="Input.EndsAt"></span>
+                </div>
+            </div>
+        </div>
+        <div class="field-group">
+            <h3>Datos de vuelo</h3>
         <div class="form-grid">
             <div>
                 <label asp-for="Input.Airline">Aerolinea <span class="muted">(vuelos)</span></label>
@@ -186,6 +208,7 @@
                 <input asp-for="Input.DestinationAirport" />
                 <span asp-validation-for="Input.DestinationAirport"></span>
             </div>
+        </div>
         </div>
         <div style="margin-top: 12px;">
             <label asp-for="Input.Address">Direccion <span class="muted">(opcional)</span></label>

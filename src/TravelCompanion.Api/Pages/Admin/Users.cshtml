@@ -9,15 +9,21 @@
 
 @if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
 {
-    <section class="panel" style="margin-bottom: 18px;">
+    <section class="notice">
         <strong>@Model.StatusMessage</strong>
-        <p class="muted">En desarrollo tambien queda registrado en logs. En produccion esto deberia enviarse por email y no mostrarse en pantalla.</p>
+        <p style="margin: 6px 0 0;">Comparte esta password temporal solo por un canal seguro. El usuario debera cambiarla en el primer ingreso.</p>
     </section>
 }
 
 <section class="grid">
     <div class="panel">
-        <h2>@(Model.UserInput.Id.HasValue ? "Editar usuario" : "Nuevo usuario")</h2>
+        <div class="section-header">
+            <div>
+                <h2>@(Model.UserInput.Id.HasValue ? "Editar usuario" : "Nuevo usuario")</h2>
+                <p class="muted">Al crear un usuario se genera una password temporal y se marca cambio obligatorio.</p>
+            </div>
+            <span class="badge">Password temporal</span>
+        </div>
         <form method="post" asp-page-handler="SaveUser">
             <div asp-validation-summary="All"></div>
             <input type="hidden" asp-for="UserInput.Id" />
@@ -44,7 +50,12 @@
     </div>
 
     <div class="panel">
-        <h2>Asignar acceso</h2>
+        <div class="section-header">
+            <div>
+                <h2>Asignar acceso</h2>
+                <p class="muted">Usa paquetes cuando el acceso pertenece a un producto vendible. Usa destino/tipo solo para excepciones puntuales.</p>
+            </div>
+        </div>
         @if (Model.UserOptions.Count == 0)
         {
             <p class="muted">Crea un usuario antes de asignar accesos.</p>
@@ -115,6 +126,11 @@
                 </td>
                 <td>
                     @(user.MustChangePassword ? "Password temporal" : "Activo")
+                    @if (user.MustChangePassword)
+                    {
+                        <br />
+                        <span class="muted">Pendiente de cambio</span>
+                    }
                 </td>
                 <td>
                     @user.ActiveEntitlementCount activo(s)<br />

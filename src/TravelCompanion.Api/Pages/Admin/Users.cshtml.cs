@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -53,7 +54,11 @@ public sealed class UsersModel(
 
     public async Task<IActionResult> OnPostSaveUserAsync()
     {
+        ModelState.Remove($"{nameof(EntitlementInput)}.{nameof(EntitlementInput.AccessLevel)}");
         ModelState.Remove($"{nameof(EntitlementInput)}.{nameof(EntitlementInput.UserId)}");
+        ModelState.Remove($"{nameof(EntitlementInput)}.{nameof(EntitlementInput.DestinationId)}");
+        ModelState.Remove($"{nameof(EntitlementInput)}.{nameof(EntitlementInput.TravelPackageId)}");
+        ModelState.Remove($"{nameof(EntitlementInput)}.{nameof(EntitlementInput.ExpiresOn)}");
         ModelState.Remove($"{nameof(EntitlementInput)}.{nameof(EntitlementInput.Source)}");
 
         var normalizedEmail = (UserInput.Email ?? string.Empty).Trim().ToLowerInvariant();
@@ -313,7 +318,14 @@ public sealed class UsersModel(
     public sealed class UserForm
     {
         public Guid? Id { get; set; }
+
+        [Required(ErrorMessage = "El email es obligatorio.")]
+        [EmailAddress(ErrorMessage = "Ingresa un email valido.")]
+        [StringLength(256, ErrorMessage = "El email no puede superar 256 caracteres.")]
         public string Email { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "El nombre visible es obligatorio.")]
+        [StringLength(120, ErrorMessage = "El nombre visible no puede superar 120 caracteres.")]
         public string DisplayName { get; set; } = string.Empty;
 
         public static UserForm FromEntity(AppUser user)
@@ -335,11 +347,19 @@ public sealed class UsersModel(
 
     public sealed class EntitlementForm
     {
+        [Required(ErrorMessage = "Selecciona un usuario.")]
         public Guid UserId { get; set; }
+
+        [Required(ErrorMessage = "Selecciona un tipo de acceso.")]
         public ContentAccessLevel AccessLevel { get; set; } = ContentAccessLevel.Paid;
+
         public Guid? DestinationId { get; set; }
+
         public Guid? TravelPackageId { get; set; }
+
         public DateOnly? ExpiresOn { get; set; }
+
+        [StringLength(80, ErrorMessage = "El origen no puede superar 80 caracteres.")]
         public string Source { get; set; } = "admin";
     }
 }

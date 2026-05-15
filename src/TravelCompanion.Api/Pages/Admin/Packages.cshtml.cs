@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -14,6 +15,7 @@ public sealed class PackagesModel(TravelCompanionDbContext dbContext) : PageMode
     public List<AssignedUserRow> AssignedUsers { get; private set; } = [];
     public List<SelectListItem> DestinationOptions { get; private set; } = [];
     public List<SelectListItem> UserOptions { get; private set; } = [];
+    public List<SelectListItem> AvailableUserOptions { get; private set; } = [];
     public PackageRow? SelectedPackage { get; private set; }
     public Guid? SelectedPackageId { get; private set; }
 
@@ -135,7 +137,7 @@ public sealed class PackagesModel(TravelCompanionDbContext dbContext) : PageMode
         if (package is null || user is null)
         {
             StatusMessage = "Selecciona un paquete y un usuario validos.";
-            return RedirectToPage(new { selectedPackageId = packageId });
+            return RedirectToPackageUsers(packageId);
         }
 
         var now = DateTimeOffset.UtcNow;
@@ -147,7 +149,7 @@ public sealed class PackagesModel(TravelCompanionDbContext dbContext) : PageMode
         if (alreadyHasAccess)
         {
             StatusMessage = $"{user.Email} ya tiene acceso activo a {package.Name}.";
-            return RedirectToPage(new { selectedPackageId = packageId });
+            return RedirectToPackageUsers(packageId);
         }
 
         dbContext.UserEntitlements.Add(new UserEntitlement
@@ -166,7 +168,7 @@ public sealed class PackagesModel(TravelCompanionDbContext dbContext) : PageMode
 
         await dbContext.SaveChangesAsync();
         StatusMessage = $"Acceso activado: {package.Name} para {user.Email}.";
-        return RedirectToPage(new { selectedPackageId = packageId });
+        return RedirectToPackageUsers(packageId);
     }
 
     public async Task<IActionResult> OnPostRevokeAccessAsync(Guid entitlementId, Guid selectedPackageId)
@@ -179,7 +181,7 @@ public sealed class PackagesModel(TravelCompanionDbContext dbContext) : PageMode
             StatusMessage = "Acceso removido.";
         }
 
-        return RedirectToPage(new { selectedPackageId });
+        return RedirectToPackageUsers(selectedPackageId);
     }
 
     private async Task LoadPageDataAsync(Guid? selectedPackageId)
@@ -232,7 +234,24 @@ public sealed class PackagesModel(TravelCompanionDbContext dbContext) : PageMode
                     entitlement.GrantedAt,
                     entitlement.ExpiresAt))
                 .ToListAsync();
+
+            var activeAssignedUserIds = await dbContext.UserEntitlements
+                .AsNoTracking()
+                .Where(entitlement => entitlement.TravelPackageId == SelectedPackageId.Value)
+                .Where(entitlement => entitlement.ExpiresAt == null || entitlement.ExpiresAt > DateTimeOffset.UtcNow)
+                .Select(entitlement => entitlement.UserId)
+                .ToListAsync();
+
+            var assignedSet = activeAssignedUserIds.ToHashSet();
+            AvailableUserOptions = UserOptions
+                .Where(user => Guid.TryParse(user.Value, out var userId) && !assignedSet.Contains(userId))
+                .ToList();
         }
+    }
+
+    private RedirectToPageResult RedirectToPackageUsers(Guid selectedPackageId)
+    {
+        return RedirectToPage(null, null, new { selectedPackageId }, "package-users");
     }
 
     private void SetDefaultDestination()
@@ -274,11 +293,26 @@ public sealed class PackagesModel(TravelCompanionDbContext dbContext) : PageMode
     public sealed class PackageInput
     {
         public Guid? Id { get; set; }
+
+        [Required(ErrorMessage = "Selecciona un destino.")]
         public Guid DestinationId { get; set; }
+
+        [Required(ErrorMessage = "El nombre es obligatorio.")]
+        [StringLength(120, ErrorMessage = "El nombre no puede superar 120 caracteres.")]
         public string Name { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "El slug es obligatorio.")]
+        [StringLength(120, ErrorMessage = "El slug no puede superar 120 caracteres.")]
         public string Slug { get; set; } = string.Empty;
+
+        [StringLength(500, ErrorMessage = "La descripcion no puede superar 500 caracteres.")]
         public string Description { get; set; } = string.Empty;
+
+        [Range(0, 999999, ErrorMessage = "El precio no puede ser negativo.")]
         public decimal Price { get; set; }
+
+        [Required(ErrorMessage = "La moneda es obligatoria.")]
+        [StringLength(3, MinimumLength = 3, ErrorMessage = "La moneda debe tener 3 letras.")]
         public string Currency { get; set; } = "USD";
         public bool IsSubscription { get; set; }
 

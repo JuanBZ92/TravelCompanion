@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -129,7 +130,7 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
 
         TripInput.ApplyTo(trip);
         await dbContext.SaveChangesAsync();
-        return RedirectToPage(new { selectedTripId = trip.Id });
+        return RedirectToReservations(trip.Id);
     }
 
     public async Task<IActionResult> OnPostSaveAsync()
@@ -214,7 +215,7 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
 
         Input.ApplyTo(reservation);
         await dbContext.SaveChangesAsync();
-        return RedirectToPage(new { selectedTripId = reservation.TripId });
+        return RedirectToReservations(reservation.TripId);
     }
 
     public async Task<IActionResult> OnPostDeleteTripAsync(Guid id)
@@ -249,7 +250,14 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
             await dbContext.SaveChangesAsync();
         }
 
-        return RedirectToPage(new { selectedTripId });
+        return selectedTripId.HasValue
+            ? RedirectToReservations(selectedTripId.Value)
+            : RedirectToPage();
+    }
+
+    private RedirectToPageResult RedirectToReservations(Guid selectedTripId)
+    {
+        return RedirectToPage(null, null, new { selectedTripId }, "reservations-list");
     }
 
     private async Task LoadPageDataAsync(Guid? selectedTripId)
@@ -424,23 +432,58 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
     public sealed class ReservationInput
     {
         public Guid? Id { get; set; }
+
+        [Required(ErrorMessage = "Selecciona un viaje.")]
         public Guid TripId { get; set; }
+
+        [Required(ErrorMessage = "Selecciona un tipo.")]
         public ReservationType Type { get; set; } = ReservationType.Event;
+
+        [Required(ErrorMessage = "La fecha es obligatoria.")]
         public DateOnly Date { get; set; }
+
+        [Required(ErrorMessage = "El horario de inicio es obligatorio.")]
         public TimeOnly StartsAt { get; set; }
+
         public DateOnly? EndsOn { get; set; }
         public TimeOnly? EndsAt { get; set; }
+
+        [Required(ErrorMessage = "El titulo es obligatorio.")]
+        [StringLength(160, ErrorMessage = "El titulo no puede superar 160 caracteres.")]
         public string Title { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "La ciudad es obligatoria.")]
+        [StringLength(120, ErrorMessage = "La ciudad no puede superar 120 caracteres.")]
         public string City { get; set; } = string.Empty;
+
+        [StringLength(180, ErrorMessage = "El lugar no puede superar 180 caracteres.")]
         public string LocationName { get; set; } = string.Empty;
+
+        [StringLength(240, ErrorMessage = "La direccion no puede superar 240 caracteres.")]
         public string Address { get; set; } = string.Empty;
+
+        [StringLength(80, ErrorMessage = "El codigo no puede superar 80 caracteres.")]
         public string ConfirmationCode { get; set; } = string.Empty;
+
+        [StringLength(1000, ErrorMessage = "Las notas no pueden superar 1000 caracteres.")]
         public string Notes { get; set; } = string.Empty;
+
+        [StringLength(120, ErrorMessage = "La aerolinea no puede superar 120 caracteres.")]
         public string? Airline { get; set; }
+
+        [StringLength(40, ErrorMessage = "El numero de vuelo no puede superar 40 caracteres.")]
         public string? FlightNumber { get; set; }
+
+        [StringLength(120, ErrorMessage = "El origen no puede superar 120 caracteres.")]
         public string? OriginName { get; set; }
+
+        [StringLength(120, ErrorMessage = "El destino no puede superar 120 caracteres.")]
         public string? DestinationName { get; set; }
+
+        [StringLength(80, ErrorMessage = "El aeropuerto de origen no puede superar 80 caracteres.")]
         public string? OriginAirport { get; set; }
+
+        [StringLength(80, ErrorMessage = "El aeropuerto de destino no puede superar 80 caracteres.")]
         public string? DestinationAirport { get; set; }
 
         public static ReservationInput FromEntity(Reservation reservation)
@@ -500,10 +543,21 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
     public sealed class TripForm
     {
         public Guid? Id { get; set; }
+
+        [Required(ErrorMessage = "Selecciona un usuario.")]
         public Guid UserId { get; set; }
+
+        [Required(ErrorMessage = "Selecciona un destino.")]
         public Guid DestinationId { get; set; }
+
+        [Required(ErrorMessage = "El viajero es obligatorio.")]
+        [StringLength(160, ErrorMessage = "El viajero no puede superar 160 caracteres.")]
         public string TravelerName { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "La fecha de inicio es obligatoria.")]
         public DateOnly StartsOn { get; set; }
+
+        [Required(ErrorMessage = "La fecha final es obligatoria.")]
         public DateOnly EndsOn { get; set; }
 
         public static TripForm FromEntity(Trip trip)
