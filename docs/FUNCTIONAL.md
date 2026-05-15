@@ -216,10 +216,11 @@ Funciones existentes:
 
 - login de admin;
 - dashboard;
-- formularios con campos obligatorios marcados y errores visibles;
+- formularios con campos obligatorios marcados, errores visibles e inputs invalidos resaltados;
 - crear, editar y borrar destinos sin contenido asociado;
 - crear, editar y borrar paquetes reutilizables sin accesos asociados;
-- seleccionar un paquete y asignarle muchos usuarios;
+- seleccionar un paquete y asignarle muchos usuarios sin crear paquetes por persona;
+- ocultar del selector de asignacion a usuarios que ya tienen acceso activo al paquete;
 - CRUD de recomendaciones;
 - crear, editar y borrar viajes por usuario/destino;
 - CRUD de reservas dentro de cada viaje;
@@ -231,6 +232,7 @@ Funciones existentes:
 - crear y editar usuarios;
 - borrar usuarios;
 - generar password temporal al crear usuario;
+- avisar visualmente cuando un usuario tiene cambio de password pendiente;
 - resetear password temporal de usuarios existentes;
 - asignar accesos a usuarios;
 - activar paquetes para usuarios desde la pantalla de paquetes sin duplicar el paquete;
