@@ -27,7 +27,7 @@ public sealed class MobileBootstrapStore(
         if (_current is not null
             && _currentUserId == currentUserId
             && _currentSavedAt.HasValue
-            && string.Equals(NormalizeCacheScope(_current.Destination.Slug), cacheScope, StringComparison.Ordinal))
+            && IsScopeMatch(cacheScope, _current.Destination.Slug))
         {
             stopwatch.Stop();
             logger.LogInformation(
@@ -115,11 +115,19 @@ public sealed class MobileBootstrapStore(
 
         var savedAt = DateTimeOffset.UtcNow;
         var currentUserId = sessionService.CurrentUserId;
-        var cacheScope = NormalizeCacheScope(bootstrap.Destination.Slug);
+        var requestedCacheScope = NormalizeCacheScope(destinationSlug);
+        var destinationCacheScope = NormalizeCacheScope(bootstrap.Destination.Slug);
         await offlineCacheService.SaveAsync(
-            GetCacheKey(currentUserId, cacheScope),
+            GetCacheKey(currentUserId, requestedCacheScope),
             bootstrap,
             cancellationToken).ConfigureAwait(false);
+        if (!string.Equals(requestedCacheScope, destinationCacheScope, StringComparison.Ordinal))
+        {
+            await offlineCacheService.SaveAsync(
+                GetCacheKey(currentUserId, destinationCacheScope),
+                bootstrap,
+                cancellationToken).ConfigureAwait(false);
+        }
         stopwatch.Stop();
 
         _current = bootstrap;
@@ -129,7 +137,7 @@ public sealed class MobileBootstrapStore(
         logger.LogInformation(
             "Mobile bootstrap refreshed and cached in {ElapsedMs}ms. Scope={CacheScope}; Recommendations={RecommendationCount}; Packages={PackageCount}; HasSchedule={HasSchedule}.",
             stopwatch.Elapsed.TotalMilliseconds,
-            cacheScope,
+            destinationCacheScope,
             bootstrap.Recommendations.Count,
             bootstrap.Packages.Count,
             bootstrap.Schedule is not null);
@@ -147,7 +155,7 @@ public sealed class MobileBootstrapStore(
             && _currentUserId == currentUserId
             && _currentSavedAt.HasValue
             && DateTimeOffset.UtcNow - _currentSavedAt.Value <= ageLimit
-            && string.Equals(NormalizeCacheScope(_current.Destination.Slug), cacheScope, StringComparison.Ordinal);
+            && IsScopeMatch(cacheScope, _current.Destination.Slug);
     }
 
     private static string GetCacheKey(Guid? userId, string cacheScope)
@@ -163,5 +171,11 @@ public sealed class MobileBootstrapStore(
         }
 
         return destinationSlug.Trim().ToLowerInvariant();
+    }
+
+    private static bool IsScopeMatch(string requestedScope, string destinationSlug)
+    {
+        return requestedScope == "auto"
+            || string.Equals(NormalizeCacheScope(destinationSlug), requestedScope, StringComparison.Ordinal);
     }
 }

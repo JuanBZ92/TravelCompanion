@@ -21,7 +21,7 @@ public sealed partial class RecommendationsViewModel(
     private readonly List<RecommendationListItemViewModel> _allRecommendations = [];
     private RecommendationListItemViewModel? _selectedRecommendation;
     private string _selectedCategory = AllCategories;
-    private int _selectedPageSize = 10;
+    private int _selectedPageSize = 5;
     private int _currentPage = 1;
     private int _totalPages = 1;
     private int _totalItems;
@@ -32,7 +32,7 @@ public sealed partial class RecommendationsViewModel(
     public ObservableCollection<RecommendationListItemViewModel> Recommendations { get; } = [];
     public ObservableCollection<RecommendationPageViewModel> RecommendationPages { get; } = [];
     public ObservableCollection<string> Categories { get; } = [AllCategories, FavoritesCategory];
-    public ObservableCollection<int> PageSizeOptions { get; } = [10, 20, 50];
+    public ObservableCollection<int> PageSizeOptions { get; } = [5, 10, 20];
 
     public IReadOnlyList<RecommendationListItemViewModel> VisibleRecommendations
     {
@@ -441,10 +441,10 @@ public sealed partial class RecommendationsViewModel(
         stopwatch.Stop();
 
         logger.LogInformation(
-            "Recommendations discover applied in {ElapsedMs}ms. SourceRecommendations={SourceCount}; VisibleRecommendations={VisibleCount}; ResetPage={ResetPage}.",
+            "Recommendations discover applied in {ElapsedMs}ms. SourceRecommendations={SourceCount}; PageRecommendations={PageCount}; ResetPage={ResetPage}.",
             stopwatch.Elapsed.TotalMilliseconds,
             discover.Recommendations.Count,
-            _allRecommendations.Count,
+            VisibleRecommendations.Count,
             resetPage);
     }
 

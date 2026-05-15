@@ -25,7 +25,7 @@ public sealed class MobileDiscoverStore(
         if (_current is not null
             && _currentUserId == currentUserId
             && _currentSavedAt.HasValue
-            && string.Equals(NormalizeCacheScope(_current.Destination.Slug), cacheScope, StringComparison.Ordinal))
+            && IsScopeMatch(cacheScope, _current.Destination.Slug))
         {
             stopwatch.Stop();
             logger.LogInformation(
@@ -74,11 +74,19 @@ public sealed class MobileDiscoverStore(
 
         var savedAt = DateTimeOffset.UtcNow;
         var currentUserId = sessionService.CurrentUserId;
-        var cacheScope = NormalizeCacheScope(discover.Destination.Slug);
+        var requestedCacheScope = NormalizeCacheScope(destinationSlug);
+        var destinationCacheScope = NormalizeCacheScope(discover.Destination.Slug);
         await offlineCacheService.SaveAsync(
-            GetCacheKey(currentUserId, cacheScope),
+            GetCacheKey(currentUserId, requestedCacheScope),
             discover,
             cancellationToken).ConfigureAwait(false);
+        if (!string.Equals(requestedCacheScope, destinationCacheScope, StringComparison.Ordinal))
+        {
+            await offlineCacheService.SaveAsync(
+                GetCacheKey(currentUserId, destinationCacheScope),
+                discover,
+                cancellationToken).ConfigureAwait(false);
+        }
         stopwatch.Stop();
 
         _current = discover;
@@ -88,7 +96,7 @@ public sealed class MobileDiscoverStore(
         logger.LogInformation(
             "Mobile discover refreshed and cached in {ElapsedMs}ms. Scope={CacheScope}; Recommendations={RecommendationCount}.",
             stopwatch.Elapsed.TotalMilliseconds,
-            cacheScope,
+            destinationCacheScope,
             discover.Recommendations.Count);
 
         return discover;
@@ -104,7 +112,7 @@ public sealed class MobileDiscoverStore(
             && _currentUserId == currentUserId
             && _currentSavedAt.HasValue
             && DateTimeOffset.UtcNow - _currentSavedAt.Value <= ageLimit
-            && string.Equals(NormalizeCacheScope(_current.Destination.Slug), cacheScope, StringComparison.Ordinal);
+            && IsScopeMatch(cacheScope, _current.Destination.Slug);
     }
 
     private static string GetCacheKey(Guid? userId, string cacheScope)
@@ -120,5 +128,11 @@ public sealed class MobileDiscoverStore(
         }
 
         return destinationSlug.Trim().ToLowerInvariant();
+    }
+
+    private static bool IsScopeMatch(string requestedScope, string destinationSlug)
+    {
+        return requestedScope == "auto"
+            || string.Equals(NormalizeCacheScope(destinationSlug), requestedScope, StringComparison.Ordinal);
     }
 }
