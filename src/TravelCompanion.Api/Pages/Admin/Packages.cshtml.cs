@@ -312,7 +312,7 @@ public sealed class PackagesModel(TravelCompanionDbContext dbContext) : PageMode
         public string Slug { get; set; } = string.Empty;
 
         [StringLength(500, ErrorMessage = "La descripcion no puede superar 500 caracteres.")]
-        public string Description { get; set; } = string.Empty;
+        public string? Description { get; set; }
 
         [Range(0, 999999, ErrorMessage = "El precio no puede ser negativo.")]
         public decimal Price { get; set; }

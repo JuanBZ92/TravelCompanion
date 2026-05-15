@@ -148,7 +148,7 @@
                 <span asp-validation-for="Input.City"></span>
             </div>
             <div>
-                <label asp-for="Input.LocationName" class="required">Lugar</label>
+                <label asp-for="Input.LocationName" class="required">Lugar <span class="muted">(eventos/hospedajes)</span></label>
                 <input asp-for="Input.LocationName" />
                 <span asp-validation-for="Input.LocationName"></span>
             </div>
@@ -164,7 +164,7 @@
             <p class="form-hint">Usa estos campos para checkout de hospedajes o llegada de vuelos.</p>
             <div class="form-grid">
                 <div>
-                    <label asp-for="Input.EndsOn">Fecha fin <span class="muted">(opcional)</span></label>
+                    <label asp-for="Input.EndsOn">Fecha fin <span class="muted">(obligatoria para hospedajes)</span></label>
                     <input asp-for="Input.EndsOn" type="date" />
                     <span asp-validation-for="Input.EndsOn"></span>
                 </div>
@@ -179,22 +179,22 @@
             <h3>Datos de vuelo</h3>
         <div class="form-grid">
             <div>
-                <label asp-for="Input.Airline">Aerolinea <span class="muted">(vuelos)</span></label>
+                <label asp-for="Input.Airline">Aerolinea <span class="muted">(vuelos, opcional)</span></label>
                 <input asp-for="Input.Airline" />
                 <span asp-validation-for="Input.Airline"></span>
             </div>
             <div>
-                <label asp-for="Input.FlightNumber">Numero de vuelo <span class="muted">(vuelos)</span></label>
+                <label asp-for="Input.FlightNumber">Numero de vuelo <span class="muted">(obligatorio para vuelos)</span></label>
                 <input asp-for="Input.FlightNumber" />
                 <span asp-validation-for="Input.FlightNumber"></span>
             </div>
             <div>
-                <label asp-for="Input.OriginName">Origen <span class="muted">(vuelos)</span></label>
+                <label asp-for="Input.OriginName">Origen <span class="muted">(obligatorio para vuelos)</span></label>
                 <input asp-for="Input.OriginName" />
                 <span asp-validation-for="Input.OriginName"></span>
             </div>
             <div>
-                <label asp-for="Input.DestinationName">Destino <span class="muted">(vuelos)</span></label>
+                <label asp-for="Input.DestinationName">Destino <span class="muted">(obligatorio para vuelos)</span></label>
                 <input asp-for="Input.DestinationName" />
                 <span asp-validation-for="Input.DestinationName"></span>
             </div>

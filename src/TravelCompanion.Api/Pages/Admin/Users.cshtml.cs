@@ -361,6 +361,6 @@ public sealed class UsersModel(
         public DateOnly? ExpiresOn { get; set; }
 
         [StringLength(80, ErrorMessage = "El origen no puede superar 80 caracteres.")]
-        public string Source { get; set; } = "admin";
+        public string? Source { get; set; } = "admin";
     }
 }

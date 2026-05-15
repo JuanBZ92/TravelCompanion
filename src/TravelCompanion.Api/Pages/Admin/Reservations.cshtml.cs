@@ -457,16 +457,16 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
         public string City { get; set; } = string.Empty;
 
         [StringLength(180, ErrorMessage = "El lugar no puede superar 180 caracteres.")]
-        public string LocationName { get; set; } = string.Empty;
+        public string? LocationName { get; set; }
 
         [StringLength(240, ErrorMessage = "La direccion no puede superar 240 caracteres.")]
-        public string Address { get; set; } = string.Empty;
+        public string? Address { get; set; }
 
         [StringLength(80, ErrorMessage = "El codigo no puede superar 80 caracteres.")]
-        public string ConfirmationCode { get; set; } = string.Empty;
+        public string? ConfirmationCode { get; set; }
 
         [StringLength(1000, ErrorMessage = "Las notas no pueden superar 1000 caracteres.")]
-        public string Notes { get; set; } = string.Empty;
+        public string? Notes { get; set; }
 
         [StringLength(120, ErrorMessage = "La aerolinea no puede superar 120 caracteres.")]
         public string? Airline { get; set; }
@@ -522,10 +522,10 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
             reservation.EndsAt = EndsAt;
             reservation.Title = Title.Trim();
             reservation.City = City.Trim();
-            reservation.LocationName = LocationName.Trim();
-            reservation.Address = Address.Trim();
-            reservation.ConfirmationCode = ConfirmationCode.Trim();
-            reservation.Notes = Notes.Trim();
+            reservation.LocationName = NormalizeRequiredText(LocationName);
+            reservation.Address = NormalizeRequiredText(Address);
+            reservation.ConfirmationCode = NormalizeRequiredText(ConfirmationCode);
+            reservation.Notes = NormalizeRequiredText(Notes);
             reservation.Airline = NormalizeOptional(Airline);
             reservation.FlightNumber = NormalizeOptional(FlightNumber);
             reservation.OriginName = NormalizeOptional(OriginName);
@@ -537,6 +537,11 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
         private static string? NormalizeOptional(string? value)
         {
             return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        }
+
+        private static string NormalizeRequiredText(string? value)
+        {
+            return string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
         }
     }
 

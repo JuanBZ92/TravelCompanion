@@ -150,7 +150,7 @@ public sealed class RecommendationsModel(TravelCompanionDbContext dbContext) : P
         public Guid DestinationId { get; set; }
         public string Title { get; set; } = string.Empty;
         public string Category { get; set; } = string.Empty;
-        public string Neighborhood { get; set; } = string.Empty;
+        public string? Neighborhood { get; set; }
         public string Description { get; set; } = string.Empty;
         public decimal Latitude { get; set; }
         public decimal Longitude { get; set; }
@@ -179,7 +179,7 @@ public sealed class RecommendationsModel(TravelCompanionDbContext dbContext) : P
             recommendation.DestinationId = DestinationId;
             recommendation.Title = Title.Trim();
             recommendation.Category = Category.Trim();
-            recommendation.Neighborhood = Neighborhood.Trim();
+            recommendation.Neighborhood = (Neighborhood ?? string.Empty).Trim();
             recommendation.Description = Description.Trim();
             recommendation.Latitude = Latitude;
             recommendation.Longitude = Longitude;

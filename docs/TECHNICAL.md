@@ -530,12 +530,20 @@ Regla actual:
 
 Las reglas estan cubiertas por `tests/TravelCompanion.Shared.Tests/ContentAccessPolicyTests.cs`, y el pipeline ejecuta esos tests ademas del build de API.
 
+La suite inicial de tests queda dividida asi:
+
+- `tests/TravelCompanion.Shared.Tests`: reglas puras compartidas, por ejemplo matriz de acceso y grants de paquetes.
+- `tests/TravelCompanion.Api.Tests`: reglas de API/Admin que no necesitan levantar UI, empezando por validacion de inputs opcionales del CMS para evitar `required` implicitos no deseados.
+- Futuro `tests/TravelCompanion.Mobile.Tests`: ViewModels y servicios mobile con TFM `net10.0`, evitando referenciar TFMs de plataforma como `net10.0-android` para que xUnit corra en desktop/CI.
+
 ## Verificacion
 
 Comando recomendado antes de cerrar cambios:
 
 ```powershell
 dotnet build TravelCompanion.sln
+dotnet test tests\TravelCompanion.Shared.Tests\TravelCompanion.Shared.Tests.csproj
+dotnet test tests\TravelCompanion.Api.Tests\TravelCompanion.Api.Tests.csproj
 ```
 
 Para validar API local:
