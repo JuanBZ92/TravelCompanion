@@ -7,6 +7,7 @@ project_name    = "travelcompanion"
 # false = crea solo la base minima: Resource Group, Storage, Key Vault y observabilidad.
 # true  = agrega recursos con costo sostenido: App Service, Web App y PostgreSQL.
 allow_paid_resources = false
+enable_media_storage = false
 
 app_service_sku_name     = "B1"
 app_stack_dotnet_version = "10.0"

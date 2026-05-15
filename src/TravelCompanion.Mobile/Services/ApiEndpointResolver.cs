@@ -1,19 +1,24 @@
 #if ANDROID
 using Android.OS;
 #endif
+using System.Reflection;
 
 namespace TravelCompanion.Mobile.Services;
 
 internal static class ApiEndpointResolver
 {
     private const string ApiBaseUrlEnvironmentVariable = "TRAVELCOMPANION_API_BASE_URL";
+    private const string ApiBaseUrlAssemblyMetadataKey = "TravelCompanionApiBaseUrl";
 
     public static Uri Resolve()
     {
         var configuredValue = System.Environment.GetEnvironmentVariable(ApiBaseUrlEnvironmentVariable);
-        var rawBaseUrl = string.IsNullOrWhiteSpace(configuredValue)
-            ? GetDefaultBaseUrl()
-            : configuredValue.Trim();
+        var buildConfiguredValue = GetBuildConfiguredBaseUrl();
+        var rawBaseUrl = !string.IsNullOrWhiteSpace(configuredValue)
+            ? configuredValue.Trim()
+            : !string.IsNullOrWhiteSpace(buildConfiguredValue)
+                ? buildConfiguredValue
+                : GetDefaultBaseUrl();
 
         if (!Uri.TryCreate(rawBaseUrl, UriKind.Absolute, out var baseUri))
         {
@@ -33,6 +38,16 @@ internal static class ApiEndpointResolver
         }
 
         return baseUri;
+    }
+
+    private static string? GetBuildConfiguredBaseUrl()
+    {
+        return typeof(ApiEndpointResolver)
+            .Assembly
+            .GetCustomAttributes<AssemblyMetadataAttribute>()
+            .FirstOrDefault(attribute => attribute.Key == ApiBaseUrlAssemblyMetadataKey)
+            ?.Value
+            ?.Trim();
     }
 
     private static string GetDefaultBaseUrl()

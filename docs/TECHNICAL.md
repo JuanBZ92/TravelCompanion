@@ -472,6 +472,18 @@ HTTP solo se permite para hosts locales (`localhost`, `127.0.0.1`, `::1`, `10.0.
 
 Android ya no usa cleartext global: `usesCleartextTraffic=false` con `network_security_config` que habilita excepciones de HTTP solo para esos hosts de desarrollo.
 
+La URL de la API mobile se resuelve en este orden:
+
+- variable de entorno `TRAVELCOMPANION_API_BASE_URL`, util para Debug desde Visual Studio;
+- metadata de build `TravelCompanionApiBaseUrl`, util para builds compartibles;
+- default local de desarrollo.
+
+Ejemplo Android apuntando a Azure:
+
+```powershell
+dotnet publish src\TravelCompanion.Mobile\TravelCompanion.Mobile.csproj -f net10.0-android -c Release -p:TravelCompanionApiBaseUrl=https://tu-api.azurewebsites.net
+```
+
 En Android Debug, `TravelCompanion.Mobile.csproj` define `EmbedAssembliesIntoApk=true`. Esto deshabilita el Fast Deployment de assemblies y evita crashes al abrir la app desde el telefono o con Ctrl+F5 cuando la carpeta temporal `files/.__override__` queda vacia despues de un clean/rebuild. El despliegue inicial puede tardar un poco mas, pero el APK queda autocontenido para desarrollo.
 
 Para verificar desde terminal:

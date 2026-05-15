@@ -34,7 +34,13 @@ variable "tags" {
 variable "allow_paid_resources" {
   # Safety switch. This stack includes resources that can spend credits while
   # they exist, mainly App Service Plan and PostgreSQL Flexible Server.
-  description = "Creates the paid MVP resources only when true: App Service Plan, Web App, PostgreSQL and production secrets."
+  description = "Creates the paid shareable MVP resources only when true: App Service Plan, Web App, PostgreSQL and production secrets."
+  type        = bool
+  default     = false
+}
+
+variable "enable_media_storage" {
+  description = "Create a private Storage Account/container for future media uploads. Keep false for the minimum shareable MVP because the API does not use it yet."
   type        = bool
   default     = false
 }

@@ -46,6 +46,13 @@
 		<EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
 	</PropertyGroup>
 
+	<ItemGroup Condition="'$(TravelCompanionApiBaseUrl)' != ''">
+		<AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+			<_Parameter1>TravelCompanionApiBaseUrl</_Parameter1>
+			<_Parameter2>$(TravelCompanionApiBaseUrl)</_Parameter2>
+		</AssemblyAttribute>
+	</ItemGroup>
+
 	<ItemGroup>
 		<!-- App Icon -->
 		<MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#18201D" />

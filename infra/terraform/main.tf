@@ -124,7 +124,10 @@ resource "azurerm_service_plan" "api" {
 }
 
 # Storage para media privada: imagenes de destinos, recomendaciones, vouchers.
+# Es opcional porque el MVP actual todavia no sube archivos a Azure Storage.
 resource "azurerm_storage_account" "media" {
+  count = var.enable_media_storage ? 1 : 0
+
   name                            = local.storage_account_name
   location                        = azurerm_resource_group.main.location
   resource_group_name             = azurerm_resource_group.main.name
@@ -136,8 +139,10 @@ resource "azurerm_storage_account" "media" {
 }
 
 resource "azurerm_storage_container" "media" {
+  count = var.enable_media_storage ? 1 : 0
+
   name                  = var.blob_container_name
-  storage_account_id    = azurerm_storage_account.media.id
+  storage_account_id    = azurerm_storage_account.media[0].id
   container_access_type = "private"
 }
 
@@ -236,11 +241,27 @@ resource "azurerm_key_vault_secret" "admin_auth_password" {
 }
 
 resource "azurerm_key_vault_secret" "storage_connection_string" {
-  count = var.allow_paid_resources ? 1 : 0
+  count = var.allow_paid_resources && var.enable_media_storage ? 1 : 0
 
   name         = "storage-connection-string"
-  value        = azurerm_storage_account.media.primary_connection_string
+  value        = azurerm_storage_account.media[0].primary_connection_string
   key_vault_id = azurerm_key_vault.main.id
+}
+
+locals {
+  api_base_app_settings = {
+    ASPNETCORE_ENVIRONMENT                = "Production"
+    APPLICATIONINSIGHTS_CONNECTION_STRING = azurerm_application_insights.api.connection_string
+    ApplicationInsights__ConnectionString = azurerm_application_insights.api.connection_string
+    ConnectionStrings__TravelCompanionDb  = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.postgres_connection_string[0].versionless_id})"
+    AdminAuth__Username                   = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.admin_auth_username[0].versionless_id})"
+    AdminAuth__Password                   = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.admin_auth_password[0].versionless_id})"
+  }
+
+  api_media_app_settings = var.enable_media_storage ? {
+    Storage__MediaContainerName = azurerm_storage_container.media[0].name
+    Storage__ConnectionString   = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.storage_connection_string[0].versionless_id})"
+  } : {}
 }
 
 # Web App que hostea la API ASP.NET Core y el Admin CMS Razor Pages.
@@ -267,16 +288,7 @@ resource "azurerm_linux_web_app" "api" {
     }
   }
 
-  app_settings = {
-    ASPNETCORE_ENVIRONMENT                = "Production"
-    APPLICATIONINSIGHTS_CONNECTION_STRING = azurerm_application_insights.api.connection_string
-    ApplicationInsights__ConnectionString = azurerm_application_insights.api.connection_string
-    ConnectionStrings__TravelCompanionDb  = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.postgres_connection_string[0].versionless_id})"
-    AdminAuth__Username                   = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.admin_auth_username[0].versionless_id})"
-    AdminAuth__Password                   = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.admin_auth_password[0].versionless_id})"
-    Storage__MediaContainerName           = azurerm_storage_container.media.name
-    Storage__ConnectionString             = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.storage_connection_string[0].versionless_id})"
-  }
+  app_settings = merge(local.api_base_app_settings, local.api_media_app_settings)
 }
 
 # Permite que la identidad administrada de la Web App lea secretos del vault.

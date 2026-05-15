@@ -25,7 +25,7 @@ output "postgres_database_name" {
 
 output "storage_account_name" {
   description = "Storage account used for media."
-  value       = azurerm_storage_account.media.name
+  value       = try(azurerm_storage_account.media[0].name, null)
 }
 
 output "key_vault_name" {

@@ -7,7 +7,6 @@ Infraestructura Azure para el MVP de Travel Companion.
 Por defecto, con `allow_paid_resources = false`, Terraform crea solo una base minima:
 
 - Resource Group
-- Storage Account y container privado `media`
 - Key Vault
 - Log Analytics Workspace
 - Application Insights
@@ -18,7 +17,27 @@ Cuando `allow_paid_resources = true`, tambien crea el MVP cloud completo:
 - Linux Web App para `TravelCompanion.Api` y Admin CMS
 - Azure Database for PostgreSQL Flexible Server
 - Base PostgreSQL `travel_companion`
-- Secretos productivos en Key Vault para PostgreSQL, admin y storage
+- Secretos productivos en Key Vault para PostgreSQL y admin
+
+El storage de media es opcional y esta apagado por defecto con `enable_media_storage = false`. Hoy la API no lo usa, asi que no hace falta para compartir la app.
+
+## Stack minimo para compartir la app
+
+Para que alguien use la app sin estar conectado a tu compu por USB/localhost, el minimo necesario es:
+
+- API/Admin publicado en HTTPS con Azure Linux Web App.
+- PostgreSQL administrado en Azure para que los datos y usuarios vivan fuera de tu maquina.
+- Application Insights/Log Analytics con daily cap bajo para diagnosticar errores.
+- Budget alert para controlar credito del free trial.
+- Una build mobile que apunte a la URL publica de la API.
+
+Ese modo esta representado por `share-mvp.tfvars.example`:
+
+```powershell
+Copy-Item share-mvp.tfvars.example terraform.tfvars
+```
+
+Luego editar `terraform.tfvars` y reemplazar passwords/secretos reales.
 
 ## Control de costos
 
@@ -44,7 +63,7 @@ Alertas de presupuesto habilitadas por defecto:
 - umbrales de alerta en 50%, 80% y 100% (forecasted)
 - destinatarios: `budget_alert_contact_roles = ["Owner"]` y/o `budget_alert_contact_emails`
 
-Para habilitar el MVP cloud completo, cambiar explicitamente:
+Para habilitar el MVP cloud completo o el modo shareable, cambiar explicitamente:
 
 ```hcl
 allow_paid_resources = true
@@ -124,6 +143,28 @@ az webapp deploy --resource-group "$(terraform output -raw resource_group_name)"
 ```
 
 Despues deberia moverse a GitHub Actions.
+
+## Build mobile apuntando a Azure
+
+Despues del apply, obtener la URL publica:
+
+```powershell
+$apiUrl = terraform output -raw api_url
+```
+
+Para compilar Android con esa API embebida:
+
+```powershell
+dotnet publish ..\..\src\TravelCompanion.Mobile\TravelCompanion.Mobile.csproj -f net10.0-android -c Release -p:TravelCompanionApiBaseUrl=$apiUrl
+```
+
+Para iOS, usar la misma propiedad MSBuild al publicar desde Mac/Visual Studio:
+
+```powershell
+-p:TravelCompanionApiBaseUrl=https://tu-api.azurewebsites.net
+```
+
+La app sigue usando `TRAVELCOMPANION_API_BASE_URL` si existe, pero para compartir una build instalada en otro celular conviene usar `TravelCompanionApiBaseUrl`.
 
 ## Notas de seguridad
 
