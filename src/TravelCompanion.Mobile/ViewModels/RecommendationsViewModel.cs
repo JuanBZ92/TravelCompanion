@@ -26,11 +26,19 @@ public sealed partial class RecommendationsViewModel(
     private int _totalPages = 1;
     private int _totalItems;
     private bool _isPaging;
+    private bool _isUpdatingCategories;
+    private IReadOnlyList<RecommendationListItemViewModel> _visibleRecommendations = [];
 
     public ObservableCollection<RecommendationListItemViewModel> Recommendations { get; } = [];
     public ObservableCollection<RecommendationPageViewModel> RecommendationPages { get; } = [];
     public ObservableCollection<string> Categories { get; } = [AllCategories, FavoritesCategory];
     public ObservableCollection<int> PageSizeOptions { get; } = [10, 20, 50];
+
+    public IReadOnlyList<RecommendationListItemViewModel> VisibleRecommendations
+    {
+        get => _visibleRecommendations;
+        private set => SetProperty(ref _visibleRecommendations, value);
+    }
 
     public RecommendationListItemViewModel? SelectedRecommendation
     {
@@ -43,7 +51,8 @@ public sealed partial class RecommendationsViewModel(
         get => _selectedCategory;
         set
         {
-            if (SetProperty(ref _selectedCategory, value))
+            var normalizedValue = string.IsNullOrWhiteSpace(value) ? AllCategories : value;
+            if (SetProperty(ref _selectedCategory, normalizedValue) && !_isUpdatingCategories)
             {
                 ApplyFilters(resetPage: true);
             }
@@ -158,6 +167,7 @@ public sealed partial class RecommendationsViewModel(
         _allRecommendations.Clear();
         Recommendations.Clear();
         RecommendationPages.Clear();
+        VisibleRecommendations = [];
         Categories.Clear();
         Categories.Add(AllCategories);
         Categories.Add(FavoritesCategory);
@@ -231,14 +241,21 @@ public sealed partial class RecommendationsViewModel(
             .Distinct()
             .Order());
 
-        // Clear and rebuild in one pass
-        Categories.Clear();
-        foreach (var category in newCategories)
+        _isUpdatingCategories = true;
+        try
         {
-            Categories.Add(category);
-        }
+            Categories.Clear();
+            foreach (var category in newCategories)
+            {
+                Categories.Add(category);
+            }
 
-        SelectedCategory = Categories.Contains(currentCategory) ? currentCategory : AllCategories;
+            SelectedCategory = Categories.Contains(currentCategory) ? currentCategory : AllCategories;
+        }
+        finally
+        {
+            _isUpdatingCategories = false;
+        }
     }
 
     private void ApplyFilters(bool resetPage)
@@ -258,13 +275,8 @@ public sealed partial class RecommendationsViewModel(
         }
 
         RecommendationPages.Clear();
-        Recommendations.Clear();
         AddPage(filteredItems, CurrentPage, isVisible: true);
-
-        foreach (var recommendation in GetCurrentPageItems())
-        {
-            Recommendations.Add(recommendation);
-        }
+        VisibleRecommendations = GetCurrentPageItems();
 
         stopwatch.Stop();
         logger.LogInformation(
@@ -308,11 +320,7 @@ public sealed partial class RecommendationsViewModel(
             page.IsVisible = page.PageNumber == pageNumber;
         }
 
-        Recommendations.Clear();
-        foreach (var recommendation in GetCurrentPageItems())
-        {
-            Recommendations.Add(recommendation);
-        }
+        VisibleRecommendations = GetCurrentPageItems();
     }
 
     private IReadOnlyList<RecommendationListItemViewModel> GetCurrentPageItems()

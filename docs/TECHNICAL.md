@@ -339,6 +339,7 @@ Servicios principales:
 
 `TravelCompanionApiClient` usa opciones JSON compartidas con `JsonStringEnumConverter` para leer enums serializados como strings por la API.
 En builds Debug, el cliente mobile registra tiempos de `/api/mobile/discover` y `/api/mobile/bootstrap`: tiempo hasta headers, tiempo de body/deserializacion JSON y `Server-Timing` recibido desde la API. `MobileDiscoverStore` y `MobileBootstrapStore` registran hit/miss de cache en memoria/disco y tiempo de refresh/cacheado. `RecommendationsViewModel` registra tiempo de aplicar discover, filtros y cambios de pagina. Estos logs se ven en Output/Logcat y sirven para diagnosticar si una carga lenta viene de red/API, cache cifrado o render/aplicacion de UI.
+En Android Debug, `MobileDiagnosticsLoggerProvider` escribe logs con tag `TravelCompanion` y prefijo `TCMOBILE`, ademas de `Debug.WriteLine`, para que sean faciles de filtrar desde Visual Studio o `adb logcat`.
 
 El flujo mobile actual:
 
@@ -406,7 +407,8 @@ Patron de UI:
 - El logout resetea esos estados de sesion para evitar mostrar contenido cacheado de otro usuario.
 - Las pantallas principales muestran spinner durante la primera carga solo cuando todavia no tienen contenido local para renderizar. Si existe snapshot local, se renderiza inmediatamente aunque el refresh de red siga en curso.
 - `Viaje` selecciona al abrir el tipo de reserva de la reserva vigente/proxima mas cercana, filtra reservas vencidas y muestra solo ciudades con reservas futuras o vigentes para ese tipo.
-- `Viaje` cachea secciones renderizables por tipo/filtro (`Eventos`, `Vuelos`, `Hospedajes`) y alterna visibilidad entre secciones, reduciendo reconstrucciones al cambiar de tipo.
+- `Viaje` usa `CollectionView` agrupado por dia para recuperar virtualizacion en viajes largos, con filas de reserva de altura estable y headers de dia. Tambien cachea secciones por tipo/filtro (`Eventos`, `Vuelos`, `Hospedajes`) para reducir reconstrucciones al cambiar de tipo.
+- Los taps de filas/chips en `Ideas`, `Mapa` y `Viaje` usan handlers livianos en code-behind en vez de bindings `Source={x:Reference ...}` dentro de templates calientes. Esto elimina los warnings XAML `XC0025` y reduce bindings dinamicos durante scroll/render.
 - Los `CollectionView` que siguen en mobile quedan reservados para listas chicas de filtros/chips o escenarios donde la virtualizacion compense el costo de crear celdas al vuelo.
 - Las filas evitan `SwipeView` cuando no hay acciones reales de swipe, porque en Android agrega costo visible al crear vistas nuevas durante el scroll.
 - Las listas que navegan a detalle usan `SelectionMode=None` y abren con `TapGestureRecognizer`, evitando el estado visual seleccionado de Android al volver atras.

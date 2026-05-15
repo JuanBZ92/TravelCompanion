@@ -154,7 +154,7 @@ Al abrir `Viaje`, la app prioriza la informacion relevante desde el momento actu
 Este modulo apunta a cubrir viajes contratados o reservas gestionadas por el negocio.
 
 El ultimo paquete mobile descargado incluye el schedule disponible offline por usuario. Si no hay conexion, la app muestra la copia local y avisa la fecha/hora de guardado.
-La app mantiene preparadas las secciones de eventos, vuelos y hospedajes para que alternar entre tipos se sienta inmediato despues de la primera carga.
+La app mantiene preparadas las secciones de eventos, vuelos y hospedajes y renderiza el viaje como una lista agrupada por dia, para que alternar entre tipos se sienta inmediato despues de la primera carga incluso en viajes largos.
 
 ### Packs
 

@@ -1,5 +1,7 @@
 using System;
-using System.Collections.Specialized;
+using System.ComponentModel;
+using System.Diagnostics;
+using Microsoft.Extensions.Logging;
 using TravelCompanion.Mobile.ViewModels;
 using TravelCompanion.Shared.Dtos;
 
@@ -14,25 +16,35 @@ namespace TravelCompanion.Mobile.Pages;
 public partial class MapPage : ContentPage
 {
     private readonly MapViewModel _viewModel;
+    private readonly ILogger<MapPage> _logger;
 
 #if !WINDOWS
     private readonly MauiMap _map;
     private readonly Dictionary<Pin, EventHandler<PinClickedEventArgs>> _pinHandlers = new();
     private bool _isSubscribedToRecommendations;
+    private bool _hasRenderedPins;
 #endif
 
     public MapPage()
-        : this(MauiProgram.Services.GetRequiredService<MapViewModel>())
+        : this(
+            MauiProgram.Services.GetRequiredService<MapViewModel>(),
+            MauiProgram.Services.GetRequiredService<ILogger<MapPage>>())
     {
     }
 
-    public MapPage(MapViewModel viewModel)
+    public MapPage(
+        MapViewModel viewModel,
+        ILogger<MapPage> logger)
     {
+        var stopwatch = Stopwatch.StartNew();
         InitializeComponent();
+        stopwatch.Stop();
         BindingContext = viewModel;
         _viewModel = viewModel;
+        _logger = logger;
 
 #if !WINDOWS
+        var mapStopwatch = Stopwatch.StartNew();
         _map = new MauiMap(MapSpan.FromCenterAndRadius(
             new Location(35.681236, 139.767125),
             Distance.FromKilometers(8)))
@@ -43,11 +55,21 @@ public partial class MapPage : ContentPage
 
         MapContainer.Children.Clear();
         MapContainer.Children.Add(_map);
+        mapStopwatch.Stop();
+        _logger.LogInformation(
+            "Map native control initialized in {ElapsedMs}ms.",
+            mapStopwatch.Elapsed.TotalMilliseconds);
 #endif
+
+        _logger.LogInformation(
+            "Map page initialized in {ElapsedMs}ms. HasLoaded={HasLoaded}.",
+            stopwatch.Elapsed.TotalMilliseconds,
+            _viewModel.HasLoaded);
     }
 
     protected override async void OnAppearing()
     {
+        var stopwatch = Stopwatch.StartNew();
         base.OnAppearing();
 
 #if !WINDOWS
@@ -57,8 +79,15 @@ public partial class MapPage : ContentPage
         if (_viewModel.HasLoaded)
         {
 #if !WINDOWS
-            RefreshMapPins();
+            if (!_hasRenderedPins)
+            {
+                RefreshMapPins();
+            }
 #endif
+            stopwatch.Stop();
+            _logger.LogInformation(
+                "Map page appeared from warm state in {ElapsedMs}ms.",
+                stopwatch.Elapsed.TotalMilliseconds);
             return;
         }
 
@@ -70,28 +99,32 @@ public partial class MapPage : ContentPage
         {
             _viewModel.ErrorMessage = $"Error loading map: {ex.Message}";
         }
+        finally
+        {
+            stopwatch.Stop();
+            _logger.LogInformation(
+                "Map page appeared after initial load in {ElapsedMs}ms. HasLoaded={HasLoaded}.",
+                stopwatch.Elapsed.TotalMilliseconds,
+                _viewModel.HasLoaded);
+        }
     }
 
     protected override void OnDisappearing()
     {
         base.OnDisappearing();
-
 #if !WINDOWS
         UnsubscribeFromRecommendations();
-
-        // Clean up all pin event handlers to prevent memory leaks
-        foreach (var (pin, handler) in _pinHandlers)
-        {
-            pin.MarkerClicked -= handler;
-        }
-        _pinHandlers.Clear();
+        _hasRenderedPins = false;
 #endif
     }
 
-    private void OnNearbyRecommendationsChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
 #if !WINDOWS
-        RefreshMapPins();
+        if (e.PropertyName == nameof(MapViewModel.VisibleNearbyRecommendations))
+        {
+            RefreshMapPins();
+        }
 #endif
     }
 
@@ -103,7 +136,7 @@ public partial class MapPage : ContentPage
             return;
         }
 
-        _viewModel.NearbyRecommendations.CollectionChanged += OnNearbyRecommendationsChanged;
+        _viewModel.PropertyChanged += OnViewModelPropertyChanged;
         _isSubscribedToRecommendations = true;
     }
 
@@ -114,12 +147,13 @@ public partial class MapPage : ContentPage
             return;
         }
 
-        _viewModel.NearbyRecommendations.CollectionChanged -= OnNearbyRecommendationsChanged;
+        _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
         _isSubscribedToRecommendations = false;
     }
 
     private void RefreshMapPins()
     {
+        var stopwatch = Stopwatch.StartNew();
         // Unsubscribe all existing pin event handlers to prevent memory leaks
         foreach (var (pin, handler) in _pinHandlers)
         {
@@ -128,7 +162,7 @@ public partial class MapPage : ContentPage
         _pinHandlers.Clear();
         _map.Pins.Clear();
 
-        foreach (var recommendation in _viewModel.NearbyRecommendations)
+        foreach (var recommendation in _viewModel.VisibleNearbyRecommendations)
         {
             var pin = new Pin
             {
@@ -150,7 +184,13 @@ public partial class MapPage : ContentPage
             _map.Pins.Add(pin);
         }
 
-        MoveToRecommendationBounds(_viewModel.NearbyRecommendations);
+        MoveToRecommendationBounds(_viewModel.VisibleNearbyRecommendations);
+        _hasRenderedPins = true;
+        stopwatch.Stop();
+        _logger.LogInformation(
+            "Map pins refreshed in {ElapsedMs}ms. Pins={PinCount}.",
+            stopwatch.Elapsed.TotalMilliseconds,
+            _viewModel.VisibleNearbyRecommendations.Count);
     }
 
     private void MoveToRecommendationBounds(IReadOnlyCollection<RecommendationDto> recommendations)
@@ -177,4 +217,12 @@ public partial class MapPage : ContentPage
         return _viewModel.OpenRecommendationCommand.ExecuteAsync(recommendation);
     }
 #endif
+
+    private async void OnRecommendationTapped(object? sender, TappedEventArgs e)
+    {
+        if ((sender as BindableObject)?.BindingContext is RecommendationDto recommendation)
+        {
+            await _viewModel.OpenRecommendationCommand.ExecuteAsync(recommendation);
+        }
+    }
 }

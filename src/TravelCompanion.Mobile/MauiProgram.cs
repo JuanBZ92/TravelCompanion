@@ -56,7 +56,9 @@ public static class MauiProgram
             });
 
 #if DEBUG
+        builder.Logging.SetMinimumLevel(LogLevel.Information);
         builder.Logging.AddDebug();
+        builder.Logging.AddProvider(new MobileDiagnosticsLoggerProvider());
 #endif
 
         var apiBaseUri = ApiEndpointResolver.Resolve();

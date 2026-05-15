@@ -148,79 +148,69 @@
                                HorizontalOptions="Center" />
                     </VerticalStackLayout>
                     <VerticalStackLayout Spacing="0"
-                                         BindableLayout.ItemsSource="{Binding RecommendationPages}">
+                                         BindableLayout.ItemsSource="{Binding VisibleRecommendations}">
                         <BindableLayout.ItemTemplate>
-                            <DataTemplate x:DataType="itemViewModels:RecommendationPageViewModel">
-                                <VerticalStackLayout Spacing="0"
-                                                     IsVisible="{Binding IsVisible}"
-                                                     BindableLayout.ItemsSource="{Binding Items}">
-                                    <BindableLayout.ItemTemplate>
-                                        <DataTemplate x:DataType="itemViewModels:RecommendationListItemViewModel">
-                                            <Border HeightRequest="132"
-                                                    Padding="14"
-                                                    Margin="0,0,0,10"
-                                                    BackgroundColor="{AppThemeBinding Light={StaticResource Paper}, Dark={StaticResource NightSurface}}"
-                                                    Stroke="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
-                                                    StrokeThickness="1">
-                                                <Border.StrokeShape>
-                                                    <RoundRectangle CornerRadius="8" />
-                                                </Border.StrokeShape>
-                                                <Border.GestureRecognizers>
-                                                    <TapGestureRecognizer Command="{Binding Source={x:Reference PageRoot}, Path=BindingContext.OpenRecommendationCommand}"
-                                                                          CommandParameter="{Binding .}" />
-                                                </Border.GestureRecognizers>
-                                                <Grid RowDefinitions="Auto,Auto,Auto,Auto"
-                                                      ColumnDefinitions="*,40">
-                                                    <Label Text="{Binding Category, Mode=OneTime}"
-                                                           FontSize="11"
-                                                           FontAttributes="Bold"
-                                                           TextTransform="Uppercase"
-                                                           TextColor="{AppThemeBinding Light={StaticResource Gold}, Dark={StaticResource GoldSoft}}"
-                                                           LineBreakMode="TailTruncation"
-                                                           MaxLines="1" />
-                                                    <Label Grid.Column="1"
-                                                           Grid.RowSpan="2"
-                                                           Text="{Binding FavoriteGlyph}"
-                                                           FontSize="21"
-                                                           TextColor="{AppThemeBinding Light={StaticResource Gold}, Dark={StaticResource Gold}}"
-                                                           HorizontalTextAlignment="Center"
-                                                           VerticalTextAlignment="Start"
-                                                           WidthRequest="40"
-                                                           HeightRequest="40">
-                                                        <Label.GestureRecognizers>
-                                                            <TapGestureRecognizer Command="{Binding Source={x:Reference PageRoot}, Path=BindingContext.ToggleFavoriteCommand}"
-                                                                                  CommandParameter="{Binding .}" />
-                                                        </Label.GestureRecognizers>
-                                                    </Label>
-                                                    <Label Grid.Row="1"
-                                                           Text="{Binding Title, Mode=OneTime}"
-                                                           FontSize="17"
-                                                           FontAttributes="Bold"
-                                                           Margin="0,5,0,0"
-                                                           TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
-                                                           LineBreakMode="TailTruncation"
-                                                           MaxLines="1" />
-                                                    <Label Grid.Row="2"
-                                                           Grid.ColumnSpan="2"
-                                                           Text="{Binding Description, Mode=OneTime}"
-                                                           FontSize="13"
-                                                           Margin="0,5,0,0"
-                                                           TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
-                                                           LineBreakMode="TailTruncation"
-                                                           MaxLines="2" />
-                                                    <Label Grid.Row="3"
-                                                           Grid.ColumnSpan="2"
-                                                           Text="{Binding Neighborhood, Mode=OneTime}"
-                                                           FontSize="12"
-                                                           Margin="0,5,0,0"
-                                                           TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}"
-                                                           LineBreakMode="TailTruncation"
-                                                           MaxLines="1" />
-                                                </Grid>
-                                            </Border>
-                                        </DataTemplate>
-                                    </BindableLayout.ItemTemplate>
-                                </VerticalStackLayout>
+                            <DataTemplate x:DataType="itemViewModels:RecommendationListItemViewModel">
+                                <Border HeightRequest="132"
+                                        Padding="14"
+                                        Margin="0,0,0,10"
+                                        BackgroundColor="{AppThemeBinding Light={StaticResource Paper}, Dark={StaticResource NightSurface}}"
+                                        Stroke="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
+                                        StrokeThickness="1">
+                                    <Border.StrokeShape>
+                                        <RoundRectangle CornerRadius="8" />
+                                    </Border.StrokeShape>
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnRecommendationTapped" />
+                                    </Border.GestureRecognizers>
+                                    <Grid RowDefinitions="Auto,Auto,Auto,Auto"
+                                          ColumnDefinitions="*,40">
+                                        <Label Text="{Binding Category, Mode=OneTime}"
+                                               FontSize="11"
+                                               FontAttributes="Bold"
+                                               TextTransform="Uppercase"
+                                               TextColor="{AppThemeBinding Light={StaticResource Gold}, Dark={StaticResource GoldSoft}}"
+                                               LineBreakMode="TailTruncation"
+                                               MaxLines="1" />
+                                        <Label Grid.Column="1"
+                                               Grid.RowSpan="2"
+                                               Text="{Binding FavoriteGlyph}"
+                                               FontSize="21"
+                                               TextColor="{AppThemeBinding Light={StaticResource Gold}, Dark={StaticResource Gold}}"
+                                               HorizontalTextAlignment="Center"
+                                               VerticalTextAlignment="Start"
+                                               WidthRequest="40"
+                                               HeightRequest="40">
+                                            <Label.GestureRecognizers>
+                                                <TapGestureRecognizer Tapped="OnFavoriteTapped" />
+                                            </Label.GestureRecognizers>
+                                        </Label>
+                                        <Label Grid.Row="1"
+                                               Text="{Binding Title, Mode=OneTime}"
+                                               FontSize="17"
+                                               FontAttributes="Bold"
+                                               Margin="0,5,0,0"
+                                               TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
+                                               LineBreakMode="TailTruncation"
+                                               MaxLines="1" />
+                                        <Label Grid.Row="2"
+                                               Grid.ColumnSpan="2"
+                                               Text="{Binding Description, Mode=OneTime}"
+                                               FontSize="13"
+                                               Margin="0,5,0,0"
+                                               TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                                               LineBreakMode="TailTruncation"
+                                               MaxLines="2" />
+                                        <Label Grid.Row="3"
+                                               Grid.ColumnSpan="2"
+                                               Text="{Binding Neighborhood, Mode=OneTime}"
+                                               FontSize="12"
+                                               Margin="0,5,0,0"
+                                               TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}"
+                                               LineBreakMode="TailTruncation"
+                                               MaxLines="1" />
+                                    </Grid>
+                                </Border>
                             </DataTemplate>
                         </BindableLayout.ItemTemplate>
                     </VerticalStackLayout>

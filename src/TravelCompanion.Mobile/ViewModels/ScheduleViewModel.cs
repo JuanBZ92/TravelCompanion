@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.Logging;
 using TravelCompanion.Mobile.Pages;
 using TravelCompanion.Mobile.Services;
 using TravelCompanion.Shared;
@@ -9,7 +11,8 @@ namespace TravelCompanion.Mobile.ViewModels;
 
 public sealed partial class ScheduleViewModel(
     AuthSessionService sessionService,
-    MobileBootstrapStore bootstrapStore) : ViewModelBase, ISessionStateResettable
+    MobileBootstrapStore bootstrapStore,
+    ILogger<ScheduleViewModel> logger) : ViewModelBase, ISessionStateResettable
 {
     private const string AllCitiesKey = "All Cities";
     private readonly List<ScheduleItemDto> _allItems = [];
@@ -19,12 +22,18 @@ public sealed partial class ScheduleViewModel(
     private string? _tripDates;
     private ScheduleItemDto? _selectedItem;
     private ScheduleTypeSectionViewModel? _activeSection;
+    private IReadOnlyList<ScheduleDayViewModel> _activeDays = [];
 
-    public ObservableCollection<ScheduleDayViewModel> Days { get; } = [];
     public ObservableCollection<ScheduleTypeSectionViewModel> TypeSections { get; } = [];
     public ObservableCollection<ScheduleTypeFilterViewModel> TypeFilters { get; } = [];
     public ObservableCollection<CityFilterViewModel> CityFilters { get; } = [];
-    public bool HasScheduleItems => _activeSection?.Days.Count > 0;
+    public IReadOnlyList<ScheduleDayViewModel> ActiveDays
+    {
+        get => _activeDays;
+        private set => SetProperty(ref _activeDays, value);
+    }
+
+    public bool HasScheduleItems => ActiveDays.Count > 0;
     public bool ShowInitialLoading => IsBusy && !HasScheduleItems;
     public bool ShowEmptyState => HasLoaded && !IsBusy && !HasScheduleItems;
 
@@ -51,7 +60,7 @@ public sealed partial class ScheduleViewModel(
         ResetLoadState();
         _allItems.Clear();
         _sectionCache.Clear();
-        Days.Clear();
+        ActiveDays = [];
         TypeSections.Clear();
         _activeSection = null;
         TypeFilters.Clear();
@@ -99,6 +108,7 @@ public sealed partial class ScheduleViewModel(
     [RelayCommand]
     private void ToggleTypeFilter(ReservationType type)
     {
+        var stopwatch = Stopwatch.StartNew();
         _selectedType = type;
         foreach (var filter in TypeFilters)
         {
@@ -107,6 +117,14 @@ public sealed partial class ScheduleViewModel(
 
         UpdateCityFilters();
         ApplyCityFilter();
+        stopwatch.Stop();
+
+        logger.LogInformation(
+            "Schedule type filter changed in {ElapsedMs}ms. Type={ReservationType}; VisibleDays={VisibleDays}; VisibleItems={VisibleItems}.",
+            stopwatch.Elapsed.TotalMilliseconds,
+            type,
+            ActiveDays.Count,
+            ActiveDays.Sum(day => day.Count));
     }
 
     [RelayCommand]
@@ -117,6 +135,7 @@ public sealed partial class ScheduleViewModel(
             return;
         }
 
+        var stopwatch = Stopwatch.StartNew();
         var filter = CityFilters.FirstOrDefault(f => f.CityName == cityName);
         if (filter is null)
         {
@@ -147,6 +166,15 @@ public sealed partial class ScheduleViewModel(
         }
 
         ApplyCityFilter();
+        stopwatch.Stop();
+
+        logger.LogInformation(
+            "Schedule city filter changed in {ElapsedMs}ms. City={CityName}; Type={ReservationType}; VisibleDays={VisibleDays}; VisibleItems={VisibleItems}.",
+            stopwatch.Elapsed.TotalMilliseconds,
+            cityName,
+            _selectedType,
+            ActiveDays.Count,
+            ActiveDays.Sum(day => day.Count));
     }
 
     [RelayCommand]
@@ -213,6 +241,7 @@ public sealed partial class ScheduleViewModel(
 
     private void ApplySchedule(TripScheduleDto schedule)
     {
+        var stopwatch = Stopwatch.StartNew();
         TripTitle = $"{schedule.DestinationName} for {schedule.TravelerName}";
         TripDates = $"{schedule.StartsOn:MMM d} - {schedule.EndsOn:MMM d, yyyy}";
         _allItems.Clear();
@@ -222,6 +251,15 @@ public sealed partial class ScheduleViewModel(
         UpdateCityFilters();
         RebuildDefaultTypeSections();
         ApplyCityFilter();
+        stopwatch.Stop();
+
+        logger.LogInformation(
+            "Schedule applied in {ElapsedMs}ms. SourceItems={SourceItems}; InitialType={ReservationType}; VisibleDays={VisibleDays}; VisibleItems={VisibleItems}.",
+            stopwatch.Elapsed.TotalMilliseconds,
+            schedule.Items.Count,
+            _selectedType,
+            ActiveDays.Count,
+            ActiveDays.Sum(day => day.Count));
     }
 
     private void ApplyEmptySchedule()
@@ -230,7 +268,7 @@ public sealed partial class ScheduleViewModel(
         TripDates = "No reservations yet.";
         _allItems.Clear();
         _sectionCache.Clear();
-        Days.Clear();
+        ActiveDays = [];
         TypeSections.Clear();
         _activeSection = null;
         TypeFilters.Clear();
@@ -343,13 +381,8 @@ public sealed partial class ScheduleViewModel(
             existingSection.IsVisible = ReferenceEquals(existingSection, section);
         }
 
-        Days.Clear();
-        foreach (var day in section.Days)
-        {
-            Days.Add(day);
-        }
-
         _activeSection = section;
+        ActiveDays = section.Days;
         section.IsVisible = true;
 
         OnPropertyChanged(nameof(HasScheduleItems));

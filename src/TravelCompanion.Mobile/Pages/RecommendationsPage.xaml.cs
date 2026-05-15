@@ -66,4 +66,20 @@ public partial class RecommendationsPage : ContentPage
                 _viewModel.HasLoaded);
         }
     }
+
+    private async void OnRecommendationTapped(object? sender, TappedEventArgs e)
+    {
+        if ((sender as BindableObject)?.BindingContext is RecommendationListItemViewModel recommendation)
+        {
+            await _viewModel.OpenRecommendationCommand.ExecuteAsync(recommendation);
+        }
+    }
+
+    private void OnFavoriteTapped(object? sender, TappedEventArgs e)
+    {
+        if ((sender as BindableObject)?.BindingContext is RecommendationListItemViewModel recommendation)
+        {
+            _viewModel.ToggleFavoriteCommand.Execute(recommendation);
+        }
+    }
 }

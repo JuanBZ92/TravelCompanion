@@ -20,9 +20,15 @@ public sealed partial class MapViewModel(
     private int _currentPage = 1;
     private int _totalPages = 1;
     private int _totalItems;
+    private IReadOnlyList<RecommendationDto> _visibleNearbyRecommendations = [];
 
-    public ObservableCollection<RecommendationDto> NearbyRecommendations { get; } = [];
     public ObservableCollection<int> PageSizeOptions { get; } = [10, 20, 50];
+
+    public IReadOnlyList<RecommendationDto> VisibleNearbyRecommendations
+    {
+        get => _visibleNearbyRecommendations;
+        private set => SetProperty(ref _visibleNearbyRecommendations, value);
+    }
 
     public RecommendationDto? SelectedRecommendation
     {
@@ -100,7 +106,7 @@ public sealed partial class MapViewModel(
     {
         ResetLoadState();
         _allNearbyRecommendations.Clear();
-        NearbyRecommendations.Clear();
+        VisibleNearbyRecommendations = [];
         _entitlements = null;
         SelectedRecommendation = null;
         CurrentPage = 1;
@@ -252,13 +258,10 @@ public sealed partial class MapViewModel(
             CurrentPage = TotalPages;
         }
 
-        NearbyRecommendations.Clear();
-        foreach (var recommendation in _allNearbyRecommendations
+        VisibleNearbyRecommendations = _allNearbyRecommendations
             .Skip((CurrentPage - 1) * SelectedPageSize)
-            .Take(SelectedPageSize))
-        {
-            NearbyRecommendations.Add(recommendation);
-        }
+            .Take(SelectedPageSize)
+            .ToList();
     }
 
     private bool IsUnlocked(RecommendationDto recommendation)

@@ -159,7 +159,7 @@
                                HorizontalOptions="Center" />
                     </VerticalStackLayout>
                     <VerticalStackLayout Spacing="0"
-                                         BindableLayout.ItemsSource="{Binding NearbyRecommendations}">
+                                         BindableLayout.ItemsSource="{Binding VisibleNearbyRecommendations}">
                         <BindableLayout.ItemTemplate>
                             <DataTemplate x:DataType="dtos:RecommendationDto">
                                 <Border HeightRequest="104"
@@ -172,8 +172,7 @@
                                         <RoundRectangle CornerRadius="8" />
                                     </Border.StrokeShape>
                                     <Border.GestureRecognizers>
-                                        <TapGestureRecognizer Command="{Binding Source={x:Reference PageRoot}, Path=BindingContext.OpenRecommendationCommand}"
-                                                              CommandParameter="{Binding .}" />
+                                        <TapGestureRecognizer Tapped="OnRecommendationTapped" />
                                     </Border.GestureRecognizers>
                                     <Grid RowDefinitions="Auto,Auto"
                                           ColumnDefinitions="*,86">
