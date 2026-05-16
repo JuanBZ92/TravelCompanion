@@ -70,6 +70,16 @@ public sealed class RecommendationsModel(TravelCompanionDbContext dbContext) : P
             ModelState.AddModelError($"{nameof(Input)}.{nameof(Input.SuggestedDurationMinutes)}", "La duracion debe ser mayor a cero.");
         }
 
+        if (string.IsNullOrWhiteSpace(Input.PriceLevel))
+        {
+            ModelState.AddModelError($"{nameof(Input)}.{nameof(Input.PriceLevel)}", "El nivel de precio es obligatorio.");
+        }
+
+        if (Input.Rating is < 0 or > 5)
+        {
+            ModelState.AddModelError($"{nameof(Input)}.{nameof(Input.Rating)}", "El rating debe estar entre 0 y 5.");
+        }
+
         var selectedPackageIds = Input.AccessLevel == ContentAccessLevel.Paid
             ? Input.PackageIds.Distinct().ToList()
             : [];
@@ -179,6 +189,9 @@ public sealed class RecommendationsModel(TravelCompanionDbContext dbContext) : P
                     .Select(package => package.Name)
                     .ToList(),
                 recommendation.Neighborhood,
+                recommendation.PriceLevel,
+                recommendation.Rating,
+                recommendation.OpeningHours,
                 recommendation.Latitude,
                 recommendation.Longitude))
             .ToList();
@@ -192,6 +205,9 @@ public sealed class RecommendationsModel(TravelCompanionDbContext dbContext) : P
         ContentAccessLevel AccessLevel,
         IReadOnlyList<string> PackageNames,
         string Neighborhood,
+        string PriceLevel,
+        double? Rating,
+        string? OpeningHours,
         decimal Latitude,
         decimal Longitude)
     {
@@ -214,9 +230,13 @@ public sealed class RecommendationsModel(TravelCompanionDbContext dbContext) : P
         public string Category { get; set; } = string.Empty;
         public string? Neighborhood { get; set; }
         public string Description { get; set; } = string.Empty;
+        public string? TagsText { get; set; }
+        public string PriceLevel { get; set; } = "medium";
         public decimal Latitude { get; set; }
         public decimal Longitude { get; set; }
         public int SuggestedDurationMinutes { get; set; } = 60;
+        public double? Rating { get; set; }
+        public string? OpeningHours { get; set; }
         public ContentAccessLevel AccessLevel { get; set; } = ContentAccessLevel.Free;
         public List<Guid> PackageIds { get; set; } = [];
 
@@ -230,9 +250,13 @@ public sealed class RecommendationsModel(TravelCompanionDbContext dbContext) : P
                 Category = recommendation.Category,
                 Neighborhood = recommendation.Neighborhood,
                 Description = recommendation.Description,
+                TagsText = string.Join(", ", recommendation.Tags),
+                PriceLevel = recommendation.PriceLevel,
                 Latitude = recommendation.Latitude,
                 Longitude = recommendation.Longitude,
                 SuggestedDurationMinutes = recommendation.SuggestedDurationMinutes,
+                Rating = recommendation.Rating,
+                OpeningHours = recommendation.OpeningHours,
                 AccessLevel = recommendation.AccessLevel,
                 PackageIds = recommendation.Packages.Select(package => package.Id).ToList()
             };
@@ -245,10 +269,23 @@ public sealed class RecommendationsModel(TravelCompanionDbContext dbContext) : P
             recommendation.Category = Category.Trim();
             recommendation.Neighborhood = (Neighborhood ?? string.Empty).Trim();
             recommendation.Description = Description.Trim();
+            recommendation.Tags = ParseTags(TagsText);
+            recommendation.PriceLevel = PriceLevel.Trim();
             recommendation.Latitude = Latitude;
             recommendation.Longitude = Longitude;
             recommendation.SuggestedDurationMinutes = SuggestedDurationMinutes;
+            recommendation.Rating = Rating;
+            recommendation.OpeningHours = string.IsNullOrWhiteSpace(OpeningHours) ? null : OpeningHours.Trim();
             recommendation.AccessLevel = AccessLevel;
+        }
+
+        private static List<string> ParseTags(string? value)
+        {
+            return string.IsNullOrWhiteSpace(value)
+                ? []
+                : value.Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
         }
     }
 }

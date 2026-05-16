@@ -285,9 +285,13 @@ public sealed class MobileController(
                 recommendation.Category,
                 recommendation.Neighborhood,
                 recommendation.Description,
+                recommendation.Tags,
+                recommendation.PriceLevel,
                 recommendation.Latitude,
                 recommendation.Longitude,
                 recommendation.SuggestedDurationMinutes,
+                recommendation.Rating,
+                recommendation.OpeningHours,
                 recommendation.AccessLevel,
                 recommendation.Packages.Select(package => package.Id).ToList(),
                 null))
