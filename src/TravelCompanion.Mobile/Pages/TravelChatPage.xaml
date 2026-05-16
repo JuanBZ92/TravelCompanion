@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:viewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
+             x:Class="TravelCompanion.Mobile.Pages.TravelChatPage"
+             x:Name="PageRoot"
+             x:DataType="viewModels:TravelChatViewModel"
+             Title="Assistant"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{AppThemeBinding Light={StaticResource PaperAlt}, Dark={StaticResource Night}}">
+
+    <Grid Padding="20,16,20,0" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="14">
+        <Grid ColumnDefinitions="*,140" ColumnSpacing="12">
+            <VerticalStackLayout Spacing="3">
+                <Label Text="Travel Assistant"
+                       FontSize="24"
+                       FontAttributes="Bold"
+                       TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
+                <Label Text="Plans around your reservations"
+                       FontSize="13"
+                       TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
+            </VerticalStackLayout>
+
+            <DatePicker Grid.Column="1"
+                        Date="{Binding PlanningDate}"
+                        FontSize="13"
+                        HorizontalOptions="End"
+                        WidthRequest="138" />
+        </Grid>
+
+        <VerticalStackLayout Grid.Row="1" Spacing="8">
+            <Border Style="{StaticResource NoticePanel}"
+                    IsVisible="{Binding HasStatus}">
+                <Label Text="{Binding StatusMessage}"
+                       FontSize="13"
+                       TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}" />
+            </Border>
+
+            <Border Style="{StaticResource ErrorPanel}"
+                    IsVisible="{Binding HasError}">
+                <Label Text="{Binding ErrorMessage}"
+                       FontSize="13"
+                       TextColor="{AppThemeBinding Light={StaticResource Rose}, Dark={StaticResource Paper}}" />
+            </Border>
+        </VerticalStackLayout>
+
+        <Grid Grid.Row="2">
+            <ScrollView VerticalScrollBarVisibility="Never">
+                <VerticalStackLayout Spacing="12"
+                                     BindableLayout.ItemsSource="{Binding Messages}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="viewModels:TravelChatMessageViewModel">
+                            <VerticalStackLayout Spacing="8">
+                                <Border Padding="14,11"
+                                        MaximumWidthRequest="620"
+                                        HorizontalOptions="Start"
+                                        BackgroundColor="{AppThemeBinding Light={StaticResource Paper}, Dark={StaticResource NightSurface}}"
+                                        Stroke="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
+                                        StrokeThickness="1">
+                                    <Border.Triggers>
+                                        <DataTrigger TargetType="Border"
+                                                     Binding="{Binding IsFromUser}"
+                                                     Value="True">
+                                            <Setter Property="HorizontalOptions" Value="End" />
+                                            <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}" />
+                                            <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}" />
+                                        </DataTrigger>
+                                    </Border.Triggers>
+                                    <Border.StrokeShape>
+                                        <RoundRectangle CornerRadius="8" />
+                                    </Border.StrokeShape>
+                                    <Label Text="{Binding Text}"
+                                           FontSize="14"
+                                           LineHeight="1.35"
+                                           TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}">
+                                        <Label.Triggers>
+                                            <DataTrigger TargetType="Label"
+                                                         Binding="{Binding IsFromUser}"
+                                                         Value="True">
+                                                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Paper}, Dark={StaticResource PrimaryDarkText}}" />
+                                            </DataTrigger>
+                                        </Label.Triggers>
+                                    </Label>
+                                </Border>
+
+                                <VerticalStackLayout Spacing="8"
+                                                     IsVisible="{Binding HasCards}"
+                                                     BindableLayout.ItemsSource="{Binding Cards}">
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate x:DataType="viewModels:TravelChatCardViewModel">
+                                            <Border Style="{StaticResource Card}">
+                                                <Grid RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="6">
+                                                    <Label Text="{Binding Title}"
+                                                           FontSize="16"
+                                                           FontAttributes="Bold"
+                                                           TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
+                                                           MaxLines="2" />
+                                                    <Label Grid.Row="1"
+                                                           Text="{Binding Subtitle}"
+                                                           FontSize="12"
+                                                           TextColor="{AppThemeBinding Light={StaticResource Gold}, Dark={StaticResource GoldSoft}}"
+                                                           MaxLines="1"
+                                                           LineBreakMode="TailTruncation" />
+                                                    <Label Grid.Row="2"
+                                                           Text="{Binding Description}"
+                                                           FontSize="13"
+                                                           TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}"
+                                                           MaxLines="3"
+                                                           LineBreakMode="TailTruncation" />
+                                                    <VerticalStackLayout Grid.Row="3"
+                                                                         Spacing="4"
+                                                                         IsVisible="{Binding HasReasons}"
+                                                                         BindableLayout.ItemsSource="{Binding WhyItFits}">
+                                                        <BindableLayout.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Label Text="{Binding StringFormat='- {0}'}"
+                                                                       FontSize="12"
+                                                                       TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
+                                                            </DataTemplate>
+                                                        </BindableLayout.ItemTemplate>
+                                                    </VerticalStackLayout>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+                                </VerticalStackLayout>
+                            </VerticalStackLayout>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+            </ScrollView>
+
+            <VerticalStackLayout Spacing="10"
+                                 HorizontalOptions="Center"
+                                 VerticalOptions="Center"
+                                 IsVisible="{Binding ShowEmptyState}">
+                <Label Text="Ask for a plan between reservations"
+                       FontSize="16"
+                       FontAttributes="Bold"
+                       HorizontalTextAlignment="Center"
+                       TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
+                <Label Text="The assistant will use your backend itinerary and recommendations."
+                       FontSize="13"
+                       HorizontalTextAlignment="Center"
+                       TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
+            </VerticalStackLayout>
+        </Grid>
+
+        <VerticalStackLayout Grid.Row="3" Spacing="10" Padding="0,0,0,14">
+            <HorizontalStackLayout Spacing="8"
+                                   BindableLayout.ItemsSource="{Binding SuggestedReplies}">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate>
+                        <Border Style="{StaticResource Chip}">
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnSuggestedReplyTapped" />
+                            </Border.GestureRecognizers>
+                            <Label Text="{Binding .}"
+                                   FontSize="12"
+                                   TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
+                                   LineBreakMode="TailTruncation"
+                                   MaxLines="1" />
+                        </Border>
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </HorizontalStackLayout>
+
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                <Border Padding="12,0"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource Paper}, Dark={StaticResource NightSurface}}"
+                        Stroke="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
+                        StrokeThickness="1">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="8" />
+                    </Border.StrokeShape>
+                    <Entry Text="{Binding MessageText}"
+                           Placeholder="Escribi tu pedido"
+                           ReturnCommand="{Binding SendMessageCommand}"
+                           FontSize="14" />
+                </Border>
+
+                <Button Grid.Column="1"
+                        Text="Send"
+                        Command="{Binding SendMessageCommand}"
+                        FontSize="14"
+                        Padding="16,10"
+                        MinimumWidthRequest="74"
+                        MinimumHeightRequest="44" />
+            </Grid>
+
+            <ActivityIndicator IsRunning="{Binding IsBusy}"
+                               IsVisible="{Binding IsBusy}"
+                               WidthRequest="22"
+                               HeightRequest="22" />
+        </VerticalStackLayout>
+    </Grid>
+</ContentPage>

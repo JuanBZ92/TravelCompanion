@@ -70,6 +70,8 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddScoped<IPasswordHasher<AppUser>, PasswordHasher<AppUser>>();
 builder.Services.AddScoped<UserSessionService>();
 builder.Services.AddScoped<IUserInvitationSender, LoggingUserInvitationSender>();
+builder.Services.AddScoped<IRecommendationRanker, DeterministicRecommendationRanker>();
+builder.Services.AddScoped<ITravelChatService, TravelChatService>();
 builder.Services.AddSingleton<SlowDbCommandLoggingInterceptor>();
 builder.Services.AddDbContext<TravelCompanionDbContext>((serviceProvider, options) =>
 {

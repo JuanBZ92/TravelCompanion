@@ -190,6 +190,28 @@ public sealed class TravelCompanionApiClient
         return discover;
     }
 
+    public async Task<TravelChatResponse?> SendTravelChatAsync(
+        string token,
+        TravelChatRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        using var httpRequest = CreateAuthorizedRequest(HttpMethod.Post, "api/ai/travel-chat", token);
+        httpRequest.Content = JsonContent.Create(request, options: JsonOptions);
+
+        using var response = await _httpClient.SendAsync(httpRequest, cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning(
+                "Travel chat request failed with {StatusCode}.",
+                (int)response.StatusCode);
+            return null;
+        }
+
+        return await response.Content
+            .ReadFromJsonAsync<TravelChatResponse>(JsonOptions, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
     public async Task<IReadOnlyList<RecommendationDto>> GetRecommendationsAsync(
         string? destinationSlug = null,
         decimal? latitude = null,
