@@ -19,6 +19,8 @@ public sealed partial class RecommendationDetailViewModel(FavoritesService favor
             if (SetProperty(ref _recommendation, value))
             {
                 IsFavorite = value is not null && favoritesService.IsFavorite(value.Id);
+                OnPropertyChanged(nameof(RecommendationTags));
+                OnPropertyChanged(nameof(HasRecommendationTags));
             }
         }
     }
@@ -40,6 +42,12 @@ public sealed partial class RecommendationDetailViewModel(FavoritesService favor
     public string AccessLevelText => Recommendation is null
         ? string.Empty
         : GetAccessLevelText(Recommendation.AccessLevel);
+    public IReadOnlyList<string> RecommendationTags => Recommendation is null
+        ? []
+        : Recommendation.Tags.Count > 0
+            ? Recommendation.Tags
+            : [Recommendation.Category.ToLowerInvariant()];
+    public bool HasRecommendationTags => RecommendationTags.Count > 0;
 
     public bool IsUnlocked
     {

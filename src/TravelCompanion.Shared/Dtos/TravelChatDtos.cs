@@ -33,7 +33,10 @@ public sealed record TravelCardDto(
     IReadOnlyList<string> WhyItFits,
     IReadOnlyList<string> Warnings,
     string? RecommendationId,
-    string? ReservationId);
+    string? ReservationId)
+{
+    public IReadOnlyList<string> Tags { get; init; } = [];
+}
 
 public sealed record MissingContextDto(
     string Field,

@@ -37,7 +37,26 @@
                 <Label Text="{Binding Recommendation.Neighborhood}"
                        FontSize="16"
                        TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}"
-                       Margin="0,0,0,16" />
+                       Margin="0,0,0,8" />
+
+                <FlexLayout Direction="Row"
+                            Wrap="Wrap"
+                            AlignItems="Start"
+                            Margin="0,0,0,16"
+                            IsVisible="{Binding HasRecommendationTags}"
+                            BindableLayout.ItemsSource="{Binding RecommendationTags}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate>
+                            <Border Style="{StaticResource Chip}"
+                                    Padding="9,6"
+                                    Margin="0,0,6,6">
+                                <Label Text="{Binding StringFormat='#{0}'}"
+                                       FontSize="12"
+                                       TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}" />
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </FlexLayout>
 
                 <!-- Reservation Info -->
                 <Border Padding="16"
@@ -96,8 +115,6 @@
                        LineHeight="1.5"
                        TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}" />
 
-                <!-- Action Buttons -->
-                <BoxView HeightRequest="28" Color="Transparent" />
                 <Button Text="View on Map"
                         Command="{Binding OpenMapsCommand}"
                         IsEnabled="{Binding IsUnlocked}"
@@ -106,7 +123,8 @@
                         HeightRequest="48"
                         CornerRadius="12"
                         FontSize="16"
-                        FontAttributes="Bold" />
+                        FontAttributes="Bold"
+                        Margin="0,20,0,0" />
                 <Button Text="Contact Concierge to Book"
                         BackgroundColor="Transparent"
                         TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"

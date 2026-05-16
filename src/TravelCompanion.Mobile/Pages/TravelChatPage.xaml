@@ -126,7 +126,7 @@
                                     <BindableLayout.ItemTemplate>
                                         <DataTemplate x:DataType="viewModels:TravelChatCardViewModel">
                                             <Border Style="{StaticResource Card}">
-                                                <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="8">
+                                                <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="8">
                                                     <Label Text="{Binding Title}"
                                                            FontSize="16"
                                                            FontAttributes="Bold"
@@ -177,7 +177,27 @@
                                                                    TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
                                                         </Border>
                                                     </FlexLayout>
-                                                    <VerticalStackLayout Grid.Row="4"
+                                                    <FlexLayout Grid.Row="4"
+                                                                Direction="Row"
+                                                                Wrap="Wrap"
+                                                                AlignItems="Start"
+                                                                IsVisible="{Binding HasTags}"
+                                                                BindableLayout.ItemsSource="{Binding Tags}">
+                                                        <BindableLayout.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Border Style="{StaticResource Chip}"
+                                                                        Padding="8,5"
+                                                                        Margin="0,0,6,4">
+                                                                    <Label Text="{Binding StringFormat='#{0}'}"
+                                                                           FontSize="11"
+                                                                           TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}"
+                                                                           MaxLines="1"
+                                                                           LineBreakMode="TailTruncation" />
+                                                                </Border>
+                                                            </DataTemplate>
+                                                        </BindableLayout.ItemTemplate>
+                                                    </FlexLayout>
+                                                    <VerticalStackLayout Grid.Row="5"
                                                                          Spacing="4"
                                                                          IsVisible="{Binding HasReasons}"
                                                                          BindableLayout.ItemsSource="{Binding WhyItFits}">
@@ -189,7 +209,7 @@
                                                             </DataTemplate>
                                                         </BindableLayout.ItemTemplate>
                                                     </VerticalStackLayout>
-                                                    <VerticalStackLayout Grid.Row="5"
+                                                    <VerticalStackLayout Grid.Row="6"
                                                                          Spacing="4"
                                                                          IsVisible="{Binding HasWarnings}"
                                                                          BindableLayout.ItemsSource="{Binding Warnings}">
@@ -201,7 +221,7 @@
                                                             </DataTemplate>
                                                         </BindableLayout.ItemTemplate>
                                                     </VerticalStackLayout>
-                                                    <Button Grid.Row="6"
+                                                    <Button Grid.Row="7"
                                                             Text="{Binding SaveButtonText}"
                                                             Command="{Binding BindingContext.SaveItineraryItemCommand, Source={x:Reference PageRoot}}"
                                                             CommandParameter="{Binding .}"

@@ -18,6 +18,8 @@ public sealed class RecommendationListItemViewModel(RecommendationDto recommenda
     public int SuggestedDurationMinutes => Recommendation.SuggestedDurationMinutes;
     public string AccessLevel => ProductAccessModel.GetLabel(Recommendation.AccessLevel);
     public decimal? DistanceKm => Recommendation.DistanceKm;
+    public IReadOnlyList<string> VisibleTags => GetDisplayTags().Take(3).ToList();
+    public bool HasVisibleTags => VisibleTags.Count > 0;
 
     public bool IsFavorite
     {
@@ -48,4 +50,15 @@ public sealed class RecommendationListItemViewModel(RecommendationDto recommenda
     public string FavoriteLabel => IsFavorite ? "Quitar favorito" : "Guardar favorito";
     public string AccessStatus => IsUnlocked ? "Incluido" : "Bloqueado";
 
+    private IEnumerable<string> GetDisplayTags()
+    {
+        if (Recommendation.Tags.Count > 0)
+        {
+            return Recommendation.Tags;
+        }
+
+        return string.IsNullOrWhiteSpace(Recommendation.Category)
+            ? []
+            : [Recommendation.Category.ToLowerInvariant()];
+    }
 }

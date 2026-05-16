@@ -62,6 +62,8 @@ public sealed class TravelChatCardViewModel : ObservableObject
             ? $"Horario: {_card.StartTime!}"
             : $"Horario: {_card.StartTime} - {_card.EndTime}";
     public bool HasTimeLabel => !string.IsNullOrWhiteSpace(TimeLabel);
+    public IReadOnlyList<string> Tags => (_card.Tags ?? []).Take(6).ToList();
+    public bool HasTags => Tags.Count > 0;
     public IReadOnlyList<string> WhyItFits => _card.WhyItFits;
     public bool HasReasons => WhyItFits.Count > 0;
     public IReadOnlyList<string> Warnings => _card.Warnings;

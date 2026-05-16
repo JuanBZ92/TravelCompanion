@@ -555,7 +555,10 @@ public sealed class TravelChatService(
             scored.PositiveReasons.Take(3).ToList(),
             scored.NegativeReasons.ToList(),
             recommendation.Id.ToString(),
-            null);
+            null)
+        {
+            Tags = recommendation.Tags.ToList()
+        };
     }
 
     private static string FormatSubtitle(ScoredRecommendation scored, Recommendation recommendation)
