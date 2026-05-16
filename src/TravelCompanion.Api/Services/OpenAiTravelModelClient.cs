@@ -109,6 +109,7 @@ public sealed class OpenAiTravelModelClient : ITravelAiModelClient
                 - Explain the plan using concrete reasons from ranked recommendations.
                 - Return only JSON that matches the requested schema.
                 - Do not include sensitive data such as confirmation codes or internal notes.
+                - Never say a plan was saved. Saving requires an explicit backend save_itinerary_item action after user confirmation.
                 """),
             new UserChatMessage($"""
                 Traveler message: {request.UserMessage}

@@ -8,7 +8,8 @@ namespace TravelCompanion.Api.Controllers;
 [Route("api/ai")]
 public sealed class AiController(
     UserSessionService sessionService,
-    ITravelChatService travelChatService) : ControllerBase
+    ITravelChatService travelChatService,
+    IItineraryService itineraryService) : ControllerBase
 {
     [HttpPost("travel-chat")]
     public async Task<ActionResult<TravelChatResponse>> TravelChat(
@@ -28,5 +29,26 @@ public sealed class AiController(
 
         var response = await travelChatService.CreatePlanAsync(user, request, cancellationToken);
         return Ok(response);
+    }
+
+    [HttpPost("save-itinerary-item")]
+    [HttpPost("save_itinerary_item")]
+    public async Task<ActionResult<SaveItineraryItemResponse>> SaveItineraryItem(
+        [FromBody] SaveItineraryItemRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (request.RecommendationId == Guid.Empty)
+        {
+            return this.ValidationError(nameof(request.RecommendationId), "RecommendationId is required.");
+        }
+
+        var user = await sessionService.GetUserAsync(HttpContext, cancellationToken);
+        if (user is null)
+        {
+            return Unauthorized();
+        }
+
+        var response = await itineraryService.SaveItineraryItemAsync(user, request, cancellationToken);
+        return response.Saved ? Ok(response) : BadRequest(response);
     }
 }

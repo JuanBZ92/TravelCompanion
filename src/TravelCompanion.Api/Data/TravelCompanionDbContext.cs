@@ -14,7 +14,7 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
     public DbSet<AppUser> AppUsers => Set<AppUser>();
     public DbSet<UserEntitlement> UserEntitlements => Set<UserEntitlement>();
     public DbSet<AppUserSession> AppUserSessions => Set<AppUserSession>();
-    public DbSet<TravelerPreference> TravelerPreferences => Set<TravelerPreference>();
+    public DbSet<TravelPreferenceProfile> TravelPreferenceProfiles => Set<TravelPreferenceProfile>();
     public DbSet<TravelChatConversation> TravelChatConversations => Set<TravelChatConversation>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -123,14 +123,14 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
-        modelBuilder.Entity<TravelerPreference>(entity =>
+        modelBuilder.Entity<TravelPreferenceProfile>(entity =>
         {
-            entity.HasKey(preference => preference.UserId);
-            entity.Property(preference => preference.BudgetLevel).HasMaxLength(32);
-            entity.Property(preference => preference.TravelPace).HasMaxLength(32);
-            entity.HasOne(preference => preference.User)
-                .WithOne(user => user.TravelerPreference)
-                .HasForeignKey<TravelerPreference>(preference => preference.UserId)
+            entity.HasKey(profile => profile.UserId);
+            entity.Property(profile => profile.BudgetLevel).HasMaxLength(32);
+            entity.Property(profile => profile.TravelPace).HasMaxLength(32);
+            entity.HasOne(profile => profile.User)
+                .WithOne(user => user.TravelPreferenceProfile)
+                .HasForeignKey<TravelPreferenceProfile>(profile => profile.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 

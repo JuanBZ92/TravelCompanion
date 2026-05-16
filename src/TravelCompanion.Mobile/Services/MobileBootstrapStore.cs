@@ -17,6 +17,8 @@ public sealed class MobileBootstrapStore(
     private readonly object _refreshLock = new();
     private Task<MobileBootstrapDto?>? _refreshTask;
 
+    public event EventHandler<ScheduleCacheUpdatedEventArgs>? ScheduleUpdated;
+
     public async Task<OfflineCacheResult<MobileBootstrapDto>?> GetCachedAsync(
         string? destinationSlug = null,
         CancellationToken cancellationToken = default)
@@ -166,6 +168,61 @@ public sealed class MobileBootstrapStore(
             && IsScopeMatch(cacheScope, _current.Destination.Slug);
     }
 
+    public async Task<bool> UpsertScheduleItemAsync(
+        ScheduleItemDto item,
+        CancellationToken cancellationToken = default)
+    {
+        var currentUserId = sessionService.CurrentUserId;
+        if (_current is null
+            || _currentUserId != currentUserId
+            || _current.Schedule is null)
+        {
+            logger.LogInformation(
+                "Skipped schedule cache update because bootstrap cache is not ready. ItemId={ScheduleItemId}.",
+                item.Id);
+            return false;
+        }
+
+        var schedule = _current.Schedule;
+        var items = schedule.Items
+            .Where(existing => existing.Id != item.Id)
+            .Append(item)
+            .OrderBy(existing => existing.Date)
+            .ThenBy(existing => existing.StartsAt)
+            .ToList();
+        var updatedSchedule = schedule with
+        {
+            Items = items
+        };
+        var updatedBootstrap = _current with
+        {
+            Schedule = updatedSchedule
+        };
+        var savedAt = DateTimeOffset.UtcNow;
+        var destinationCacheScope = NormalizeCacheScope(updatedBootstrap.Destination.Slug);
+
+        _current = updatedBootstrap;
+        _currentSavedAt = savedAt;
+
+        await offlineCacheService.SaveAsync(
+            GetCacheKey(currentUserId, "auto"),
+            updatedBootstrap,
+            cancellationToken).ConfigureAwait(false);
+        await offlineCacheService.SaveAsync(
+            GetCacheKey(currentUserId, destinationCacheScope),
+            updatedBootstrap,
+            cancellationToken).ConfigureAwait(false);
+
+        MainThread.BeginInvokeOnMainThread(() =>
+            ScheduleUpdated?.Invoke(this, new ScheduleCacheUpdatedEventArgs(updatedSchedule, savedAt)));
+
+        logger.LogInformation(
+            "Schedule cache updated after assistant save. ItemId={ScheduleItemId}; TotalItems={ScheduleItemCount}.",
+            item.Id,
+            items.Count);
+        return true;
+    }
+
     private static string GetCacheKey(Guid? userId, string cacheScope)
     {
         return $"mobile-bootstrap-{cacheScope}-{userId?.ToString() ?? "anonymous"}";
@@ -187,3 +244,7 @@ public sealed class MobileBootstrapStore(
             || string.Equals(NormalizeCacheScope(destinationSlug), requestedScope, StringComparison.Ordinal);
     }
 }
+
+public sealed record ScheduleCacheUpdatedEventArgs(
+    TripScheduleDto Schedule,
+    DateTimeOffset SavedAt);

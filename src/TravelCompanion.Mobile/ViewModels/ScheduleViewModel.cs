@@ -9,12 +9,12 @@ using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Mobile.ViewModels;
 
-public sealed partial class ScheduleViewModel(
-    AuthSessionService sessionService,
-    MobileBootstrapStore bootstrapStore,
-    ILogger<ScheduleViewModel> logger) : ViewModelBase, ISessionStateResettable
+public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateResettable
 {
     private const string AllCitiesKey = "All Cities";
+    private readonly AuthSessionService _sessionService;
+    private readonly MobileBootstrapStore _bootstrapStore;
+    private readonly ILogger<ScheduleViewModel> _logger;
     private readonly List<ScheduleItemDto> _allItems = [];
     private readonly Dictionary<string, ScheduleTypeSectionViewModel> _sectionCache = new(StringComparer.Ordinal);
     private ReservationType _selectedType = ReservationType.Event;
@@ -36,6 +36,17 @@ public sealed partial class ScheduleViewModel(
     public bool HasScheduleItems => ActiveDays.Count > 0;
     public bool ShowInitialLoading => IsBusy && !HasScheduleItems;
     public bool ShowEmptyState => HasLoaded && !IsBusy && !HasScheduleItems;
+
+    public ScheduleViewModel(
+        AuthSessionService sessionService,
+        MobileBootstrapStore bootstrapStore,
+        ILogger<ScheduleViewModel> logger)
+    {
+        _sessionService = sessionService;
+        _bootstrapStore = bootstrapStore;
+        _logger = logger;
+        _bootstrapStore.ScheduleUpdated += OnScheduleCacheUpdated;
+    }
 
     public string TripTitle
     {
@@ -76,15 +87,32 @@ public sealed partial class ScheduleViewModel(
     {
         return LoadAsync(async ct =>
         {
-            var token = await sessionService.GetTokenAsync();
+            var token = await _sessionService.GetTokenAsync();
             if (string.IsNullOrWhiteSpace(token))
             {
-                sessionService.Clear();
+                _sessionService.Clear();
                 await Shell.Current.GoToAsync("//login");
                 return;
             }
 
-            await LoadScheduleLocalFirstAsync(token, ct);
+            await LoadScheduleLocalFirstAsync(token, forceRefresh: false, ct);
+        });
+    }
+
+    [RelayCommand]
+    private Task RefreshScheduleAsync()
+    {
+        return LoadAsync(async ct =>
+        {
+            var token = await _sessionService.GetTokenAsync();
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                _sessionService.Clear();
+                await Shell.Current.GoToAsync("//login");
+                return;
+            }
+
+            await LoadScheduleLocalFirstAsync(token, forceRefresh: true, ct);
         });
     }
 
@@ -119,7 +147,7 @@ public sealed partial class ScheduleViewModel(
         ApplyCityFilter();
         stopwatch.Stop();
 
-        logger.LogInformation(
+        _logger.LogInformation(
             "Schedule type filter changed in {ElapsedMs}ms. Type={ReservationType}; VisibleDays={VisibleDays}; VisibleItems={VisibleItems}.",
             stopwatch.Elapsed.TotalMilliseconds,
             type,
@@ -168,7 +196,7 @@ public sealed partial class ScheduleViewModel(
         ApplyCityFilter();
         stopwatch.Stop();
 
-        logger.LogInformation(
+        _logger.LogInformation(
             "Schedule city filter changed in {ElapsedMs}ms. City={CityName}; Type={ReservationType}; VisibleDays={VisibleDays}; VisibleItems={VisibleItems}.",
             stopwatch.Elapsed.TotalMilliseconds,
             cityName,
@@ -188,29 +216,34 @@ public sealed partial class ScheduleViewModel(
         ApplyCityFilter();
     }
 
-    private async Task LoadScheduleLocalFirstAsync(string token, CancellationToken cancellationToken = default)
+    private async Task LoadScheduleLocalFirstAsync(
+        string token,
+        bool forceRefresh,
+        CancellationToken cancellationToken = default)
     {
-        var cached = await bootstrapStore.GetCachedAsync(cancellationToken: cancellationToken);
+        var cached = await _bootstrapStore.GetCachedAsync(cancellationToken: cancellationToken);
         if (cached is not null)
         {
             ApplyBootstrapSchedule(cached.Value);
             MarkLastUpdated(cached.SavedAt);
 
-            if (bootstrapStore.HasFreshSnapshot())
+            if (!forceRefresh && _bootstrapStore.HasFreshSnapshot())
             {
                 StatusMessage = null;
                 return;
             }
 
-            StatusMessage = OfflineCacheService.FormatSavedAt(cached.SavedAt);
+            StatusMessage = forceRefresh
+                ? "Actualizando itinerario..."
+                : OfflineCacheService.FormatSavedAt(cached.SavedAt);
         }
 
         try
         {
-            var bootstrap = await bootstrapStore.RefreshAsync(token, cancellationToken: cancellationToken);
+            var bootstrap = await _bootstrapStore.RefreshAsync(token, cancellationToken: cancellationToken);
             if (bootstrap is null)
             {
-                sessionService.Clear();
+                _sessionService.Clear();
                 await Shell.Current.GoToAsync("//login");
                 return;
             }
@@ -256,7 +289,7 @@ public sealed partial class ScheduleViewModel(
         ApplyCityFilter();
         stopwatch.Stop();
 
-        logger.LogInformation(
+        _logger.LogInformation(
             "Schedule applied in {ElapsedMs}ms. SourceItems={SourceItems}; InitialType={ReservationType}; VisibleDays={VisibleDays}; VisibleItems={VisibleItems}.",
             stopwatch.Elapsed.TotalMilliseconds,
             sourceItems.Count,
@@ -501,5 +534,12 @@ public sealed partial class ScheduleViewModel(
     {
         OnPropertyChanged(nameof(ShowInitialLoading));
         OnPropertyChanged(nameof(ShowEmptyState));
+    }
+
+    private void OnScheduleCacheUpdated(object? sender, ScheduleCacheUpdatedEventArgs e)
+    {
+        ApplySchedule(e.Schedule);
+        MarkLastUpdated(e.SavedAt);
+        StatusMessage = "Itinerario actualizado.";
     }
 }

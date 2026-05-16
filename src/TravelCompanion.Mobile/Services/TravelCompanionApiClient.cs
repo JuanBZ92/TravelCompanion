@@ -214,6 +214,54 @@ public sealed class TravelCompanionApiClient
         return MobilePayloadNormalizer.Normalize(travelChatResponse);
     }
 
+    public async Task<TravelPreferenceProfileDto?> GetTravelPreferenceProfileAsync(
+        string token,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Get, "api/me/travel-preference-profile", token);
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<TravelPreferenceProfileDto>(JsonOptions, cancellationToken).ConfigureAwait(false)
+            : null;
+    }
+
+    public async Task<TravelPreferenceProfileDto?> PatchTravelPreferenceProfileAsync(
+        string token,
+        TravelPreferenceProfilePatchDto patch,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Patch, "api/me/travel-preference-profile", token);
+        request.Content = JsonContent.Create(patch, options: JsonOptions);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<TravelPreferenceProfileDto>(JsonOptions, cancellationToken).ConfigureAwait(false)
+            : null;
+    }
+
+    public async Task<SaveItineraryItemResponse?> SaveItineraryItemAsync(
+        string token,
+        SaveItineraryItemRequest saveRequest,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Post, "api/ai/save_itinerary_item", token);
+        request.Content = JsonContent.Create(saveRequest, options: JsonOptions);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        var payload = await response.Content
+            .ReadFromJsonAsync<SaveItineraryItemResponse>(JsonOptions, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning(
+                "Save itinerary item request failed with {StatusCode}.",
+                (int)response.StatusCode);
+        }
+
+        return payload;
+    }
+
     public async Task<IReadOnlyList<RecommendationDto>> GetRecommendationsAsync(
         string? destinationSlug = null,
         decimal? latitude = null,

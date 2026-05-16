@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.Text;
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using TravelCompanion.Api.Data;
 using TravelCompanion.Api.Models;
@@ -9,11 +11,15 @@ namespace TravelCompanion.Api.Services;
 
 public sealed class TravelChatService(
     TravelCompanionDbContext dbContext,
+    IUserProfileService userProfileService,
     IRecommendationRanker ranker,
     ITravelAiModelClient modelClient,
     ILogger<TravelChatService> logger) : ITravelChatService
 {
     private const string Intent = "plan_between_reservations";
+    private const string ViewScheduleIntent = "view_schedule";
+    private const string ViewPreferencesIntent = "view_preferences";
+    private const string UpdatePreferencesIntent = "update_preferences";
     private const string LessWalkingMode = "less_walking";
     private const string ShorterMode = "shorter";
     private const string FoodMode = "food";
@@ -36,9 +42,39 @@ public sealed class TravelChatService(
             conversation = null;
         }
 
-        var date = request.Date
+        if (IsSaveIntent(request.Message))
+        {
+            return MissingContext(
+                conversationId,
+                "confirmation",
+                "Para guardar un plan necesito tu confirmacion en la tarjeta recomendada.",
+                ["Confirmar en la tarjeta", "Ver otro plan"]);
+        }
+
+        var baseDate = request.Date
             ?? conversation?.LastDate
             ?? DateOnly.FromDateTime(DateTime.UtcNow);
+        var date = ResolveRequestedDate(request.Message, baseDate);
+
+        if (IsScheduleIntent(request.Message))
+        {
+            return await CreateScheduleResponseAsync(user, conversationId, date, cancellationToken);
+        }
+
+        if (IsPreferenceIntent(request.Message))
+        {
+            return await CreatePreferenceResponseAsync(user.Id, conversationId, request.Message, cancellationToken);
+        }
+
+        var preferences = await userProfileService.GetProfileAsync(user.Id, cancellationToken);
+        if (!userProfileService.HasMinimumPreferences(preferences, out var missingPreferenceFields))
+        {
+            return MissingContext(
+                conversationId,
+                "preferences",
+                "Antes de proponerte un plan necesito guardar al menos tus intereses, presupuesto y ritmo de viaje.",
+                CreatePreferenceSuggestions(missingPreferenceFields));
+        }
 
         var trips = await dbContext.Trips
             .AsNoTracking()
@@ -65,25 +101,16 @@ public sealed class TravelChatService(
             .OrderBy(reservation => GetStartForDate(reservation, date))
             .ToList();
 
-        if (reservations.Count == 0)
-        {
-            return MissingContext(
-                conversationId,
-                "date",
-                "No encontre reservas existentes para planificar alrededor de esa fecha.",
-                ["Probar otro dia", "Ver mi agenda"]);
-        }
-
         var city = ResolveCity(request.City ?? conversation?.LastCity, reservations, trips);
         var planningWindow = FindPlanningWindow(reservations, date);
         if (planningWindow is null)
         {
             return new TravelChatResponse(
                 conversationId,
-                "No veo un espacio comodo entre tus reservas para sumar una actividad sin apurarte.",
+                $"No veo un espacio comodo en tu agenda del {date:dd/MM} para sumar una actividad sin apurarte.",
                 Intent,
                 [],
-                ["Ver agenda", "Probar otro dia"],
+                ["Ver mi agenda", "Probar otro dia", "Ver mis preferencias"],
                 null);
         }
 
@@ -106,9 +133,7 @@ public sealed class TravelChatService(
         var previousRecommendationIds = IsAlternativeRequest(request.Message)
             ? ParseRecommendationIds(conversation?.LastRecommendationIds)
             : [];
-        var preferences = await LoadOrCreatePreferencesAsync(user.Id, cancellationToken);
-        ApplyPreferenceSignals(preferences, request.Message, responseMode);
-        var profile = CreateProfile(user, preferences, responseMode);
+        var profile = CreateProfile(user, preferences!, responseMode, request.Message);
         var context = new TravelPlanningContext(
             city,
             date,
@@ -149,7 +174,8 @@ public sealed class TravelChatService(
 
         var useModelResponse = responseMode == BalancedMode
             && modelResult is not null
-            && !string.IsNullOrWhiteSpace(modelResult.Message);
+            && !string.IsNullOrWhiteSpace(modelResult.Message)
+            && !MentionsSavedState(modelResult.Message);
 
         await SaveConversationAsync(
             conversation,
@@ -169,6 +195,98 @@ public sealed class TravelChatService(
             useModelResponse && modelResult!.SuggestedReplies.Count > 0
                 ? modelResult.SuggestedReplies
                 : defaultSuggestedReplies,
+            null);
+    }
+
+    private async Task<TravelChatResponse> CreateScheduleResponseAsync(
+        AppUser user,
+        string conversationId,
+        DateOnly date,
+        CancellationToken cancellationToken)
+    {
+        var trips = await dbContext.Trips
+            .AsNoTracking()
+            .Include(trip => trip.Destination)
+            .Include(trip => trip.Reservations)
+            .Where(trip =>
+                trip.AppUserId == user.Id
+                && trip.StartsOn <= date
+                && trip.EndsOn >= date)
+            .ToListAsync(cancellationToken);
+
+        if (trips.Count == 0)
+        {
+            return MissingContext(
+                conversationId,
+                "date",
+                $"No encontre un viaje activo para el {date:dd/MM}.",
+                ["Elegir otra fecha", "Proponeme un plan"]);
+        }
+
+        var reservations = trips
+            .SelectMany(trip => trip.Reservations)
+            .Where(reservation => IsReservationOnDate(reservation, date))
+            .OrderBy(reservation => GetStartForDate(reservation, date))
+            .ToList();
+
+        var destinationName = trips
+            .Select(trip => trip.Destination?.Name)
+            .FirstOrDefault(name => !string.IsNullOrWhiteSpace(name))
+            ?? "tu viaje";
+
+        if (reservations.Count == 0)
+        {
+            return new TravelChatResponse(
+                conversationId,
+                $"El {date:dd/MM} no tenes reservas guardadas en {destinationName}. Puedo proponerte un plan libre para anticipar ese dia.",
+                ViewScheduleIntent,
+                [],
+                [$"Proponeme planes para {date:yyyy-MM-dd}", "Ver mis preferencias"],
+                null);
+        }
+
+        var lines = reservations
+            .Take(5)
+            .Select(reservation =>
+                $"- {GetStartForDate(reservation, date):HH\\:mm}: {reservation.Title} ({reservation.City})");
+        var extra = reservations.Count > 5
+            ? $" Tambien hay {reservations.Count - 5} reserva(s) mas."
+            : string.Empty;
+
+        return new TravelChatResponse(
+            conversationId,
+            $"Tu agenda del {date:dd/MM} en {destinationName}:\n{string.Join('\n', lines)}{extra}",
+            ViewScheduleIntent,
+            [],
+            [$"Proponeme planes para {date:yyyy-MM-dd}", "Algo con menos caminata", "Ver mis preferencias"],
+            null);
+    }
+
+    private async Task<TravelChatResponse> CreatePreferenceResponseAsync(
+        Guid userId,
+        string conversationId,
+        string? message,
+        CancellationToken cancellationToken)
+    {
+        var patch = CreatePreferencePatchFromMessage(message);
+        var currentProfile = await userProfileService.GetProfileDtoAsync(userId, cancellationToken);
+        var profile = patch is null
+            ? currentProfile
+            : await userProfileService.PatchProfileAsync(
+                userId,
+                MergePreferencePatch(currentProfile, patch),
+                cancellationToken);
+
+        var prefix = patch is null
+            ? "Estas son tus preferencias guardadas:"
+            : "Listo, actualice tus preferencias:";
+
+        return new TravelChatResponse(
+            conversationId,
+            $"{prefix}\n{FormatPreferenceProfile(profile)}",
+            patch is null ? ViewPreferencesIntent : UpdatePreferencesIntent,
+            [],
+            ["Cambiar intereses", "Presupuesto bajo", "Ritmo tranquilo", "Proponeme un plan"],
             null);
     }
 
@@ -221,31 +339,6 @@ public sealed class TravelChatService(
             "Ignoring travel chat conversation {ConversationId} because it belongs to another user.",
             conversationId);
         return conversation;
-    }
-
-    private async Task<TravelerPreference> LoadOrCreatePreferencesAsync(
-        Guid userId,
-        CancellationToken cancellationToken)
-    {
-        var preferences = await dbContext.TravelerPreferences
-            .FirstOrDefaultAsync(preference => preference.UserId == userId, cancellationToken);
-
-        if (preferences is not null)
-        {
-            return preferences;
-        }
-
-        preferences = new TravelerPreference
-        {
-            UserId = userId,
-            Interests = ["Food", "Culture", "Coffee", "Shopping", "Neighborhood"],
-            FoodPreferences = ["local food", "snacks"],
-            BudgetLevel = "medium",
-            TravelPace = "balanced",
-            MaxWalkingMinutes = 25
-        };
-        dbContext.TravelerPreferences.Add(preferences);
-        return preferences;
     }
 
     private async Task SaveConversationAsync(
@@ -348,12 +441,13 @@ public sealed class TravelChatService(
 
     private static TravelPreferenceProfile CreateProfile(
         AppUser user,
-        TravelerPreference preferences,
-        string responseMode)
+        TravelPreferenceProfile preferences,
+        string responseMode,
+        string? message)
     {
-        return new TravelPreferenceProfile
+        var profile = new TravelPreferenceProfile
         {
-            UserId = user.Id.ToString(),
+            UserId = user.Id,
             Interests = preferences.Interests.ToList(),
             FoodPreferences = preferences.FoodPreferences.ToList(),
             DietaryRestrictions = preferences.DietaryRestrictions.ToList(),
@@ -365,25 +459,27 @@ public sealed class TravelChatService(
                 ? Math.Min(preferences.MaxWalkingMinutes, 12)
                 : preferences.MaxWalkingMinutes
         };
+
+        ApplyRequestSignals(profile, message, responseMode);
+        return profile;
     }
 
-    private static void ApplyPreferenceSignals(
-        TravelerPreference preferences,
+    private static void ApplyRequestSignals(
+        TravelPreferenceProfile preferences,
         string? message,
         string responseMode)
     {
-        var changed = false;
         var normalized = message?.Trim().ToLowerInvariant() ?? string.Empty;
 
         if (responseMode == FoodMode)
         {
-            changed |= AddUnique(preferences.Interests, "Food");
-            changed |= AddUnique(preferences.FoodPreferences, "local food");
+            AddUnique(preferences.Interests, "Food");
+            AddUnique(preferences.FoodPreferences, "local food");
         }
 
         if (responseMode == CultureMode)
         {
-            changed |= AddUnique(preferences.Interests, "Culture");
+            AddUnique(preferences.Interests, "Culture");
         }
 
         if (responseMode == LessWalkingMode)
@@ -391,13 +487,11 @@ public sealed class TravelChatService(
             if (preferences.MaxWalkingMinutes > 12)
             {
                 preferences.MaxWalkingMinutes = 12;
-                changed = true;
             }
 
             if (!string.Equals(preferences.TravelPace, "relaxed", StringComparison.Ordinal))
             {
                 preferences.TravelPace = "relaxed";
-                changed = true;
             }
         }
 
@@ -405,39 +499,32 @@ public sealed class TravelChatService(
             && !string.Equals(preferences.TravelPace, "efficient", StringComparison.Ordinal))
         {
             preferences.TravelPace = "efficient";
-            changed = true;
         }
 
         if (responseMode == CheaperMode
             && !string.Equals(preferences.BudgetLevel, "low", StringComparison.Ordinal))
         {
             preferences.BudgetLevel = "low";
-            changed = true;
         }
 
         if (ContainsAny(normalized, "vegetariano", "vegetariana", "vegetarian"))
         {
-            changed |= AddUnique(preferences.DietaryRestrictions, "vegetarian");
+            AddUnique(preferences.DietaryRestrictions, "vegetarian");
         }
 
         if (ContainsAny(normalized, "sin gluten", "gluten free", "celiaco", "celiaca", "celiac"))
         {
-            changed |= AddUnique(preferences.DietaryRestrictions, "gluten-free");
+            AddUnique(preferences.DietaryRestrictions, "gluten-free");
         }
 
         if (ContainsAny(normalized, "sin museos", "no museos", "evitar museos"))
         {
-            changed |= AddUnique(preferences.Dislikes, "museum");
+            AddUnique(preferences.Dislikes, "museum");
         }
 
         if (ContainsAny(normalized, "sin shopping", "no shopping", "evitar compras"))
         {
-            changed |= AddUnique(preferences.Dislikes, "shopping");
-        }
-
-        if (changed)
-        {
-            preferences.UpdatedAt = DateTimeOffset.UtcNow;
+            AddUnique(preferences.Dislikes, "shopping");
         }
     }
 
@@ -518,12 +605,12 @@ public sealed class TravelChatService(
     {
         return responseMode switch
         {
-            LessWalkingMode => ["Algo mas corto", "Algo de comida local", "Ver mi agenda", "Otra opcion"],
+            LessWalkingMode => ["Algo mas corto", "Algo de comida local", "Ver mi agenda", "Ver mis preferencias"],
             ShorterMode => ["Menos caminata", "Algo de comida local", "Ver mi agenda", "Otra opcion"],
-            FoodMode => ["Menos caminata", "Algo cultural", "Algo mas corto", "Ver mi agenda"],
+            FoodMode => ["Menos caminata", "Algo cultural", "Algo mas corto", "Ver mis preferencias"],
             CultureMode => ["Algo de comida local", "Menos caminata", "Algo mas corto", "Ver mi agenda"],
             CheaperMode => ["Algo gratis", "Menos caminata", "Algo mas corto", "Ver mi agenda"],
-            _ => ["Algo con menos caminata", "Algo mas corto", "Algo de comida local", "Ver mi agenda"]
+            _ => ["Algo con menos caminata", "Algo mas corto", "Ver mi agenda", "Ver mis preferencias"]
         };
     }
 
@@ -634,10 +721,372 @@ public sealed class TravelChatService(
         return candidates.Any(candidate => value.Contains(candidate, StringComparison.OrdinalIgnoreCase));
     }
 
+    private static bool IsScheduleIntent(string? message)
+    {
+        return !string.IsNullOrWhiteSpace(message)
+            && ContainsAny(
+                message.Trim().ToLowerInvariant(),
+                "ver mi agenda",
+                "ver agenda",
+                "mi agenda",
+                "ver mis reservas",
+                "mostrar mis reservas",
+                "mis schedules",
+                "schedule");
+    }
+
+    private static bool IsPreferenceIntent(string? message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return false;
+        }
+
+        var normalized = message.Trim().ToLowerInvariant();
+        return ContainsAny(
+            normalized,
+            "preferencias",
+            "mis gustos",
+            "mi perfil",
+            "cambiar presupuesto",
+            "cambia presupuesto",
+            "actualizar presupuesto",
+            "actualiza presupuesto",
+            "mi presupuesto",
+            "cambiar ritmo",
+            "cambia ritmo",
+            "actualizar ritmo",
+            "actualiza ritmo",
+            "mi ritmo",
+            "cambiar intereses",
+            "cambia intereses",
+            "actualizar intereses",
+            "actualiza intereses",
+            "mis intereses",
+            "prefiero",
+            "me gusta",
+            "no me gusta",
+            "soy vegetariano",
+            "soy vegetariana",
+            "soy celiaco",
+            "soy celiaca",
+            "tengo celiaquia",
+            "sin gluten");
+    }
+
     private static bool IsAlternativeRequest(string? message)
     {
         return !string.IsNullOrWhiteSpace(message)
             && ContainsAny(message.Trim().ToLowerInvariant(), "otra opcion", "otra opción", "otra alternativa", "algo distinto");
+    }
+
+    private static bool IsSaveIntent(string? message)
+    {
+        return !string.IsNullOrWhiteSpace(message)
+            && ContainsAny(
+                message.Trim().ToLowerInvariant(),
+                "guardar plan",
+                "guarda el plan",
+                "guardá el plan",
+                "save plan",
+                "save itinerary",
+                "guardar itinerario");
+    }
+
+    private static bool MentionsSavedState(string message)
+    {
+        return ContainsAny(
+            message,
+            "guardado",
+            "guardada",
+            "saved",
+            "lo guarde",
+            "lo guardé");
+    }
+
+    private static TravelPreferenceProfilePatchDto? CreatePreferencePatchFromMessage(string? message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return null;
+        }
+
+        var normalized = RemoveDiacritics(message).ToLowerInvariant();
+        var interests = new List<string>();
+        var foodPreferences = new List<string>();
+        var dietaryRestrictions = new List<string>();
+        var dislikes = new List<string>();
+        string? budgetLevel = null;
+        string? travelPace = null;
+        int? maxWalkingMinutes = null;
+
+        if (ContainsAny(normalized, "presupuesto bajo", "barato", "economico", "gratis"))
+        {
+            budgetLevel = ContainsAny(normalized, "gratis") ? "free" : "low";
+        }
+        else if (ContainsAny(normalized, "presupuesto alto", "premium", "caro"))
+        {
+            budgetLevel = "high";
+        }
+        else if (ContainsAny(normalized, "presupuesto medio", "moderado"))
+        {
+            budgetLevel = "medium";
+        }
+
+        if (ContainsAny(normalized, "ritmo tranquilo", "ritmo relajado", "sin apuro", "poca caminata"))
+        {
+            travelPace = "relaxed";
+        }
+        else if (ContainsAny(normalized, "ritmo rapido", "ritmo eficiente", "aprovechar mucho"))
+        {
+            travelPace = "efficient";
+        }
+        else if (ContainsAny(normalized, "ritmo balanceado", "ritmo equilibrado"))
+        {
+            travelPace = "balanced";
+        }
+
+        if (ContainsAny(normalized, "menos caminata", "poca caminata", "caminar poco"))
+        {
+            maxWalkingMinutes = 12;
+        }
+
+        if (ContainsAny(normalized, "comida", "gastronomia", "restaurante", "cafe", "food"))
+        {
+            interests.Add("Food");
+            foodPreferences.Add("local food");
+        }
+
+        if (ContainsAny(normalized, "cultura", "museo", "historia", "arte"))
+        {
+            interests.Add("Culture");
+        }
+
+        if (ContainsAny(normalized, "compras", "shopping", "tiendas"))
+        {
+            interests.Add("Shopping");
+        }
+
+        if (ContainsAny(normalized, "barrio", "barrios", "neighborhood"))
+        {
+            interests.Add("Neighborhood");
+        }
+
+        if (ContainsAny(normalized, "vegetariano", "vegetariana", "vegetarian"))
+        {
+            dietaryRestrictions.Add("vegetarian");
+        }
+
+        if (ContainsAny(normalized, "sin gluten", "gluten free", "celiaco", "celiaca"))
+        {
+            dietaryRestrictions.Add("gluten-free");
+        }
+
+        if (ContainsAny(normalized, "no me gusta museos", "sin museos", "evitar museos"))
+        {
+            dislikes.Add("museum");
+        }
+
+        if (ContainsAny(normalized, "no me gusta shopping", "sin shopping", "evitar compras"))
+        {
+            dislikes.Add("shopping");
+        }
+
+        if (budgetLevel is null
+            && travelPace is null
+            && maxWalkingMinutes is null
+            && interests.Count == 0
+            && foodPreferences.Count == 0
+            && dietaryRestrictions.Count == 0
+            && dislikes.Count == 0)
+        {
+            return null;
+        }
+
+        return new TravelPreferenceProfilePatchDto(
+            foodPreferences.Count == 0 ? null : foodPreferences,
+            dietaryRestrictions.Count == 0 ? null : dietaryRestrictions,
+            budgetLevel,
+            travelPace,
+            interests.Count == 0 ? null : interests,
+            dislikes.Count == 0 ? null : dislikes,
+            null,
+            maxWalkingMinutes);
+    }
+
+    private static TravelPreferenceProfilePatchDto MergePreferencePatch(
+        TravelPreferenceProfileDto current,
+        TravelPreferenceProfilePatchDto patch)
+    {
+        return new TravelPreferenceProfilePatchDto(
+            patch.FoodPreferences is null ? null : MergeLists(current.FoodPreferences, patch.FoodPreferences),
+            patch.DietaryRestrictions is null ? null : MergeLists(current.DietaryRestrictions, patch.DietaryRestrictions),
+            patch.BudgetLevel,
+            patch.TravelPace,
+            patch.Interests is null ? null : MergeLists(current.Interests, patch.Interests),
+            patch.Dislikes is null ? null : MergeLists(current.Dislikes, patch.Dislikes),
+            patch.AvoidTouristTraps,
+            patch.MaxWalkingMinutes);
+    }
+
+    private static IReadOnlyList<string> MergeLists(
+        IReadOnlyList<string> current,
+        IReadOnlyList<string> incoming)
+    {
+        return current
+            .Concat(incoming)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static string FormatPreferenceProfile(TravelPreferenceProfileDto profile)
+    {
+        return string.Join(
+            '\n',
+            [
+                $"- Intereses: {FormatList(profile.Interests)}",
+                $"- Comida: {FormatList(profile.FoodPreferences)}",
+                $"- Restricciones: {FormatList(profile.DietaryRestrictions)}",
+                $"- Presupuesto: {profile.BudgetLevel}",
+                $"- Ritmo: {profile.TravelPace}",
+                $"- Max. caminata: {profile.MaxWalkingMinutes} min",
+                $"- Evitar: {FormatList(profile.Dislikes)}"
+            ]);
+    }
+
+    private static string FormatList(IReadOnlyList<string> values)
+    {
+        return values.Count == 0 ? "sin definir" : string.Join(", ", values);
+    }
+
+    private static DateOnly ResolveRequestedDate(string? message, DateOnly fallbackDate)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return fallbackDate;
+        }
+
+        var normalized = RemoveDiacritics(message).ToLowerInvariant();
+        if (ContainsAny(normalized, "pasado manana"))
+        {
+            return fallbackDate.AddDays(2);
+        }
+
+        if (ContainsAny(normalized, "manana"))
+        {
+            return fallbackDate.AddDays(1);
+        }
+
+        if (ContainsAny(normalized, "hoy"))
+        {
+            return fallbackDate;
+        }
+
+        var isoMatch = Regex.Match(normalized, @"\b(?<year>\d{4})-(?<month>\d{1,2})-(?<day>\d{1,2})\b");
+        if (isoMatch.Success
+            && TryCreateDate(
+                int.Parse(isoMatch.Groups["year"].Value, CultureInfo.InvariantCulture),
+                int.Parse(isoMatch.Groups["month"].Value, CultureInfo.InvariantCulture),
+                int.Parse(isoMatch.Groups["day"].Value, CultureInfo.InvariantCulture),
+                out var isoDate))
+        {
+            return isoDate;
+        }
+
+        var slashMatch = Regex.Match(normalized, @"\b(?<day>\d{1,2})[/-](?<month>\d{1,2})(?:[/-](?<year>\d{2,4}))?\b");
+        if (slashMatch.Success)
+        {
+            var year = slashMatch.Groups["year"].Success
+                ? NormalizeYear(int.Parse(slashMatch.Groups["year"].Value, CultureInfo.InvariantCulture))
+                : fallbackDate.Year;
+            if (TryCreateDate(
+                year,
+                int.Parse(slashMatch.Groups["month"].Value, CultureInfo.InvariantCulture),
+                int.Parse(slashMatch.Groups["day"].Value, CultureInfo.InvariantCulture),
+                out var slashDate))
+            {
+                return slashDate;
+            }
+        }
+
+        var monthMatch = Regex.Match(
+            normalized,
+            @"\b(?<day>\d{1,2})\s+de\s+(?<month>[a-z]+)(?:\s+de\s+(?<year>\d{4}))?\b");
+        if (monthMatch.Success
+            && TryParseSpanishMonth(monthMatch.Groups["month"].Value, out var monthNumber))
+        {
+            var year = monthMatch.Groups["year"].Success
+                ? int.Parse(monthMatch.Groups["year"].Value, CultureInfo.InvariantCulture)
+                : fallbackDate.Year;
+            if (TryCreateDate(
+                year,
+                monthNumber,
+                int.Parse(monthMatch.Groups["day"].Value, CultureInfo.InvariantCulture),
+                out var monthDate))
+            {
+                return monthDate;
+            }
+        }
+
+        return fallbackDate;
+    }
+
+    private static bool TryCreateDate(int year, int month, int day, out DateOnly date)
+    {
+        try
+        {
+            date = new DateOnly(year, month, day);
+            return true;
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            date = default;
+            return false;
+        }
+    }
+
+    private static int NormalizeYear(int year)
+    {
+        return year < 100 ? 2000 + year : year;
+    }
+
+    private static bool TryParseSpanishMonth(string value, out int month)
+    {
+        month = value switch
+        {
+            "enero" => 1,
+            "febrero" => 2,
+            "marzo" => 3,
+            "abril" => 4,
+            "mayo" => 5,
+            "junio" => 6,
+            "julio" => 7,
+            "agosto" => 8,
+            "septiembre" or "setiembre" => 9,
+            "octubre" => 10,
+            "noviembre" => 11,
+            "diciembre" => 12,
+            _ => 0
+        };
+
+        return month > 0;
+    }
+
+    private static string RemoveDiacritics(string value)
+    {
+        var normalized = value.Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder(capacity: normalized.Length);
+        foreach (var character in normalized)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(character) != UnicodeCategory.NonSpacingMark)
+            {
+                builder.Append(character);
+            }
+        }
+
+        return builder.ToString().Normalize(NormalizationForm.FormC);
     }
 
     private static HashSet<string> ParseRecommendationIds(string? recommendationIds)
@@ -663,6 +1112,29 @@ public sealed class TravelChatService(
             [],
             suggestions,
             new MissingContextDto(field, message, suggestions));
+    }
+
+    private static IReadOnlyList<string> CreatePreferenceSuggestions(IReadOnlyList<string> missingFields)
+    {
+        var suggestions = new List<string>();
+
+        if (missingFields.Contains("interests", StringComparer.OrdinalIgnoreCase))
+        {
+            suggestions.Add("Guardar intereses");
+        }
+
+        if (missingFields.Contains("budgetLevel", StringComparer.OrdinalIgnoreCase))
+        {
+            suggestions.Add("Definir presupuesto");
+        }
+
+        if (missingFields.Contains("travelPace", StringComparer.OrdinalIgnoreCase))
+        {
+            suggestions.Add("Definir ritmo");
+        }
+
+        suggestions.Add("Completar preferencias");
+        return suggestions.Distinct(StringComparer.OrdinalIgnoreCase).Take(4).ToList();
     }
 
     private static string ResolveCity(
@@ -691,6 +1163,11 @@ public sealed class TravelChatService(
             .OrderBy(reservation => GetStartForDate(reservation, date))
             .ToList();
 
+        if (ordered.Count == 0)
+        {
+            return (new TimeOnly(10, 0), new TimeOnly(13, 0), 180);
+        }
+
         for (var i = 0; i < ordered.Count - 1; i++)
         {
             var end = GetEndForDate(ordered[i], date);
@@ -700,6 +1177,22 @@ public sealed class TravelChatService(
             {
                 return (end, nextStart, availableMinutes);
             }
+        }
+
+        var firstStart = GetStartForDate(ordered[0], date);
+        var morningStart = new TimeOnly(9, 0);
+        var morningMinutes = (int)(firstStart.ToTimeSpan() - morningStart.ToTimeSpan()).TotalMinutes;
+        if (morningMinutes >= 90)
+        {
+            return (morningStart, firstStart, morningMinutes);
+        }
+
+        var lastEnd = GetEndForDate(ordered[^1], date);
+        var eveningEnd = new TimeOnly(21, 0);
+        var eveningMinutes = (int)(eveningEnd.ToTimeSpan() - lastEnd.ToTimeSpan()).TotalMinutes;
+        if (eveningMinutes >= 90)
+        {
+            return (lastEnd, eveningEnd, eveningMinutes);
         }
 
         return null;

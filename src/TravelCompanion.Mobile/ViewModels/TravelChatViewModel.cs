@@ -7,20 +7,26 @@ namespace TravelCompanion.Mobile.ViewModels;
 
 public sealed partial class TravelChatViewModel(
     TravelCompanionApiClient apiClient,
-    AuthSessionService sessionService) : ViewModelBase, ISessionStateResettable
+    AuthSessionService sessionService,
+    ILocationService locationService,
+    MobileBootstrapStore bootstrapStore) : ViewModelBase, ISessionStateResettable
 {
     private string? _conversationId;
     private string _messageText = "Proponeme un plan entre mis reservas de hoy";
     private DateTime _planningDate = DateTime.Today;
     private string? _city;
     private bool _hasLoadedContext;
+    private string? _missingContextMessage;
+    private string? _missingContextField;
 
     public ObservableCollection<TravelChatMessageViewModel> Messages { get; } = [];
     public ObservableCollection<string> SuggestedReplies { get; } =
     [
         "Proponeme un plan entre mis reservas de hoy",
-        "Algo con menos caminata"
+        "Algo con menos caminata",
+        "Ver mis preferencias"
     ];
+    public ObservableCollection<string> MissingContextSuggestions { get; } = [];
 
     public string MessageText
     {
@@ -46,6 +52,25 @@ public sealed partial class TravelChatViewModel(
         set => SetProperty(ref _city, value);
     }
 
+    public string? MissingContextMessage
+    {
+        get => _missingContextMessage;
+        private set
+        {
+            if (SetProperty(ref _missingContextMessage, value))
+            {
+                OnPropertyChanged(nameof(HasMissingContext));
+            }
+        }
+    }
+
+    public string? MissingContextField
+    {
+        get => _missingContextField;
+        private set => SetProperty(ref _missingContextField, value);
+    }
+
+    public bool HasMissingContext => !string.IsNullOrWhiteSpace(MissingContextMessage);
     public bool HasMessages => Messages.Count > 0;
     public bool ShowEmptyState => !HasMessages && !IsBusy;
 
@@ -97,6 +122,8 @@ public sealed partial class TravelChatViewModel(
         SuggestedReplies.Clear();
         SuggestedReplies.Add("Proponeme un plan entre mis reservas de hoy");
         SuggestedReplies.Add("Algo con menos caminata");
+        SuggestedReplies.Add("Ver mis preferencias");
+        ClearMissingContext();
         OnMessagesChanged();
     }
 
@@ -127,9 +154,11 @@ public sealed partial class TravelChatViewModel(
             IsBusy = true;
             ErrorMessage = null;
             StatusMessage = null;
+            ClearMissingContext();
             MessageText = string.Empty;
             Messages.Add(new TravelChatMessageViewModel(message, isFromUser: true));
             OnMessagesChanged();
+            var currentLocation = await locationService.GetCurrentLocationAsync();
 
             var response = await apiClient.SendTravelChatAsync(
                 token,
@@ -138,7 +167,7 @@ public sealed partial class TravelChatViewModel(
                     _conversationId,
                     City,
                     DateOnly.FromDateTime(PlanningDate),
-                    null,
+                    currentLocation,
                     "es-ES"));
 
             if (response is null)
@@ -158,7 +187,7 @@ public sealed partial class TravelChatViewModel(
                 SuggestedReplies.Add(reply);
             }
 
-            StatusMessage = response.MissingContext?.Message;
+            ApplyMissingContext(response.MissingContext);
             OnMessagesChanged();
         }
         catch (Exception ex)
@@ -179,8 +208,129 @@ public sealed partial class TravelChatViewModel(
             return;
         }
 
+        if (IsSaveReply(reply))
+        {
+            await SaveItineraryItemAsync(FindLatestSaveableCard());
+            return;
+        }
+
+        if (IsScheduleReply(reply))
+        {
+            await Shell.Current.GoToAsync("//main/schedule");
+            return;
+        }
+
         MessageText = reply;
         await SendMessageAsync();
+    }
+
+    [RelayCommand]
+    private async Task SaveItineraryItemAsync(TravelChatCardViewModel? card)
+    {
+        if (card is null || !card.CanSave || !card.RecommendationId.HasValue || !card.StartsAt.HasValue)
+        {
+            StatusMessage = "No encontre un plan listo para guardar.";
+            return;
+        }
+
+        var confirmed = await Shell.Current.DisplayAlertAsync(
+            "Guardar plan",
+            $"Guardar \"{card.Title}\" en tu itinerario?",
+            "Guardar",
+            "Cancelar");
+        if (!confirmed)
+        {
+            return;
+        }
+
+        var token = await sessionService.GetTokenAsync();
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            sessionService.Clear();
+            await Shell.Current.GoToAsync("//login");
+            return;
+        }
+
+        try
+        {
+            IsBusy = true;
+            ErrorMessage = null;
+            StatusMessage = null;
+
+            var response = await apiClient.SaveItineraryItemAsync(
+                token,
+                new SaveItineraryItemRequest(
+                    card.RecommendationId.Value,
+                    DateOnly.FromDateTime(PlanningDate),
+                    card.StartsAt.Value,
+                    card.EndsAt));
+
+            if (response?.Saved == true)
+            {
+                card.IsSaved = true;
+                StatusMessage = response.Message;
+                if (response.Item is not null)
+                {
+                    await bootstrapStore.UpsertScheduleItemAsync(response.Item);
+                }
+
+                return;
+            }
+
+            ErrorMessage = response?.Message ?? "No pude guardar el plan. Intenta nuevamente.";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"No pude guardar el plan: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private TravelChatCardViewModel? FindLatestSaveableCard()
+    {
+        return Messages
+            .Reverse()
+            .SelectMany(message => message.Cards)
+            .FirstOrDefault(card => card.CanSave);
+    }
+
+    private static bool IsSaveReply(string reply)
+    {
+        return reply.Contains("guardar", StringComparison.OrdinalIgnoreCase)
+            || reply.Contains("save", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsScheduleReply(string reply)
+    {
+        return reply.Contains("agenda", StringComparison.OrdinalIgnoreCase)
+            || reply.Contains("schedule", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void ApplyMissingContext(MissingContextDto? missingContext)
+    {
+        MissingContextMessage = missingContext?.Message;
+        MissingContextField = missingContext?.Field;
+        MissingContextSuggestions.Clear();
+
+        if (missingContext is null)
+        {
+            return;
+        }
+
+        foreach (var suggestion in missingContext.Suggestions ?? [])
+        {
+            MissingContextSuggestions.Add(suggestion);
+        }
+    }
+
+    private void ClearMissingContext()
+    {
+        MissingContextMessage = null;
+        MissingContextField = null;
+        MissingContextSuggestions.Clear();
     }
 
     private bool CanSendMessage()

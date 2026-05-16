@@ -72,6 +72,8 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddScoped<IPasswordHasher<AppUser>, PasswordHasher<AppUser>>();
 builder.Services.AddScoped<UserSessionService>();
 builder.Services.AddScoped<IUserInvitationSender, LoggingUserInvitationSender>();
+builder.Services.AddScoped<IUserProfileService, UserProfileService>();
+builder.Services.AddScoped<IItineraryService, ItineraryService>();
 builder.Services.AddScoped<IRecommendationRanker, DeterministicRecommendationRanker>();
 builder.Services.AddSingleton<ITravelAiModelClient, OpenAiTravelModelClient>();
 builder.Services.AddScoped<ITravelChatService, TravelChatService>();

@@ -73,6 +73,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<MobileBootstrapStore>();
         builder.Services.AddSingleton<MobileDiscoverStore>();
         builder.Services.AddSingleton<FavoritesService>();
+        builder.Services.AddSingleton<ILocationService, LocationService>();
 
         builder.Services.AddTransient<LoginViewModel>();
         builder.Services.AddTransient<BiometricUnlockViewModel>();

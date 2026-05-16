@@ -30,5 +30,7 @@
 	<string>Assets.xcassets/appicon.appiconset</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Travel Companion usa Face ID para desbloquear tu cuenta de viaje de forma segura.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Travel Companion usa tu ubicacion aproximada para proponerte planes cercanos a tus reservas.</string>
 </dict>
 </plist>

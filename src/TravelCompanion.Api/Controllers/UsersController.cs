@@ -11,7 +11,8 @@ namespace TravelCompanion.Api.Controllers;
 [Route("api/[controller]")]
 public sealed class UsersController(
     TravelCompanionDbContext dbContext,
-    UserSessionService sessionService) : ControllerBase
+    UserSessionService sessionService,
+    IUserProfileService userProfileService) : ControllerBase
 {
     private const string DemoUserEmail = "demo@travelcompanion.local";
 
@@ -87,6 +88,42 @@ public sealed class UsersController(
         return schedule is null
             ? NotFound()
             : Ok(schedule);
+    }
+
+    [HttpGet("~/api/me/travel-preference-profile")]
+    public async Task<ActionResult<TravelPreferenceProfileDto>> GetMyTravelPreferenceProfile(
+        CancellationToken cancellationToken)
+    {
+        var user = await sessionService.GetUserAsync(HttpContext, cancellationToken);
+        return user is null
+            ? Unauthorized()
+            : Ok(await userProfileService.GetProfileDtoAsync(user.Id, cancellationToken));
+    }
+
+    [HttpPatch("~/api/me/travel-preference-profile")]
+    public async Task<ActionResult<TravelPreferenceProfileDto>> PatchMyTravelPreferenceProfile(
+        [FromBody] TravelPreferenceProfilePatchDto patch,
+        CancellationToken cancellationToken)
+    {
+        if (patch is null)
+        {
+            return this.ValidationError("profile", "Profile patch is required.");
+        }
+
+        var user = await sessionService.GetUserAsync(HttpContext, cancellationToken);
+        if (user is null)
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            return Ok(await userProfileService.PatchProfileAsync(user.Id, patch, cancellationToken));
+        }
+        catch (ArgumentException ex)
+        {
+            return this.ValidationError("profile", ex.Message);
+        }
     }
 
     private async Task<TripScheduleDto?> FindScheduleAsync(Guid userId, CancellationToken cancellationToken = default)

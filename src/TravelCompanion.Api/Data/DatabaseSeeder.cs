@@ -45,6 +45,7 @@ public static class DatabaseSeeder
         await NormalizeDemoDataAsync(dbContext, passwordHasher);
         await SeedAdditionalJapanRecommendationsAsync(dbContext);
         await SeedAccessScenarioUsersAsync(dbContext, passwordHasher);
+        await SeedDemoTravelPreferenceProfilesAsync(dbContext);
 
         await dbContext.SaveChangesAsync();
         await SyncSeedRecommendationPackageLinksAsync(dbContext);
@@ -1492,5 +1493,28 @@ public static class DatabaseSeeder
 
         reservation.TripId = tripId;
         dbContext.Reservations.Add(reservation);
+    }
+
+    private static async Task SeedDemoTravelPreferenceProfilesAsync(TravelCompanionDbContext dbContext)
+    {
+        var demoUserIds = new[] { DemoUserId, FreeUserId, SubscriptionUserId, PaidUserId };
+        var existingProfileUserIds = await dbContext.TravelPreferenceProfiles
+            .Where(profile => demoUserIds.Contains(profile.UserId))
+            .Select(profile => profile.UserId)
+            .ToListAsync();
+
+        foreach (var userId in demoUserIds.Except(existingProfileUserIds))
+        {
+            dbContext.TravelPreferenceProfiles.Add(new TravelPreferenceProfile
+            {
+                UserId = userId,
+                Interests = ["Food", "Culture", "Neighborhood"],
+                FoodPreferences = ["local food", "coffee"],
+                BudgetLevel = "medium",
+                TravelPace = "balanced",
+                AvoidTouristTraps = true,
+                MaxWalkingMinutes = 25
+            });
+        }
     }
 }

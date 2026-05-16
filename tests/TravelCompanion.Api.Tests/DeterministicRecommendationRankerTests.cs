@@ -13,7 +13,7 @@ public sealed class DeterministicRecommendationRankerTests
         var ranker = new DeterministicRecommendationRanker();
         var profile = new TravelPreferenceProfile
         {
-            UserId = Guid.NewGuid().ToString(),
+            UserId = Guid.NewGuid(),
             Interests = ["Food", "Culture"],
             MaxWalkingMinutes = 25
         };
@@ -59,7 +59,7 @@ public sealed class DeterministicRecommendationRankerTests
         var ranker = new DeterministicRecommendationRanker();
         var profile = new TravelPreferenceProfile
         {
-            UserId = Guid.NewGuid().ToString(),
+            UserId = Guid.NewGuid(),
             Interests = ["Food"],
             FoodPreferences = ["local food"],
             DietaryRestrictions = ["vegetarian"],
@@ -112,7 +112,7 @@ public sealed class DeterministicRecommendationRankerTests
         var ranker = new DeterministicRecommendationRanker();
         var profile = new TravelPreferenceProfile
         {
-            UserId = Guid.NewGuid().ToString(),
+            UserId = Guid.NewGuid(),
             Interests = ["Culture"],
             MaxWalkingMinutes = 30
         };
@@ -157,7 +157,7 @@ public sealed class DeterministicRecommendationRankerTests
         var ranker = new DeterministicRecommendationRanker();
         var profile = new TravelPreferenceProfile
         {
-            UserId = Guid.NewGuid().ToString(),
+            UserId = Guid.NewGuid(),
             Interests = ["Culture"],
             Dislikes = ["shopping"],
             MaxWalkingMinutes = 30

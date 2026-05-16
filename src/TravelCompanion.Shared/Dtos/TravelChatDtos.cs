@@ -39,3 +39,38 @@ public sealed record MissingContextDto(
     string Field,
     string Message,
     IReadOnlyList<string> Suggestions);
+
+public sealed record TravelPreferenceProfileDto(
+    Guid UserId,
+    IReadOnlyList<string> FoodPreferences,
+    IReadOnlyList<string> DietaryRestrictions,
+    string BudgetLevel,
+    string TravelPace,
+    IReadOnlyList<string> Interests,
+    IReadOnlyList<string> Dislikes,
+    bool AvoidTouristTraps,
+    int MaxWalkingMinutes,
+    bool HasMinimumPreferences,
+    IReadOnlyList<string> MissingFields,
+    DateTimeOffset? UpdatedAt);
+
+public sealed record TravelPreferenceProfilePatchDto(
+    IReadOnlyList<string>? FoodPreferences,
+    IReadOnlyList<string>? DietaryRestrictions,
+    string? BudgetLevel,
+    string? TravelPace,
+    IReadOnlyList<string>? Interests,
+    IReadOnlyList<string>? Dislikes,
+    bool? AvoidTouristTraps,
+    int? MaxWalkingMinutes);
+
+public sealed record SaveItineraryItemRequest(
+    Guid RecommendationId,
+    DateOnly Date,
+    TimeOnly StartsAt,
+    TimeOnly? EndsAt);
+
+public sealed record SaveItineraryItemResponse(
+    bool Saved,
+    string Message,
+    ScheduleItemDto? Item);

@@ -59,6 +59,57 @@ POST /api/ai/travel-chat
 }
 ```
 
+If the authenticated user does not have minimum preference context, the chat returns no cards and sets `missingContext`:
+
+```json
+{
+  "conversationId": "abc123",
+  "message": "Antes de proponerte un plan necesito guardar al menos tus intereses, presupuesto y ritmo de viaje.",
+  "intent": "plan_between_reservations",
+  "cards": [],
+  "suggestedReplies": ["Guardar intereses", "Definir presupuesto", "Definir ritmo", "Completar preferencias"],
+  "missingContext": {
+    "field": "preferences",
+    "message": "Antes de proponerte un plan necesito guardar al menos tus intereses, presupuesto y ritmo de viaje.",
+    "suggestions": ["Guardar intereses", "Definir presupuesto", "Definir ritmo", "Completar preferencias"]
+  }
+}
+```
+
+Saving a plan is not performed by chat text. The MAUI app must ask the user for confirmation and then call the explicit backend action:
+
+```http
+POST /api/ai/save_itinerary_item
+```
+
+```json
+{
+  "recommendationId": "33333333-3333-3333-3333-333333333301",
+  "date": "2026-10-06",
+  "startsAt": "11:00:00",
+  "endsAt": "12:30:00"
+}
+```
+
+The model must not say an itinerary item was saved. Only a successful `SaveItineraryItemResponse.saved = true` confirms the save.
+
+Preference profile endpoints:
+
+```http
+GET /api/me/travel-preference-profile
+PATCH /api/me/travel-preference-profile
+```
+
+`PATCH` accepts partial `TravelPreferenceProfilePatchDto` values for interests, food preferences, dietary restrictions, budget level, travel pace, dislikes, tourist-trap avoidance, and max walking minutes.
+
+The chat endpoint also handles deterministic assistant intents without asking the model:
+
+- `view_schedule`: messages such as `Ver mi agenda` return a schedule summary for the requested date.
+- `view_preferences`: messages such as `Ver mis preferencias` return the current preference profile.
+- `update_preferences`: explicit preference edits such as `Prefiero presupuesto bajo y ritmo tranquilo` patch the profile and return the updated summary.
+
+Date requests inside chat text are supported for planning prompts, for example `Proponeme planes para 2026-10-08`, `Proponeme planes para el 8 de octubre`, or `Proponeme planes para mañana`. The backend resolves that date before loading schedules and recommendations.
+
 ## Suggested C# DTOs
 
 ```csharp
