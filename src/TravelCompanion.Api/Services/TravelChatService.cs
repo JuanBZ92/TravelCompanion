@@ -103,6 +103,9 @@ public sealed class TravelChatService(
         }
 
         var responseMode = ResolveResponseMode(request.Message, conversation?.LastResponseMode);
+        var previousRecommendationIds = IsAlternativeRequest(request.Message)
+            ? ParseRecommendationIds(conversation?.LastRecommendationIds)
+            : [];
         var preferences = await LoadOrCreatePreferencesAsync(user.Id, cancellationToken);
         ApplyPreferenceSignals(preferences, request.Message, responseMode);
         var profile = CreateProfile(user, preferences, responseMode);
@@ -113,9 +116,22 @@ public sealed class TravelChatService(
             planningWindow.Value.End,
             planningWindow.Value.AvailableMinutes,
             request.CurrentLocation);
-        var ranked = ApplyResponseMode(
+        var rankedCandidates = ApplyResponseMode(
                 ranker.Rank(profile, reservations, unlockedRecommendations, context),
                 responseMode)
+            .ToList();
+        if (previousRecommendationIds.Count > 0)
+        {
+            var freshCandidates = rankedCandidates
+                .Where(scored => !previousRecommendationIds.Contains(scored.Recommendation.Id.ToString()))
+                .ToList();
+            if (freshCandidates.Count > 0)
+            {
+                rankedCandidates = freshCandidates;
+            }
+        }
+
+        var ranked = rankedCandidates
             .Take(3)
             .ToList();
         var cards = ranked.Select(scored => ToCard(scored, context)).ToList();
@@ -578,7 +594,7 @@ public sealed class TravelChatService(
         }
 
         var normalized = message.Trim().ToLowerInvariant();
-        if (ContainsAny(normalized, "otra opcion", "otra opción", "otra alternativa", "algo distinto"))
+        if (IsAlternativeRequest(normalized))
         {
             return string.IsNullOrWhiteSpace(previousResponseMode)
                 ? BalancedMode
@@ -616,6 +632,22 @@ public sealed class TravelChatService(
     private static bool ContainsAny(string value, params string[] candidates)
     {
         return candidates.Any(candidate => value.Contains(candidate, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsAlternativeRequest(string? message)
+    {
+        return !string.IsNullOrWhiteSpace(message)
+            && ContainsAny(message.Trim().ToLowerInvariant(), "otra opcion", "otra opción", "otra alternativa", "algo distinto");
+    }
+
+    private static HashSet<string> ParseRecommendationIds(string? recommendationIds)
+    {
+        return string.IsNullOrWhiteSpace(recommendationIds)
+            ? []
+            : recommendationIds
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
     }
 
     private static TravelChatResponse MissingContext(
