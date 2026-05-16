@@ -440,6 +440,75 @@ public sealed class TravelChatServiceTests
         Assert.Equal(new DateOnly(2026, 10, 6), conversation.LastDate);
     }
 
+    [Fact]
+    public async Task CreatePlanAsync_avoids_previous_recommendations_for_alternative_followup()
+    {
+        await using var dbContext = CreateDbContext();
+        var destinationId = Guid.NewGuid();
+        var user = CreateUser(destinationId);
+        dbContext.AppUsers.Add(user);
+        dbContext.Destinations.Add(new Destination
+        {
+            Id = destinationId,
+            Name = "Japon",
+            Slug = "japon",
+            Country = "Japan",
+            HeroImageUrl = string.Empty,
+            ShortDescription = "Demo"
+        });
+        dbContext.Trips.Add(new Trip
+        {
+            Id = Guid.NewGuid(),
+            AppUserId = user.Id,
+            DestinationId = destinationId,
+            TravelerName = "Demo Traveler",
+            StartsOn = new DateOnly(2026, 10, 6),
+            EndsOn = new DateOnly(2026, 10, 10),
+            Reservations =
+            [
+                CreateReservation("Museum", new TimeOnly(9, 0), "Tokyo"),
+                CreateReservation("Dinner", new TimeOnly(18, 0), "Tokyo")
+            ]
+        });
+        dbContext.Recommendations.AddRange(
+            CreateRecommendation(destinationId, "First snack stop", "Food", "Local snacks in Tokyo.", 60),
+            CreateRecommendation(destinationId, "Second cafe stop", "Food", "Local coffee and snacks in Tokyo.", 60),
+            CreateRecommendation(destinationId, "Third market stop", "Food", "Local market food in Tokyo.", 60),
+            CreateRecommendation(destinationId, "Zesty tea alley", "Food", "Quiet local tea in Tokyo.", 45));
+        await dbContext.SaveChangesAsync();
+
+        var service = CreateService(dbContext);
+        var firstResponse = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest(
+                "Quiero comida local",
+                null,
+                "Tokyo",
+                new DateOnly(2026, 10, 6),
+                null,
+                "es-ES"),
+            CancellationToken.None);
+        var firstRecommendationIds = firstResponse.Cards
+            .Select(card => card.RecommendationId)
+            .ToHashSet();
+
+        var followUp = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest(
+                "Otra opcion",
+                firstResponse.ConversationId,
+                null,
+                null,
+                null,
+                "es-ES"),
+            CancellationToken.None);
+
+        Assert.NotEmpty(firstResponse.Cards);
+        Assert.NotEmpty(followUp.Cards);
+        Assert.All(followUp.Cards, card => Assert.DoesNotContain(card.RecommendationId, firstRecommendationIds));
+        Assert.Equal("Zesty tea alley", followUp.Cards[0].Title);
+    }
+
     private static TravelCompanionDbContext CreateDbContext()
     {
         var options = new DbContextOptionsBuilder<TravelCompanionDbContext>()
@@ -497,6 +566,32 @@ public sealed class TravelChatServiceTests
             Address = $"{title} address",
             ConfirmationCode = "CONF",
             Notes = string.Empty
+        };
+    }
+
+    private static Recommendation CreateRecommendation(
+        Guid destinationId,
+        string title,
+        string category,
+        string description,
+        int durationMinutes)
+    {
+        return new Recommendation
+        {
+            Id = Guid.NewGuid(),
+            DestinationId = destinationId,
+            Title = title,
+            Category = category,
+            Neighborhood = "Chuo, Tokyo",
+            Description = description,
+            Tags = ["local food"],
+            PriceLevel = "medium",
+            Latitude = 35.665486m,
+            Longitude = 139.770667m,
+            SuggestedDurationMinutes = durationMinutes,
+            Rating = 4.5,
+            OpeningHours = "09:00-22:00",
+            AccessLevel = ContentAccessLevel.Free
         };
     }
 
