@@ -135,6 +135,20 @@ public sealed class ContentAccessPolicyTests
         Assert.Equal(ContentAccessLevel.Paid, ProductAccessModel.GetPackageGrantLevel(isSubscription: true));
     }
 
+    [Fact]
+    public void Missing_deserialized_collections_are_treated_as_empty()
+    {
+        var isUnlocked = ContentAccessPolicy.IsRecommendationUnlocked(
+            entitlements: null,
+            ContentAccessLevel.Free,
+            JapanDestinationId,
+            packageIds: null);
+
+        Assert.True(isUnlocked);
+        Assert.False(ContentAccessPolicy.HasPackageAccess(entitlements: null, EssentialsPackageId));
+        Assert.Contains(ContentAccessLevel.Free, ContentAccessPolicy.GetUnlockedContentLevels(activeAccessLevels: null));
+    }
+
     private static UserEntitlementsDto CreateEntitlements(
         IReadOnlyList<ContentAccessLevel>? accessLevels = null,
         IReadOnlyList<Guid>? destinationIds = null,

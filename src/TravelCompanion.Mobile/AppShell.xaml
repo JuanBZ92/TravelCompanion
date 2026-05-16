@@ -48,6 +48,13 @@
             Route="schedule" />
 
         <ShellContent
+            x:Name="AssistantTab"
+            Title="Assistant"
+            Icon="tab_ideas.svg"
+            ContentTemplate="{DataTemplate pages:TravelChatPage}"
+            Route="assistant" />
+
+        <ShellContent
             x:Name="PackagesTab"
             Title="Packs"
             Icon="tab_packs.svg"

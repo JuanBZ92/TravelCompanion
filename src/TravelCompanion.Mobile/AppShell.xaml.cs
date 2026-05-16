@@ -30,6 +30,7 @@ public partial class AppShell : Shell
         RecommendationsTab.Content ??= MauiProgram.Services.GetRequiredService<RecommendationsPage>();
         MapTab.Content ??= MauiProgram.Services.GetRequiredService<MapPage>();
         ScheduleTab.Content ??= MauiProgram.Services.GetRequiredService<SchedulePage>();
+        AssistantTab.Content ??= MauiProgram.Services.GetRequiredService<TravelChatPage>();
         PackagesTab.Content ??= MauiProgram.Services.GetRequiredService<PackagesPage>();
         SupportTab.Content ??= MauiProgram.Services.GetRequiredService<SupportPage>();
     }

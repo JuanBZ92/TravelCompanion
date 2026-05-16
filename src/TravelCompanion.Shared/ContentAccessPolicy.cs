@@ -6,7 +6,7 @@ public static class ContentAccessPolicy
         Dtos.UserEntitlementsDto? entitlements,
         Guid destinationId)
     {
-        return entitlements?.Entitlements.Any(entitlement =>
+        return entitlements?.Entitlements?.Any(entitlement =>
             entitlement.AccessLevel == ContentAccessLevel.Subscription
             && entitlement.DestinationId == destinationId) == true;
     }
@@ -15,7 +15,7 @@ public static class ContentAccessPolicy
         Dtos.UserEntitlementsDto? entitlements,
         Guid packageId)
     {
-        return entitlements?.PackageIds.Contains(packageId) == true;
+        return entitlements?.PackageIds?.Contains(packageId) == true;
     }
 
     public static bool IsPackageUnlocked(
@@ -31,14 +31,14 @@ public static class ContentAccessPolicy
         Dtos.UserEntitlementsDto? entitlements,
         ContentAccessLevel accessLevel,
         Guid destinationId,
-        IReadOnlyList<Guid> packageIds)
+        IReadOnlyList<Guid>? packageIds)
     {
         if (accessLevel == ContentAccessLevel.AdminOnly)
         {
             return false;
         }
 
-        if (packageIds.Count > 0)
+        if (packageIds?.Count > 0)
         {
             return packageIds.Any(packageId => IsPackageUnlocked(entitlements, destinationId, packageId));
         }
@@ -52,7 +52,7 @@ public static class ContentAccessPolicy
     }
 
     public static IReadOnlySet<ContentAccessLevel> GetUnlockedContentLevels(
-        IEnumerable<ContentAccessLevel> activeAccessLevels,
+        IEnumerable<ContentAccessLevel>? activeAccessLevels,
         bool hasDestinationAccess = false,
         bool hasPackageAccess = false)
     {
@@ -70,11 +70,11 @@ public static class ContentAccessPolicy
 
     public static bool IsUnlocked(
         ContentAccessLevel requiredAccess,
-        IEnumerable<ContentAccessLevel> activeAccessLevels,
+        IEnumerable<ContentAccessLevel>? activeAccessLevels,
         bool hasDestinationAccess = false,
         bool hasPackageAccess = false)
     {
-        var active = activeAccessLevels.ToHashSet();
+        var active = activeAccessLevels?.ToHashSet() ?? [];
 
         return requiredAccess switch
         {
