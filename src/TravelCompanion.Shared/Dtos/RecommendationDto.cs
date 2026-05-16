@@ -9,9 +9,13 @@ public sealed record RecommendationDto(
     string Category,
     string Neighborhood,
     string Description,
+    IReadOnlyList<string> Tags,
+    string PriceLevel,
     decimal Latitude,
     decimal Longitude,
     int SuggestedDurationMinutes,
+    double? Rating,
+    string? OpeningHours,
     ContentAccessLevel AccessLevel,
     IReadOnlyList<Guid> PackageIds,
     decimal? DistanceKm);

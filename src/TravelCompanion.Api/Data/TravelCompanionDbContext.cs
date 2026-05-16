@@ -14,6 +14,8 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
     public DbSet<AppUser> AppUsers => Set<AppUser>();
     public DbSet<UserEntitlement> UserEntitlements => Set<UserEntitlement>();
     public DbSet<AppUserSession> AppUserSessions => Set<AppUserSession>();
+    public DbSet<TravelerPreference> TravelerPreferences => Set<TravelerPreference>();
+    public DbSet<TravelChatConversation> TravelChatConversations => Set<TravelChatConversation>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -42,6 +44,8 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
             entity.Property(recommendation => recommendation.Title).HasMaxLength(160);
             entity.Property(recommendation => recommendation.Category).HasMaxLength(80);
             entity.Property(recommendation => recommendation.Neighborhood).HasMaxLength(120);
+            entity.Property(recommendation => recommendation.PriceLevel).HasMaxLength(32);
+            entity.Property(recommendation => recommendation.OpeningHours).HasMaxLength(256);
             entity.Property(recommendation => recommendation.Latitude).HasPrecision(9, 6);
             entity.Property(recommendation => recommendation.Longitude).HasPrecision(9, 6);
             entity.Property(recommendation => recommendation.AccessLevel)
@@ -116,6 +120,31 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
             entity.HasOne(session => session.User)
                 .WithMany(user => user.Sessions)
                 .HasForeignKey(session => session.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<TravelerPreference>(entity =>
+        {
+            entity.HasKey(preference => preference.UserId);
+            entity.Property(preference => preference.BudgetLevel).HasMaxLength(32);
+            entity.Property(preference => preference.TravelPace).HasMaxLength(32);
+            entity.HasOne(preference => preference.User)
+                .WithOne(user => user.TravelerPreference)
+                .HasForeignKey<TravelerPreference>(preference => preference.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<TravelChatConversation>(entity =>
+        {
+            entity.Property(conversation => conversation.Id).HasMaxLength(64);
+            entity.Property(conversation => conversation.LastCity).HasMaxLength(120);
+            entity.Property(conversation => conversation.LastResponseMode).HasMaxLength(40);
+            entity.Property(conversation => conversation.LastRecommendationIds).HasMaxLength(512);
+            entity.HasKey(conversation => conversation.Id);
+            entity.HasIndex(conversation => new { conversation.UserId, conversation.UpdatedAt });
+            entity.HasOne(conversation => conversation.User)
+                .WithMany(user => user.TravelChatConversations)
+                .HasForeignKey(conversation => conversation.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 

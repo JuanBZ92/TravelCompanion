@@ -29,7 +29,16 @@ public sealed class TravelChatService(
         var conversationId = string.IsNullOrWhiteSpace(request.ConversationId)
             ? Guid.NewGuid().ToString("N")
             : request.ConversationId.Trim();
-        var date = request.Date ?? DateOnly.FromDateTime(DateTime.UtcNow);
+        var conversation = await LoadConversationAsync(conversationId, user.Id, cancellationToken);
+        if (conversation is not null && conversation.UserId != user.Id)
+        {
+            conversationId = Guid.NewGuid().ToString("N");
+            conversation = null;
+        }
+
+        var date = request.Date
+            ?? conversation?.LastDate
+            ?? DateOnly.FromDateTime(DateTime.UtcNow);
 
         var trips = await dbContext.Trips
             .AsNoTracking()
@@ -65,7 +74,7 @@ public sealed class TravelChatService(
                 ["Probar otro dia", "Ver mi agenda"]);
         }
 
-        var city = ResolveCity(request.City, reservations, trips);
+        var city = ResolveCity(request.City ?? conversation?.LastCity, reservations, trips);
         var planningWindow = FindPlanningWindow(reservations, date);
         if (planningWindow is null)
         {
@@ -93,8 +102,10 @@ public sealed class TravelChatService(
                 ["Probar otra ciudad", "Ver recomendaciones"]);
         }
 
-        var responseMode = ResolveResponseMode(request.Message);
-        var profile = CreateDefaultProfile(user, responseMode);
+        var responseMode = ResolveResponseMode(request.Message, conversation?.LastResponseMode);
+        var preferences = await LoadOrCreatePreferencesAsync(user.Id, cancellationToken);
+        ApplyPreferenceSignals(preferences, request.Message, responseMode);
+        var profile = CreateProfile(user, preferences, responseMode);
         var context = new TravelPlanningContext(
             city,
             date,
@@ -123,6 +134,16 @@ public sealed class TravelChatService(
         var useModelResponse = responseMode == BalancedMode
             && modelResult is not null
             && !string.IsNullOrWhiteSpace(modelResult.Message);
+
+        await SaveConversationAsync(
+            conversation,
+            conversationId,
+            user.Id,
+            city,
+            date,
+            responseMode,
+            cards,
+            cancellationToken);
 
         return new TravelChatResponse(
             conversationId,
@@ -165,6 +186,84 @@ public sealed class TravelChatService(
             logger.LogWarning(ex, "Travel AI model client failed; using deterministic chat response.");
             return null;
         }
+    }
+
+    private async Task<TravelChatConversation?> LoadConversationAsync(
+        string conversationId,
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        var conversation = await dbContext.TravelChatConversations
+            .FirstOrDefaultAsync(existing => existing.Id == conversationId, cancellationToken);
+
+        if (conversation is null || conversation.UserId == userId)
+        {
+            return conversation;
+        }
+
+        logger.LogWarning(
+            "Ignoring travel chat conversation {ConversationId} because it belongs to another user.",
+            conversationId);
+        return conversation;
+    }
+
+    private async Task<TravelerPreference> LoadOrCreatePreferencesAsync(
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        var preferences = await dbContext.TravelerPreferences
+            .FirstOrDefaultAsync(preference => preference.UserId == userId, cancellationToken);
+
+        if (preferences is not null)
+        {
+            return preferences;
+        }
+
+        preferences = new TravelerPreference
+        {
+            UserId = userId,
+            Interests = ["Food", "Culture", "Coffee", "Shopping", "Neighborhood"],
+            FoodPreferences = ["local food", "snacks"],
+            BudgetLevel = "medium",
+            TravelPace = "balanced",
+            MaxWalkingMinutes = 25
+        };
+        dbContext.TravelerPreferences.Add(preferences);
+        return preferences;
+    }
+
+    private async Task SaveConversationAsync(
+        TravelChatConversation? conversation,
+        string conversationId,
+        Guid userId,
+        string city,
+        DateOnly date,
+        string responseMode,
+        IReadOnlyList<TravelCardDto> cards,
+        CancellationToken cancellationToken)
+    {
+        if (conversation is null)
+        {
+            conversation = new TravelChatConversation
+            {
+                Id = conversationId,
+                UserId = userId,
+                CreatedAt = DateTimeOffset.UtcNow
+            };
+            dbContext.TravelChatConversations.Add(conversation);
+        }
+
+        conversation.LastCity = city;
+        conversation.LastDate = date;
+        conversation.LastResponseMode = responseMode;
+        conversation.LastRecommendationIds = string.Join(
+            ",",
+            cards
+                .Select(card => card.RecommendationId)
+                .Where(id => !string.IsNullOrWhiteSpace(id)));
+        conversation.UpdatedAt = DateTimeOffset.UtcNow;
+
+        await dbContext.SaveChangesAsync(cancellationToken);
     }
 
     private async Task<IReadOnlyList<Recommendation>> LoadUnlockedRecommendationsAsync(
@@ -231,17 +330,110 @@ public sealed class TravelChatService(
                 .ToList());
     }
 
-    private static TravelPreferenceProfile CreateDefaultProfile(AppUser user, string responseMode)
+    private static TravelPreferenceProfile CreateProfile(
+        AppUser user,
+        TravelerPreference preferences,
+        string responseMode)
     {
         return new TravelPreferenceProfile
         {
             UserId = user.Id.ToString(),
-            Interests = ["Food", "Culture", "Coffee", "Shopping", "Neighborhood"],
-            FoodPreferences = ["local food", "snacks"],
-            BudgetLevel = "medium",
-            TravelPace = "balanced",
-            MaxWalkingMinutes = responseMode == LessWalkingMode ? 12 : 25
+            Interests = preferences.Interests.ToList(),
+            FoodPreferences = preferences.FoodPreferences.ToList(),
+            DietaryRestrictions = preferences.DietaryRestrictions.ToList(),
+            BudgetLevel = preferences.BudgetLevel,
+            TravelPace = preferences.TravelPace,
+            Dislikes = preferences.Dislikes.ToList(),
+            AvoidTouristTraps = preferences.AvoidTouristTraps,
+            MaxWalkingMinutes = responseMode == LessWalkingMode
+                ? Math.Min(preferences.MaxWalkingMinutes, 12)
+                : preferences.MaxWalkingMinutes
         };
+    }
+
+    private static void ApplyPreferenceSignals(
+        TravelerPreference preferences,
+        string? message,
+        string responseMode)
+    {
+        var changed = false;
+        var normalized = message?.Trim().ToLowerInvariant() ?? string.Empty;
+
+        if (responseMode == FoodMode)
+        {
+            changed |= AddUnique(preferences.Interests, "Food");
+            changed |= AddUnique(preferences.FoodPreferences, "local food");
+        }
+
+        if (responseMode == CultureMode)
+        {
+            changed |= AddUnique(preferences.Interests, "Culture");
+        }
+
+        if (responseMode == LessWalkingMode)
+        {
+            if (preferences.MaxWalkingMinutes > 12)
+            {
+                preferences.MaxWalkingMinutes = 12;
+                changed = true;
+            }
+
+            if (!string.Equals(preferences.TravelPace, "relaxed", StringComparison.Ordinal))
+            {
+                preferences.TravelPace = "relaxed";
+                changed = true;
+            }
+        }
+
+        if (responseMode == ShorterMode
+            && !string.Equals(preferences.TravelPace, "efficient", StringComparison.Ordinal))
+        {
+            preferences.TravelPace = "efficient";
+            changed = true;
+        }
+
+        if (responseMode == CheaperMode
+            && !string.Equals(preferences.BudgetLevel, "low", StringComparison.Ordinal))
+        {
+            preferences.BudgetLevel = "low";
+            changed = true;
+        }
+
+        if (ContainsAny(normalized, "vegetariano", "vegetariana", "vegetarian"))
+        {
+            changed |= AddUnique(preferences.DietaryRestrictions, "vegetarian");
+        }
+
+        if (ContainsAny(normalized, "sin gluten", "gluten free", "celiaco", "celiaca", "celiac"))
+        {
+            changed |= AddUnique(preferences.DietaryRestrictions, "gluten-free");
+        }
+
+        if (ContainsAny(normalized, "sin museos", "no museos", "evitar museos"))
+        {
+            changed |= AddUnique(preferences.Dislikes, "museum");
+        }
+
+        if (ContainsAny(normalized, "sin shopping", "no shopping", "evitar compras"))
+        {
+            changed |= AddUnique(preferences.Dislikes, "shopping");
+        }
+
+        if (changed)
+        {
+            preferences.UpdatedAt = DateTimeOffset.UtcNow;
+        }
+    }
+
+    private static bool AddUnique(List<string> values, string value)
+    {
+        if (values.Any(existing => string.Equals(existing, value, StringComparison.OrdinalIgnoreCase)))
+        {
+            return false;
+        }
+
+        values.Add(value);
+        return true;
     }
 
     private static TravelCardDto ToCard(ScoredRecommendation scored, TravelPlanningContext context)
@@ -254,7 +446,7 @@ public sealed class TravelChatService(
             recommendation.Description,
             context.WindowStart?.ToString("HH:mm", CultureInfo.InvariantCulture),
             CalculateEndTime(context.WindowStart, recommendation.SuggestedDurationMinutes),
-            recommendation.AccessLevel == ContentAccessLevel.Free ? "free" : "medium",
+            recommendation.PriceLevel,
             scored.DistanceKm,
             scored.WalkingMinutes,
             scored.PositiveReasons.Take(3).ToList(),
@@ -352,7 +544,7 @@ public sealed class TravelChatService(
     private static bool IsFoodRecommendation(Recommendation recommendation)
     {
         return ContainsAny(
-            $"{recommendation.Category} {recommendation.Title} {recommendation.Description}",
+            $"{recommendation.Category} {recommendation.Title} {recommendation.Description} {string.Join(' ', recommendation.Tags)}",
             "food",
             "comida",
             "snack",
@@ -366,7 +558,7 @@ public sealed class TravelChatService(
     private static bool IsCultureRecommendation(Recommendation recommendation)
     {
         return ContainsAny(
-            $"{recommendation.Category} {recommendation.Title} {recommendation.Description}",
+            $"{recommendation.Category} {recommendation.Title} {recommendation.Description} {string.Join(' ', recommendation.Tags)}",
             "culture",
             "cultura",
             "museum",
@@ -376,14 +568,23 @@ public sealed class TravelChatService(
             "arte");
     }
 
-    private static string ResolveResponseMode(string? message)
+    private static string ResolveResponseMode(string? message, string? previousResponseMode)
     {
         if (string.IsNullOrWhiteSpace(message))
         {
-            return BalancedMode;
+            return string.IsNullOrWhiteSpace(previousResponseMode)
+                ? BalancedMode
+                : previousResponseMode;
         }
 
         var normalized = message.Trim().ToLowerInvariant();
+        if (ContainsAny(normalized, "otra opcion", "otra opción", "otra alternativa", "algo distinto"))
+        {
+            return string.IsNullOrWhiteSpace(previousResponseMode)
+                ? BalancedMode
+                : previousResponseMode;
+        }
+
         if (ContainsAny(normalized, "menos caminata", "caminar menos", "poca caminata", "cerca", "nearby"))
         {
             return LessWalkingMode;

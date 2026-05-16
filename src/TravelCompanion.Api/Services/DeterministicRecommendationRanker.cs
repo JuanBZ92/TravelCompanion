@@ -12,7 +12,7 @@ public sealed class DeterministicRecommendationRanker : IRecommendationRanker
         TravelPlanningContext context)
     {
         return recommendations
-            .Select(recommendation => ScoreRecommendation(profile, recommendation, context))
+            .Select(recommendation => ScoreRecommendation(profile, reservations, recommendation, context))
             .OrderByDescending(scored => scored.Score)
             .ThenBy(scored => scored.WalkingMinutes ?? int.MaxValue)
             .ThenBy(scored => scored.Recommendation.Title)
@@ -21,12 +21,14 @@ public sealed class DeterministicRecommendationRanker : IRecommendationRanker
 
     private static ScoredRecommendation ScoreRecommendation(
         TravelPreferenceProfile profile,
+        IReadOnlyList<Reservation> reservations,
         Recommendation recommendation,
         TravelPlanningContext context)
     {
         var score = 0d;
         var positives = new List<string>();
         var negatives = new List<string>();
+        var searchableText = CreateSearchableText(recommendation);
 
         if (MatchesCity(recommendation, context.City))
         {
@@ -34,20 +36,29 @@ public sealed class DeterministicRecommendationRanker : IRecommendationRanker
             positives.Add($"Esta en la zona de {context.City}.");
         }
 
-        if (MatchesAny(recommendation.Category, profile.Interests)
-            || MatchesAny(recommendation.Description, profile.Interests))
+        if (MatchesAny(searchableText, profile.Interests))
         {
             score += 16;
             positives.Add("Encaja con tus intereses guardados.");
         }
 
-        if (recommendation.Category.Contains("Food", StringComparison.OrdinalIgnoreCase)
-            || recommendation.Description.Contains("comida", StringComparison.OrdinalIgnoreCase)
-            || recommendation.Description.Contains("snack", StringComparison.OrdinalIgnoreCase))
+        if (MatchesAny(searchableText, profile.FoodPreferences))
+        {
+            score += 12;
+            positives.Add("Coincide con tus preferencias de comida.");
+        }
+
+        if (IsFoodRecommendation(searchableText))
         {
             score += 10;
             positives.Add("Suma una pausa gastronomica liviana al plan.");
         }
+
+        ApplyBudgetScore(profile, recommendation, positives, negatives, ref score);
+        ApplyDietaryRestrictionScore(profile, recommendation, searchableText, positives, negatives, ref score);
+        ApplyRatingScore(recommendation, positives, negatives, ref score);
+        ApplyOpeningHoursScore(recommendation, context, positives, negatives, ref score);
+        ApplyDuplicateScore(reservations, recommendation, negatives, ref score);
 
         if (context.AvailableMinutes.HasValue)
         {
@@ -89,9 +100,7 @@ public sealed class DeterministicRecommendationRanker : IRecommendationRanker
             }
         }
 
-        if (profile.Dislikes.Any(dislike =>
-            recommendation.Category.Contains(dislike, StringComparison.OrdinalIgnoreCase)
-            || recommendation.Description.Contains(dislike, StringComparison.OrdinalIgnoreCase)))
+        if (MatchesAny(searchableText, profile.Dislikes))
         {
             score -= 30;
             negatives.Add("Coincide con algo que preferis evitar.");
@@ -111,6 +120,131 @@ public sealed class DeterministicRecommendationRanker : IRecommendationRanker
             negatives);
     }
 
+    private static void ApplyBudgetScore(
+        TravelPreferenceProfile profile,
+        Recommendation recommendation,
+        List<string> positives,
+        List<string> negatives,
+        ref double score)
+    {
+        var profileBudget = BudgetRank(profile.BudgetLevel);
+        var recommendationBudget = BudgetRank(recommendation.PriceLevel);
+
+        if (recommendationBudget <= profileBudget)
+        {
+            score += 10;
+            positives.Add("Respeta tu presupuesto guardado.");
+            return;
+        }
+
+        var penalty = recommendationBudget - profileBudget >= 2 ? 20 : 12;
+        score -= penalty;
+        negatives.Add("Puede quedar por encima de tu presupuesto.");
+    }
+
+    private static void ApplyDietaryRestrictionScore(
+        TravelPreferenceProfile profile,
+        Recommendation recommendation,
+        string searchableText,
+        List<string> positives,
+        List<string> negatives,
+        ref double score)
+    {
+        if (profile.DietaryRestrictions.Count == 0 || !IsFoodRecommendation(searchableText))
+        {
+            return;
+        }
+
+        if (MatchesAny(searchableText, profile.DietaryRestrictions))
+        {
+            score += 12;
+            positives.Add("Tiene senales compatibles con tus restricciones alimentarias.");
+            return;
+        }
+
+        var conflicts = profile.DietaryRestrictions.Any(restriction =>
+            HasDietaryConflict(restriction, searchableText, recommendation.Tags));
+        if (!conflicts)
+        {
+            return;
+        }
+
+        score -= 28;
+        negatives.Add("Puede chocar con tus restricciones alimentarias.");
+    }
+
+    private static void ApplyRatingScore(
+        Recommendation recommendation,
+        List<string> positives,
+        List<string> negatives,
+        ref double score)
+    {
+        if (!recommendation.Rating.HasValue)
+        {
+            return;
+        }
+
+        if (recommendation.Rating.Value >= 4.5)
+        {
+            score += 8;
+            positives.Add("Tiene muy buena valoracion.");
+            return;
+        }
+
+        if (recommendation.Rating.Value >= 4)
+        {
+            score += 5;
+            positives.Add("Tiene buena valoracion.");
+            return;
+        }
+
+        if (recommendation.Rating.Value < 3.5)
+        {
+            score -= 8;
+            negatives.Add("Su valoracion es mas baja que otras opciones.");
+        }
+    }
+
+    private static void ApplyOpeningHoursScore(
+        Recommendation recommendation,
+        TravelPlanningContext context,
+        List<string> positives,
+        List<string> negatives,
+        ref double score)
+    {
+        if (string.IsNullOrWhiteSpace(recommendation.OpeningHours)
+            || !context.WindowStart.HasValue)
+        {
+            return;
+        }
+
+        var visitEnd = context.WindowStart.Value.AddMinutes(recommendation.SuggestedDurationMinutes);
+        if (IsOpenDuring(recommendation.OpeningHours, context.WindowStart.Value, visitEnd))
+        {
+            score += 8;
+            positives.Add("Esta abierto en la ventana disponible.");
+            return;
+        }
+
+        score -= 24;
+        negatives.Add("No parece abierto durante tu ventana disponible.");
+    }
+
+    private static void ApplyDuplicateScore(
+        IReadOnlyList<Reservation> reservations,
+        Recommendation recommendation,
+        List<string> negatives,
+        ref double score)
+    {
+        if (!reservations.Any(reservation => IsDuplicate(reservation, recommendation)))
+        {
+            return;
+        }
+
+        score -= 28;
+        negatives.Add("Se parece a una reserva o item que ya tenes en el itinerario.");
+    }
+
     private static bool MatchesCity(Recommendation recommendation, string city)
     {
         return recommendation.Neighborhood.Contains(city, StringComparison.OrdinalIgnoreCase)
@@ -119,7 +253,124 @@ public sealed class DeterministicRecommendationRanker : IRecommendationRanker
 
     private static bool MatchesAny(string value, IEnumerable<string> candidates)
     {
-        return candidates.Any(candidate => value.Contains(candidate, StringComparison.OrdinalIgnoreCase));
+        return candidates.Any(candidate =>
+            !string.IsNullOrWhiteSpace(candidate)
+            && value.Contains(candidate, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string CreateSearchableText(Recommendation recommendation)
+    {
+        return string.Join(
+            ' ',
+            [recommendation.Title, recommendation.Category, recommendation.Description, .. recommendation.Tags]);
+    }
+
+    private static bool IsFoodRecommendation(string searchableText)
+    {
+        return MatchesAny(
+            searchableText,
+            ["food", "comida", "snack", "restaurant", "restaurante", "cafe", "sake", "market"]);
+    }
+
+    private static int BudgetRank(string? value)
+    {
+        return value?.Trim().ToLowerInvariant() switch
+        {
+            "free" or "gratis" => 0,
+            "low" or "budget" or "cheap" or "barato" => 1,
+            "medium" or "moderate" or "medio" => 2,
+            "high" or "expensive" or "premium" or "alto" => 3,
+            _ => 2
+        };
+    }
+
+    private static bool HasDietaryConflict(
+        string restriction,
+        string searchableText,
+        IReadOnlyCollection<string> tags)
+    {
+        var normalizedRestriction = restriction.Trim().ToLowerInvariant();
+        if (normalizedRestriction is "vegetarian" or "vegetariano" or "vegetariana")
+        {
+            return MatchesAny(
+                searchableText,
+                ["meat", "beef", "kobe", "steak", "pork", "chicken", "seafood", "sushi", "omakase"])
+                || tags.Any(tag => tag.Contains("meat-heavy", StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (normalizedRestriction is "vegan" or "vegano" or "vegana")
+        {
+            return MatchesAny(
+                searchableText,
+                ["meat", "beef", "kobe", "steak", "pork", "chicken", "seafood", "sushi", "omakase", "dairy", "cheese"])
+                || tags.Any(tag => tag.Contains("meat-heavy", StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (normalizedRestriction is "gluten-free" or "gluten free" or "sin gluten" or "celiac" or "celiaco" or "celiaca")
+        {
+            return MatchesAny(searchableText, ["gluten", "ramen", "udon", "noodle", "bread", "tempura"]);
+        }
+
+        return searchableText.Contains(restriction, StringComparison.OrdinalIgnoreCase)
+            && !MatchesAny(searchableText, [$"{restriction} friendly", $"sin {restriction}", $"{restriction}-free"]);
+    }
+
+    private static bool IsOpenDuring(string openingHours, TimeOnly visitStart, TimeOnly visitEnd)
+    {
+        foreach (var segment in openingHours.Split([',', ';', '|'], StringSplitOptions.RemoveEmptyEntries))
+        {
+            var parts = segment
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .SelectMany(part => part.Split('/', StringSplitOptions.RemoveEmptyEntries))
+                .Where(part => part.Contains('-', StringComparison.Ordinal))
+                .ToList();
+
+            foreach (var part in parts)
+            {
+                var range = part.Split('-', 2, StringSplitOptions.TrimEntries);
+                if (range.Length != 2
+                    || !TimeOnly.TryParse(range[0], out var opensAt)
+                    || !TimeOnly.TryParse(range[1], out var closesAt))
+                {
+                    continue;
+                }
+
+                if (closesAt < opensAt)
+                {
+                    if (visitStart >= opensAt || visitEnd <= closesAt)
+                    {
+                        return true;
+                    }
+
+                    continue;
+                }
+
+                if (opensAt <= visitStart && closesAt >= visitEnd)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsDuplicate(Reservation reservation, Recommendation recommendation)
+    {
+        var recommendationTitle = NormalizeComparableText(recommendation.Title);
+        var reservationTitle = NormalizeComparableText(reservation.Title);
+        var reservationLocation = NormalizeComparableText(reservation.LocationName);
+
+        return !string.IsNullOrWhiteSpace(recommendationTitle)
+            && (reservationTitle == recommendationTitle
+                || reservationLocation == recommendationTitle
+                || reservationTitle.Contains(recommendationTitle, StringComparison.Ordinal)
+                || recommendationTitle.Contains(reservationTitle, StringComparison.Ordinal));
+    }
+
+    private static string NormalizeComparableText(string value)
+    {
+        return value.Trim().ToLowerInvariant();
     }
 
     private static double CalculateDistanceKm(

@@ -357,6 +357,89 @@ public sealed class TravelChatServiceTests
         Assert.Contains("Algo cultural", response.SuggestedReplies);
     }
 
+    [Fact]
+    public async Task CreatePlanAsync_persists_preferences_and_reuses_conversation_context_for_followups()
+    {
+        await using var dbContext = CreateDbContext();
+        var destinationId = Guid.NewGuid();
+        var user = CreateUser(destinationId);
+        dbContext.AppUsers.Add(user);
+        dbContext.Destinations.Add(new Destination
+        {
+            Id = destinationId,
+            Name = "Japon",
+            Slug = "japon",
+            Country = "Japan",
+            HeroImageUrl = string.Empty,
+            ShortDescription = "Demo"
+        });
+        dbContext.Trips.Add(new Trip
+        {
+            Id = Guid.NewGuid(),
+            AppUserId = user.Id,
+            DestinationId = destinationId,
+            TravelerName = "Demo Traveler",
+            StartsOn = new DateOnly(2026, 10, 6),
+            EndsOn = new DateOnly(2026, 10, 10),
+            Reservations =
+            [
+                CreateReservation("Museum", new TimeOnly(9, 0), "Tokyo"),
+                CreateReservation("Dinner", new TimeOnly(18, 0), "Tokyo")
+            ]
+        });
+        dbContext.Recommendations.Add(new Recommendation
+        {
+            Id = Guid.NewGuid(),
+            DestinationId = destinationId,
+            Title = "Vegetarian snack stop",
+            Category = "Food",
+            Neighborhood = "Chuo, Tokyo",
+            Description = "Local snacks in Tokyo with vegetarian options.",
+            Latitude = 35.665486m,
+            Longitude = 139.770667m,
+            SuggestedDurationMinutes = 60,
+            AccessLevel = ContentAccessLevel.Free
+        });
+        await dbContext.SaveChangesAsync();
+
+        var service = CreateService(dbContext);
+        var firstResponse = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest(
+                "Quiero comida local vegetariana",
+                null,
+                "Tokyo",
+                new DateOnly(2026, 10, 6),
+                null,
+                "es-ES"),
+            CancellationToken.None);
+
+        var savedPreferences = await dbContext.TravelerPreferences.FindAsync(user.Id);
+        Assert.NotNull(savedPreferences);
+        Assert.Contains("Food", savedPreferences.Interests);
+        Assert.Contains("vegetarian", savedPreferences.DietaryRestrictions);
+
+        var followUp = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest(
+                "Otra opcion",
+                firstResponse.ConversationId,
+                null,
+                null,
+                null,
+                "es-ES"),
+            CancellationToken.None);
+
+        Assert.StartsWith("Busque algo de comida local", followUp.Message);
+        Assert.Single(followUp.Cards);
+        Assert.Equal("Vegetarian snack stop", followUp.Cards[0].Title);
+
+        var conversation = await dbContext.TravelChatConversations.FindAsync(firstResponse.ConversationId);
+        Assert.NotNull(conversation);
+        Assert.Equal("Tokyo", conversation.LastCity);
+        Assert.Equal(new DateOnly(2026, 10, 6), conversation.LastDate);
+    }
+
     private static TravelCompanionDbContext CreateDbContext()
     {
         var options = new DbContextOptionsBuilder<TravelCompanionDbContext>()

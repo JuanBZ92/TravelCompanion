@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using TravelCompanion.Api.Data;
@@ -12,9 +13,11 @@ using TravelCompanion.Api.Data;
 namespace TravelCompanion.Api.Data.Migrations
 {
     [DbContext(typeof(TravelCompanionDbContext))]
-    partial class TravelCompanionDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260516152735_AddTravelAiPreferencesAndConversationContext")]
+    partial class AddTravelAiPreferencesAndConversationContext
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -184,24 +187,8 @@ namespace TravelCompanion.Api.Data.Migrations
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)");
 
-                    b.Property<string>("OpeningHours")
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
-
-                    b.Property<string>("PriceLevel")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<double?>("Rating")
-                        .HasColumnType("double precision");
-
                     b.Property<int>("SuggestedDurationMinutes")
                         .HasColumnType("integer");
-
-                    b.PrimitiveCollection<List<string>>("Tags")
-                        .IsRequired()
-                        .HasColumnType("text[]");
 
                     b.Property<string>("Title")
                         .IsRequired()
