@@ -446,7 +446,7 @@ public sealed class TravelChatService(
             recommendation.Description,
             context.WindowStart?.ToString("HH:mm", CultureInfo.InvariantCulture),
             CalculateEndTime(context.WindowStart, recommendation.SuggestedDurationMinutes),
-            recommendation.AccessLevel == ContentAccessLevel.Free ? "free" : "medium",
+            recommendation.PriceLevel,
             scored.DistanceKm,
             scored.WalkingMinutes,
             scored.PositiveReasons.Take(3).ToList(),
@@ -544,7 +544,7 @@ public sealed class TravelChatService(
     private static bool IsFoodRecommendation(Recommendation recommendation)
     {
         return ContainsAny(
-            $"{recommendation.Category} {recommendation.Title} {recommendation.Description}",
+            $"{recommendation.Category} {recommendation.Title} {recommendation.Description} {string.Join(' ', recommendation.Tags)}",
             "food",
             "comida",
             "snack",
@@ -558,7 +558,7 @@ public sealed class TravelChatService(
     private static bool IsCultureRecommendation(Recommendation recommendation)
     {
         return ContainsAny(
-            $"{recommendation.Category} {recommendation.Title} {recommendation.Description}",
+            $"{recommendation.Category} {recommendation.Title} {recommendation.Description} {string.Join(' ', recommendation.Tags)}",
             "culture",
             "cultura",
             "museum",

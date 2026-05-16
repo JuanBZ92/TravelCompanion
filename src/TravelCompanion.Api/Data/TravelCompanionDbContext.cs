@@ -44,6 +44,8 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
             entity.Property(recommendation => recommendation.Title).HasMaxLength(160);
             entity.Property(recommendation => recommendation.Category).HasMaxLength(80);
             entity.Property(recommendation => recommendation.Neighborhood).HasMaxLength(120);
+            entity.Property(recommendation => recommendation.PriceLevel).HasMaxLength(32);
+            entity.Property(recommendation => recommendation.OpeningHours).HasMaxLength(256);
             entity.Property(recommendation => recommendation.Latitude).HasPrecision(9, 6);
             entity.Property(recommendation => recommendation.Longitude).HasPrecision(9, 6);
             entity.Property(recommendation => recommendation.AccessLevel)

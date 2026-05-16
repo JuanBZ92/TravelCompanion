@@ -13,7 +13,7 @@ internal static class MobilePayloadNormalizer
 
         return discover with
         {
-            Recommendations = discover.Recommendations ?? []
+            Recommendations = discover.Recommendations?.Select(Normalize).ToList() ?? []
         };
     }
 
@@ -27,7 +27,7 @@ internal static class MobilePayloadNormalizer
         return bootstrap with
         {
             Entitlements = Normalize(bootstrap.Entitlements),
-            Recommendations = bootstrap.Recommendations ?? [],
+            Recommendations = bootstrap.Recommendations?.Select(Normalize).ToList() ?? [],
             Packages = bootstrap.Packages ?? [],
             Schedule = Normalize(bootstrap.Schedule)
         };
@@ -87,6 +87,18 @@ internal static class MobilePayloadNormalizer
             Title = card.Title ?? string.Empty,
             WhyItFits = card.WhyItFits ?? [],
             Warnings = card.Warnings ?? []
+        };
+    }
+
+    private static RecommendationDto Normalize(RecommendationDto recommendation)
+    {
+        return recommendation with
+        {
+            Tags = recommendation.Tags ?? [],
+            PriceLevel = string.IsNullOrWhiteSpace(recommendation.PriceLevel)
+                ? "medium"
+                : recommendation.PriceLevel,
+            PackageIds = recommendation.PackageIds ?? []
         };
     }
 

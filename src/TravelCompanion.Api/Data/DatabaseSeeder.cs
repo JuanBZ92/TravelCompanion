@@ -426,9 +426,13 @@ public static class DatabaseSeeder
         target.Category = source.Category;
         target.Neighborhood = source.Neighborhood;
         target.Description = source.Description;
+        target.Tags = source.Tags.ToList();
+        target.PriceLevel = source.PriceLevel;
         target.Latitude = source.Latitude;
         target.Longitude = source.Longitude;
         target.SuggestedDurationMinutes = source.SuggestedDurationMinutes;
+        target.Rating = source.Rating;
+        target.OpeningHours = source.OpeningHours;
         target.AccessLevel = source.AccessLevel;
     }
 
@@ -492,11 +496,48 @@ public static class DatabaseSeeder
             Category = category,
             Neighborhood = neighborhood,
             Description = description,
+            Tags = CreateRecommendationTags(category, description),
+            PriceLevel = accessLevel == ContentAccessLevel.Free ? "low" : "medium",
             Latitude = latitude,
             Longitude = longitude,
             SuggestedDurationMinutes = suggestedDurationMinutes,
+            Rating = accessLevel == ContentAccessLevel.Free ? 4.2 : 4.5,
+            OpeningHours = CreateOpeningHours(category),
             AccessLevel = accessLevel
         };
+
+    private static List<string> CreateRecommendationTags(string category, string description)
+    {
+        var tags = new List<string> { category.ToLowerInvariant() };
+        if (description.Contains("snack", StringComparison.OrdinalIgnoreCase))
+        {
+            tags.Add("snacks");
+        }
+
+        if (description.Contains("cafe", StringComparison.OrdinalIgnoreCase))
+        {
+            tags.Add("cafe");
+        }
+
+        if (description.Contains("gratis", StringComparison.OrdinalIgnoreCase)
+            || description.Contains("gratuito", StringComparison.OrdinalIgnoreCase))
+        {
+            tags.Add("free");
+        }
+
+        return tags;
+    }
+
+    private static string CreateOpeningHours(string category)
+    {
+        return category switch
+        {
+            "Nightlife" => "18:00-02:00",
+            "Food" => "11:00-22:00",
+            "Shopping" => "10:00-20:00",
+            _ => "09:00-18:00"
+        };
+    }
 
     private static Guid? GetSeedPackageId(Recommendation recommendation)
     {

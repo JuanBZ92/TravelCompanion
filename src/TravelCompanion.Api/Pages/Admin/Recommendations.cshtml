@@ -59,6 +59,23 @@
                 <span asp-validation-for="Input.SuggestedDurationMinutes"></span>
             </div>
             <div>
+                <label asp-for="Input.PriceLevel" class="required">Precio</label>
+                <input asp-for="Input.PriceLevel" />
+                <span asp-validation-for="Input.PriceLevel"></span>
+                <p class="form-hint">Usa free, low, medium o high.</p>
+            </div>
+            <div>
+                <label asp-for="Input.Rating">Rating <span class="muted">(opcional)</span></label>
+                <input asp-for="Input.Rating" type="number" min="0" max="5" step="0.1" />
+                <span asp-validation-for="Input.Rating"></span>
+            </div>
+            <div>
+                <label asp-for="Input.OpeningHours">Horario <span class="muted">(opcional)</span></label>
+                <input asp-for="Input.OpeningHours" placeholder="09:00-18:00" />
+                <span asp-validation-for="Input.OpeningHours"></span>
+                <p class="form-hint">Varias franjas: 09:00-12:00; 14:00-18:00.</p>
+            </div>
+            <div>
                 <label asp-for="Input.AccessLevel" class="required">Acceso</label>
                 <select asp-for="Input.AccessLevel" asp-items="Model.AccessLevelOptions" data-recommendation-access></select>
                 <span asp-validation-for="Input.AccessLevel"></span>
@@ -75,6 +92,11 @@
             <label asp-for="Input.Description" class="required">Descripcion</label>
             <textarea asp-for="Input.Description"></textarea>
             <span asp-validation-for="Input.Description"></span>
+        </div>
+        <div style="margin-top: 12px;">
+            <label asp-for="Input.TagsText">Tags <span class="muted">(opcional)</span></label>
+            <input asp-for="Input.TagsText" placeholder="local food, vegetarian, shopping" />
+            <span asp-validation-for="Input.TagsText"></span>
         </div>
         <div class="actions">
             <button type="submit">Guardar</button>
@@ -95,6 +117,7 @@
                     <th>Categoria</th>
                     <th>Paquetes</th>
                     <th>Barrio</th>
+                    <th>Senales</th>
                     <th>Coordenadas</th>
                     <th></th>
                 </tr>
@@ -124,6 +147,19 @@
                         </div>
                     </td>
                     <td>@recommendation.Neighborhood</td>
+                    <td>
+                        <span class="mono">@recommendation.PriceLevel</span>
+                        @if (recommendation.Rating.HasValue)
+                        {
+                            <br />
+                            <span class="muted">@recommendation.Rating.Value.ToString("0.0") rating</span>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(recommendation.OpeningHours))
+                        {
+                            <br />
+                            <span class="muted">@recommendation.OpeningHours</span>
+                        }
+                    </td>
                     <td><span class="mono">@recommendation.Latitude, @recommendation.Longitude</span></td>
                     <td>
                         <div class="row-actions">
