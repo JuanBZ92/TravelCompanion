@@ -231,6 +231,19 @@ variable "admin_auth_password" {
   }
 }
 
+variable "openai_api_key" {
+  description = "Server-side OpenAI API key for the travel assistant. Store only in local tfvars or CI secrets."
+  type        = string
+  sensitive   = true
+  nullable    = true
+  default     = null
+
+  validation {
+    condition     = !var.allow_paid_resources || try(length(trimspace(var.openai_api_key)) > 0, false)
+    error_message = "openai_api_key is required when allow_paid_resources is true."
+  }
+}
+
 variable "blob_container_name" {
   description = "Private blob container for destination/recommendation media."
   type        = string

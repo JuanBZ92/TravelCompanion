@@ -254,6 +254,14 @@ resource "azurerm_key_vault_secret" "admin_auth_password" {
   key_vault_id = azurerm_key_vault.main.id
 }
 
+resource "azurerm_key_vault_secret" "openai_api_key" {
+  count = var.allow_paid_resources ? 1 : 0
+
+  name         = "openai-api-key"
+  value        = var.openai_api_key
+  key_vault_id = azurerm_key_vault.main.id
+}
+
 resource "azurerm_key_vault_secret" "storage_connection_string" {
   count = var.allow_paid_resources && var.enable_media_storage ? 1 : 0
 
@@ -270,6 +278,7 @@ locals {
     ConnectionStrings__TravelCompanionDb  = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.postgres_connection_string[0].versionless_id})"
     AdminAuth__Username                   = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.admin_auth_username[0].versionless_id})"
     AdminAuth__Password                   = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.admin_auth_password[0].versionless_id})"
+    OpenAI__ApiKey                        = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.openai_api_key[0].versionless_id})"
   }
 
   api_media_app_settings = var.enable_media_storage ? {

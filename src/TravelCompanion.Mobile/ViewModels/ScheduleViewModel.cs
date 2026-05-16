@@ -244,10 +244,11 @@ public sealed partial class ScheduleViewModel(
     private void ApplySchedule(TripScheduleDto schedule)
     {
         var stopwatch = Stopwatch.StartNew();
+        var sourceItems = schedule.Items ?? [];
         TripTitle = $"{schedule.DestinationName} for {schedule.TravelerName}";
         TripDates = $"{schedule.StartsOn:MMM d} - {schedule.EndsOn:MMM d, yyyy}";
         _allItems.Clear();
-        _allItems.AddRange(schedule.Items);
+        _allItems.AddRange(sourceItems);
         _selectedType = GetInitialScheduleType(_allItems);
         UpdateTypeFilters();
         UpdateCityFilters();
@@ -258,7 +259,7 @@ public sealed partial class ScheduleViewModel(
         logger.LogInformation(
             "Schedule applied in {ElapsedMs}ms. SourceItems={SourceItems}; InitialType={ReservationType}; VisibleDays={VisibleDays}; VisibleItems={VisibleItems}.",
             stopwatch.Elapsed.TotalMilliseconds,
-            schedule.Items.Count,
+            sourceItems.Count,
             _selectedType,
             ActiveDays.Count,
             ActiveDays.Sum(day => day.Count));

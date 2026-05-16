@@ -9,9 +9,17 @@ namespace TravelCompanion.Api.Services;
 
 public sealed class TravelChatService(
     TravelCompanionDbContext dbContext,
-    IRecommendationRanker ranker) : ITravelChatService
+    IRecommendationRanker ranker,
+    ITravelAiModelClient modelClient,
+    ILogger<TravelChatService> logger) : ITravelChatService
 {
     private const string Intent = "plan_between_reservations";
+    private const string LessWalkingMode = "less_walking";
+    private const string ShorterMode = "shorter";
+    private const string FoodMode = "food";
+    private const string CultureMode = "culture";
+    private const string CheaperMode = "cheaper";
+    private const string BalancedMode = "balanced";
 
     public async Task<TravelChatResponse> CreatePlanAsync(
         AppUser user,
@@ -85,7 +93,8 @@ public sealed class TravelChatService(
                 ["Probar otra ciudad", "Ver recomendaciones"]);
         }
 
-        var profile = CreateDefaultProfile(user);
+        var responseMode = ResolveResponseMode(request.Message);
+        var profile = CreateDefaultProfile(user, responseMode);
         var context = new TravelPlanningContext(
             city,
             date,
@@ -93,19 +102,69 @@ public sealed class TravelChatService(
             planningWindow.Value.End,
             planningWindow.Value.AvailableMinutes,
             request.CurrentLocation);
-        var ranked = ranker
-            .Rank(profile, reservations, unlockedRecommendations, context)
+        var ranked = ApplyResponseMode(
+                ranker.Rank(profile, reservations, unlockedRecommendations, context),
+                responseMode)
             .Take(3)
             .ToList();
         var cards = ranked.Select(scored => ToCard(scored, context)).ToList();
+        var defaultSuggestedReplies = CreateSuggestedReplies(responseMode);
+        var defaultMessage = CreateAssistantMessage(city, planningWindow.Value, ranked, responseMode);
+        var modelResult = await CreateModelResponseAsync(
+            conversationId,
+            request,
+            profile,
+            context,
+            reservations,
+            cards,
+            defaultSuggestedReplies,
+            cancellationToken);
+
+        var useModelResponse = responseMode == BalancedMode
+            && modelResult is not null
+            && !string.IsNullOrWhiteSpace(modelResult.Message);
 
         return new TravelChatResponse(
             conversationId,
-            CreateAssistantMessage(city, planningWindow.Value, ranked),
+            useModelResponse ? modelResult!.Message : defaultMessage,
             Intent,
             cards,
-            ["Algo con menos caminata", "Algo mas corto", "Ver mi agenda"],
+            useModelResponse && modelResult!.SuggestedReplies.Count > 0
+                ? modelResult.SuggestedReplies
+                : defaultSuggestedReplies,
             null);
+    }
+
+    private async Task<TravelAiModelResult?> CreateModelResponseAsync(
+        string conversationId,
+        TravelChatRequest request,
+        TravelPreferenceProfile profile,
+        TravelPlanningContext context,
+        IReadOnlyList<Reservation> reservations,
+        IReadOnlyList<TravelCardDto> cards,
+        IReadOnlyList<string> suggestedReplies,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await modelClient.CreateStructuredResponseAsync(
+                new TravelAiModelRequest(
+                    conversationId,
+                    Intent,
+                    request.Message,
+                    request.Locale,
+                    profile,
+                    context,
+                    reservations,
+                    cards,
+                    suggestedReplies),
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Travel AI model client failed; using deterministic chat response.");
+            return null;
+        }
     }
 
     private async Task<IReadOnlyList<Recommendation>> LoadUnlockedRecommendationsAsync(
@@ -172,7 +231,7 @@ public sealed class TravelChatService(
                 .ToList());
     }
 
-    private static TravelPreferenceProfile CreateDefaultProfile(AppUser user)
+    private static TravelPreferenceProfile CreateDefaultProfile(AppUser user, string responseMode)
     {
         return new TravelPreferenceProfile
         {
@@ -181,7 +240,7 @@ public sealed class TravelChatService(
             FoodPreferences = ["local food", "snacks"],
             BudgetLevel = "medium",
             TravelPace = "balanced",
-            MaxWalkingMinutes = 25
+            MaxWalkingMinutes = responseMode == LessWalkingMode ? 12 : 25
         };
     }
 
@@ -222,15 +281,140 @@ public sealed class TravelChatService(
     private static string CreateAssistantMessage(
         string city,
         (TimeOnly Start, TimeOnly End, int AvailableMinutes) planningWindow,
-        IReadOnlyList<ScoredRecommendation> ranked)
+        IReadOnlyList<ScoredRecommendation> ranked,
+        string responseMode)
     {
         if (ranked.Count == 0)
         {
-            return $"Tenes {planningWindow.AvailableMinutes} minutos libres en {city}, pero no encontre una opcion clara para recomendar.";
+            return $"Tenes {planningWindow.AvailableMinutes} minutos libres en {city}, pero no encontre una opcion clara para ese pedido.";
         }
 
         var top = ranked[0];
-        return $"Tenes {planningWindow.AvailableMinutes} minutos libres en {city}, de {planningWindow.Start:HH\\:mm} a {planningWindow.End:HH\\:mm}. Te propongo {top.Recommendation.Title}: {top.PositiveReasons.First()}";
+        var prefix = responseMode switch
+        {
+            LessWalkingMode => "Busque una opcion con menos caminata",
+            ShorterMode => "Busque una opcion mas corta",
+            FoodMode => "Busque algo de comida local",
+            CultureMode => "Busque una opcion mas cultural",
+            CheaperMode => "Busque una opcion de bajo costo",
+            _ => "Te propongo este plan"
+        };
+        var walking = top.WalkingMinutes.HasValue
+            ? $" Queda a unos {top.WalkingMinutes.Value} min caminando."
+            : string.Empty;
+
+        return $"{prefix} para tu ventana de {planningWindow.Start:HH\\:mm} a {planningWindow.End:HH\\:mm} en {city}: {top.Recommendation.Title}. {top.PositiveReasons.First()}{walking}";
+    }
+
+    private static IReadOnlyList<string> CreateSuggestedReplies(string responseMode)
+    {
+        return responseMode switch
+        {
+            LessWalkingMode => ["Algo mas corto", "Algo de comida local", "Ver mi agenda", "Otra opcion"],
+            ShorterMode => ["Menos caminata", "Algo de comida local", "Ver mi agenda", "Otra opcion"],
+            FoodMode => ["Menos caminata", "Algo cultural", "Algo mas corto", "Ver mi agenda"],
+            CultureMode => ["Algo de comida local", "Menos caminata", "Algo mas corto", "Ver mi agenda"],
+            CheaperMode => ["Algo gratis", "Menos caminata", "Algo mas corto", "Ver mi agenda"],
+            _ => ["Algo con menos caminata", "Algo mas corto", "Algo de comida local", "Ver mi agenda"]
+        };
+    }
+
+    private static IEnumerable<ScoredRecommendation> ApplyResponseMode(
+        IEnumerable<ScoredRecommendation> ranked,
+        string responseMode)
+    {
+        return responseMode switch
+        {
+            LessWalkingMode => ranked
+                .OrderBy(scored => scored.WalkingMinutes ?? scored.Recommendation.SuggestedDurationMinutes)
+                .ThenByDescending(scored => scored.Score)
+                .ThenBy(scored => scored.Recommendation.Title),
+            ShorterMode => ranked
+                .OrderBy(scored => scored.Recommendation.SuggestedDurationMinutes)
+                .ThenByDescending(scored => scored.Score)
+                .ThenBy(scored => scored.Recommendation.Title),
+            FoodMode => ranked
+                .OrderByDescending(scored => IsFoodRecommendation(scored.Recommendation))
+                .ThenByDescending(scored => scored.Score)
+                .ThenBy(scored => scored.Recommendation.Title),
+            CultureMode => ranked
+                .OrderByDescending(scored => IsCultureRecommendation(scored.Recommendation))
+                .ThenByDescending(scored => scored.Score)
+                .ThenBy(scored => scored.Recommendation.Title),
+            CheaperMode => ranked
+                .OrderBy(scored => scored.Recommendation.AccessLevel == ContentAccessLevel.Free ? 0 : 1)
+                .ThenByDescending(scored => scored.Score)
+                .ThenBy(scored => scored.Recommendation.Title),
+            _ => ranked
+        };
+    }
+
+    private static bool IsFoodRecommendation(Recommendation recommendation)
+    {
+        return ContainsAny(
+            $"{recommendation.Category} {recommendation.Title} {recommendation.Description}",
+            "food",
+            "comida",
+            "snack",
+            "restaurant",
+            "restaurante",
+            "cafe",
+            "café",
+            "sake");
+    }
+
+    private static bool IsCultureRecommendation(Recommendation recommendation)
+    {
+        return ContainsAny(
+            $"{recommendation.Category} {recommendation.Title} {recommendation.Description}",
+            "culture",
+            "cultura",
+            "museum",
+            "museo",
+            "history",
+            "historia",
+            "arte");
+    }
+
+    private static string ResolveResponseMode(string? message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return BalancedMode;
+        }
+
+        var normalized = message.Trim().ToLowerInvariant();
+        if (ContainsAny(normalized, "menos caminata", "caminar menos", "poca caminata", "cerca", "nearby"))
+        {
+            return LessWalkingMode;
+        }
+
+        if (ContainsAny(normalized, "mas corto", "más corto", "rapido", "rápido", "poco tiempo", "corta"))
+        {
+            return ShorterMode;
+        }
+
+        if (ContainsAny(normalized, "comida", "food", "local", "snack", "restaurante", "cafe", "café"))
+        {
+            return FoodMode;
+        }
+
+        if (ContainsAny(normalized, "cultura", "cultural", "museo", "historia", "arte"))
+        {
+            return CultureMode;
+        }
+
+        if (ContainsAny(normalized, "barato", "gratis", "economico", "económico", "free"))
+        {
+            return CheaperMode;
+        }
+
+        return BalancedMode;
+    }
+
+    private static bool ContainsAny(string value, params string[] candidates)
+    {
+        return candidates.Any(candidate => value.Contains(candidate, StringComparison.OrdinalIgnoreCase));
     }
 
     private static TravelChatResponse MissingContext(

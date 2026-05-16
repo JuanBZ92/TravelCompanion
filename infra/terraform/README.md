@@ -98,6 +98,7 @@ Editar `terraform.tfvars` y reemplazar:
 - `postgres_admin_password`, requerido cuando `allow_paid_resources = true`
 - `admin_auth_username`, requerido cuando `allow_paid_resources = true`
 - `admin_auth_password`, requerido cuando `allow_paid_resources = true`
+- `openai_api_key`, requerido cuando `allow_paid_resources = true`
 - opcionalmente `postgres_firewall_rules` con tu IP publica
 
 `terraform.tfvars` esta ignorado por Git porque contiene secretos.
@@ -137,6 +138,22 @@ terraform destroy
 Terraform crea la infraestructura, pero no publica el codigo. Para un deploy manual inicial:
 
 Esto aplica solamente cuando `allow_paid_resources = true`, porque en modo base/minimo no existe la Web App.
+
+Desde la raiz del repo, podes usar el script:
+
+```powershell
+.\scripts\Publish-Api.ps1
+```
+
+El script lee `resource_group_name`, `api_app_name` y `api_url` desde los outputs de Terraform, publica `TravelCompanion.Api`, crea el ZIP con paths compatibles con App Service Linux, ejecuta `az webapp deploy` y hace un smoke test contra `/openapi/v1.json`.
+
+Tambien se pueden pasar los valores manualmente:
+
+```powershell
+.\scripts\Publish-Api.ps1 -ResourceGroupName "rg-tc-dev" -AppName "app-tc-dev-xxxxxx" -ApiUrl "https://app-tc-dev-xxxxxx.azurewebsites.net"
+```
+
+Los comandos manuales equivalentes son:
 
 ```powershell
 dotnet publish ..\..\src\TravelCompanion.Api\TravelCompanion.Api.csproj -c Release -o .\publish

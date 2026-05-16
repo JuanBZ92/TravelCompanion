@@ -54,6 +54,8 @@ builder.Services.Configure<AdminAuthOptions>(
     builder.Configuration.GetSection(AdminAuthOptions.SectionName));
 builder.Services.Configure<ObservabilityOptions>(
     builder.Configuration.GetSection(ObservabilityOptions.SectionName));
+builder.Services.Configure<OpenAiTravelOptions>(
+    builder.Configuration.GetSection(OpenAiTravelOptions.SectionName));
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
@@ -71,6 +73,7 @@ builder.Services.AddScoped<IPasswordHasher<AppUser>, PasswordHasher<AppUser>>();
 builder.Services.AddScoped<UserSessionService>();
 builder.Services.AddScoped<IUserInvitationSender, LoggingUserInvitationSender>();
 builder.Services.AddScoped<IRecommendationRanker, DeterministicRecommendationRanker>();
+builder.Services.AddSingleton<ITravelAiModelClient, OpenAiTravelModelClient>();
 builder.Services.AddScoped<ITravelChatService, TravelChatService>();
 builder.Services.AddSingleton<SlowDbCommandLoggingInterceptor>();
 builder.Services.AddDbContext<TravelCompanionDbContext>((serviceProvider, options) =>
@@ -102,6 +105,11 @@ app.UseMiddleware<RequestObservabilityMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.MapGet("/health", () => Results.Ok(new
+{
+    status = "ok",
+    service = "TravelCompanion.Api"
+}));
 app.MapControllers();
 app.MapRazorPages();
 

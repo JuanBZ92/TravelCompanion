@@ -67,7 +67,7 @@ public sealed partial class TravelChatViewModel(
             }
 
             var schedule = await apiClient.GetScheduleAsync(token, ct);
-            var firstUsefulDay = schedule?.Items
+            var firstUsefulDay = (schedule?.Items ?? [])
                 .GroupBy(item => item.Date)
                 .OrderByDescending(group => group.Count())
                 .ThenBy(group => group.Key)
@@ -148,12 +148,12 @@ public sealed partial class TravelChatViewModel(
             }
 
             _conversationId = response.ConversationId;
-            var cards = response.Cards
+            var cards = (response.Cards ?? [])
                 .Select(card => new TravelChatCardViewModel(card))
                 .ToList();
             Messages.Add(new TravelChatMessageViewModel(response.Message, isFromUser: false, cards));
             SuggestedReplies.Clear();
-            foreach (var reply in response.SuggestedReplies)
+            foreach (var reply in response.SuggestedReplies ?? [])
             {
                 SuggestedReplies.Add(reply);
             }

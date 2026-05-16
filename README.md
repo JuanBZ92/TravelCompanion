@@ -1,94 +1,64 @@
-# Travel Companion
+# Travel AI Assistant Skill Package v2
 
-App companion de viajes con cliente movil .NET MAUI, API ASP.NET Core y PostgreSQL.
+Este ZIP contiene una skill de Codex para implementar un chatbot/asistente de viajes en una aplicación **.NET MAUI + backend .NET**.
 
-## Documentacion
+## Cambio principal de esta versión
 
-- [Documentacion tecnica](docs/TECHNICAL.md): arquitectura, stack, desarrollo local, API, base de datos, migraciones y verificaciones.
-- [Documentacion funcional](docs/FUNCTIONAL.md): vision de producto, usuarios, pantallas, reglas de acceso, CMS y roadmap.
-- [Infraestructura y Terraform](docs/INFRASTRUCTURE.md): explicacion practica de Terraform, state, recursos Azure y flujo de trabajo.
-- [Terraform Azure](infra/terraform/README.md): infraestructura cloud para App Service, PostgreSQL, Storage, Key Vault y observabilidad.
-
-## Regla del proyecto
-
-Cada vez que se agregue codigo nuevo, se debe actualizar la documentacion correspondiente:
-
-- Cambios de arquitectura, endpoints, base de datos, dependencias, setup o integraciones: actualizar `docs/TECHNICAL.md`.
-- Cambios de comportamiento visible, pantallas, reglas de negocio, contenido, CMS o roadmap: actualizar `docs/FUNCTIONAL.md`.
-
-## Stack actual
-
-- .NET 10
-- .NET MAUI 10
-- ASP.NET Core 10
-- Entity Framework Core 10
-- PostgreSQL 16 para desarrollo local
-
-## Desarrollo rapido
-
-### Visual Studio F5
-
-1. Abrir Docker Desktop.
-2. Abrir `TravelCompanion.sln` en Visual Studio.
-3. Seleccionar el perfil compartido `Travel Companion Dev`.
-4. Elegir el target de `TravelCompanion.Mobile`.
-5. Presionar F5.
-
-### Manual
-
-```powershell
-docker compose up -d
-dotnet run --project src\TravelCompanion.Api\TravelCompanion.Api.csproj --launch-profile http
-```
-
-API local:
+Los documentos y checklists ahora están dentro de la propia skill como referencias internas:
 
 ```text
-http://localhost:5289
+.agents/
+  skills/
+    travel-ai-assistant/
+      SKILL.md
+      references/
+        architecture.md
+        backend-contracts.md
+        deterministic-ranking.md
+        prompt-template.md
+        security-privacy-checklist.md
+        testing-checklist.md
+        definition-of-done.md
 ```
 
-Admin local:
+Esto hace que Codex pueda usarlos como material de apoyo cuando la skill se active.
+
+Los prompts siguen quedando afuera, porque son para que vos los copies manualmente en Codex:
 
 ```text
-http://localhost:5289/admin
-Usuario: admin
-Password: travel-companion-dev
+prompts/
+  01-create-skill-prompt.md
+  02-design-only-prompt.md
+  03-implement-mvp-vertical-slice-prompt.md
+  04-add-openai-orchestration-prompt.md
+  05-add-maui-chat-ui-prompt.md
 ```
 
-Login mobile demo:
+## Cómo usarlo
+
+Copiá esta carpeta dentro de la raíz de tu repo:
 
 ```text
-Usuario: demo@travelcompanion.local
-Password temporal: TravelDemo!2026
+.agents/skills/travel-ai-assistant
 ```
 
-Base URL mobile:
+Luego, en Codex, podés usar alguno de los prompts de la carpeta `prompts`.
 
-```text
-TRAVELCOMPANION_API_BASE_URL=https://localhost:7090
-```
+Recomendación de orden:
 
-Si no se define la variable, MAUI usa fallback local para desarrollo (`http://127.0.0.1:5289` en Android fisico con `adb reverse`, `http://10.0.2.2:5289` en Android emulador, `https://localhost:7090` en Windows). En `Release` no se permite HTTP.
+1. Usar `02-design-only-prompt.md` para que Codex inspeccione el repo y proponga un plan.
+2. Usar `03-implement-mvp-vertical-slice-prompt.md` para implementar el primer flujo.
+3. Usar `04-add-openai-orchestration-prompt.md` para conectar OpenAI con tools/function calling.
+4. Usar `05-add-maui-chat-ui-prompt.md` para crear o adaptar la UI de chat en MAUI.
 
-Luego de cambiar la password temporal, la app puede desbloquear la sesion con biometria del dispositivo y fallback a password.
-Usar `Bloquear app` mantiene la sesion para biometria; `Cerrar sesion` borra la sesion y requiere password.
+## Idea central
 
-## Builds mobile compartibles
+El asistente no debe ser un chatbot libre y desconectado. Debe ser un **asistente de viaje controlado por tu backend**, con herramientas seguras para consultar:
 
-Android APK apuntando a la API cloud e instalando por USB:
+- perfil del viajero
+- preferencias
+- reservas existentes
+- recomendaciones
+- itinerario
 
-```powershell
-.\scripts\Publish-Mobile.ps1 -Platform Android -InstallAndroid
-```
-
-iOS debe publicarse desde macOS/Xcode. Desde la Mac, en la raiz del repo:
-
-```powershell
-pwsh -File scripts/Publish-Mobile.ps1 -Platform iOS -ArchiveIos
-```
-
-## Verificacion
-
-```powershell
-dotnet build TravelCompanion.sln
-```
+La app MAUI nunca debe llamar directo a OpenAI. Toda llamada a OpenAI debe pasar por backend/BFF.

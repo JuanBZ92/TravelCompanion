@@ -147,23 +147,28 @@
         </Grid>
 
         <VerticalStackLayout Grid.Row="3" Spacing="10" Padding="0,0,0,14">
-            <HorizontalStackLayout Spacing="8"
-                                   BindableLayout.ItemsSource="{Binding SuggestedReplies}">
-                <BindableLayout.ItemTemplate>
-                    <DataTemplate>
-                        <Border Style="{StaticResource Chip}">
-                            <Border.GestureRecognizers>
-                                <TapGestureRecognizer Tapped="OnSuggestedReplyTapped" />
-                            </Border.GestureRecognizers>
-                            <Label Text="{Binding .}"
-                                   FontSize="12"
-                                   TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
-                                   LineBreakMode="TailTruncation"
-                                   MaxLines="1" />
-                        </Border>
-                    </DataTemplate>
-                </BindableLayout.ItemTemplate>
-            </HorizontalStackLayout>
+            <ScrollView Orientation="Horizontal"
+                        HorizontalScrollBarVisibility="Never"
+                        VerticalScrollBarVisibility="Never">
+                <HorizontalStackLayout Spacing="8"
+                                       BindableLayout.ItemsSource="{Binding SuggestedReplies}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate>
+                            <Border Style="{StaticResource Chip}"
+                                    MaximumWidthRequest="220">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Tapped="OnSuggestedReplyTapped" />
+                                </Border.GestureRecognizers>
+                                <Label Text="{Binding .}"
+                                       FontSize="12"
+                                       TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
+                                       LineBreakMode="TailTruncation"
+                                       MaxLines="1" />
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </HorizontalStackLayout>
+            </ScrollView>
 
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                 <Border Padding="12,0"
