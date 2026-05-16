@@ -78,10 +78,10 @@ public sealed partial class PackagesViewModel(
         }
     }
 
-    private void ApplyPackages(IReadOnlyList<TravelPackageDto> packages)
+    private void ApplyPackages(IReadOnlyList<TravelPackageDto>? packages)
     {
         Packages.Clear();
-        foreach (var package in packages)
+        foreach (var package in packages ?? [])
         {
             Packages.Add(new PackageListItemViewModel(package));
         }

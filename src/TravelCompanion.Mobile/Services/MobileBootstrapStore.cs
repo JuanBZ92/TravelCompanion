@@ -50,9 +50,17 @@ public sealed class MobileBootstrapStore(
 
         if (cached is not null)
         {
-            _current = cached.Value;
+            var normalized = MobilePayloadNormalizer.Normalize(cached.Value);
+            if (normalized is null)
+            {
+                logger.LogWarning("Mobile bootstrap disk cache ignored because it is incomplete. Scope={CacheScope}.", cacheScope);
+                return null;
+            }
+
+            _current = normalized;
             _currentSavedAt = cached.SavedAt;
             _currentUserId = currentUserId;
+            return new OfflineCacheResult<MobileBootstrapDto>(normalized, cached.SavedAt);
         }
 
         return cached;

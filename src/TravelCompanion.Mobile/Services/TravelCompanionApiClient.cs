@@ -146,7 +146,7 @@ public sealed class TravelCompanionApiClient
             stopwatch.Elapsed.TotalMilliseconds - headersElapsedMs,
             GetServerTiming(response));
 
-        return bootstrap;
+        return MobilePayloadNormalizer.Normalize(bootstrap);
     }
 
     public async Task<MobileDiscoverDto?> GetMobileDiscoverAsync(
@@ -187,7 +187,31 @@ public sealed class TravelCompanionApiClient
             stopwatch.Elapsed.TotalMilliseconds - headersElapsedMs,
             GetServerTiming(response));
 
-        return discover;
+        return MobilePayloadNormalizer.Normalize(discover);
+    }
+
+    public async Task<TravelChatResponse?> SendTravelChatAsync(
+        string token,
+        TravelChatRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        using var httpRequest = CreateAuthorizedRequest(HttpMethod.Post, "api/ai/travel-chat", token);
+        httpRequest.Content = JsonContent.Create(request, options: JsonOptions);
+
+        using var response = await _httpClient.SendAsync(httpRequest, cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning(
+                "Travel chat request failed with {StatusCode}.",
+                (int)response.StatusCode);
+            return null;
+        }
+
+        var travelChatResponse = await response.Content
+            .ReadFromJsonAsync<TravelChatResponse>(JsonOptions, cancellationToken)
+            .ConfigureAwait(false);
+
+        return MobilePayloadNormalizer.Normalize(travelChatResponse);
     }
 
     public async Task<IReadOnlyList<RecommendationDto>> GetRecommendationsAsync(
@@ -207,19 +231,28 @@ public sealed class TravelCompanionApiClient
 
     public async Task<TripScheduleDto?> GetDemoScheduleAsync(CancellationToken cancellationToken = default)
     {
-        return await _httpClient.GetFromJsonAsync<TripScheduleDto>(
+        var schedule = await _httpClient.GetFromJsonAsync<TripScheduleDto>(
             "api/trips/44444444-4444-4444-4444-444444444401/schedule",
             JsonOptions,
             cancellationToken).ConfigureAwait(false);
+
+        return MobilePayloadNormalizer.Normalize(schedule);
     }
 
     public async Task<TripScheduleDto?> GetScheduleAsync(string token, CancellationToken cancellationToken = default)
     {
         using var request = CreateAuthorizedRequest(HttpMethod.Get, "api/me/schedule", token);
         using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
-        return response.IsSuccessStatusCode
-            ? await response.Content.ReadFromJsonAsync<TripScheduleDto>(JsonOptions, cancellationToken).ConfigureAwait(false)
-            : null;
+        if (!response.IsSuccessStatusCode)
+        {
+            return null;
+        }
+
+        var schedule = await response.Content
+            .ReadFromJsonAsync<TripScheduleDto>(JsonOptions, cancellationToken)
+            .ConfigureAwait(false);
+
+        return MobilePayloadNormalizer.Normalize(schedule);
     }
 
     private static HttpRequestMessage CreateAuthorizedRequest(HttpMethod method, string url, string token)

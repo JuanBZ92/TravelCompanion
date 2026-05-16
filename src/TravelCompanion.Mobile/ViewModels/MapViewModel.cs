@@ -220,7 +220,7 @@ public sealed partial class MapViewModel(
     private void ApplyBootstrap(MobileBootstrapDto bootstrap, bool resetPage)
     {
         _entitlements = bootstrap.Entitlements;
-        var recommendations = bootstrap.Recommendations
+        var recommendations = (bootstrap.Recommendations ?? [])
             .Where(IsUnlocked)
             .Select(recommendation => recommendation with
             {

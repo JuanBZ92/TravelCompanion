@@ -443,8 +443,9 @@ public sealed partial class RecommendationsViewModel(
     private void ApplyDiscover(MobileDiscoverDto discover, bool resetPage)
     {
         var stopwatch = Stopwatch.StartNew();
+        var sourceRecommendations = discover.Recommendations ?? [];
         _allRecommendations.Clear();
-        foreach (var recommendation in discover.Recommendations)
+        foreach (var recommendation in sourceRecommendations)
         {
             _allRecommendations.Add(new RecommendationListItemViewModel(recommendation)
             {
@@ -460,7 +461,7 @@ public sealed partial class RecommendationsViewModel(
         logger.LogInformation(
             "Recommendations discover applied in {ElapsedMs}ms. SourceRecommendations={SourceCount}; PageRecommendations={PageCount}; ResetPage={ResetPage}.",
             stopwatch.Elapsed.TotalMilliseconds,
-            discover.Recommendations.Count,
+            sourceRecommendations.Count,
             VisibleRecommendations.Count,
             resetPage);
     }
