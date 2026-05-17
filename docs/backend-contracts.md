@@ -106,7 +106,7 @@ The chat endpoint also handles deterministic assistant intents without asking th
 
 - `view_schedule`: messages such as `Ver mi agenda` return a schedule summary for the requested date.
 - `view_preferences`: messages such as `Ver mis preferencias` return the current preference profile.
-- `update_preferences`: explicit preference edits such as `Prefiero presupuesto bajo y ritmo tranquilo` patch the profile and return the updated summary.
+- `update_preferences`: explicit preference edits such as `Prefiero presupuesto bajo y ritmo tranquilo` or `evitar culture` first return a confirmation prompt. The backend stores the pending patch on the chat conversation and only persists it after an affirmative reply. If the user rejects the change, the pending patch is cleared; planning requests can still use the detected preference as one-off context without modifying the profile.
 
 Date requests inside chat text are supported for planning prompts, for example `Proponeme planes para 2026-10-08`, `Proponeme planes para el 8 de octubre`, or `Proponeme planes para mañana`. The backend resolves that date before loading schedules and recommendations.
 

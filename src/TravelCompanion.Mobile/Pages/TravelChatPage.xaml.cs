@@ -31,4 +31,36 @@ public partial class TravelChatPage : ContentPage
             await _viewModel.SendSuggestedReplyCommand.ExecuteAsync(reply);
         }
     }
+
+    private async void OnSaveItineraryItemClicked(object? sender, EventArgs e)
+    {
+        if ((sender as BindableObject)?.BindingContext is TravelChatCardViewModel card)
+        {
+            await _viewModel.SaveItineraryItemCommand.ExecuteAsync(card);
+        }
+    }
+
+    private async void OnOpenRecommendationDetailClicked(object? sender, EventArgs e)
+    {
+        if ((sender as BindableObject)?.BindingContext is TravelChatCardViewModel card)
+        {
+            await _viewModel.OpenRecommendationDetailCommand.ExecuteAsync(card);
+        }
+    }
+
+    private async void OnRequestLessWalkingClicked(object? sender, EventArgs e)
+    {
+        if ((sender as BindableObject)?.BindingContext is TravelChatCardViewModel card)
+        {
+            await _viewModel.RequestLessWalkingCommand.ExecuteAsync(card);
+        }
+    }
+
+    private async void OnReplaceRecommendationClicked(object? sender, EventArgs e)
+    {
+        if ((sender as BindableObject)?.BindingContext is TravelChatCardViewModel card)
+        {
+            await _viewModel.ReplaceRecommendationCommand.ExecuteAsync(card);
+        }
+    }
 }

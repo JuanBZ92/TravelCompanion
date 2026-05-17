@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:system="clr-namespace:System;assembly=System.Runtime"
              xmlns:viewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
              x:Class="TravelCompanion.Mobile.Pages.TravelChatPage"
              x:Name="PageRoot"
@@ -47,7 +48,7 @@
                                 AlignItems="Start"
                                 BindableLayout.ItemsSource="{Binding MissingContextSuggestions}">
                         <BindableLayout.ItemTemplate>
-                            <DataTemplate>
+                            <DataTemplate x:DataType="system:String">
                                 <Border Style="{StaticResource Chip}"
                                         Margin="0,0,8,6"
                                         MaximumWidthRequest="220">
@@ -125,8 +126,9 @@
                                                      BindableLayout.ItemsSource="{Binding Cards}">
                                     <BindableLayout.ItemTemplate>
                                         <DataTemplate x:DataType="viewModels:TravelChatCardViewModel">
-                                            <Border Style="{StaticResource Card}">
-                                                <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="8">
+                                            <Border Style="{StaticResource Card}"
+                                                    Padding="14">
+                                                <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="6">
                                                     <Label Text="{Binding Title}"
                                                            FontSize="16"
                                                            FontAttributes="Bold"
@@ -142,7 +144,7 @@
                                                            Text="{Binding Description}"
                                                            FontSize="13"
                                                            TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}"
-                                                           MaxLines="3"
+                                                           MaxLines="2"
                                                            LineBreakMode="TailTruncation" />
                                                     <FlexLayout Grid.Row="3"
                                                                 Direction="Row"
@@ -184,11 +186,11 @@
                                                                 IsVisible="{Binding HasTags}"
                                                                 BindableLayout.ItemsSource="{Binding Tags}">
                                                         <BindableLayout.ItemTemplate>
-                                                            <DataTemplate>
+                                                            <DataTemplate x:DataType="system:String">
                                                                 <Border Style="{StaticResource Chip}"
                                                                         Padding="8,5"
                                                                         Margin="0,0,6,4">
-                                                                    <Label Text="{Binding StringFormat='#{0}'}"
+                                                                    <Label Text="{Binding ., StringFormat='#{0}'}"
                                                                            FontSize="11"
                                                                            TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}"
                                                                            MaxLines="1"
@@ -202,8 +204,8 @@
                                                                          IsVisible="{Binding HasReasons}"
                                                                          BindableLayout.ItemsSource="{Binding WhyItFits}">
                                                         <BindableLayout.ItemTemplate>
-                                                            <DataTemplate>
-                                                                <Label Text="{Binding StringFormat='- {0}'}"
+                                                            <DataTemplate x:DataType="system:String">
+                                                                <Label Text="{Binding ., StringFormat='- {0}'}"
                                                                        FontSize="12"
                                                                        TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
                                                             </DataTemplate>
@@ -214,23 +216,49 @@
                                                                          IsVisible="{Binding HasWarnings}"
                                                                          BindableLayout.ItemsSource="{Binding Warnings}">
                                                         <BindableLayout.ItemTemplate>
-                                                            <DataTemplate>
-                                                                <Label Text="{Binding StringFormat='Atencion: {0}'}"
+                                                            <DataTemplate x:DataType="system:String">
+                                                                <Label Text="{Binding ., StringFormat='Atencion: {0}'}"
                                                                        FontSize="12"
                                                                        TextColor="{AppThemeBinding Light={StaticResource Rose}, Dark={StaticResource GoldSoft}}" />
                                                             </DataTemplate>
                                                         </BindableLayout.ItemTemplate>
                                                     </VerticalStackLayout>
-                                                    <Button Grid.Row="7"
-                                                            Text="{Binding SaveButtonText}"
-                                                            Command="{Binding BindingContext.SaveItineraryItemCommand, Source={x:Reference PageRoot}}"
-                                                            CommandParameter="{Binding .}"
-                                                            IsEnabled="{Binding CanSave}"
-                                                            IsVisible="{Binding HasRecommendationId}"
-                                                            FontSize="13"
-                                                            Padding="12,8"
-                                                            MinimumHeightRequest="38"
-                                                            HorizontalOptions="Start" />
+                                                    <FlexLayout Grid.Row="7"
+                                                                Direction="Row"
+                                                                Wrap="Wrap"
+                                                                AlignItems="Start"
+                                                                Margin="0,2,0,0">
+                                                        <Button Text="Ver detalle"
+                                                                Clicked="OnOpenRecommendationDetailClicked"
+                                                                IsVisible="{Binding HasDetailAction}"
+                                                                Style="{StaticResource GhostButton}"
+                                                                FontSize="12"
+                                                                Padding="10,7"
+                                                                MinimumHeightRequest="34"
+                                                                Margin="0,0,6,6" />
+                                                        <Button Text="{Binding SaveButtonText}"
+                                                                Clicked="OnSaveItineraryItemClicked"
+                                                                IsEnabled="{Binding CanSave}"
+                                                                IsVisible="{Binding HasRecommendationId}"
+                                                                FontSize="12"
+                                                                Padding="10,7"
+                                                                MinimumHeightRequest="34"
+                                                                Margin="0,0,6,6" />
+                                                        <Button Text="Menos caminata"
+                                                                Clicked="OnRequestLessWalkingClicked"
+                                                                Style="{StaticResource GhostButton}"
+                                                                FontSize="12"
+                                                                Padding="10,7"
+                                                                MinimumHeightRequest="34"
+                                                                Margin="0,0,6,6" />
+                                                        <Button Text="Reemplazar"
+                                                                Clicked="OnReplaceRecommendationClicked"
+                                                                Style="{StaticResource GhostButton}"
+                                                                FontSize="12"
+                                                                Padding="10,7"
+                                                                MinimumHeightRequest="34"
+                                                                Margin="0,0,6,6" />
+                                                    </FlexLayout>
                                                 </Grid>
                                             </Border>
                                         </DataTemplate>
@@ -265,7 +293,7 @@
                 <HorizontalStackLayout Spacing="8"
                                        BindableLayout.ItemsSource="{Binding SuggestedReplies}">
                     <BindableLayout.ItemTemplate>
-                        <DataTemplate>
+                        <DataTemplate x:DataType="system:String">
                             <Border Style="{StaticResource Chip}"
                                     MaximumWidthRequest="220">
                                 <Border.GestureRecognizers>

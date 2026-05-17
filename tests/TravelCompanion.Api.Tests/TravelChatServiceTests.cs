@@ -141,6 +141,27 @@ public sealed class TravelChatServiceTests
     }
 
     [Fact]
+    public async Task CreatePlanAsync_guides_unknown_text_instead_of_free_chatting()
+    {
+        await using var dbContext = CreateDbContext();
+        var destinationId = Guid.NewGuid();
+        var user = CreateUser(destinationId);
+        dbContext.AppUsers.Add(user);
+        await dbContext.SaveChangesAsync();
+
+        var service = CreateService(dbContext);
+        var response = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest("foobar comando raro", null, "Tokyo", new DateOnly(2026, 10, 6), null, "es-ES"),
+            CancellationToken.None);
+
+        Assert.NotNull(response.MissingContext);
+        Assert.Equal("assistantCommand", response.MissingContext.Field);
+        Assert.Contains("Proponeme un plan", response.SuggestedReplies);
+        Assert.Empty(response.Cards);
+    }
+
+    [Fact]
     public async Task UserProfileService_persists_real_preference_profile_patch()
     {
         await using var dbContext = CreateDbContext();
@@ -349,10 +370,175 @@ public sealed class TravelChatServiceTests
             new TravelChatRequest("Prefiero presupuesto bajo y ritmo tranquilo", null, null, null, null, "es-ES"),
             CancellationToken.None);
 
-        var profile = await dbContext.TravelPreferenceProfiles.FindAsync(user.Id);
         Assert.Equal("update_preferences", updateResponse.Intent);
+        Assert.NotNull(updateResponse.MissingContext);
+        Assert.Contains("Queres guardarlo", updateResponse.Message);
+
+        var confirmResponse = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest("Si, guardar preferencia", updateResponse.ConversationId, null, null, null, "es-ES"),
+            CancellationToken.None);
+
+        var profile = await dbContext.TravelPreferenceProfiles.FindAsync(user.Id);
+        Assert.Equal("update_preferences", confirmResponse.Intent);
         Assert.Equal("low", profile!.BudgetLevel);
         Assert.Equal("relaxed", profile.TravelPace);
+    }
+
+    [Fact]
+    public async Task CreatePlanAsync_updates_dislikes_from_visible_tag_words()
+    {
+        await using var dbContext = CreateDbContext();
+        var destinationId = Guid.NewGuid();
+        var user = CreateUser(destinationId);
+        dbContext.AppUsers.Add(user);
+        await dbContext.SaveChangesAsync();
+
+        var service = CreateService(dbContext);
+        var response = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest("editar preferencia evitar culture", null, null, null, null, "es-ES"),
+            CancellationToken.None);
+
+        Assert.Equal("update_preferences", response.Intent);
+        Assert.NotNull(response.MissingContext);
+
+        var confirmResponse = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest("Si, guardar preferencia", response.ConversationId, null, null, null, "es-ES"),
+            CancellationToken.None);
+
+        var profile = await dbContext.TravelPreferenceProfiles.FindAsync(user.Id);
+        Assert.Equal("update_preferences", confirmResponse.Intent);
+        Assert.Contains("culture", profile!.Dislikes);
+        Assert.DoesNotContain("Culture", profile.Interests);
+    }
+
+    [Fact]
+    public async Task CreatePlanAsync_updates_dislikes_from_database_tags()
+    {
+        await using var dbContext = CreateDbContext();
+        var destinationId = Guid.NewGuid();
+        var user = CreateUser(destinationId);
+        dbContext.AppUsers.Add(user);
+        var onsenRecommendation = CreateRecommendation(
+            destinationId,
+            "Kurama onsen stop",
+            "Nature",
+            "Relaxing mountain route.",
+            90);
+        onsenRecommendation.Tags = ["onsen"];
+        dbContext.Recommendations.Add(onsenRecommendation);
+        await dbContext.SaveChangesAsync();
+
+        var service = CreateService(dbContext);
+        var response = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest("editar preferencia evitar onsen", null, null, null, null, "es-ES"),
+            CancellationToken.None);
+
+        Assert.NotNull(response.MissingContext);
+        Assert.Contains("onsen", response.Message);
+
+        var confirmResponse = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest("Si, guardar preferencia", response.ConversationId, null, null, null, "es-ES"),
+            CancellationToken.None);
+
+        var profile = await dbContext.TravelPreferenceProfiles.FindAsync(user.Id);
+        Assert.Equal("update_preferences", confirmResponse.Intent);
+        Assert.Contains("onsen", profile!.Dislikes);
+    }
+
+    [Fact]
+    public async Task CreatePlanAsync_does_not_update_preferences_when_confirmation_is_rejected()
+    {
+        await using var dbContext = CreateDbContext();
+        var destinationId = Guid.NewGuid();
+        var user = CreateUser(destinationId);
+        dbContext.AppUsers.Add(user);
+        await dbContext.SaveChangesAsync();
+
+        var service = CreateService(dbContext);
+        var response = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest("editar preferencia evitar culture", null, null, null, null, "es-ES"),
+            CancellationToken.None);
+
+        var rejectResponse = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest("No, solo este pedido", response.ConversationId, null, null, null, "es-ES"),
+            CancellationToken.None);
+
+        var profile = await dbContext.TravelPreferenceProfiles.FindAsync(user.Id);
+        Assert.Equal("view_preferences", rejectResponse.Intent);
+        Assert.DoesNotContain("culture", profile!.Dislikes);
+        Assert.Contains("Culture", profile.Interests);
+    }
+
+    [Fact]
+    public async Task CreatePlanAsync_uses_rejected_preference_patch_as_one_off_filter()
+    {
+        await using var dbContext = CreateDbContext();
+        var destinationId = Guid.NewGuid();
+        var user = CreateUser(destinationId);
+        dbContext.AppUsers.Add(user);
+        dbContext.Destinations.Add(new Destination
+        {
+            Id = destinationId,
+            Name = "Japon",
+            Slug = "japon",
+            Country = "Japan",
+            HeroImageUrl = string.Empty,
+            ShortDescription = "Demo"
+        });
+        dbContext.Trips.Add(new Trip
+        {
+            Id = Guid.NewGuid(),
+            AppUserId = user.Id,
+            DestinationId = destinationId,
+            TravelerName = "Demo Traveler",
+            StartsOn = new DateOnly(2026, 10, 6),
+            EndsOn = new DateOnly(2026, 10, 10)
+        });
+        var cultureRecommendation = CreateRecommendation(
+            destinationId,
+            "TeamLab Planets",
+            "Culture",
+            "Immersive culture in Tokyo.",
+            60);
+        cultureRecommendation.Tags = ["culture"];
+        var foodRecommendation = CreateRecommendation(
+            destinationId,
+            "Ginza depachika route",
+            "Food",
+            "Local food in Tokyo.",
+            60);
+        foodRecommendation.Tags = ["food"];
+        dbContext.Recommendations.AddRange(cultureRecommendation, foodRecommendation);
+        await dbContext.SaveChangesAsync();
+
+        var service = CreateService(dbContext);
+        var confirmation = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest("proponeme un plan para 2026-10-06 evitando culture", null, "Tokyo", null, null, "es-ES"),
+            CancellationToken.None);
+
+        Assert.NotNull(confirmation.MissingContext);
+        Assert.Contains("culture", confirmation.Message);
+
+        var response = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest("No, solo este pedido", confirmation.ConversationId, "Tokyo", null, null, "es-ES"),
+            CancellationToken.None);
+
+        Assert.Null(response.MissingContext);
+        Assert.NotEmpty(response.Cards);
+        Assert.DoesNotContain(response.Cards, card => card.Tags.Contains("culture", StringComparer.OrdinalIgnoreCase));
+        Assert.Contains(response.Cards, card => card.Tags.Contains("food", StringComparer.OrdinalIgnoreCase));
+
+        var profile = await dbContext.TravelPreferenceProfiles.FindAsync(user.Id);
+        Assert.DoesNotContain("culture", profile!.Dislikes);
     }
 
     [Fact]

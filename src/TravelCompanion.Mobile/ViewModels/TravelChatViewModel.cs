@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.Input;
+using TravelCompanion.Mobile.Pages;
 using TravelCompanion.Mobile.Services;
+using TravelCompanion.Shared;
 using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Mobile.ViewModels;
@@ -287,6 +289,99 @@ public sealed partial class TravelChatViewModel(
         {
             IsBusy = false;
         }
+    }
+
+    [RelayCommand]
+    private async Task OpenRecommendationDetailAsync(TravelChatCardViewModel? card)
+    {
+        if (card?.RecommendationId is null)
+        {
+            StatusMessage = "No encontre el detalle de esa recomendacion.";
+            return;
+        }
+
+        var token = await sessionService.GetTokenAsync();
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            sessionService.Clear();
+            await Shell.Current.GoToAsync("//login");
+            return;
+        }
+
+        try
+        {
+            var recommendation = await FindRecommendationAsync(card.RecommendationId.Value, token);
+            if (recommendation is null)
+            {
+                StatusMessage = "No encontre el detalle de esa recomendacion.";
+                return;
+            }
+
+            await Shell.Current.GoToAsync(
+                nameof(RecommendationDetailPage),
+                new Dictionary<string, object>
+                {
+                    ["Recommendation"] = recommendation,
+                    ["IsUnlocked"] = await IsRecommendationUnlockedAsync(recommendation)
+                });
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"No pude abrir el detalle: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private Task RequestLessWalkingAsync(TravelChatCardViewModel? card)
+    {
+        return SendActionMessageAsync("Algo con menos caminata");
+    }
+
+    [RelayCommand]
+    private Task ReplaceRecommendationAsync(TravelChatCardViewModel? card)
+    {
+        return SendActionMessageAsync("Otra alternativa");
+    }
+
+    private async Task SendActionMessageAsync(string message)
+    {
+        if (IsBusy)
+        {
+            return;
+        }
+
+        MessageText = message;
+        await SendMessageAsync();
+    }
+
+    private async Task<RecommendationDto?> FindRecommendationAsync(Guid recommendationId, string token)
+    {
+        var cached = await bootstrapStore.GetCachedAsync();
+        var recommendation = cached?.Value.Recommendations
+            .FirstOrDefault(existing => existing.Id == recommendationId);
+        if (recommendation is not null)
+        {
+            return recommendation;
+        }
+
+        var refreshed = await bootstrapStore.RefreshAsync(token);
+        return refreshed?.Recommendations
+            .FirstOrDefault(existing => existing.Id == recommendationId);
+    }
+
+    private async Task<bool> IsRecommendationUnlockedAsync(RecommendationDto recommendation)
+    {
+        var currentEntitlements = (await bootstrapStore.GetCachedAsync())?.Value.Entitlements;
+        if (currentEntitlements is null)
+        {
+            return true;
+        }
+
+        return ContentAccessPolicy.IsRecommendationUnlocked(
+            currentEntitlements,
+            recommendation.AccessLevel,
+            recommendation.DestinationId,
+            recommendation.PackageIds);
     }
 
     private TravelChatCardViewModel? FindLatestSaveableCard()

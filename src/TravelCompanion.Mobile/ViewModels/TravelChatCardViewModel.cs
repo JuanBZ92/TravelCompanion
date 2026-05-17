@@ -40,6 +40,7 @@ public sealed class TravelChatCardViewModel : ObservableObject
     public bool HasWalkingLabel => !string.IsNullOrWhiteSpace(WalkingLabel);
     public Guid? RecommendationId { get; }
     public bool HasRecommendationId => RecommendationId.HasValue;
+    public bool HasDetailAction => HasRecommendationId;
     public TimeOnly? StartsAt { get; }
     public TimeOnly? EndsAt { get; }
     public bool CanSave => RecommendationId.HasValue && StartsAt.HasValue && !IsSaved;
@@ -62,11 +63,11 @@ public sealed class TravelChatCardViewModel : ObservableObject
             ? $"Horario: {_card.StartTime!}"
             : $"Horario: {_card.StartTime} - {_card.EndTime}";
     public bool HasTimeLabel => !string.IsNullOrWhiteSpace(TimeLabel);
-    public IReadOnlyList<string> Tags => (_card.Tags ?? []).Take(6).ToList();
+    public IReadOnlyList<string> Tags => (_card.Tags ?? []).Take(4).ToList();
     public bool HasTags => Tags.Count > 0;
-    public IReadOnlyList<string> WhyItFits => _card.WhyItFits;
+    public IReadOnlyList<string> WhyItFits => _card.WhyItFits.Take(2).ToList();
     public bool HasReasons => WhyItFits.Count > 0;
-    public IReadOnlyList<string> Warnings => _card.Warnings;
+    public IReadOnlyList<string> Warnings => _card.Warnings.Take(1).ToList();
     public bool HasWarnings => Warnings.Count > 0;
 
     private static string FormatCost(string? cost)

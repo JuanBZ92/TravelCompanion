@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using TravelCompanion.Api.Data;
@@ -26,6 +27,7 @@ public sealed class TravelChatService(
     private const string CultureMode = "culture";
     private const string CheaperMode = "cheaper";
     private const string BalancedMode = "balanced";
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     public async Task<TravelChatResponse> CreatePlanAsync(
         AppUser user,
@@ -40,6 +42,52 @@ public sealed class TravelChatService(
         {
             conversationId = Guid.NewGuid().ToString("N");
             conversation = null;
+        }
+
+        var suppressPreferenceConfirmation = false;
+        TravelPreferenceProfilePatchDto? temporaryPreferencePatch = null;
+        var pendingPreferencePatch = ReadPendingPreferencePatch(conversation);
+        if (pendingPreferencePatch is not null && IsPreferenceConfirmationReply(request.Message))
+        {
+            var originalMessage = conversation?.PendingPreferenceOriginalMessage ?? request.Message;
+            if (IsPositiveConfirmation(request.Message))
+            {
+                var updatedProfile = await ApplyPreferencePatchAsync(user.Id, pendingPreferencePatch, cancellationToken);
+                await ClearPendingPreferencePatchAsync(conversation, cancellationToken);
+
+                if (!IsPlanningRequest(originalMessage))
+                {
+                    return new TravelChatResponse(
+                        conversationId,
+                        $"Listo, actualice tus preferencias:\n{FormatPreferenceProfile(updatedProfile)}",
+                        UpdatePreferencesIntent,
+                        [],
+                        ["Ver mis preferencias", "Proponeme un plan"],
+                        null);
+                }
+
+                request = request with { Message = originalMessage, ConversationId = conversationId };
+                suppressPreferenceConfirmation = true;
+            }
+            else
+            {
+                await ClearPendingPreferencePatchAsync(conversation, cancellationToken);
+
+                if (!IsPlanningRequest(originalMessage))
+                {
+                    return new TravelChatResponse(
+                        conversationId,
+                        "Ok, no modifique tus preferencias.",
+                        ViewPreferencesIntent,
+                        [],
+                        ["Ver mis preferencias", "Proponeme un plan"],
+                        null);
+                }
+
+                request = request with { Message = originalMessage, ConversationId = conversationId };
+                suppressPreferenceConfirmation = true;
+                temporaryPreferencePatch = pendingPreferencePatch;
+            }
         }
 
         if (IsSaveIntent(request.Message))
@@ -61,19 +109,49 @@ public sealed class TravelChatService(
             return await CreateScheduleResponseAsync(user, conversationId, date, cancellationToken);
         }
 
-        if (IsPreferenceIntent(request.Message))
+        if (!suppressPreferenceConfirmation && IsPreferenceIntent(request.Message))
         {
+            var preferencePatch = await CreatePreferencePatchFromMessageAsync(request.Message, cancellationToken);
+            if (preferencePatch is not null)
+            {
+                return await CreatePreferenceConfirmationResponseAsync(
+                    conversation,
+                    conversationId,
+                    user.Id,
+                    request.Message,
+                    preferencePatch,
+                    cancellationToken);
+            }
+
             return await CreatePreferenceResponseAsync(user.Id, conversationId, request.Message, cancellationToken);
         }
 
         var preferences = await userProfileService.GetProfileAsync(user.Id, cancellationToken);
-        if (!userProfileService.HasMinimumPreferences(preferences, out var missingPreferenceFields))
+        var effectivePreferences = temporaryPreferencePatch is null
+            ? preferences
+            : await CreateEffectivePreferenceProfileAsync(user, preferences, temporaryPreferencePatch, cancellationToken);
+
+        if (!userProfileService.HasMinimumPreferences(effectivePreferences, out var missingPreferenceFields))
         {
             return MissingContext(
                 conversationId,
                 "preferences",
                 "Antes de proponerte un plan necesito guardar al menos tus intereses, presupuesto y ritmo de viaje.",
                 CreatePreferenceSuggestions(missingPreferenceFields));
+        }
+
+        if (!IsSupportedPlanningRequest(request.Message))
+        {
+            return MissingContext(
+                conversationId,
+                "assistantCommand",
+                "No entendi ese pedido. Puedo proponerte planes, revisar tu agenda o ayudarte a ajustar preferencias.",
+                [
+                    "Proponeme un plan",
+                    "Ver mi agenda",
+                    "Ver mis preferencias",
+                    "Algo con menos caminata"
+                ]);
         }
 
         var trips = await dbContext.Trips
@@ -133,7 +211,7 @@ public sealed class TravelChatService(
         var previousRecommendationIds = IsAlternativeRequest(request.Message)
             ? ParseRecommendationIds(conversation?.LastRecommendationIds)
             : [];
-        var profile = CreateProfile(user, preferences!, responseMode, request.Message);
+        var profile = CreateProfile(user, effectivePreferences!, responseMode, request.Message);
         var context = new TravelPlanningContext(
             city,
             date,
@@ -145,6 +223,12 @@ public sealed class TravelChatService(
                 ranker.Rank(profile, reservations, unlockedRecommendations, context),
                 responseMode)
             .ToList();
+        var dislikedFilteredCandidates = RemoveDislikedCandidates(rankedCandidates, profile.Dislikes);
+        if (dislikedFilteredCandidates.Count > 0)
+        {
+            rankedCandidates = dislikedFilteredCandidates;
+        }
+
         if (previousRecommendationIds.Count > 0)
         {
             var freshCandidates = rankedCandidates
@@ -268,7 +352,7 @@ public sealed class TravelChatService(
         string? message,
         CancellationToken cancellationToken)
     {
-        var patch = CreatePreferencePatchFromMessage(message);
+        var patch = await CreatePreferencePatchFromMessageAsync(message, cancellationToken);
         var currentProfile = await userProfileService.GetProfileDtoAsync(userId, cancellationToken);
         var profile = patch is null
             ? currentProfile
@@ -288,6 +372,112 @@ public sealed class TravelChatService(
             [],
             ["Cambiar intereses", "Presupuesto bajo", "Ritmo tranquilo", "Proponeme un plan"],
             null);
+    }
+
+    private async Task<TravelChatResponse> CreatePreferenceConfirmationResponseAsync(
+        TravelChatConversation? conversation,
+        string conversationId,
+        Guid userId,
+        string? message,
+        TravelPreferenceProfilePatchDto patch,
+        CancellationToken cancellationToken)
+    {
+        var isNewConversation = conversation is null;
+        conversation = EnsureConversation(conversation, conversationId, userId);
+        if (isNewConversation)
+        {
+            dbContext.TravelChatConversations.Add(conversation);
+        }
+
+        conversation.PendingPreferencePatchJson = JsonSerializer.Serialize(patch, JsonOptions);
+        conversation.PendingPreferenceOriginalMessage = string.IsNullOrWhiteSpace(message)
+            ? null
+            : message.Trim();
+        conversation.PendingPreferenceRequestedAt = DateTimeOffset.UtcNow;
+        conversation.UpdatedAt = DateTimeOffset.UtcNow;
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return new TravelChatResponse(
+            conversationId,
+            $"Detecte este posible cambio de preferencias:\n{FormatPreferencePatch(patch)}\nQueres guardarlo en tu perfil?",
+            UpdatePreferencesIntent,
+            [],
+            ["Si, guardar preferencia", "No, solo este pedido"],
+            new MissingContextDto(
+                "preferenceConfirmation",
+                "Confirma si queres guardar este cambio como preferencia permanente.",
+                ["Si, guardar preferencia", "No, solo este pedido"]));
+    }
+
+    private async Task<TravelPreferenceProfileDto> ApplyPreferencePatchAsync(
+        Guid userId,
+        TravelPreferenceProfilePatchDto patch,
+        CancellationToken cancellationToken)
+    {
+        var currentProfile = await userProfileService.GetProfileDtoAsync(userId, cancellationToken);
+        return await userProfileService.PatchProfileAsync(
+            userId,
+            MergePreferencePatch(currentProfile, patch),
+            cancellationToken);
+    }
+
+    private async Task ClearPendingPreferencePatchAsync(
+        TravelChatConversation? conversation,
+        CancellationToken cancellationToken)
+    {
+        if (conversation is null)
+        {
+            return;
+        }
+
+        conversation.PendingPreferencePatchJson = null;
+        conversation.PendingPreferenceOriginalMessage = null;
+        conversation.PendingPreferenceRequestedAt = null;
+        conversation.UpdatedAt = DateTimeOffset.UtcNow;
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task<TravelPreferenceProfile?> CreateEffectivePreferenceProfileAsync(
+        AppUser user,
+        TravelPreferenceProfile? preferences,
+        TravelPreferenceProfilePatchDto patch,
+        CancellationToken cancellationToken)
+    {
+        var currentProfile = await userProfileService.GetProfileDtoAsync(user.Id, cancellationToken);
+        var mergedPatch = MergePreferencePatch(currentProfile, patch);
+        var effective = new TravelPreferenceProfile
+        {
+            UserId = user.Id,
+            Interests = preferences?.Interests.ToList() ?? [],
+            FoodPreferences = preferences?.FoodPreferences.ToList() ?? [],
+            DietaryRestrictions = preferences?.DietaryRestrictions.ToList() ?? [],
+            BudgetLevel = preferences?.BudgetLevel ?? "medium",
+            TravelPace = preferences?.TravelPace ?? "balanced",
+            Dislikes = preferences?.Dislikes.ToList() ?? [],
+            AvoidTouristTraps = preferences?.AvoidTouristTraps ?? true,
+            MaxWalkingMinutes = preferences?.MaxWalkingMinutes ?? 25
+        };
+
+        ApplyPatch(effective, mergedPatch);
+        return effective;
+    }
+
+    private static TravelChatConversation EnsureConversation(
+        TravelChatConversation? conversation,
+        string conversationId,
+        Guid userId)
+    {
+        if (conversation is not null)
+        {
+            return conversation;
+        }
+
+        return new TravelChatConversation
+        {
+            Id = conversationId,
+            UserId = userId,
+            CreatedAt = DateTimeOffset.UtcNow
+        };
     }
 
     private async Task<TravelAiModelResult?> CreateModelResponseAsync(
@@ -769,6 +959,12 @@ public sealed class TravelChatService(
             "prefiero",
             "me gusta",
             "no me gusta",
+            "no quiero",
+            "evita",
+            "evite",
+            "evitando",
+            "evitar",
+            "avoid",
             "soy vegetariano",
             "soy vegetariana",
             "soy celiaco",
@@ -807,7 +1003,36 @@ public sealed class TravelChatService(
             "lo guardé");
     }
 
-    private static TravelPreferenceProfilePatchDto? CreatePreferencePatchFromMessage(string? message)
+    private async Task<TravelPreferenceProfilePatchDto?> CreatePreferencePatchFromMessageAsync(
+        string? message,
+        CancellationToken cancellationToken)
+    {
+        var knownTags = await LoadKnownRecommendationTagsAsync(cancellationToken);
+        return CreatePreferencePatchFromMessage(message, knownTags);
+    }
+
+    private async Task<IReadOnlySet<string>> LoadKnownRecommendationTagsAsync(CancellationToken cancellationToken)
+    {
+        var recommendations = await dbContext.Recommendations
+            .AsNoTracking()
+            .Select(recommendation => new
+            {
+                recommendation.Category,
+                recommendation.Tags
+            })
+            .ToListAsync(cancellationToken);
+        var tags = recommendations
+            .SelectMany(recommendation => recommendation.Tags.Append(recommendation.Category))
+            .Select(NormalizePreferenceToken)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return tags;
+    }
+
+    private static TravelPreferenceProfilePatchDto? CreatePreferencePatchFromMessage(
+        string? message,
+        IReadOnlySet<string> knownRecommendationTags)
     {
         if (string.IsNullOrWhiteSpace(message))
         {
@@ -822,6 +1047,7 @@ public sealed class TravelChatService(
         string? budgetLevel = null;
         string? travelPace = null;
         int? maxWalkingMinutes = null;
+        var hasAvoidSignal = HasAvoidSignal(normalized);
 
         if (ContainsAny(normalized, "presupuesto bajo", "barato", "economico", "gratis"))
         {
@@ -854,23 +1080,23 @@ public sealed class TravelChatService(
             maxWalkingMinutes = 12;
         }
 
-        if (ContainsAny(normalized, "comida", "gastronomia", "restaurante", "cafe", "food"))
+        if (!hasAvoidSignal && ContainsAny(normalized, "comida", "gastronomia", "restaurante", "cafe", "food"))
         {
             interests.Add("Food");
             foodPreferences.Add("local food");
         }
 
-        if (ContainsAny(normalized, "cultura", "museo", "historia", "arte"))
+        if (!hasAvoidSignal && ContainsAny(normalized, "cultura", "culture", "museo", "museum", "historia", "history", "arte", "art"))
         {
             interests.Add("Culture");
         }
 
-        if (ContainsAny(normalized, "compras", "shopping", "tiendas"))
+        if (!hasAvoidSignal && ContainsAny(normalized, "compras", "shopping", "tiendas"))
         {
             interests.Add("Shopping");
         }
 
-        if (ContainsAny(normalized, "barrio", "barrios", "neighborhood"))
+        if (!hasAvoidSignal && ContainsAny(normalized, "barrio", "barrios", "neighborhood"))
         {
             interests.Add("Neighborhood");
         }
@@ -893,6 +1119,11 @@ public sealed class TravelChatService(
         if (ContainsAny(normalized, "no me gusta shopping", "sin shopping", "evitar compras"))
         {
             dislikes.Add("shopping");
+        }
+
+        foreach (var dislikedTag in ExtractDislikedTags(normalized, knownRecommendationTags))
+        {
+            AddUnique(dislikes, dislikedTag);
         }
 
         if (budgetLevel is null
@@ -921,13 +1152,23 @@ public sealed class TravelChatService(
         TravelPreferenceProfileDto current,
         TravelPreferenceProfilePatchDto patch)
     {
+        var mergedDislikes = patch.Dislikes is null
+            ? null
+            : MergeLists(current.Dislikes, patch.Dislikes);
+        var mergedInterests = patch.Interests is null
+            ? current.Interests
+            : MergeLists(current.Interests, patch.Interests);
+        var updatedInterests = mergedDislikes is null
+            ? (patch.Interests is null ? null : mergedInterests)
+            : RemoveDislikedInterests(mergedInterests, mergedDislikes);
+
         return new TravelPreferenceProfilePatchDto(
             patch.FoodPreferences is null ? null : MergeLists(current.FoodPreferences, patch.FoodPreferences),
             patch.DietaryRestrictions is null ? null : MergeLists(current.DietaryRestrictions, patch.DietaryRestrictions),
             patch.BudgetLevel,
             patch.TravelPace,
-            patch.Interests is null ? null : MergeLists(current.Interests, patch.Interests),
-            patch.Dislikes is null ? null : MergeLists(current.Dislikes, patch.Dislikes),
+            updatedInterests,
+            mergedDislikes,
             patch.AvoidTouristTraps,
             patch.MaxWalkingMinutes);
     }
@@ -942,6 +1183,323 @@ public sealed class TravelChatService(
             .Select(value => value.Trim())
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
+    }
+
+    private static IReadOnlyList<string> RemoveDislikedInterests(
+        IReadOnlyList<string> interests,
+        IReadOnlyList<string> dislikes)
+    {
+        return interests
+            .Where(interest => !dislikes.Any(dislike =>
+                string.Equals(interest, dislike, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+    }
+
+    private static List<ScoredRecommendation> RemoveDislikedCandidates(
+        IReadOnlyList<ScoredRecommendation> candidates,
+        IReadOnlyList<string> dislikes)
+    {
+        if (dislikes.Count == 0)
+        {
+            return candidates.ToList();
+        }
+
+        return candidates
+            .Where(candidate => !dislikes.Any(dislike =>
+                !string.IsNullOrWhiteSpace(dislike)
+                && CreateRecommendationSearchableText(candidate.Recommendation)
+                    .Contains(dislike, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+    }
+
+    private static string CreateRecommendationSearchableText(Recommendation recommendation)
+    {
+        return string.Join(
+            ' ',
+            [
+                recommendation.Title,
+                recommendation.Category,
+                recommendation.Neighborhood,
+                recommendation.Description,
+                .. recommendation.Tags
+            ]);
+    }
+
+    private static TravelPreferenceProfilePatchDto? ReadPendingPreferencePatch(TravelChatConversation? conversation)
+    {
+        if (string.IsNullOrWhiteSpace(conversation?.PendingPreferencePatchJson))
+        {
+            return null;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<TravelPreferenceProfilePatchDto>(
+                conversation.PendingPreferencePatchJson,
+                JsonOptions);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private static bool IsPreferenceConfirmationReply(string? message)
+    {
+        return IsPositiveConfirmation(message) || IsNegativeConfirmation(message);
+    }
+
+    private static bool IsPositiveConfirmation(string? message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return false;
+        }
+
+        var normalized = RemoveDiacritics(message).Trim().ToLowerInvariant();
+        return normalized is "si" or "ok" or "dale" or "confirmo"
+            || ContainsAny(normalized, "si guardar", "guardar preferencia", "confirmar", "confirmo", "yes", "save preference");
+    }
+
+    private static bool IsNegativeConfirmation(string? message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return false;
+        }
+
+        var normalized = RemoveDiacritics(message).Trim().ToLowerInvariant();
+        return normalized == "no"
+            || normalized.StartsWith("no ", StringComparison.Ordinal)
+            || ContainsAny(normalized, "solo este pedido", "no guardar", "no lo guardes", "dont save", "do not save");
+    }
+
+    private static bool IsPlanningRequest(string? message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return false;
+        }
+
+        var normalized = RemoveDiacritics(message).ToLowerInvariant();
+        return ContainsAny(
+            normalized,
+            "plan",
+            "planes",
+            "propon",
+            "recomend",
+            "suger",
+            "que hago",
+            "que puedo hacer",
+            "algo para hacer");
+    }
+
+    private static bool IsSupportedPlanningRequest(string? message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return false;
+        }
+
+        var normalized = RemoveDiacritics(message).ToLowerInvariant();
+        return ContainsAny(
+            normalized,
+            "plan",
+            "planes",
+            "propon",
+            "recomend",
+            "suger",
+            "que hago",
+            "que puedo hacer",
+            "algo para hacer",
+            "menos caminata",
+            "caminar menos",
+            "mas corto",
+            "otra opcion",
+            "otra alternativa",
+            "algo distinto",
+            "comida",
+            "food",
+            "cultura",
+            "culture",
+            "barato",
+            "gratis",
+            "economico");
+    }
+
+    private static void ApplyPatch(TravelPreferenceProfile profile, TravelPreferenceProfilePatchDto patch)
+    {
+        if (patch.FoodPreferences is not null)
+        {
+            profile.FoodPreferences = patch.FoodPreferences.ToList();
+        }
+
+        if (patch.DietaryRestrictions is not null)
+        {
+            profile.DietaryRestrictions = patch.DietaryRestrictions.ToList();
+        }
+
+        if (!string.IsNullOrWhiteSpace(patch.BudgetLevel))
+        {
+            profile.BudgetLevel = patch.BudgetLevel;
+        }
+
+        if (!string.IsNullOrWhiteSpace(patch.TravelPace))
+        {
+            profile.TravelPace = patch.TravelPace;
+        }
+
+        if (patch.Interests is not null)
+        {
+            profile.Interests = patch.Interests.ToList();
+        }
+
+        if (patch.Dislikes is not null)
+        {
+            profile.Dislikes = patch.Dislikes.ToList();
+        }
+
+        if (patch.AvoidTouristTraps.HasValue)
+        {
+            profile.AvoidTouristTraps = patch.AvoidTouristTraps.Value;
+        }
+
+        if (patch.MaxWalkingMinutes.HasValue)
+        {
+            profile.MaxWalkingMinutes = patch.MaxWalkingMinutes.Value;
+        }
+    }
+
+    private static string FormatPreferencePatch(TravelPreferenceProfilePatchDto patch)
+    {
+        var lines = new List<string>();
+        if (patch.Interests is { Count: > 0 })
+        {
+            lines.Add($"- Intereses: {FormatList(patch.Interests)}");
+        }
+
+        if (patch.Dislikes is { Count: > 0 })
+        {
+            lines.Add($"- Evitar: {FormatList(patch.Dislikes)}");
+        }
+
+        if (patch.FoodPreferences is { Count: > 0 })
+        {
+            lines.Add($"- Comida: {FormatList(patch.FoodPreferences)}");
+        }
+
+        if (patch.DietaryRestrictions is { Count: > 0 })
+        {
+            lines.Add($"- Requisitos alimentarios: {FormatList(patch.DietaryRestrictions)}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(patch.BudgetLevel))
+        {
+            lines.Add($"- Presupuesto: {patch.BudgetLevel}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(patch.TravelPace))
+        {
+            lines.Add($"- Ritmo: {patch.TravelPace}");
+        }
+
+        if (patch.MaxWalkingMinutes.HasValue)
+        {
+            lines.Add($"- Caminata maxima: {patch.MaxWalkingMinutes.Value} min");
+        }
+
+        return lines.Count == 0
+            ? "- Sin cambios detectados"
+            : string.Join('\n', lines);
+    }
+
+    private static bool HasAvoidSignal(string normalized)
+    {
+        return ContainsAny(
+            normalized,
+            "evitar",
+            "avoid",
+            "no me gusta",
+            "no quiero",
+            "evita",
+            "evite",
+            "evitando",
+            "sin museos",
+            "sin museo",
+            "sin cultura",
+            "sin culture",
+            "sin shopping",
+            "sin compras");
+    }
+
+    private static IReadOnlyList<string> ExtractDislikedTags(
+        string normalized,
+        IReadOnlySet<string> knownRecommendationTags)
+    {
+        if (!HasAvoidSignal(normalized))
+        {
+            return [];
+        }
+
+        var dislikedTags = new List<string>();
+        var aliases = new (string Tag, string[] Terms)[]
+        {
+            ("culture", ["culture", "cultura", "cultural"]),
+            ("museum", ["museum", "museo", "museos"]),
+            ("history", ["history", "historia"]),
+            ("art", ["art", "arte"]),
+            ("food", ["food", "comida", "gastronomia", "gastronomia", "restaurante", "restaurant"]),
+            ("cafe", ["cafe"]),
+            ("snacks", ["snack", "snacks"]),
+            ("shopping", ["shopping", "compras", "tiendas"]),
+            ("neighborhood", ["neighborhood", "barrio", "barrios"]),
+            ("vegetarian", ["vegetarian", "vegetariano", "vegetariana"]),
+            ("vegan", ["vegan", "vegano", "vegana"])
+        };
+
+        foreach (var (tag, terms) in aliases)
+        {
+            if (terms.Any(term => ContainsAvoidedTerm(normalized, term)))
+            {
+                AddUnique(dislikedTags, tag);
+            }
+        }
+
+        foreach (var tag in knownRecommendationTags)
+        {
+            if (ContainsAvoidedTerm(normalized, tag))
+            {
+                AddUnique(dislikedTags, tag);
+            }
+        }
+
+        return dislikedTags;
+    }
+
+    private static bool ContainsAvoidedTerm(string normalized, string term)
+    {
+        return ContainsAny(
+            normalized,
+            $"evitar {term}",
+            $"evita {term}",
+            $"evite {term}",
+            $"evitando {term}",
+            $"avoid {term}",
+            $"no me gusta {term}",
+            $"no quiero {term}",
+            $"sin {term}");
+    }
+
+    private static string NormalizePreferenceToken(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        return RemoveDiacritics(value)
+            .Trim()
+            .ToLowerInvariant();
     }
 
     private static string FormatPreferenceProfile(TravelPreferenceProfileDto profile)

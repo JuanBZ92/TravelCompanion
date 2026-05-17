@@ -50,7 +50,39 @@ public sealed class DeterministicRecommendationRankerTests
 
         Assert.Equal(nearbyFood.Id, ranked[0].Recommendation.Id);
         Assert.Contains(ranked[0].PositiveReasons, reason => reason.Contains("tiempo libre", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains(ranked[1].NegativeReasons, reason => reason.Contains("justo", StringComparison.OrdinalIgnoreCase));
+        var longMuseumScore = Assert.Single(ranked, scored => scored.Recommendation.Id == longMuseum.Id);
+        Assert.Contains(longMuseumScore.NegativeReasons, reason => reason.Contains("justo", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Rank_ignores_current_location_when_it_is_far_from_the_destination()
+    {
+        var ranker = new DeterministicRecommendationRanker();
+        var profile = new TravelPreferenceProfile
+        {
+            UserId = Guid.NewGuid(),
+            Interests = ["Food"],
+            MaxWalkingMinutes = 25
+        };
+        var context = new TravelPlanningContext(
+            "Kyoto",
+            new DateOnly(2026, 10, 6),
+            new TimeOnly(11, 0),
+            new TimeOnly(13, 0),
+            120,
+            new GeoPointDto(40.416775m, -3.703790m));
+        var recommendation = CreateRecommendation(
+            "Pontocho dinner shortlist",
+            "Food",
+            "Pontocho, Kyoto",
+            90,
+            35.003700m,
+            135.778600m);
+
+        var ranked = ranker.Rank(profile, [], [recommendation], context);
+
+        Assert.Null(ranked[0].DistanceKm);
+        Assert.Null(ranked[0].WalkingMinutes);
     }
 
     [Fact]

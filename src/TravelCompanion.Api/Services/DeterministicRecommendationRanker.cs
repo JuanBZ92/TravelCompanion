@@ -82,6 +82,11 @@ public sealed class DeterministicRecommendationRanker : IRecommendationRanker
                 context.CurrentLocation.Longitude,
                 recommendation.Latitude,
                 recommendation.Longitude);
+        if (distanceKm > 100)
+        {
+            distanceKm = null;
+        }
+
         int? walkingMinutes = distanceKm.HasValue
             ? Math.Max(1, (int)Math.Ceiling(distanceKm.Value * 12))
             : null;

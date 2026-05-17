@@ -9,6 +9,9 @@ public sealed class TravelChatConversation
     public DateOnly? LastDate { get; set; }
     public string LastResponseMode { get; set; } = "balanced";
     public string? LastRecommendationIds { get; set; }
+    public string? PendingPreferencePatchJson { get; set; }
+    public string? PendingPreferenceOriginalMessage { get; set; }
+    public DateTimeOffset? PendingPreferenceRequestedAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 }

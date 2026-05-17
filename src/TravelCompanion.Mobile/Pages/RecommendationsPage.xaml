@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:system="clr-namespace:System;assembly=System.Runtime"
              xmlns:itemViewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
              xmlns:viewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
              x:Class="TravelCompanion.Mobile.Pages.RecommendationsPage"
@@ -184,11 +185,11 @@
                                                     IsVisible="{Binding HasVisibleTags}"
                                                     BindableLayout.ItemsSource="{Binding VisibleTags}">
                                             <BindableLayout.ItemTemplate>
-                                                <DataTemplate>
+                                                <DataTemplate x:DataType="system:String">
                                                     <Border Style="{StaticResource Chip}"
                                                             Padding="8,5"
                                                             Margin="0,0,6,4">
-                                                        <Label Text="{Binding StringFormat='#{0}'}"
+                                                        <Label Text="{Binding ., StringFormat='#{0}'}"
                                                                FontSize="11"
                                                                TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}"
                                                                MaxLines="1"

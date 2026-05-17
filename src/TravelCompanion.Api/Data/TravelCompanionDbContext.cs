@@ -140,6 +140,7 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
             entity.Property(conversation => conversation.LastCity).HasMaxLength(120);
             entity.Property(conversation => conversation.LastResponseMode).HasMaxLength(40);
             entity.Property(conversation => conversation.LastRecommendationIds).HasMaxLength(512);
+            entity.Property(conversation => conversation.PendingPreferenceOriginalMessage).HasMaxLength(512);
             entity.HasKey(conversation => conversation.Id);
             entity.HasIndex(conversation => new { conversation.UserId, conversation.UpdatedAt });
             entity.HasOne(conversation => conversation.User)
