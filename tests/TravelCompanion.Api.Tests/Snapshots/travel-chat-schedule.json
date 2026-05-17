@@ -1,0 +1,12 @@
+{
+  "conversationId": "<id>",
+  "message": "Tu agenda del 06/10 en Japon:\n- 09:00: Museum (Tokyo)\n- 18:00: Dinner (Tokyo)",
+  "intent": "view_schedule",
+  "cards": [],
+  "suggestedReplies": [
+    "Proponeme planes para 2026-10-06",
+    "Algo con menos caminata",
+    "Ver mis preferencias"
+  ],
+  "missingContext": null
+}

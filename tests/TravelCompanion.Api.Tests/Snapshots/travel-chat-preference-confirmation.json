@@ -1,0 +1,18 @@
+{
+  "conversationId": "<id>",
+  "message": "Detecte este posible cambio de preferencias:\n- Evitar: culture\nQueres guardarlo en tu perfil?",
+  "intent": "update_preferences",
+  "cards": [],
+  "suggestedReplies": [
+    "Si, guardar preferencia",
+    "No, solo este pedido"
+  ],
+  "missingContext": {
+    "field": "preferenceConfirmation",
+    "message": "Confirma si queres guardar este cambio como preferencia permanente.",
+    "suggestions": [
+      "Si, guardar preferencia",
+      "No, solo este pedido"
+    ]
+  }
+}

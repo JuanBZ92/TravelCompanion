@@ -1039,6 +1039,115 @@ public sealed class TravelChatServiceTests
         Assert.DoesNotContain(followUp.Cards, card => card.RecommendationId == replacedId);
     }
 
+    [Fact]
+    public async Task CreatePlanAsync_does_not_echo_model_saved_claims_without_backend_confirmation()
+    {
+        await using var dbContext = CreateDbContext();
+        var destinationId = Guid.NewGuid();
+        var user = await SeedPlanningWorldAsync(
+            dbContext,
+            destinationId,
+            CreateRecommendation(destinationId, "Tsukiji Snack Walk", "Food", "Local snacks in Tokyo.", 60));
+
+        var service = CreateService(
+            dbContext,
+            new FakeTravelAiModelClient(new TravelAiModelResult(
+                "Listo, quedo guardado en tu agenda.",
+                ["Ver agenda"])));
+        var response = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest("Proponeme un plan", null, "Tokyo", new DateOnly(2026, 10, 6), null, "es-ES"),
+            CancellationToken.None);
+
+        Assert.Single(response.Cards);
+        Assert.DoesNotContain("guardado", response.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("guardada", response.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("saved", response.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task CreatePlanAsync_schedule_chip_returns_schedule_even_after_prior_model_response()
+    {
+        await using var dbContext = CreateDbContext();
+        var destinationId = Guid.NewGuid();
+        var user = await SeedPlanningWorldAsync(
+            dbContext,
+            destinationId,
+            CreateRecommendation(destinationId, "Tsukiji Snack Walk", "Food", "Local snacks in Tokyo.", 60));
+
+        var service = CreateService(
+            dbContext,
+            new FakeTravelAiModelClient(new TravelAiModelResult(
+                "Texto del plan anterior que no debe copiarse.",
+                ["Ver mi agenda"])));
+        var firstResponse = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest("Proponeme un plan", null, "Tokyo", new DateOnly(2026, 10, 6), null, "es-ES"),
+            CancellationToken.None);
+
+        var scheduleResponse = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest("Ver mi agenda", firstResponse.ConversationId, "Tokyo", null, null, "es-ES"),
+            CancellationToken.None);
+
+        Assert.Equal("view_schedule", scheduleResponse.Intent);
+        Assert.Contains("Tu agenda", scheduleResponse.Message);
+        Assert.Contains("Museum", scheduleResponse.Message);
+        Assert.DoesNotContain("Texto del plan anterior", scheduleResponse.Message);
+        Assert.Empty(scheduleResponse.Cards);
+    }
+
+    [Fact]
+    public async Task CreatePlanAsync_one_off_avoid_filter_uses_canonical_tag_aliases()
+    {
+        await using var dbContext = CreateDbContext();
+        var destinationId = Guid.NewGuid();
+        var onsenRecommendation = CreateRecommendation(
+            destinationId,
+            "Hakone onsen pause",
+            "Wellness",
+            "Thermal bath route in Tokyo.",
+            60);
+        onsenRecommendation.Tags = ["onsen"];
+        var foodRecommendation = CreateRecommendation(
+            destinationId,
+            "Ginza depachika route",
+            "Food",
+            "Local food in Tokyo.",
+            60);
+        foodRecommendation.Tags = ["food"];
+        var user = await SeedPlanningWorldAsync(dbContext, destinationId, onsenRecommendation, foodRecommendation);
+
+        var service = CreateService(dbContext);
+        var confirmation = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest(
+                "proponeme un plan para 2026-10-06 evitando baños termales",
+                null,
+                "Tokyo",
+                null,
+                null,
+                "es-ES"),
+            CancellationToken.None);
+
+        Assert.Equal("update_preferences", confirmation.Intent);
+        Assert.NotNull(confirmation.MissingContext);
+        Assert.Contains("onsen", confirmation.Message);
+
+        var response = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest("No, solo este pedido", confirmation.ConversationId, "Tokyo", null, null, "es-ES"),
+            CancellationToken.None);
+
+        Assert.Null(response.MissingContext);
+        Assert.NotEmpty(response.Cards);
+        Assert.DoesNotContain(response.Cards, card => card.Tags.Contains("onsen", StringComparer.OrdinalIgnoreCase));
+        Assert.Contains(response.Cards, card => card.Tags.Contains("food", StringComparer.OrdinalIgnoreCase));
+
+        var profile = await dbContext.TravelPreferenceProfiles.FindAsync(user.Id);
+        Assert.DoesNotContain("onsen", profile!.Dislikes);
+    }
+
     private static TravelCompanionDbContext CreateDbContext()
     {
         var options = new DbContextOptionsBuilder<TravelCompanionDbContext>()
@@ -1046,6 +1155,41 @@ public sealed class TravelChatServiceTests
             .Options;
 
         return new TravelCompanionDbContext(options);
+    }
+
+    private static async Task<AppUser> SeedPlanningWorldAsync(
+        TravelCompanionDbContext dbContext,
+        Guid destinationId,
+        params Recommendation[] recommendations)
+    {
+        var user = CreateUser(destinationId);
+        dbContext.AppUsers.Add(user);
+        dbContext.Destinations.Add(new Destination
+        {
+            Id = destinationId,
+            Name = "Japon",
+            Slug = "japon",
+            Country = "Japan",
+            HeroImageUrl = string.Empty,
+            ShortDescription = "Demo"
+        });
+        dbContext.Trips.Add(new Trip
+        {
+            Id = Guid.NewGuid(),
+            AppUserId = user.Id,
+            DestinationId = destinationId,
+            TravelerName = "Demo Traveler",
+            StartsOn = new DateOnly(2026, 10, 6),
+            EndsOn = new DateOnly(2026, 10, 10),
+            Reservations =
+            [
+                CreateReservation("Museum", new TimeOnly(9, 0), "Tokyo"),
+                CreateReservation("Dinner", new TimeOnly(18, 0), "Tokyo")
+            ]
+        });
+        dbContext.Recommendations.AddRange(recommendations);
+        await dbContext.SaveChangesAsync();
+        return user;
     }
 
     private static TravelChatService CreateService(
@@ -1056,6 +1200,7 @@ public sealed class TravelChatServiceTests
             dbContext,
             new UserProfileService(dbContext),
             new DeterministicRecommendationRanker(),
+            new RecommendationTagCatalogService(dbContext),
             modelClient ?? new FakeTravelAiModelClient(null),
             NullLogger<TravelChatService>.Instance);
     }

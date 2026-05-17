@@ -4,15 +4,20 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using TravelCompanion.Api.Data;
 using TravelCompanion.Api.Models;
+using TravelCompanion.Api.Services;
 using TravelCompanion.Shared;
+using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Api.Pages.Admin;
 
-public sealed class RecommendationsModel(TravelCompanionDbContext dbContext) : PageModel
+public sealed class RecommendationsModel(
+    TravelCompanionDbContext dbContext,
+    IRecommendationTagCatalogService tagCatalogService) : PageModel
 {
     public List<RecommendationRow> Recommendations { get; private set; } = [];
     public List<SelectListItem> DestinationOptions { get; private set; } = [];
     public List<SelectListItem> PackageOptions { get; private set; } = [];
+    public IReadOnlyList<RecommendationTagDto> TagCatalog { get; private set; } = [];
     public List<SelectListItem> AccessLevelOptions { get; } =
     [
         new("Free", ContentAccessLevel.Free.ToString()),
@@ -22,6 +27,9 @@ public sealed class RecommendationsModel(TravelCompanionDbContext dbContext) : P
 
     [BindProperty]
     public RecommendationInput Input { get; set; } = new();
+
+    [TempData]
+    public string? StatusMessage { get; set; }
 
     public async Task OnGetAsync(Guid? editId)
     {
@@ -110,6 +118,10 @@ public sealed class RecommendationsModel(TravelCompanionDbContext dbContext) : P
             return Page();
         }
 
+        var tagNormalization = await tagCatalogService.NormalizeTagsAsync(
+            RecommendationInput.ParseTags(Input.TagsText),
+            cancellationToken: HttpContext.RequestAborted);
+
         Recommendation recommendation;
         if (Input.Id.HasValue)
         {
@@ -133,10 +145,12 @@ public sealed class RecommendationsModel(TravelCompanionDbContext dbContext) : P
         }
 
         Input.ApplyTo(recommendation);
+        recommendation.Tags = tagNormalization.Tags.ToList();
         recommendation.Packages.Clear();
         recommendation.Packages.AddRange(selectedPackages);
 
         await dbContext.SaveChangesAsync();
+        StatusMessage = CreateSaveStatusMessage(tagNormalization);
         return RedirectToPage();
     }
 
@@ -147,6 +161,7 @@ public sealed class RecommendationsModel(TravelCompanionDbContext dbContext) : P
         {
             dbContext.Recommendations.Remove(recommendation);
             await dbContext.SaveChangesAsync();
+            StatusMessage = "Recomendacion borrada.";
         }
 
         return RedirectToPage();
@@ -154,6 +169,8 @@ public sealed class RecommendationsModel(TravelCompanionDbContext dbContext) : P
 
     private async Task LoadPageDataAsync()
     {
+        TagCatalog = await tagCatalogService.GetCatalogAsync(cancellationToken: HttpContext.RequestAborted);
+
         DestinationOptions = await dbContext.Destinations
             .AsNoTracking()
             .OrderBy(destination => destination.Name)
@@ -193,8 +210,28 @@ public sealed class RecommendationsModel(TravelCompanionDbContext dbContext) : P
                 recommendation.Rating,
                 recommendation.OpeningHours,
                 recommendation.Latitude,
-                recommendation.Longitude))
+                recommendation.Longitude,
+                recommendation.Tags))
             .ToList();
+    }
+
+    private static string CreateSaveStatusMessage(RecommendationTagNormalizationResult tagNormalization)
+    {
+        var messages = new List<string> { "Recomendacion guardada." };
+
+        if (tagNormalization.Replacements.Count > 0)
+        {
+            var replacements = tagNormalization.Replacements
+                .Select(replacement => $"{replacement.Key} -> {replacement.Value}");
+            messages.Add($"Tags normalizados: {string.Join(", ", replacements)}.");
+        }
+
+        if (tagNormalization.UnknownTags.Count > 0)
+        {
+            messages.Add($"Tags nuevos sin alias conocido: {string.Join(", ", tagNormalization.UnknownTags)}.");
+        }
+
+        return string.Join(" ", messages);
     }
 
     public sealed record RecommendationRow(
@@ -209,7 +246,8 @@ public sealed class RecommendationsModel(TravelCompanionDbContext dbContext) : P
         double? Rating,
         string? OpeningHours,
         decimal Latitude,
-        decimal Longitude)
+        decimal Longitude,
+        IReadOnlyList<string> Tags)
     {
         public string AccessLevelLabel => ProductAccessModel.GetLabel(AccessLevel);
         public string AccessSummary => PackageNames.Count == 0
@@ -279,7 +317,7 @@ public sealed class RecommendationsModel(TravelCompanionDbContext dbContext) : P
             recommendation.AccessLevel = AccessLevel;
         }
 
-        private static List<string> ParseTags(string? value)
+        public static List<string> ParseTags(string? value)
         {
             return string.IsNullOrWhiteSpace(value)
                 ? []

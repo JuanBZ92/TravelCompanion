@@ -19,3 +19,10 @@ public sealed record RecommendationDto(
     ContentAccessLevel AccessLevel,
     IReadOnlyList<Guid> PackageIds,
     decimal? DistanceKm);
+
+public sealed record RecommendationTagDto(
+    string Tag,
+    string DisplayName,
+    IReadOnlyList<string> Aliases,
+    int RecommendationCount,
+    bool IsCategory);

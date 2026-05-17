@@ -1,0 +1,18 @@
+{
+  "conversationId": "<id>",
+  "message": "Para guardar un plan necesito tu confirmacion en la tarjeta recomendada.",
+  "intent": "plan_between_reservations",
+  "cards": [],
+  "suggestedReplies": [
+    "Confirmar en la tarjeta",
+    "Ver otro plan"
+  ],
+  "missingContext": {
+    "field": "confirmation",
+    "message": "Para guardar un plan necesito tu confirmacion en la tarjeta recomendada.",
+    "suggestions": [
+      "Confirmar en la tarjeta",
+      "Ver otro plan"
+    ]
+  }
+}

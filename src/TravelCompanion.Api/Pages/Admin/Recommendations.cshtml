@@ -12,6 +12,13 @@
     <span class="eyebrow">Contenido</span>
 </div>
 
+@if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
+{
+    <section class="notice">
+        <strong>@Model.StatusMessage</strong>
+    </section>
+}
+
 <section class="panel">
     <div class="section-header">
         <div>
@@ -97,6 +104,31 @@
             <label asp-for="Input.TagsText">Tags <span class="muted">(opcional)</span></label>
             <input asp-for="Input.TagsText" placeholder="local food, vegetarian, shopping" />
             <span asp-validation-for="Input.TagsText"></span>
+            <p class="form-hint">Se guardan normalizados contra el catalogo canonico que tambien usa el assistant.</p>
+            <div class="tag-catalog">
+                <div class="chip-list">
+                    @foreach (var tag in Model.TagCatalog.Where(tag => !tag.IsCategory).Take(24))
+                    {
+                        <span class="chip subtle">@tag.Tag</span>
+                    }
+                </div>
+                <details>
+                    <summary>Ver categorias y aliases reconocidos</summary>
+                    <div class="tag-catalog-grid">
+                        @foreach (var tag in Model.TagCatalog)
+                        {
+                            <div class="tag-catalog-item">
+                                <strong>@tag.Tag</strong>
+                                <span class="muted">@(tag.IsCategory ? "categoria" : "tag") · @tag.RecommendationCount recomendaciones</span>
+                                @if (tag.Aliases.Count > 0)
+                                {
+                                    <span class="mono">Aliases: @string.Join(", ", tag.Aliases)</span>
+                                }
+                            </div>
+                        }
+                    </div>
+                </details>
+            </div>
         </div>
         <div class="actions">
             <button type="submit">Guardar</button>
@@ -158,6 +190,15 @@
                         {
                             <br />
                             <span class="muted">@recommendation.OpeningHours</span>
+                        }
+                        @if (recommendation.Tags.Count > 0)
+                        {
+                            <div class="chip-list table-chips">
+                                @foreach (var tag in recommendation.Tags)
+                                {
+                                    <span class="chip subtle">@tag</span>
+                                }
+                            </div>
                         }
                     </td>
                     <td><span class="mono">@recommendation.Latitude, @recommendation.Longitude</span></td>

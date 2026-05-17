@@ -1,0 +1,24 @@
+{
+  "conversationId": "<id>",
+  "message": "No entendi ese pedido. Puedo proponerte planes, revisar tu agenda o ayudarte a ajustar preferencias.",
+  "intent": "plan_between_reservations",
+  "cards": [],
+  "suggestedReplies": [
+    "Que puedo pedirte",
+    "Proponeme un plan",
+    "Ver mi agenda",
+    "Ver mis preferencias",
+    "Algo con menos caminata"
+  ],
+  "missingContext": {
+    "field": "assistantCommand",
+    "message": "No entendi ese pedido. Puedo proponerte planes, revisar tu agenda o ayudarte a ajustar preferencias.",
+    "suggestions": [
+      "Que puedo pedirte",
+      "Proponeme un plan",
+      "Ver mi agenda",
+      "Ver mis preferencias",
+      "Algo con menos caminata"
+    ]
+  }
+}

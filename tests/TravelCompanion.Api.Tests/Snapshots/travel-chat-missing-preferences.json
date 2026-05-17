@@ -1,0 +1,22 @@
+{
+  "conversationId": "<id>",
+  "message": "Antes de proponerte un plan necesito guardar al menos tus intereses, presupuesto y ritmo de viaje.",
+  "intent": "plan_between_reservations",
+  "cards": [],
+  "suggestedReplies": [
+    "Guardar intereses",
+    "Definir presupuesto",
+    "Definir ritmo",
+    "Completar preferencias"
+  ],
+  "missingContext": {
+    "field": "preferences",
+    "message": "Antes de proponerte un plan necesito guardar al menos tus intereses, presupuesto y ritmo de viaje.",
+    "suggestions": [
+      "Guardar intereses",
+      "Definir presupuesto",
+      "Definir ritmo",
+      "Completar preferencias"
+    ]
+  }
+}

@@ -1,12 +1,14 @@
 trigger:
   branches:
     include:
+    - master
     - main
     - develop
 
 pr:
   branches:
     include:
+    - master
     - main
     - develop
 
@@ -65,11 +67,17 @@ stages:
     - script: dotnet restore tests/TravelCompanion.Api.Tests/TravelCompanion.Api.Tests.csproj
       displayName: Restore API tests
 
+    - script: dotnet restore tests/TravelCompanion.Mobile.Tests/TravelCompanion.Mobile.Tests.csproj
+      displayName: Restore mobile tests
+
     - script: dotnet test tests/TravelCompanion.Shared.Tests/TravelCompanion.Shared.Tests.csproj --configuration $(buildConfiguration) --no-restore
       displayName: Test shared rules
 
     - script: dotnet test tests/TravelCompanion.Api.Tests/TravelCompanion.Api.Tests.csproj --configuration $(buildConfiguration) --no-restore
       displayName: Test API/admin rules
+
+    - script: dotnet test tests/TravelCompanion.Mobile.Tests/TravelCompanion.Mobile.Tests.csproj --configuration $(buildConfiguration) --no-restore
+      displayName: Test mobile assistant presentation
 
 - stage: TerraformValidate
   displayName: Validate Terraform

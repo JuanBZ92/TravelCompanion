@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Net.Http;
 using CommunityToolkit.Mvvm.Input;
 using TravelCompanion.Mobile.Pages;
 using TravelCompanion.Mobile.Services;
@@ -11,7 +12,8 @@ public sealed partial class TravelChatViewModel(
     TravelCompanionApiClient apiClient,
     AuthSessionService sessionService,
     ILocationService locationService,
-    MobileBootstrapStore bootstrapStore) : ViewModelBase, ISessionStateResettable
+    MobileBootstrapStore bootstrapStore,
+    OfflineMutationQueueService mutationQueueService) : ViewModelBase, ISessionStateResettable
 {
     private string? _conversationId;
     private string _messageText = "Proponeme un plan entre mis reservas de hoy";
@@ -95,6 +97,7 @@ public sealed partial class TravelChatViewModel(
                 return;
             }
 
+            await ReplayPendingMutationsAsync(token, ct);
             var schedule = await apiClient.GetScheduleAsync(token, ct);
             var firstUsefulDay = (schedule?.Items ?? [])
                 .GroupBy(item => item.Date)
@@ -262,13 +265,13 @@ public sealed partial class TravelChatViewModel(
             ErrorMessage = null;
             StatusMessage = null;
 
-            var response = await apiClient.SaveItineraryItemAsync(
-                token,
-                new SaveItineraryItemRequest(
-                    card.RecommendationId.Value,
-                    DateOnly.FromDateTime(PlanningDate),
-                    card.StartsAt.Value,
-                    card.EndsAt));
+            var saveRequest = new SaveItineraryItemRequest(
+                card.RecommendationId.Value,
+                DateOnly.FromDateTime(PlanningDate),
+                card.StartsAt.Value,
+                card.EndsAt);
+
+            var response = await apiClient.SaveItineraryItemAsync(token, saveRequest);
 
             if (response?.Saved == true)
             {
@@ -283,6 +286,10 @@ public sealed partial class TravelChatViewModel(
             }
 
             ErrorMessage = response?.Message ?? "No pude guardar el plan. Intenta nuevamente.";
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
+        {
+            await QueueSaveItineraryItemAsync(card, ex.Message);
         }
         catch (Exception ex)
         {
@@ -372,6 +379,49 @@ public sealed partial class TravelChatViewModel(
 
         MessageText = message;
         await SendMessageAsync();
+    }
+
+    private async Task QueueSaveItineraryItemAsync(TravelChatCardViewModel card, string reason)
+    {
+        if (!card.RecommendationId.HasValue || !card.StartsAt.HasValue)
+        {
+            ErrorMessage = $"No pude guardar el plan: {reason}";
+            return;
+        }
+
+        await mutationQueueService.EnqueueSaveItineraryItemAsync(
+            new SaveItineraryItemRequest(
+                card.RecommendationId.Value,
+                DateOnly.FromDateTime(PlanningDate),
+                card.StartsAt.Value,
+                card.EndsAt));
+        card.IsSaved = true;
+        var pendingCount = await mutationQueueService.GetPendingCountAsync();
+        StatusMessage = pendingCount == 1
+            ? "Sin conexion estable. Deje este plan en cola y lo voy a sincronizar cuando vuelva la red."
+            : $"Sin conexion estable. Hay {pendingCount} cambios en cola para sincronizar.";
+    }
+
+    private async Task ReplayPendingMutationsAsync(string token, CancellationToken cancellationToken)
+    {
+        var result = await mutationQueueService.ReplayPendingAsync(token, cancellationToken);
+        if (result.Total == 0)
+        {
+            return;
+        }
+
+        if (result.Succeeded > 0 && result.Failed == 0)
+        {
+            StatusMessage = result.Succeeded == 1
+                ? "Sincronice 1 cambio pendiente."
+                : $"Sincronice {result.Succeeded} cambios pendientes.";
+            return;
+        }
+
+        if (result.Succeeded > 0)
+        {
+            StatusMessage = $"Sincronice {result.Succeeded} cambios; quedan {result.Failed} pendientes.";
+        }
     }
 
     private async Task<RecommendationDto?> FindRecommendationAsync(Guid recommendationId, string token)

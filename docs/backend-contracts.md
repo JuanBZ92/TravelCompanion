@@ -1,6 +1,48 @@
 # Backend Contracts
 
-## Endpoint
+## Production-Critical Endpoints
+
+These endpoints should be covered by smoke tests and contract regression tests before production deploys:
+
+- `GET /health`: public liveness check.
+- `POST /api/auth/login`: mobile session creation.
+- `GET /api/destinations`: public destination catalog.
+- `GET /api/recommendations`: public recommendation catalog.
+- `GET /api/recommendations/tags`: public canonical recommendation tag catalog.
+- `GET /api/packages`: public/package-aware package catalog.
+- `GET /api/mobile/bootstrap`: authenticated mobile bootstrap payload.
+- `GET /api/mobile/discover`: authenticated discover payload.
+- `GET /api/me/schedule`: authenticated user schedule.
+- `GET /api/me/travel-preference-profile`: authenticated preference profile read.
+- `PATCH /api/me/travel-preference-profile`: authenticated preference profile update.
+- `POST /api/ai/travel-chat`: authenticated assistant entry point.
+- `POST /api/ai/save-itinerary-item`: authenticated itinerary save action.
+
+Smoke testing is implemented in `scripts/SmokeTest-Api.ps1`.
+
+## Recommendation Tags Endpoint
+
+```http
+GET /api/recommendations/tags?destinationSlug=japon
+```
+
+Returns the canonical tag catalog generated from recommendation categories and tags:
+
+```json
+[
+  {
+    "tag": "culture",
+    "displayName": "Culture",
+    "aliases": ["cultura", "cultural"],
+    "recommendationCount": 12,
+    "isCategory": true
+  }
+]
+```
+
+The assistant uses the same catalog to resolve preference edits such as `evitar cultura`, `sin baños termales`, or `avoid history` into canonical `Dislikes` values.
+
+## Travel Chat Endpoint
 
 ```http
 POST /api/ai/travel-chat

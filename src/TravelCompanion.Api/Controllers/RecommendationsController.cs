@@ -2,14 +2,25 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TravelCompanion.Api.Data;
 using TravelCompanion.Api.Models;
+using TravelCompanion.Api.Services;
 using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public sealed class RecommendationsController(TravelCompanionDbContext dbContext) : ControllerBase
+public sealed class RecommendationsController(
+    TravelCompanionDbContext dbContext,
+    IRecommendationTagCatalogService tagCatalogService) : ControllerBase
 {
+    [HttpGet("tags")]
+    public async Task<ActionResult<IReadOnlyList<RecommendationTagDto>>> GetTags(
+        [FromQuery] string? destinationSlug = null,
+        CancellationToken cancellationToken = default)
+    {
+        return Ok(await tagCatalogService.GetCatalogAsync(destinationSlug, cancellationToken));
+    }
+
     [HttpGet]
     public async Task<IActionResult> GetRecommendations(
         [FromQuery] string? destinationSlug = null,

@@ -75,6 +75,7 @@ builder.Services.AddScoped<IUserInvitationSender, LoggingUserInvitationSender>()
 builder.Services.AddScoped<IUserProfileService, UserProfileService>();
 builder.Services.AddScoped<IItineraryService, ItineraryService>();
 builder.Services.AddScoped<IRecommendationRanker, DeterministicRecommendationRanker>();
+builder.Services.AddScoped<IRecommendationTagCatalogService, RecommendationTagCatalogService>();
 builder.Services.AddSingleton<ITravelAiModelClient, OpenAiTravelModelClient>();
 builder.Services.AddScoped<ITravelChatService, TravelChatService>();
 builder.Services.AddSingleton<SlowDbCommandLoggingInterceptor>();
@@ -115,7 +116,10 @@ app.MapGet("/health", () => Results.Ok(new
 app.MapControllers();
 app.MapRazorPages();
 
-await InitializeDatabaseAsync(app);
+if (!app.Environment.IsEnvironment("Testing"))
+{
+    await InitializeDatabaseAsync(app);
+}
 
 app.Run();
 
@@ -140,3 +144,5 @@ static async Task InitializeDatabaseAsync(WebApplication app)
         }
     }
 }
+
+public partial class Program;

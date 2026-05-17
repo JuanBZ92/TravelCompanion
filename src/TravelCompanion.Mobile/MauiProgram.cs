@@ -72,6 +72,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<OfflineCacheService>();
         builder.Services.AddSingleton<MobileBootstrapStore>();
         builder.Services.AddSingleton<MobileDiscoverStore>();
+        builder.Services.AddSingleton<OfflineMutationQueueService>();
         builder.Services.AddSingleton<FavoritesService>();
         builder.Services.AddSingleton<ILocationService, LocationService>();
 

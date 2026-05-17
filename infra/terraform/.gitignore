@@ -6,3 +6,6 @@ crash.log
 crash.*.log
 tfplan
 *.tfplan
+travelcomp
+travelcomp1
+travelcomp*.zip

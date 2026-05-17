@@ -1,0 +1,37 @@
+{
+  "conversationId": "<id>",
+  "message": "Te propongo este plan para tu ventana de 10:30 a 18:00 en Tokyo: Tsukiji Snack Walk. Esta en la zona de Tokyo. Queda a unos 1 min caminando.",
+  "intent": "plan_between_reservations",
+  "cards": [
+    {
+      "type": "recommendation",
+      "title": "Tsukiji Snack Walk",
+      "subtitle": "1 min caminando \u00B7 Chuo, Tokyo",
+      "description": "Local snacks in Tokyo before dinner.",
+      "startTime": "10:30",
+      "endTime": "11:30",
+      "estimatedCost": "medium",
+      "distanceKm": 0.08,
+      "walkingMinutes": 1,
+      "whyItFits": [
+        "Esta en la zona de Tokyo.",
+        "Encaja con tus intereses guardados.",
+        "Coincide con tus preferencias de comida."
+      ],
+      "warnings": [],
+      "recommendationId": "<id>",
+      "reservationId": null,
+      "tags": [
+        "food",
+        "local food"
+      ]
+    }
+  ],
+  "suggestedReplies": [
+    "Algo con menos caminata",
+    "Algo mas corto",
+    "Ver mi agenda",
+    "Que puedo pedirte"
+  ],
+  "missingContext": null
+}

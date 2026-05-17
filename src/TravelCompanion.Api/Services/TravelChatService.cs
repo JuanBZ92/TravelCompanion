@@ -14,6 +14,7 @@ public sealed class TravelChatService(
     TravelCompanionDbContext dbContext,
     IUserProfileService userProfileService,
     IRecommendationRanker ranker,
+    IRecommendationTagCatalogService tagCatalogService,
     ITravelAiModelClient modelClient,
     ILogger<TravelChatService> logger) : ITravelChatService
 {
@@ -58,13 +59,14 @@ public sealed class TravelChatService(
 
                 if (!IsPlanningRequest(originalMessage))
                 {
-                    return new TravelChatResponse(
+                    return TrackOutcome(new TravelChatResponse(
                         conversationId,
                         $"Listo, actualice tus preferencias:\n{FormatPreferenceProfile(updatedProfile)}",
                         UpdatePreferencesIntent,
                         [],
                         ["Ver mis preferencias", "Proponeme un plan"],
-                        null);
+                        null),
+                        eventName: "preference_confirmed");
                 }
 
                 request = request with { Message = originalMessage, ConversationId = conversationId };
@@ -76,13 +78,14 @@ public sealed class TravelChatService(
 
                 if (!IsPlanningRequest(originalMessage))
                 {
-                    return new TravelChatResponse(
+                    return TrackOutcome(new TravelChatResponse(
                         conversationId,
                         "Ok, no modifique tus preferencias.",
                         ViewPreferencesIntent,
                         [],
                         ["Ver mis preferencias", "Proponeme un plan"],
-                        null);
+                        null),
+                        eventName: "preference_rejected");
                 }
 
                 request = request with { Message = originalMessage, ConversationId = conversationId };
@@ -93,11 +96,12 @@ public sealed class TravelChatService(
 
         if (IsSaveIntent(request.Message))
         {
-            return MissingContext(
+            return TrackOutcome(MissingContext(
                 conversationId,
                 "confirmation",
                 "Para guardar un plan necesito tu confirmacion en la tarjeta recomendada.",
-                ["Confirmar en la tarjeta", "Ver otro plan"]);
+                ["Confirmar en la tarjeta", "Ver otro plan"]),
+                eventName: "save_requires_confirmation");
         }
 
         var baseDate = request.Date
@@ -107,7 +111,7 @@ public sealed class TravelChatService(
 
         if (IsHelpIntent(request.Message))
         {
-            return CreateHelpResponse(conversationId);
+            return TrackOutcome(CreateHelpResponse(conversationId), eventName: "help");
         }
 
         if (IsScheduleIntent(request.Message))
@@ -139,16 +143,17 @@ public sealed class TravelChatService(
 
         if (!userProfileService.HasMinimumPreferences(effectivePreferences, out var missingPreferenceFields))
         {
-            return MissingContext(
+            return TrackOutcome(MissingContext(
                 conversationId,
                 "preferences",
                 "Antes de proponerte un plan necesito guardar al menos tus intereses, presupuesto y ritmo de viaje.",
-                CreatePreferenceSuggestions(missingPreferenceFields));
+                CreatePreferenceSuggestions(missingPreferenceFields)),
+                eventName: "missing_context");
         }
 
         if (!IsSupportedPlanningRequest(request.Message))
         {
-            return MissingContext(
+            return TrackOutcome(MissingContext(
                 conversationId,
                 "assistantCommand",
                 "No entendi ese pedido. Puedo proponerte planes, revisar tu agenda o ayudarte a ajustar preferencias.",
@@ -158,7 +163,8 @@ public sealed class TravelChatService(
                     "Ver mi agenda",
                     "Ver mis preferencias",
                     "Algo con menos caminata"
-                ]);
+                ]),
+                eventName: "unsupported_command");
         }
 
         var trips = await dbContext.Trips
@@ -173,11 +179,12 @@ public sealed class TravelChatService(
 
         if (trips.Count == 0)
         {
-            return MissingContext(
+            return TrackOutcome(MissingContext(
                 conversationId,
                 "date",
                 "No encontre un viaje activo para esa fecha.",
-                ["Elegir otra fecha", "Ver mi agenda"]);
+                ["Elegir otra fecha", "Ver mi agenda"]),
+                eventName: "missing_context");
         }
 
         var reservations = trips
@@ -190,13 +197,14 @@ public sealed class TravelChatService(
         var planningWindow = FindPlanningWindow(reservations, date);
         if (planningWindow is null)
         {
-            return new TravelChatResponse(
+            return TrackOutcome(new TravelChatResponse(
                 conversationId,
                 $"No veo un espacio comodo en tu agenda del {date:dd/MM} para sumar una actividad sin apurarte.",
                 Intent,
                 [],
                 ["Ver mi agenda", "Probar otro dia", "Ver mis preferencias"],
-                null);
+                null),
+                eventName: "no_planning_window");
         }
 
         var unlockedRecommendations = await LoadUnlockedRecommendationsAsync(
@@ -207,11 +215,12 @@ public sealed class TravelChatService(
 
         if (unlockedRecommendations.Count == 0)
         {
-            return MissingContext(
+            return TrackOutcome(MissingContext(
                 conversationId,
                 "city",
                 $"No encontre recomendaciones disponibles para {city}.",
-                ["Probar otra ciudad", "Ver recomendaciones"]);
+                ["Probar otra ciudad", "Ver recomendaciones"]),
+                eventName: "missing_context");
         }
 
         var responseMode = ResolveResponseMode(request.Message, conversation?.LastResponseMode);
@@ -283,7 +292,7 @@ public sealed class TravelChatService(
             cards,
             cancellationToken);
 
-        return new TravelChatResponse(
+        return TrackOutcome(new TravelChatResponse(
             conversationId,
             useModelResponse ? modelResult!.Message : defaultMessage,
             Intent,
@@ -291,7 +300,10 @@ public sealed class TravelChatService(
             useModelResponse && modelResult!.SuggestedReplies.Count > 0
                 ? modelResult.SuggestedReplies
                 : defaultSuggestedReplies,
-            null);
+            null),
+            responseMode,
+            useModelResponse,
+            modelResult is null ? "model_fallback" : "plan_response");
     }
 
     private async Task<TravelChatResponse> CreateScheduleResponseAsync(
@@ -312,11 +324,12 @@ public sealed class TravelChatService(
 
         if (trips.Count == 0)
         {
-            return MissingContext(
+            return TrackOutcome(MissingContext(
                 conversationId,
                 "date",
                 $"No encontre un viaje activo para el {date:dd/MM}.",
-                ["Elegir otra fecha", "Proponeme un plan"]);
+                ["Elegir otra fecha", "Proponeme un plan"]),
+                eventName: "missing_context");
         }
 
         var reservations = trips
@@ -332,13 +345,14 @@ public sealed class TravelChatService(
 
         if (reservations.Count == 0)
         {
-            return new TravelChatResponse(
+            return TrackOutcome(new TravelChatResponse(
                 conversationId,
                 $"El {date:dd/MM} no tenes reservas guardadas en {destinationName}. Puedo proponerte un plan libre para anticipar ese dia.",
                 ViewScheduleIntent,
                 [],
                 [$"Proponeme planes para {date:yyyy-MM-dd}", "Ver mis preferencias"],
-                null);
+                null),
+                eventName: "schedule_empty");
         }
 
         var lines = reservations
@@ -349,13 +363,14 @@ public sealed class TravelChatService(
             ? $" Tambien hay {reservations.Count - 5} reserva(s) mas."
             : string.Empty;
 
-        return new TravelChatResponse(
+        return TrackOutcome(new TravelChatResponse(
             conversationId,
             $"Tu agenda del {date:dd/MM} en {destinationName}:\n{string.Join('\n', lines)}{extra}",
             ViewScheduleIntent,
             [],
             [$"Proponeme planes para {date:yyyy-MM-dd}", "Algo con menos caminata", "Ver mis preferencias"],
-            null);
+            null),
+            eventName: "schedule_response");
     }
 
     private static TravelChatResponse CreateHelpResponse(string conversationId)
@@ -388,13 +403,14 @@ public sealed class TravelChatService(
             ? "Estas son tus preferencias guardadas:"
             : "Listo, actualice tus preferencias:";
 
-        return new TravelChatResponse(
+        return TrackOutcome(new TravelChatResponse(
             conversationId,
             $"{prefix}\n{FormatPreferenceProfile(profile)}",
             patch is null ? ViewPreferencesIntent : UpdatePreferencesIntent,
             [],
             ["Cambiar intereses", "Presupuesto bajo", "Ritmo tranquilo", "Proponeme un plan"],
-            null);
+            null),
+            eventName: patch is null ? "preferences_viewed" : "preference_updated");
     }
 
     private async Task<TravelChatResponse> CreatePreferenceConfirmationResponseAsync(
@@ -420,7 +436,7 @@ public sealed class TravelChatService(
         conversation.UpdatedAt = DateTimeOffset.UtcNow;
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return new TravelChatResponse(
+        return TrackOutcome(new TravelChatResponse(
             conversationId,
             $"Detecte este posible cambio de preferencias:\n{FormatPreferencePatch(patch)}\nQueres guardarlo en tu perfil?",
             UpdatePreferencesIntent,
@@ -429,7 +445,8 @@ public sealed class TravelChatService(
             new MissingContextDto(
                 "preferenceConfirmation",
                 "Confirma si queres guardar este cambio como preferencia permanente.",
-                ["Si, guardar preferencia", "No, solo este pedido"]));
+                ["Si, guardar preferencia", "No, solo este pedido"])),
+            eventName: "preference_confirmation_requested");
     }
 
     private async Task<TravelPreferenceProfileDto> ApplyPreferencePatchAsync(
@@ -1055,32 +1072,15 @@ public sealed class TravelChatService(
         string? message,
         CancellationToken cancellationToken)
     {
-        var knownTags = await LoadKnownRecommendationTagsAsync(cancellationToken);
-        return CreatePreferencePatchFromMessage(message, knownTags);
-    }
-
-    private async Task<IReadOnlySet<string>> LoadKnownRecommendationTagsAsync(CancellationToken cancellationToken)
-    {
-        var recommendations = await dbContext.Recommendations
-            .AsNoTracking()
-            .Select(recommendation => new
-            {
-                recommendation.Category,
-                recommendation.Tags
-            })
-            .ToListAsync(cancellationToken);
-        var tags = recommendations
-            .SelectMany(recommendation => recommendation.Tags.Append(recommendation.Category))
-            .Select(NormalizePreferenceToken)
-            .Where(value => !string.IsNullOrWhiteSpace(value))
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-        return tags;
+        var avoidedTags = string.IsNullOrWhiteSpace(message)
+            ? []
+            : await tagCatalogService.ResolveAvoidedTagsAsync(message, cancellationToken: cancellationToken);
+        return CreatePreferencePatchFromMessage(message, avoidedTags);
     }
 
     private static TravelPreferenceProfilePatchDto? CreatePreferencePatchFromMessage(
         string? message,
-        IReadOnlySet<string> knownRecommendationTags)
+        IReadOnlyList<string> avoidedRecommendationTags)
     {
         if (string.IsNullOrWhiteSpace(message))
         {
@@ -1169,7 +1169,7 @@ public sealed class TravelChatService(
             dislikes.Add("shopping");
         }
 
-        foreach (var dislikedTag in ExtractDislikedTags(normalized, knownRecommendationTags))
+        foreach (var dislikedTag in avoidedRecommendationTags)
         {
             AddUnique(dislikes, dislikedTag);
         }
@@ -1485,76 +1485,6 @@ public sealed class TravelChatService(
             "sin compras");
     }
 
-    private static IReadOnlyList<string> ExtractDislikedTags(
-        string normalized,
-        IReadOnlySet<string> knownRecommendationTags)
-    {
-        if (!HasAvoidSignal(normalized))
-        {
-            return [];
-        }
-
-        var dislikedTags = new List<string>();
-        var aliases = new (string Tag, string[] Terms)[]
-        {
-            ("culture", ["culture", "cultura", "cultural"]),
-            ("museum", ["museum", "museo", "museos"]),
-            ("history", ["history", "historia"]),
-            ("art", ["art", "arte"]),
-            ("food", ["food", "comida", "gastronomia", "gastronomia", "restaurante", "restaurant"]),
-            ("cafe", ["cafe"]),
-            ("snacks", ["snack", "snacks"]),
-            ("shopping", ["shopping", "compras", "tiendas"]),
-            ("neighborhood", ["neighborhood", "barrio", "barrios"]),
-            ("vegetarian", ["vegetarian", "vegetariano", "vegetariana"]),
-            ("vegan", ["vegan", "vegano", "vegana"])
-        };
-
-        foreach (var (tag, terms) in aliases)
-        {
-            if (terms.Any(term => ContainsAvoidedTerm(normalized, term)))
-            {
-                AddUnique(dislikedTags, tag);
-            }
-        }
-
-        foreach (var tag in knownRecommendationTags)
-        {
-            if (ContainsAvoidedTerm(normalized, tag))
-            {
-                AddUnique(dislikedTags, tag);
-            }
-        }
-
-        return dislikedTags;
-    }
-
-    private static bool ContainsAvoidedTerm(string normalized, string term)
-    {
-        return ContainsAny(
-            normalized,
-            $"evitar {term}",
-            $"evita {term}",
-            $"evite {term}",
-            $"evitando {term}",
-            $"avoid {term}",
-            $"no me gusta {term}",
-            $"no quiero {term}",
-            $"sin {term}");
-    }
-
-    private static string NormalizePreferenceToken(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return string.Empty;
-        }
-
-        return RemoveDiacritics(value)
-            .Trim()
-            .ToLowerInvariant();
-    }
-
     private static string FormatPreferenceProfile(TravelPreferenceProfileDto profile)
     {
         return string.Join(
@@ -1724,6 +1654,25 @@ public sealed class TravelChatService(
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Where(id => !string.IsNullOrWhiteSpace(id))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private TravelChatResponse TrackOutcome(
+        TravelChatResponse response,
+        string? responseMode = null,
+        bool usedModelResponse = false,
+        string? eventName = null)
+    {
+        logger.LogInformation(
+            "Travel assistant outcome. Event={EventName}; Intent={Intent}; Cards={CardCount}; SuggestedReplies={SuggestedReplyCount}; MissingContextField={MissingContextField}; ResponseMode={ResponseMode}; UsedModelResponse={UsedModelResponse}.",
+            eventName ?? "response",
+            response.Intent,
+            response.Cards.Count,
+            response.SuggestedReplies.Count,
+            response.MissingContext?.Field ?? "none",
+            responseMode ?? "none",
+            usedModelResponse);
+
+        return response;
     }
 
     private static TravelChatResponse MissingContext(
