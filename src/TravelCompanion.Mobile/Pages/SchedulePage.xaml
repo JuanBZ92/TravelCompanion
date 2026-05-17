@@ -10,78 +10,51 @@
              Shell.NavBarIsVisible="False"
              BackgroundColor="{AppThemeBinding Light={StaticResource PaperAlt}, Dark={StaticResource Night}}">
 
-    <Grid Padding="20,14,20,0"
+    <Grid Padding="20,12,20,0"
           RowDefinitions="Auto,Auto,Auto,*"
-          RowSpacing="14">
+          RowSpacing="12">
 
-        <VerticalStackLayout Spacing="10">
-            <Grid ColumnDefinitions="*,Auto"
-                  ColumnSpacing="12">
-                <VerticalStackLayout Spacing="3">
-                    <Label Text="Viaje en curso"
-                           FontSize="12"
-                           FontAttributes="Bold"
-                           TextTransform="Uppercase"
-                           TextColor="{AppThemeBinding Light={StaticResource Gold}, Dark={StaticResource GoldSoft}}" />
-                    <Label Text="{Binding TripTitle}"
-                           FontSize="23"
-                           FontAttributes="Bold"
-                           TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
-                           LineBreakMode="TailTruncation"
-                           MaxLines="1" />
-                    <Label Text="{Binding TripDates}"
-                           FontSize="12"
-                           TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
-                </VerticalStackLayout>
-
-                <Label Grid.Column="1"
-                       Text="{Binding LastUpdatedMessage}"
-                       FontSize="11"
-                       TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
-                       VerticalOptions="End"
-                       IsVisible="{Binding HasLastUpdated}" />
-            </Grid>
-
-            <Border Padding="16"
-                    BackgroundColor="{AppThemeBinding Light={StaticResource Paper}, Dark={StaticResource NightSurface}}"
-                    Stroke="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
-                    StrokeThickness="1">
-                <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="8" />
-                </Border.StrokeShape>
-                <Grid RowDefinitions="Auto,Auto,Auto"
-                      RowSpacing="4">
+        <Border Padding="14"
+                BackgroundColor="{AppThemeBinding Light={StaticResource Paper}, Dark={StaticResource NightSurface}}"
+                Stroke="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
+                StrokeThickness="1">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="8" />
+            </Border.StrokeShape>
+            <Grid RowDefinitions="Auto,Auto,Auto"
+                  RowSpacing="4">
+                <Grid ColumnDefinitions="*,Auto"
+                      ColumnSpacing="10">
                     <Label Text="Proximo momento"
                            FontSize="11"
                            FontAttributes="Bold"
                            TextTransform="Uppercase"
                            TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
-                    <Label Grid.Row="1"
-                           Text="{Binding FocusTitle}"
-                           FontSize="18"
-                           FontAttributes="Bold"
-                           TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
+                    <Label Grid.Column="1"
+                           Text="{Binding FocusMeta}"
+                           FontSize="12"
+                           TextColor="{AppThemeBinding Light={StaticResource Gold}, Dark={StaticResource GoldSoft}}"
                            LineBreakMode="TailTruncation"
                            MaxLines="1" />
-                    <Grid Grid.Row="2"
-                          ColumnDefinitions="*,Auto"
-                          ColumnSpacing="10">
-                        <Label Text="{Binding FocusSubtitle}"
-                               FontSize="13"
-                               TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}"
-                               LineBreakMode="TailTruncation"
-                               MaxLines="1" />
-                        <Label Grid.Column="1"
-                               Text="{Binding FocusMeta}"
-                               FontSize="12"
-                               TextColor="{AppThemeBinding Light={StaticResource Gold}, Dark={StaticResource GoldSoft}}" />
-                    </Grid>
                 </Grid>
-            </Border>
-        </VerticalStackLayout>
+                <Label Grid.Row="1"
+                       Text="{Binding FocusTitle}"
+                       FontSize="18"
+                       FontAttributes="Bold"
+                       TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
+                       LineBreakMode="TailTruncation"
+                       MaxLines="1" />
+                <Label Grid.Row="2"
+                       Text="{Binding FocusSubtitle}"
+                       FontSize="13"
+                       TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}"
+                       LineBreakMode="TailTruncation"
+                       MaxLines="1" />
+            </Grid>
+        </Border>
 
         <VerticalStackLayout Grid.Row="1"
-                             Spacing="8">
+                             Spacing="6">
             <CollectionView ItemsSource="{Binding TypeFilters}"
                             SelectionMode="None"
                             HeightRequest="38"
@@ -111,23 +84,6 @@
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
             </CollectionView>
-
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                <Label Text="{Binding SelectedTypeLabel}"
-                       FontSize="16"
-                       FontAttributes="Bold"
-                       TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
-                       VerticalOptions="Center" />
-                <Label Grid.Column="1"
-                       Text="Todas las ciudades"
-                       FontSize="12"
-                       TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}"
-                       VerticalOptions="Center">
-                    <Label.GestureRecognizers>
-                        <TapGestureRecognizer Command="{Binding ClearFiltersCommand}" />
-                    </Label.GestureRecognizers>
-                </Label>
-            </Grid>
 
             <CollectionView ItemsSource="{Binding CityFilters}"
                             SelectionMode="None"
