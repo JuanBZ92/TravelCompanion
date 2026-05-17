@@ -26,9 +26,11 @@ public sealed partial class TravelChatViewModel(
     [
         "Proponeme un plan entre mis reservas de hoy",
         "Algo con menos caminata",
-        "Ver mis preferencias"
+        "Ver mis preferencias",
+        "Que puedo pedirte"
     ];
     public ObservableCollection<string> MissingContextSuggestions { get; } = [];
+    public IReadOnlyList<TravelChatGuideSectionViewModel> GuideSections { get; } = CreateGuideSections();
 
     public string MessageText
     {
@@ -125,6 +127,7 @@ public sealed partial class TravelChatViewModel(
         SuggestedReplies.Add("Proponeme un plan entre mis reservas de hoy");
         SuggestedReplies.Add("Algo con menos caminata");
         SuggestedReplies.Add("Ver mis preferencias");
+        SuggestedReplies.Add("Que puedo pedirte");
         ClearMissingContext();
         OnMessagesChanged();
     }
@@ -334,13 +337,30 @@ public sealed partial class TravelChatViewModel(
     [RelayCommand]
     private Task RequestLessWalkingAsync(TravelChatCardViewModel? card)
     {
-        return SendActionMessageAsync("Algo con menos caminata");
+        var reference = card?.RecommendationReference;
+        return string.IsNullOrWhiteSpace(reference)
+            ? SendActionMessageAsync("Algo con menos caminata")
+            : SendActionMessageAsync($"Algo con menos caminata que {reference}");
     }
 
     [RelayCommand]
     private Task ReplaceRecommendationAsync(TravelChatCardViewModel? card)
     {
-        return SendActionMessageAsync("Otra alternativa");
+        var reference = card?.RecommendationReference;
+        return string.IsNullOrWhiteSpace(reference)
+            ? SendActionMessageAsync("Otra alternativa")
+            : SendActionMessageAsync($"Reemplazar {reference}");
+    }
+
+    [RelayCommand]
+    private Task AvoidTagAsync(string? tag)
+    {
+        if (string.IsNullOrWhiteSpace(tag))
+        {
+            return Task.CompletedTask;
+        }
+
+        return SendActionMessageAsync($"Evitar {tag.Trim()}");
     }
 
     private async Task SendActionMessageAsync(string message)
@@ -394,8 +414,11 @@ public sealed partial class TravelChatViewModel(
 
     private static bool IsSaveReply(string reply)
     {
-        return reply.Contains("guardar", StringComparison.OrdinalIgnoreCase)
-            || reply.Contains("save", StringComparison.OrdinalIgnoreCase);
+        return reply.Contains("guardar plan", StringComparison.OrdinalIgnoreCase)
+            || reply.Contains("guardar este plan", StringComparison.OrdinalIgnoreCase)
+            || reply.Contains("guardar itinerario", StringComparison.OrdinalIgnoreCase)
+            || reply.Contains("save plan", StringComparison.OrdinalIgnoreCase)
+            || reply.Contains("save itinerary", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsScheduleReply(string reply)
@@ -444,4 +467,66 @@ public sealed partial class TravelChatViewModel(
         OnPropertyChanged(nameof(HasMessages));
         OnPropertyChanged(nameof(ShowEmptyState));
     }
+
+    private static IReadOnlyList<TravelChatGuideSectionViewModel> CreateGuideSections()
+    {
+        return
+        [
+            new TravelChatGuideSectionViewModel(
+                "1",
+                "Planificar",
+                [
+                    new TravelChatGuideActionViewModel("Plan para hoy", "Proponeme un plan"),
+                    new TravelChatGuideActionViewModel("Plan por fecha", "Proponeme planes para 2026-10-08"),
+                    new TravelChatGuideActionViewModel("Comida local", "Quiero comida local")
+                ]),
+            new TravelChatGuideSectionViewModel(
+                "2",
+                "Ajustar",
+                [
+                    new TravelChatGuideActionViewModel("Menos caminata", "Algo con menos caminata"),
+                    new TravelChatGuideActionViewModel("Mas corto", "Algo mas corto"),
+                    new TravelChatGuideActionViewModel("Otra opcion", "Otra alternativa")
+                ]),
+            new TravelChatGuideSectionViewModel(
+                "3",
+                "Agenda",
+                [
+                    new TravelChatGuideActionViewModel("Ver agenda", "Ver mi agenda"),
+                    new TravelChatGuideActionViewModel("Mañana", "Proponeme planes para mañana")
+                ]),
+            new TravelChatGuideSectionViewModel(
+                "4",
+                "Preferencias",
+                [
+                    new TravelChatGuideActionViewModel("Ver perfil", "Ver mis preferencias"),
+                    new TravelChatGuideActionViewModel("Evitar culture", "Evitar culture"),
+                    new TravelChatGuideActionViewModel("Presupuesto bajo", "Presupuesto bajo")
+                ]),
+            new TravelChatGuideSectionViewModel(
+                "5",
+                "Ayuda",
+                [
+                    new TravelChatGuideActionViewModel("Que puedo pedirte", "Que puedo pedirte"),
+                    new TravelChatGuideActionViewModel("Comandos", "Ayuda")
+                ])
+        ];
+    }
+}
+
+public sealed class TravelChatGuideSectionViewModel(
+    string number,
+    string title,
+    IReadOnlyList<TravelChatGuideActionViewModel> actions)
+{
+    public string Number { get; } = number;
+    public string Title { get; } = title;
+    public string Header => $"{Number}. {Title}";
+    public IReadOnlyList<TravelChatGuideActionViewModel> Actions { get; } = actions;
+}
+
+public sealed class TravelChatGuideActionViewModel(string title, string prompt)
+{
+    public string Title { get; } = title;
+    public string Prompt { get; } = prompt;
 }

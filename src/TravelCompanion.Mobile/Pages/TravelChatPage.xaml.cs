@@ -63,4 +63,20 @@ public partial class TravelChatPage : ContentPage
             await _viewModel.ReplaceRecommendationCommand.ExecuteAsync(card);
         }
     }
+
+    private async void OnTagActionTapped(object? sender, TappedEventArgs e)
+    {
+        if ((sender as BindableObject)?.BindingContext is TravelChatTagActionViewModel tagAction)
+        {
+            await _viewModel.AvoidTagCommand.ExecuteAsync(tagAction.Tag);
+        }
+    }
+
+    private async void OnGuideActionClicked(object? sender, EventArgs e)
+    {
+        if ((sender as BindableObject)?.BindingContext is TravelChatGuideActionViewModel guideAction)
+        {
+            await _viewModel.SendSuggestedReplyCommand.ExecuteAsync(guideAction.Prompt);
+        }
+    }
 }

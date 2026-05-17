@@ -184,13 +184,16 @@
                                                                 Wrap="Wrap"
                                                                 AlignItems="Start"
                                                                 IsVisible="{Binding HasTags}"
-                                                                BindableLayout.ItemsSource="{Binding Tags}">
+                                                                BindableLayout.ItemsSource="{Binding TagActions}">
                                                         <BindableLayout.ItemTemplate>
-                                                            <DataTemplate x:DataType="system:String">
+                                                            <DataTemplate x:DataType="viewModels:TravelChatTagActionViewModel">
                                                                 <Border Style="{StaticResource Chip}"
                                                                         Padding="8,5"
                                                                         Margin="0,0,6,4">
-                                                                    <Label Text="{Binding ., StringFormat='#{0}'}"
+                                                                    <Border.GestureRecognizers>
+                                                                        <TapGestureRecognizer Tapped="OnTagActionTapped" />
+                                                                    </Border.GestureRecognizers>
+                                                                    <Label Text="{Binding Label}"
                                                                            FontSize="11"
                                                                            TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}"
                                                                            MaxLines="1"
@@ -270,20 +273,55 @@
                 </VerticalStackLayout>
             </ScrollView>
 
-            <VerticalStackLayout Spacing="10"
-                                 HorizontalOptions="Center"
-                                 VerticalOptions="Center"
-                                 IsVisible="{Binding ShowEmptyState}">
-                <Label Text="Ask for a plan between reservations"
-                       FontSize="16"
-                       FontAttributes="Bold"
-                       HorizontalTextAlignment="Center"
-                       TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
-                <Label Text="The assistant will use your backend itinerary and recommendations."
-                       FontSize="13"
-                       HorizontalTextAlignment="Center"
-                       TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
-            </VerticalStackLayout>
+            <ScrollView IsVisible="{Binding ShowEmptyState}"
+                        VerticalScrollBarVisibility="Never">
+                <VerticalStackLayout Spacing="14"
+                                     Padding="0,6,0,12"
+                                     HorizontalOptions="Center"
+                                     MaximumWidthRequest="640">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Que queres hacer ahora?"
+                               FontSize="18"
+                               FontAttributes="Bold"
+                               HorizontalTextAlignment="Center"
+                               TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
+                        <Label Text="Elegi una accion o escribi un pedido concreto."
+                               FontSize="13"
+                               HorizontalTextAlignment="Center"
+                               TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="12"
+                                         BindableLayout.ItemsSource="{Binding GuideSections}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="viewModels:TravelChatGuideSectionViewModel">
+                                <VerticalStackLayout Spacing="6">
+                                    <Label Text="{Binding Header}"
+                                           FontSize="13"
+                                           FontAttributes="Bold"
+                                           TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
+                                    <FlexLayout Direction="Row"
+                                                Wrap="Wrap"
+                                                AlignItems="Start"
+                                                BindableLayout.ItemsSource="{Binding Actions}">
+                                        <BindableLayout.ItemTemplate>
+                                            <DataTemplate x:DataType="viewModels:TravelChatGuideActionViewModel">
+                                                <Button Text="{Binding Title}"
+                                                        Clicked="OnGuideActionClicked"
+                                                        Style="{StaticResource GhostButton}"
+                                                        FontSize="12"
+                                                        Padding="10,7"
+                                                        MinimumHeightRequest="34"
+                                                        Margin="0,0,6,6" />
+                                            </DataTemplate>
+                                        </BindableLayout.ItemTemplate>
+                                    </FlexLayout>
+                                </VerticalStackLayout>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </ScrollView>
         </Grid>
 
         <VerticalStackLayout Grid.Row="3" Spacing="10" Padding="0,0,0,14">

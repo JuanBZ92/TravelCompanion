@@ -41,6 +41,7 @@ public sealed class TravelChatCardViewModel : ObservableObject
     public Guid? RecommendationId { get; }
     public bool HasRecommendationId => RecommendationId.HasValue;
     public bool HasDetailAction => HasRecommendationId;
+    public string RecommendationReference => RecommendationId?.ToString() ?? Title;
     public TimeOnly? StartsAt { get; }
     public TimeOnly? EndsAt { get; }
     public bool CanSave => RecommendationId.HasValue && StartsAt.HasValue && !IsSaved;
@@ -64,6 +65,9 @@ public sealed class TravelChatCardViewModel : ObservableObject
             : $"Horario: {_card.StartTime} - {_card.EndTime}";
     public bool HasTimeLabel => !string.IsNullOrWhiteSpace(TimeLabel);
     public IReadOnlyList<string> Tags => (_card.Tags ?? []).Take(4).ToList();
+    public IReadOnlyList<TravelChatTagActionViewModel> TagActions => Tags
+        .Select(tag => new TravelChatTagActionViewModel(tag))
+        .ToList();
     public bool HasTags => Tags.Count > 0;
     public IReadOnlyList<string> WhyItFits => _card.WhyItFits.Take(2).ToList();
     public bool HasReasons => WhyItFits.Count > 0;
@@ -82,4 +86,10 @@ public sealed class TravelChatCardViewModel : ObservableObject
             _ => cost.Trim()
         };
     }
+}
+
+public sealed class TravelChatTagActionViewModel(string tag)
+{
+    public string Tag { get; } = tag;
+    public string Label => $"Evitar #{Tag}";
 }

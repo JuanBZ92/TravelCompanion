@@ -157,8 +157,36 @@ public sealed class TravelChatServiceTests
 
         Assert.NotNull(response.MissingContext);
         Assert.Equal("assistantCommand", response.MissingContext.Field);
+        Assert.Contains("Que puedo pedirte", response.SuggestedReplies);
         Assert.Contains("Proponeme un plan", response.SuggestedReplies);
         Assert.Empty(response.Cards);
+    }
+
+    [Fact]
+    public async Task CreatePlanAsync_returns_guided_help_without_requiring_preferences()
+    {
+        await using var dbContext = CreateDbContext();
+        var destinationId = Guid.NewGuid();
+        var user = CreateUser(destinationId, includeProfile: false);
+        dbContext.AppUsers.Add(user);
+        await dbContext.SaveChangesAsync();
+
+        var service = CreateService(dbContext);
+        var response = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest("Que puedo pedirte", null, "Tokyo", new DateOnly(2026, 10, 6), null, "es-ES"),
+            CancellationToken.None);
+
+        Assert.Equal("help", response.Intent);
+        Assert.Null(response.MissingContext);
+        Assert.Empty(response.Cards);
+        Assert.Contains("Ver mis preferencias", response.SuggestedReplies);
+        Assert.Contains("Planificar", response.Message);
+        Assert.Contains("Ajustar", response.Message);
+        Assert.Contains("Agenda", response.Message);
+        Assert.Contains("Preferencias", response.Message);
+        Assert.Contains("Ayuda", response.Message);
+        Assert.Contains("Evitar #culture", response.Message);
     }
 
     [Fact]
@@ -943,6 +971,72 @@ public sealed class TravelChatServiceTests
         Assert.NotEmpty(followUp.Cards);
         Assert.All(followUp.Cards, card => Assert.DoesNotContain(card.RecommendationId, firstRecommendationIds));
         Assert.Equal("Zesty tea alley", followUp.Cards[0].Title);
+    }
+
+    [Fact]
+    public async Task CreatePlanAsync_excludes_explicit_recommendation_id_from_card_actions()
+    {
+        await using var dbContext = CreateDbContext();
+        var destinationId = Guid.NewGuid();
+        var user = CreateUser(destinationId);
+        dbContext.AppUsers.Add(user);
+        dbContext.Destinations.Add(new Destination
+        {
+            Id = destinationId,
+            Name = "Japon",
+            Slug = "japon",
+            Country = "Japan",
+            HeroImageUrl = string.Empty,
+            ShortDescription = "Demo"
+        });
+        dbContext.Trips.Add(new Trip
+        {
+            Id = Guid.NewGuid(),
+            AppUserId = user.Id,
+            DestinationId = destinationId,
+            TravelerName = "Demo Traveler",
+            StartsOn = new DateOnly(2026, 10, 6),
+            EndsOn = new DateOnly(2026, 10, 10),
+            Reservations =
+            [
+                CreateReservation("Museum", new TimeOnly(9, 0), "Tokyo"),
+                CreateReservation("Dinner", new TimeOnly(18, 0), "Tokyo")
+            ]
+        });
+        dbContext.Recommendations.AddRange(
+            CreateRecommendation(destinationId, "First snack stop", "Food", "Local snacks in Tokyo.", 60),
+            CreateRecommendation(destinationId, "Second cafe stop", "Food", "Local coffee and snacks in Tokyo.", 60),
+            CreateRecommendation(destinationId, "Third market stop", "Food", "Local market food in Tokyo.", 60),
+            CreateRecommendation(destinationId, "Zesty tea alley", "Food", "Quiet local tea in Tokyo.", 45));
+        await dbContext.SaveChangesAsync();
+
+        var service = CreateService(dbContext);
+        var firstResponse = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest(
+                "Proponeme un plan",
+                null,
+                "Tokyo",
+                new DateOnly(2026, 10, 6),
+                null,
+                "es-ES"),
+            CancellationToken.None);
+        var replacedId = firstResponse.Cards[0].RecommendationId;
+
+        var followUp = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest(
+                $"Reemplazar {replacedId}",
+                firstResponse.ConversationId,
+                null,
+                null,
+                null,
+                "es-ES"),
+            CancellationToken.None);
+
+        Assert.False(string.IsNullOrWhiteSpace(replacedId));
+        Assert.NotEmpty(followUp.Cards);
+        Assert.DoesNotContain(followUp.Cards, card => card.RecommendationId == replacedId);
     }
 
     private static TravelCompanionDbContext CreateDbContext()

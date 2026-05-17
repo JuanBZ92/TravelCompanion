@@ -21,6 +21,7 @@ public sealed class TravelChatService(
     private const string ViewScheduleIntent = "view_schedule";
     private const string ViewPreferencesIntent = "view_preferences";
     private const string UpdatePreferencesIntent = "update_preferences";
+    private const string HelpIntent = "help";
     private const string LessWalkingMode = "less_walking";
     private const string ShorterMode = "shorter";
     private const string FoodMode = "food";
@@ -104,6 +105,11 @@ public sealed class TravelChatService(
             ?? DateOnly.FromDateTime(DateTime.UtcNow);
         var date = ResolveRequestedDate(request.Message, baseDate);
 
+        if (IsHelpIntent(request.Message))
+        {
+            return CreateHelpResponse(conversationId);
+        }
+
         if (IsScheduleIntent(request.Message))
         {
             return await CreateScheduleResponseAsync(user, conversationId, date, cancellationToken);
@@ -147,6 +153,7 @@ public sealed class TravelChatService(
                 "assistantCommand",
                 "No entendi ese pedido. Puedo proponerte planes, revisar tu agenda o ayudarte a ajustar preferencias.",
                 [
+                    "Que puedo pedirte",
                     "Proponeme un plan",
                     "Ver mi agenda",
                     "Ver mis preferencias",
@@ -208,9 +215,14 @@ public sealed class TravelChatService(
         }
 
         var responseMode = ResolveResponseMode(request.Message, conversation?.LastResponseMode);
+        var explicitRecommendationIds = ParseRecommendationIds(request.Message);
         var previousRecommendationIds = IsAlternativeRequest(request.Message)
             ? ParseRecommendationIds(conversation?.LastRecommendationIds)
             : [];
+        var excludedRecommendationIds = previousRecommendationIds
+            .Concat(explicitRecommendationIds)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var profile = CreateProfile(user, effectivePreferences!, responseMode, request.Message);
         var context = new TravelPlanningContext(
             city,
@@ -229,10 +241,10 @@ public sealed class TravelChatService(
             rankedCandidates = dislikedFilteredCandidates;
         }
 
-        if (previousRecommendationIds.Count > 0)
+        if (excludedRecommendationIds.Count > 0)
         {
             var freshCandidates = rankedCandidates
-                .Where(scored => !previousRecommendationIds.Contains(scored.Recommendation.Id.ToString()))
+                .Where(scored => !excludedRecommendationIds.Contains(scored.Recommendation.Id.ToString()))
                 .ToList();
             if (freshCandidates.Count > 0)
             {
@@ -343,6 +355,17 @@ public sealed class TravelChatService(
             ViewScheduleIntent,
             [],
             [$"Proponeme planes para {date:yyyy-MM-dd}", "Algo con menos caminata", "Ver mis preferencias"],
+            null);
+    }
+
+    private static TravelChatResponse CreateHelpResponse(string conversationId)
+    {
+        return new TravelChatResponse(
+            conversationId,
+            "Puedo ayudarte en 5 modos:\n1. Planificar: Proponeme un plan para hoy o para una fecha.\n2. Ajustar: Algo con menos caminata, mas corto u otra opcion.\n3. Agenda: Ver mi agenda.\n4. Preferencias: Ver mis preferencias o Evitar #culture.\n5. Ayuda: Que puedo pedirte.",
+            HelpIntent,
+            [],
+            ["Proponeme un plan", "Algo con menos caminata", "Ver mi agenda", "Ver mis preferencias", "Evitar culture"],
             null);
     }
 
@@ -798,12 +821,12 @@ public sealed class TravelChatService(
     {
         return responseMode switch
         {
-            LessWalkingMode => ["Algo mas corto", "Algo de comida local", "Ver mi agenda", "Ver mis preferencias"],
+            LessWalkingMode => ["Algo mas corto", "Algo de comida local", "Ver mi agenda", "Que puedo pedirte"],
             ShorterMode => ["Menos caminata", "Algo de comida local", "Ver mi agenda", "Otra opcion"],
-            FoodMode => ["Menos caminata", "Algo cultural", "Algo mas corto", "Ver mis preferencias"],
+            FoodMode => ["Menos caminata", "Algo cultural", "Algo mas corto", "Que puedo pedirte"],
             CultureMode => ["Algo de comida local", "Menos caminata", "Algo mas corto", "Ver mi agenda"],
             CheaperMode => ["Algo gratis", "Menos caminata", "Algo mas corto", "Ver mi agenda"],
-            _ => ["Algo con menos caminata", "Algo mas corto", "Ver mi agenda", "Ver mis preferencias"]
+            _ => ["Algo con menos caminata", "Algo mas corto", "Ver mi agenda", "Que puedo pedirte"]
         };
     }
 
@@ -928,6 +951,24 @@ public sealed class TravelChatService(
                 "schedule");
     }
 
+    private static bool IsHelpIntent(string? message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return false;
+        }
+
+        var normalized = RemoveDiacritics(message.Trim()).ToLowerInvariant();
+        return ContainsAny(
+            normalized,
+            "que puedo pedirte",
+            "ayuda",
+            "comandos",
+            "help",
+            "what can i ask",
+            "what can you do");
+    }
+
     private static bool IsPreferenceIntent(string? message)
     {
         if (string.IsNullOrWhiteSpace(message))
@@ -976,7 +1017,14 @@ public sealed class TravelChatService(
     private static bool IsAlternativeRequest(string? message)
     {
         return !string.IsNullOrWhiteSpace(message)
-            && ContainsAny(message.Trim().ToLowerInvariant(), "otra opcion", "otra opción", "otra alternativa", "algo distinto");
+            && ContainsAny(
+                message.Trim().ToLowerInvariant(),
+                "otra opcion",
+                "otra opción",
+                "otra alternativa",
+                "algo distinto",
+                "reemplazar",
+                "replace");
     }
 
     private static bool IsSaveIntent(string? message)
@@ -1312,11 +1360,16 @@ public sealed class TravelChatService(
             "que hago",
             "que puedo hacer",
             "algo para hacer",
+            "que puedo pedirte",
+            "ayuda",
+            "comandos",
             "menos caminata",
             "caminar menos",
             "mas corto",
             "otra opcion",
             "otra alternativa",
+            "reemplazar",
+            "replace",
             "algo distinto",
             "comida",
             "food",
@@ -1652,12 +1705,25 @@ public sealed class TravelChatService(
 
     private static HashSet<string> ParseRecommendationIds(string? recommendationIds)
     {
-        return string.IsNullOrWhiteSpace(recommendationIds)
-            ? []
-            : recommendationIds
-                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Where(id => !string.IsNullOrWhiteSpace(id))
+        if (string.IsNullOrWhiteSpace(recommendationIds))
+        {
+            return [];
+        }
+
+        var guidMatches = Regex.Matches(
+            recommendationIds,
+            @"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
+        if (guidMatches.Count > 0)
+        {
+            return guidMatches
+                .Select(match => match.Value)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        }
+
+        return recommendationIds
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
     }
 
     private static TravelChatResponse MissingContext(
