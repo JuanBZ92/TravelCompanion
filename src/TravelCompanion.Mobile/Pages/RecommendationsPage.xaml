@@ -209,6 +209,11 @@
                                                    TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
                                                    LineBreakMode="TailTruncation"
                                                    MaxLines="1" />
+                                            <Label Text="{Binding CostLabel}"
+                                                   FontSize="11"
+                                                   TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                                                   LineBreakMode="TailTruncation"
+                                                   MaxLines="1" />
                                         </HorizontalStackLayout>
 
                                         <Label Grid.Column="1"

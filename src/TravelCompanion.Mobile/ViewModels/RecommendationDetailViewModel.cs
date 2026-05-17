@@ -21,6 +21,7 @@ public sealed partial class RecommendationDetailViewModel(FavoritesService favor
                 IsFavorite = value is not null && favoritesService.IsFavorite(value.Id);
                 OnPropertyChanged(nameof(RecommendationTags));
                 OnPropertyChanged(nameof(HasRecommendationTags));
+                OnPropertyChanged(nameof(CostLevelText));
             }
         }
     }
@@ -42,6 +43,9 @@ public sealed partial class RecommendationDetailViewModel(FavoritesService favor
     public string AccessLevelText => Recommendation is null
         ? string.Empty
         : GetAccessLevelText(Recommendation.AccessLevel);
+    public string CostLevelText => Recommendation is null
+        ? string.Empty
+        : FormatPriceLevel(Recommendation.PriceLevel);
     public IReadOnlyList<string> RecommendationTags => Recommendation is null
         ? []
         : Recommendation.Tags.Count > 0
@@ -67,6 +71,7 @@ public sealed partial class RecommendationDetailViewModel(FavoritesService favor
         {
             Recommendation = selectedRecommendation;
             OnPropertyChanged(nameof(AccessLevelText));
+            OnPropertyChanged(nameof(CostLevelText));
         }
 
         if (query.TryGetValue("IsUnlocked", out var unlockedValue) && unlockedValue is bool unlocked)
@@ -106,4 +111,16 @@ public sealed partial class RecommendationDetailViewModel(FavoritesService favor
 
     private static string GetAccessLevelText(ContentAccessLevel accessLevel) =>
         ProductAccessModel.GetLabel(accessLevel);
+
+    private static string FormatPriceLevel(string? priceLevel)
+    {
+        return priceLevel?.Trim().ToLowerInvariant() switch
+        {
+            "free" or "gratis" => "Gratis",
+            "low" or "budget" or "cheap" or "barato" => "Bajo",
+            "medium" or "moderate" or "medio" => "Medio",
+            "high" or "expensive" or "premium" or "alto" => "Alto",
+            _ => string.IsNullOrWhiteSpace(priceLevel) ? "Medio" : priceLevel.Trim()
+        };
+    }
 }
