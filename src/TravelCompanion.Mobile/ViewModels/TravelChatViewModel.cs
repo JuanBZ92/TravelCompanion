@@ -550,7 +550,7 @@ public sealed partial class TravelChatViewModel(
                 "Preferencias",
                 [
                     new TravelChatGuideActionViewModel("Ver perfil", "Ver mis preferencias"),
-                    new TravelChatGuideActionViewModel("Evitar culture", "Evitar culture"),
+                    new TravelChatGuideActionViewModel("Evitar #culture", "Evitar #culture"),
                     new TravelChatGuideActionViewModel("Presupuesto bajo", "Presupuesto bajo")
                 ]),
             new TravelChatGuideSectionViewModel(

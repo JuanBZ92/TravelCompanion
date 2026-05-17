@@ -7,50 +7,136 @@
              x:Class="TravelCompanion.Mobile.Pages.RecommendationsPage"
              x:Name="PageRoot"
              x:DataType="viewModels:RecommendationsViewModel"
-             Title="Curated for You"
+             Title="Discover"
              Shell.NavBarIsVisible="False"
              BackgroundColor="{AppThemeBinding Light={StaticResource PaperAlt}, Dark={StaticResource Night}}">
 
-    <Grid Padding="24,16,24,0" RowDefinitions="Auto,Auto,Auto,*" RowSpacing="18">
-        <!-- Header -->
-        <VerticalStackLayout Spacing="4">
-            <Label Text="Curated for You"
-                   FontSize="24"
-                   FontAttributes="Bold"
-                   TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
-            <Label Text="Handpicked experiences"
-                   FontSize="14"
-                   TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
-            <Label Text="{Binding LastUpdatedMessage}"
-                   FontSize="12"
-                   TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
-                   IsVisible="{Binding HasLastUpdated}" />
+    <Grid Padding="20,14,20,0"
+          RowDefinitions="Auto,Auto,Auto,*"
+          RowSpacing="14">
+
+        <VerticalStackLayout Spacing="12">
+            <Grid ColumnDefinitions="*,Auto"
+                  ColumnSpacing="12">
+                <VerticalStackLayout Spacing="3">
+                    <Label Text="Para tu viaje"
+                           FontSize="12"
+                           FontAttributes="Bold"
+                           TextTransform="Uppercase"
+                           TextColor="{AppThemeBinding Light={StaticResource Gold}, Dark={StaticResource GoldSoft}}" />
+                    <Label Text="Momentos recomendados"
+                           FontSize="24"
+                           FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
+                           LineBreakMode="TailTruncation" />
+                    <Label Text="{Binding LastUpdatedMessage}"
+                           FontSize="11"
+                           TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                           IsVisible="{Binding HasLastUpdated}" />
+                </VerticalStackLayout>
+
+                <Picker Grid.Column="1"
+                        ItemsSource="{Binding PageSizeOptions}"
+                        SelectedItem="{Binding SelectedPageSize}"
+                        FontSize="12"
+                        WidthRequest="78"
+                        HorizontalTextAlignment="End"
+                        VerticalOptions="End"
+                        TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
+            </Grid>
+
+            <Grid ColumnDefinitions="*,*"
+                  ColumnSpacing="10">
+                <Border Padding="12"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource Paper}, Dark={StaticResource NightSurface}}"
+                        Stroke="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
+                        StrokeThickness="1"
+                        HeightRequest="82">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="8" />
+                    </Border.StrokeShape>
+                    <VerticalStackLayout Spacing="3">
+                        <Label Text="Esta manana"
+                               FontSize="12"
+                               FontAttributes="Bold"
+                               TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
+                        <Label Text="Ideas suaves antes de moverte de ciudad"
+                               FontSize="11"
+                               TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                               MaxLines="2" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Grid.Column="1"
+                        Padding="12"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource Mist}, Dark={StaticResource NightSurfaceAlt}}"
+                        Stroke="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
+                        StrokeThickness="1"
+                        HeightRequest="82">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="8" />
+                    </Border.StrokeShape>
+                    <VerticalStackLayout Spacing="3">
+                        <Label Text="Entre reservas"
+                               FontSize="12"
+                               FontAttributes="Bold"
+                               TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
+                        <Label Text="Lugares para completar el dia sin correr"
+                               FontSize="11"
+                               TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                               MaxLines="2" />
+                    </VerticalStackLayout>
+                </Border>
+            </Grid>
         </VerticalStackLayout>
 
-        <!-- Filters and paging -->
-        <Grid Grid.Row="1" ColumnDefinitions="*,120" ColumnSpacing="12">
-            <VerticalStackLayout Spacing="6">
-                <Label Text="Categoria"
-                       FontSize="12"
-                       TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
-                <Picker ItemsSource="{Binding Categories}"
-                        SelectedItem="{Binding SelectedCategory}"
-                        FontSize="14"
-                        TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
-            </VerticalStackLayout>
+        <VerticalStackLayout Grid.Row="1"
+                             Spacing="10">
+            <CollectionView ItemsSource="{Binding CategoryFilters}"
+                            SelectionMode="None"
+                            HeightRequest="38"
+                            HorizontalScrollBarVisibility="Never">
+                <CollectionView.ItemsLayout>
+                    <LinearItemsLayout Orientation="Horizontal"
+                                       ItemSpacing="8" />
+                </CollectionView.ItemsLayout>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="viewModels:CategoryFilterViewModel">
+                        <Border Padding="14,7"
+                                BackgroundColor="{Binding BackgroundColor}"
+                                Stroke="{Binding BorderColor}"
+                                StrokeThickness="1"
+                                HeightRequest="34">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="8" />
+                            </Border.StrokeShape>
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnCategoryFilterTapped" />
+                            </Border.GestureRecognizers>
+                            <Label Text="{Binding Label}"
+                                   FontSize="12"
+                                   FontAttributes="Bold"
+                                   TextColor="{Binding TextColor}"
+                                   VerticalOptions="Center" />
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
 
-            <VerticalStackLayout Grid.Column="1" Spacing="6">
-                <Label Text="Por pagina"
+            <Grid ColumnDefinitions="*,Auto"
+                  ColumnSpacing="12">
+                <Label Text="Sugerencias disponibles"
+                       FontSize="16"
+                       FontAttributes="Bold"
+                       TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
+                <Label Grid.Column="1"
+                       Text="{Binding PageSummary}"
                        FontSize="12"
-                       TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
-                <Picker ItemsSource="{Binding PageSizeOptions}"
-                        SelectedItem="{Binding SelectedPageSize}"
-                        FontSize="14"
-                        TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
-            </VerticalStackLayout>
-        </Grid>
+                       TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                       VerticalOptions="Center" />
+            </Grid>
+        </VerticalStackLayout>
 
-        <!-- Status/Error Messages -->
         <VerticalStackLayout Grid.Row="2" Spacing="8">
             <Border Style="{StaticResource NoticePanel}"
                     IsVisible="{Binding HasStatus}">
@@ -77,22 +163,20 @@
             </Border>
         </VerticalStackLayout>
 
-        <!-- Recommendations List -->
-        <Grid Grid.Row="3" RowDefinitions="Auto,*" RowSpacing="12">
-            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" HeightRequest="40">
-                <Button Text="‹ "
+        <Grid Grid.Row="3" RowDefinitions="Auto,*" RowSpacing="10">
+            <Grid ColumnDefinitions="Auto,*,Auto"
+                  ColumnSpacing="8"
+                  HeightRequest="38">
+                <Button Text="Anterior"
                         Command="{Binding PreviousPageCommand}"
                         IsEnabled="{Binding CanGoPrevious}"
                         Style="{StaticResource PagerButton}" />
-                <Label Grid.Column="1"
-                       Text="{Binding PageSummary}"
-                       FontSize="12"
-                       TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
-                       HorizontalTextAlignment="Center"
-                       LineBreakMode="TailTruncation"
-                       VerticalOptions="Center" />
+                <BoxView Grid.Column="1"
+                         HeightRequest="1"
+                         VerticalOptions="Center"
+                         BackgroundColor="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}" />
                 <Button Grid.Column="2"
-                        Text=" ›"
+                        Text="Siguiente"
                         Command="{Binding NextPageCommand}"
                         IsEnabled="{Binding CanGoNext}"
                         Style="{StaticResource PagerButton}" />
@@ -113,7 +197,7 @@
                                 <Setter Property="IsVisible" Value="True" />
                             </DataTrigger>
                         </VerticalStackLayout.Triggers>
-                        <Label Text="No recommendations available"
+                        <Label Text="No hay recomendaciones disponibles"
                                FontSize="16"
                                TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
                                HorizontalOptions="Center" />
@@ -122,11 +206,12 @@
                                TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
                                HorizontalOptions="Center" />
                     </VerticalStackLayout>
+
                     <VerticalStackLayout Spacing="0"
                                          BindableLayout.ItemsSource="{Binding VisibleRecommendations}">
                         <BindableLayout.ItemTemplate>
                             <DataTemplate x:DataType="itemViewModels:RecommendationListItemViewModel">
-                                <Border HeightRequest="162"
+                                <Border HeightRequest="176"
                                         Padding="14"
                                         Margin="0,0,0,10"
                                         BackgroundColor="{AppThemeBinding Light={StaticResource Paper}, Dark={StaticResource NightSurface}}"
@@ -138,15 +223,22 @@
                                     <Border.GestureRecognizers>
                                         <TapGestureRecognizer Tapped="OnRecommendationTapped" />
                                     </Border.GestureRecognizers>
-                                    <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto"
-                                          ColumnDefinitions="*,40">
-                                        <Label Text="{Binding Category, Mode=OneTime}"
-                                               FontSize="11"
-                                               FontAttributes="Bold"
-                                               TextTransform="Uppercase"
-                                               TextColor="{AppThemeBinding Light={StaticResource Gold}, Dark={StaticResource GoldSoft}}"
-                                               LineBreakMode="TailTruncation"
-                                               MaxLines="1" />
+                                    <Grid RowDefinitions="Auto,Auto,Auto,Auto"
+                                          ColumnDefinitions="*,44"
+                                          RowSpacing="5">
+                                        <HorizontalStackLayout Spacing="8">
+                                            <Label Text="{Binding Category, Mode=OneTime}"
+                                                   FontSize="11"
+                                                   FontAttributes="Bold"
+                                                   TextTransform="Uppercase"
+                                                   TextColor="{AppThemeBinding Light={StaticResource Gold}, Dark={StaticResource GoldSoft}}" />
+                                            <Label Text="{Binding Neighborhood, Mode=OneTime}"
+                                                   FontSize="11"
+                                                   TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                                                   LineBreakMode="TailTruncation"
+                                                   MaxLines="1" />
+                                        </HorizontalStackLayout>
+
                                         <Label Grid.Column="1"
                                                Grid.RowSpan="2"
                                                Text="{Binding FavoriteGlyph}"
@@ -154,28 +246,35 @@
                                                TextColor="{AppThemeBinding Light={StaticResource Gold}, Dark={StaticResource Gold}}"
                                                HorizontalTextAlignment="Center"
                                                VerticalTextAlignment="Start"
-                                               WidthRequest="40"
-                                               HeightRequest="40">
+                                               WidthRequest="44"
+                                               HeightRequest="44">
                                             <Label.GestureRecognizers>
                                                 <TapGestureRecognizer Tapped="OnFavoriteTapped" />
                                             </Label.GestureRecognizers>
                                         </Label>
+
                                         <Label Grid.Row="1"
                                                Text="{Binding Title, Mode=OneTime}"
                                                FontSize="17"
                                                FontAttributes="Bold"
-                                               Margin="0,5,0,0"
                                                TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
                                                LineBreakMode="TailTruncation"
                                                MaxLines="1" />
-                                        <Label Grid.Row="2"
-                                               Grid.ColumnSpan="2"
-                                               Text="{Binding Description, Mode=OneTime}"
-                                               FontSize="13"
-                                               Margin="0,5,0,0"
-                                               TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
-                                               LineBreakMode="TailTruncation"
-                                               MaxLines="2" />
+                                        <Grid Grid.Row="2"
+                                              Grid.ColumnSpan="2"
+                                              ColumnDefinitions="*,Auto"
+                                              ColumnSpacing="10">
+                                            <Label Text="{Binding Description, Mode=OneTime}"
+                                                   FontSize="13"
+                                                   TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}"
+                                                   LineBreakMode="TailTruncation"
+                                                   MaxLines="2" />
+                                            <Label Grid.Column="1"
+                                                   Text="{Binding AccessStatus}"
+                                                   FontSize="12"
+                                                   TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                                                   VerticalOptions="End" />
+                                        </Grid>
                                         <FlexLayout Grid.Row="3"
                                                     Grid.ColumnSpan="2"
                                                     Direction="Row"
@@ -198,14 +297,6 @@
                                                 </DataTemplate>
                                             </BindableLayout.ItemTemplate>
                                         </FlexLayout>
-                                        <Label Grid.Row="4"
-                                               Grid.ColumnSpan="2"
-                                               Text="{Binding Neighborhood, Mode=OneTime}"
-                                               FontSize="12"
-                                               Margin="0,5,0,0"
-                                               TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}"
-                                               LineBreakMode="TailTruncation"
-                                               MaxLines="1" />
                                     </Grid>
                                 </Border>
                             </DataTemplate>

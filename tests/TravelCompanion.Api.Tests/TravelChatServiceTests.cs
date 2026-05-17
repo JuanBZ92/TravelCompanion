@@ -425,7 +425,7 @@ public sealed class TravelChatServiceTests
         var service = CreateService(dbContext);
         var response = await service.CreatePlanAsync(
             user,
-            new TravelChatRequest("editar preferencia evitar culture", null, null, null, null, "es-ES"),
+            new TravelChatRequest("editar preferencia evitar #culture", null, null, null, null, "es-ES"),
             CancellationToken.None);
 
         Assert.Equal("update_preferences", response.Intent);
@@ -490,7 +490,7 @@ public sealed class TravelChatServiceTests
         var service = CreateService(dbContext);
         var response = await service.CreatePlanAsync(
             user,
-            new TravelChatRequest("editar preferencia evitar culture", null, null, null, null, "es-ES"),
+            new TravelChatRequest("editar preferencia evitar #culture", null, null, null, null, "es-ES"),
             CancellationToken.None);
 
         var rejectResponse = await service.CreatePlanAsync(

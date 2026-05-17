@@ -141,7 +141,7 @@ public sealed class TravelChatEndpointTests
         },
         {
             "travel-chat-preference-confirmation.json",
-            new TravelChatRequest("editar preferencia evitar culture", null, "Tokyo", new DateOnly(2026, 10, 6), null, "es-ES"),
+            new TravelChatRequest("editar preferencia evitar #culture", null, "Tokyo", new DateOnly(2026, 10, 6), null, "es-ES"),
             true
         },
         {

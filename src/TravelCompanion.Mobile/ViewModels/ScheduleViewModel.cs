@@ -21,6 +21,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     private string _tripTitle = "Your Trip";
     private string? _tripDates;
     private ScheduleItemDto? _selectedItem;
+    private ScheduleItemDto? _focusItem;
     private ScheduleTypeSectionViewModel? _activeSection;
     private IReadOnlyList<ScheduleDayViewModel> _activeDays = [];
 
@@ -34,8 +35,22 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     }
 
     public bool HasScheduleItems => ActiveDays.Count > 0;
+    public bool HasFocusItem => _focusItem is not null;
     public bool ShowInitialLoading => IsBusy && !HasScheduleItems;
     public bool ShowEmptyState => HasLoaded && !IsBusy && !HasScheduleItems;
+    public string SelectedTypeLabel => _selectedType switch
+    {
+        ReservationType.Flight => "Vuelos",
+        ReservationType.Lodging => "Hospedajes",
+        _ => "Eventos"
+    };
+    public string FocusTitle => _focusItem?.Title ?? "Tu viaje";
+    public string FocusSubtitle => _focusItem is null
+        ? "Cuando haya reservas, vas a ver aca el proximo momento relevante."
+        : $"{_focusItem.TypeLabel} en {NormalizeCity(_focusItem.City)}";
+    public string FocusMeta => _focusItem is null
+        ? TripDates ?? string.Empty
+        : $"{_focusItem.Date:MMM d} · {_focusItem.StartsAt:HH\\:mm}";
 
     public ScheduleViewModel(
         AuthSessionService sessionService,
@@ -77,9 +92,11 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         TypeFilters.Clear();
         CityFilters.Clear();
         _selectedType = ReservationType.Event;
+        _focusItem = null;
         TripTitle = "Your Trip";
         TripDates = null;
         SelectedItem = null;
+        NotifyFocusChanged();
     }
 
     [RelayCommand]
@@ -138,6 +155,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     {
         var stopwatch = Stopwatch.StartNew();
         _selectedType = type;
+        OnPropertyChanged(nameof(SelectedTypeLabel));
         foreach (var filter in TypeFilters)
         {
             filter.IsSelected = filter.Type == type;
@@ -282,7 +300,10 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         TripDates = $"{schedule.StartsOn:MMM d} - {schedule.EndsOn:MMM d, yyyy}";
         _allItems.Clear();
         _allItems.AddRange(sourceItems);
+        _focusItem = GetFocusItem(_allItems);
         _selectedType = GetInitialScheduleType(_allItems);
+        OnPropertyChanged(nameof(SelectedTypeLabel));
+        NotifyFocusChanged();
         UpdateTypeFilters();
         UpdateCityFilters();
         RebuildDefaultTypeSections();
@@ -304,6 +325,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         TripDates = "No reservations yet.";
         _allItems.Clear();
         _sectionCache.Clear();
+        _focusItem = null;
         ActiveDays = [];
         TypeSections.Clear();
         _activeSection = null;
@@ -311,6 +333,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         UpdateTypeFilters();
         CityFilters.Clear();
         CityFilters.Add(new CityFilterViewModel(AllCitiesKey, isSelected: true));
+        NotifyFocusChanged();
         OnPropertyChanged(nameof(HasScheduleItems));
         OnPropertyChanged(nameof(ShowInitialLoading));
         OnPropertyChanged(nameof(ShowEmptyState));
@@ -501,6 +524,16 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
             .FirstOrDefault(ReservationType.Event);
     }
 
+    private static ScheduleItemDto? GetFocusItem(IReadOnlyList<ScheduleItemDto> items)
+    {
+        var now = DateTime.Now;
+        return items
+            .Where(item => !IsPast(item, now))
+            .OrderBy(item => GetTimelineSortValue(item, now))
+            .ThenBy(item => item.StartsAt)
+            .FirstOrDefault();
+    }
+
     private static bool IsPast(ScheduleItemDto item, DateTime now)
     {
         return GetEndDateTime(item) < now;
@@ -541,5 +574,13 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         ApplySchedule(e.Schedule);
         MarkLastUpdated(e.SavedAt);
         StatusMessage = "Itinerario actualizado.";
+    }
+
+    private void NotifyFocusChanged()
+    {
+        OnPropertyChanged(nameof(HasFocusItem));
+        OnPropertyChanged(nameof(FocusTitle));
+        OnPropertyChanged(nameof(FocusSubtitle));
+        OnPropertyChanged(nameof(FocusMeta));
     }
 }

@@ -270,6 +270,11 @@ public sealed partial class RecommendationTagCatalogService(TravelCompanionDbCon
         var builder = new StringBuilder(normalized.Length);
         foreach (var character in normalized)
         {
+            if (character == '#')
+            {
+                continue;
+            }
+
             if (CharUnicodeInfo.GetUnicodeCategory(character) != UnicodeCategory.NonSpacingMark)
             {
                 builder.Append(character);
