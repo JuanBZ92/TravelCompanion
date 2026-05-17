@@ -197,6 +197,7 @@ public sealed class RecommendationsModel(
         Recommendations = recommendations
             .Select(recommendation => new RecommendationRow(
                 recommendation.Id,
+                recommendation.ExternalId,
                 recommendation.Destination != null ? recommendation.Destination.Name : "Unknown",
                 recommendation.Title,
                 recommendation.Category,
@@ -209,6 +210,7 @@ public sealed class RecommendationsModel(
                 recommendation.PriceLevel,
                 recommendation.Rating,
                 recommendation.OpeningHours,
+                recommendation.SourceName,
                 recommendation.Latitude,
                 recommendation.Longitude,
                 recommendation.Tags))
@@ -236,6 +238,7 @@ public sealed class RecommendationsModel(
 
     public sealed record RecommendationRow(
         Guid Id,
+        string? ExternalId,
         string DestinationName,
         string Title,
         string Category,
@@ -245,6 +248,7 @@ public sealed class RecommendationsModel(
         string PriceLevel,
         double? Rating,
         string? OpeningHours,
+        string? SourceName,
         decimal Latitude,
         decimal Longitude,
         IReadOnlyList<string> Tags)
@@ -263,6 +267,7 @@ public sealed class RecommendationsModel(
     public sealed class RecommendationInput
     {
         public Guid? Id { get; set; }
+        public string? ExternalId { get; set; }
         public Guid DestinationId { get; set; }
         public string Title { get; set; } = string.Empty;
         public string Category { get; set; } = string.Empty;
@@ -275,6 +280,9 @@ public sealed class RecommendationsModel(
         public int SuggestedDurationMinutes { get; set; } = 60;
         public double? Rating { get; set; }
         public string? OpeningHours { get; set; }
+        public string? SourceName { get; set; }
+        public string? SourceUrl { get; set; }
+        public string? CurationNotes { get; set; }
         public ContentAccessLevel AccessLevel { get; set; } = ContentAccessLevel.Free;
         public List<Guid> PackageIds { get; set; } = [];
 
@@ -283,6 +291,7 @@ public sealed class RecommendationsModel(
             return new RecommendationInput
             {
                 Id = recommendation.Id,
+                ExternalId = recommendation.ExternalId,
                 DestinationId = recommendation.DestinationId,
                 Title = recommendation.Title,
                 Category = recommendation.Category,
@@ -295,6 +304,9 @@ public sealed class RecommendationsModel(
                 SuggestedDurationMinutes = recommendation.SuggestedDurationMinutes,
                 Rating = recommendation.Rating,
                 OpeningHours = recommendation.OpeningHours,
+                SourceName = recommendation.SourceName,
+                SourceUrl = recommendation.SourceUrl,
+                CurationNotes = recommendation.CurationNotes,
                 AccessLevel = recommendation.AccessLevel,
                 PackageIds = recommendation.Packages.Select(package => package.Id).ToList()
             };
@@ -302,6 +314,7 @@ public sealed class RecommendationsModel(
 
         public void ApplyTo(Recommendation recommendation)
         {
+            recommendation.ExternalId = NormalizeOptional(ExternalId);
             recommendation.DestinationId = DestinationId;
             recommendation.Title = Title.Trim();
             recommendation.Category = Category.Trim();
@@ -314,7 +327,15 @@ public sealed class RecommendationsModel(
             recommendation.SuggestedDurationMinutes = SuggestedDurationMinutes;
             recommendation.Rating = Rating;
             recommendation.OpeningHours = string.IsNullOrWhiteSpace(OpeningHours) ? null : OpeningHours.Trim();
+            recommendation.SourceName = NormalizeOptional(SourceName);
+            recommendation.SourceUrl = NormalizeOptional(SourceUrl);
+            recommendation.CurationNotes = NormalizeOptional(CurationNotes);
             recommendation.AccessLevel = AccessLevel;
+        }
+
+        private static string? NormalizeOptional(string? value)
+        {
+            return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
         }
 
         public static List<string> ParseTags(string? value)

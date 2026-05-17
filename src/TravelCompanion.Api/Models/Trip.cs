@@ -3,6 +3,7 @@ namespace TravelCompanion.Api.Models;
 public sealed class Trip
 {
     public Guid Id { get; set; }
+    public string? ExternalId { get; set; }
     public Guid? AppUserId { get; set; }
     public AppUser? AppUser { get; set; }
     public Guid DestinationId { get; set; }

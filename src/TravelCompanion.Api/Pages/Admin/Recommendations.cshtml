@@ -31,6 +31,12 @@
         <input type="hidden" asp-for="Input.Id" />
         <div class="form-grid">
             <div>
+                <label asp-for="Input.ExternalId">External ID <span class="muted">(import)</span></label>
+                <input asp-for="Input.ExternalId" placeholder="rec-tokyo-tsukiji-snack-walk" />
+                <span asp-validation-for="Input.ExternalId"></span>
+                <p class="form-hint">Usado por CSV/API para actualizar sin duplicar.</p>
+            </div>
+            <div>
                 <label asp-for="Input.DestinationId" class="required">Destino</label>
                 <select asp-for="Input.DestinationId" asp-items="Model.DestinationOptions"></select>
                 <span asp-validation-for="Input.DestinationId"></span>
@@ -130,6 +136,23 @@
                 </details>
             </div>
         </div>
+        <div class="form-grid" style="margin-top: 12px;">
+            <div>
+                <label asp-for="Input.SourceName">Fuente <span class="muted">(opcional)</span></label>
+                <input asp-for="Input.SourceName" placeholder="Curador Japon 2026" />
+                <span asp-validation-for="Input.SourceName"></span>
+            </div>
+            <div>
+                <label asp-for="Input.SourceUrl">URL fuente <span class="muted">(opcional)</span></label>
+                <input asp-for="Input.SourceUrl" placeholder="https://..." />
+                <span asp-validation-for="Input.SourceUrl"></span>
+            </div>
+        </div>
+        <div style="margin-top: 12px;">
+            <label asp-for="Input.CurationNotes">Notas de curaduria <span class="muted">(opcional)</span></label>
+            <textarea asp-for="Input.CurationNotes"></textarea>
+            <span asp-validation-for="Input.CurationNotes"></span>
+        </div>
         <div class="actions">
             <button type="submit">Guardar</button>
             @if (Model.Input.Id.HasValue)
@@ -161,6 +184,11 @@
                     <td>
                         <strong>@recommendation.Title</strong><br />
                         <span class="muted">@recommendation.DestinationName</span>
+                        @if (!string.IsNullOrWhiteSpace(recommendation.ExternalId))
+                        {
+                            <br />
+                            <span class="mono">@recommendation.ExternalId</span>
+                        }
                     </td>
                     <td><span class="badge">@recommendation.Category</span></td>
                     <td>
@@ -190,6 +218,11 @@
                         {
                             <br />
                             <span class="muted">@recommendation.OpeningHours</span>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(recommendation.SourceName))
+                        {
+                            <br />
+                            <span class="muted">@recommendation.SourceName</span>
                         }
                         @if (recommendation.Tags.Count > 0)
                         {

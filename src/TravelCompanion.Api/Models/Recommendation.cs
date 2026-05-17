@@ -5,6 +5,7 @@ namespace TravelCompanion.Api.Models;
 public sealed class Recommendation
 {
     public Guid Id { get; set; }
+    public string? ExternalId { get; set; }
     public Guid DestinationId { get; set; }
     public Destination? Destination { get; set; }
     public required string Title { get; set; }
@@ -18,6 +19,9 @@ public sealed class Recommendation
     public int SuggestedDurationMinutes { get; set; }
     public double? Rating { get; set; }
     public string? OpeningHours { get; set; }
+    public string? SourceName { get; set; }
+    public string? SourceUrl { get; set; }
+    public string? CurationNotes { get; set; }
     public ContentAccessLevel AccessLevel { get; set; } = ContentAccessLevel.Free;
     public List<TravelPackage> Packages { get; set; } = [];
 }

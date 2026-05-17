@@ -27,6 +27,11 @@
         <input type="hidden" asp-for="TripInput.Id" />
         <div class="form-grid">
             <div>
+                <label asp-for="TripInput.ExternalId">External ID <span class="muted">(import)</span></label>
+                <input asp-for="TripInput.ExternalId" placeholder="japan-demo-2026" />
+                <span asp-validation-for="TripInput.ExternalId"></span>
+            </div>
+            <div>
                 <label asp-for="TripInput.UserId" class="required">Usuario</label>
                 <select asp-for="TripInput.UserId" asp-items="Model.UserOptions"></select>
                 <span asp-validation-for="TripInput.UserId"></span>
@@ -81,6 +86,11 @@
                 <td>
                     <strong>@trip.TravelerName</strong><br />
                     <span class="muted">@trip.DestinationName</span>
+                    @if (!string.IsNullOrWhiteSpace(trip.ExternalId))
+                    {
+                        <br />
+                        <span class="mono">@trip.ExternalId</span>
+                    }
                 </td>
                 <td>@trip.UserEmail</td>
                 <td>
@@ -117,6 +127,11 @@
         <div class="field-group">
             <h3>Datos comunes</h3>
         <div class="form-grid">
+            <div>
+                <label asp-for="Input.ExternalId">External ID <span class="muted">(import)</span></label>
+                <input asp-for="Input.ExternalId" placeholder="sch-demo-event-ginza" />
+                <span asp-validation-for="Input.ExternalId"></span>
+            </div>
             <div>
                 <label asp-for="Input.TripId" class="required">Viaje</label>
                 <select asp-for="Input.TripId" asp-items="Model.TripOptions"></select>
@@ -220,6 +235,18 @@
             <textarea asp-for="Input.Notes"></textarea>
             <span asp-validation-for="Input.Notes"></span>
         </div>
+        <div class="form-grid" style="margin-top: 12px;">
+            <div>
+                <label asp-for="Input.SourceName">Fuente <span class="muted">(opcional)</span></label>
+                <input asp-for="Input.SourceName" placeholder="Curador Japon 2026" />
+                <span asp-validation-for="Input.SourceName"></span>
+            </div>
+            <div>
+                <label asp-for="Input.SourceUrl">URL fuente <span class="muted">(opcional)</span></label>
+                <input asp-for="Input.SourceUrl" placeholder="https://..." />
+                <span asp-validation-for="Input.SourceUrl"></span>
+            </div>
+        </div>
         <div class="actions">
             <button type="submit">Guardar</button>
             @if (Model.Input.Id.HasValue)
@@ -256,6 +283,16 @@
                 <td>
                     <strong>@reservation.Title</strong><br />
                     <span class="muted">@reservation.TripName</span>
+                    @if (!string.IsNullOrWhiteSpace(reservation.ExternalId))
+                    {
+                        <br />
+                        <span class="mono">@reservation.ExternalId</span>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(reservation.SourceName))
+                    {
+                        <br />
+                        <span class="muted">@reservation.SourceName</span>
+                    }
                 </td>
                 <td>@reservation.City</td>
                 <td>

@@ -292,6 +292,7 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
             .OrderByDescending(trip => trip.StartsOn)
             .Select(trip => new TripRow(
                 trip.Id,
+                trip.ExternalId,
                 trip.AppUser != null ? trip.AppUser.Email : "-",
                 trip.TravelerName,
                 trip.Destination != null ? trip.Destination.Name : "Unknown",
@@ -318,6 +319,7 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
             .ThenBy(reservation => reservation.StartsAt)
             .Select(reservation => new ReservationRow(
                 reservation.Id,
+                reservation.ExternalId,
                 reservation.Trip != null
                     ? $"{reservation.Trip.TravelerName} - {(reservation.Trip.Destination != null ? reservation.Trip.Destination.Name : "Unknown")}"
                     : "Unknown",
@@ -336,7 +338,8 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
                 reservation.OriginName,
                 reservation.DestinationName,
                 reservation.OriginAirport,
-                reservation.DestinationAirport))
+                reservation.DestinationAirport,
+                reservation.SourceName))
             .ToListAsync();
     }
 
@@ -390,6 +393,7 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
 
     public sealed record TripRow(
         Guid Id,
+        string? ExternalId,
         string UserEmail,
         string TravelerName,
         string DestinationName,
@@ -399,6 +403,7 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
 
     public sealed record ReservationRow(
         Guid Id,
+        string? ExternalId,
         string TripName,
         DateOnly Date,
         TimeOnly StartsAt,
@@ -415,7 +420,8 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
         string? OriginName,
         string? DestinationName,
         string? OriginAirport,
-        string? DestinationAirport)
+        string? DestinationAirport,
+        string? SourceName)
     {
         public string TypeLabel => Type switch
         {
@@ -432,6 +438,9 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
     public sealed class ReservationInput
     {
         public Guid? Id { get; set; }
+
+        [StringLength(160, ErrorMessage = "El external id no puede superar 160 caracteres.")]
+        public string? ExternalId { get; set; }
 
         [Required(ErrorMessage = "Selecciona un viaje.")]
         public Guid TripId { get; set; }
@@ -486,11 +495,18 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
         [StringLength(80, ErrorMessage = "El aeropuerto de destino no puede superar 80 caracteres.")]
         public string? DestinationAirport { get; set; }
 
+        [StringLength(160, ErrorMessage = "La fuente no puede superar 160 caracteres.")]
+        public string? SourceName { get; set; }
+
+        [StringLength(512, ErrorMessage = "La URL fuente no puede superar 512 caracteres.")]
+        public string? SourceUrl { get; set; }
+
         public static ReservationInput FromEntity(Reservation reservation)
         {
             return new ReservationInput
             {
                 Id = reservation.Id,
+                ExternalId = reservation.ExternalId,
                 TripId = reservation.TripId,
                 Type = reservation.Type,
                 Date = reservation.Date,
@@ -508,12 +524,15 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
                 OriginName = reservation.OriginName,
                 DestinationName = reservation.DestinationName,
                 OriginAirport = reservation.OriginAirport,
-                DestinationAirport = reservation.DestinationAirport
+                DestinationAirport = reservation.DestinationAirport,
+                SourceName = reservation.SourceName,
+                SourceUrl = reservation.SourceUrl
             };
         }
 
         public void ApplyTo(Reservation reservation)
         {
+            reservation.ExternalId = NormalizeOptional(ExternalId);
             reservation.TripId = TripId;
             reservation.Type = Type;
             reservation.Date = Date;
@@ -532,6 +551,8 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
             reservation.DestinationName = NormalizeOptional(DestinationName);
             reservation.OriginAirport = NormalizeOptional(OriginAirport);
             reservation.DestinationAirport = NormalizeOptional(DestinationAirport);
+            reservation.SourceName = NormalizeOptional(SourceName);
+            reservation.SourceUrl = NormalizeOptional(SourceUrl);
         }
 
         private static string? NormalizeOptional(string? value)
@@ -548,6 +569,9 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
     public sealed class TripForm
     {
         public Guid? Id { get; set; }
+
+        [StringLength(160, ErrorMessage = "El external id no puede superar 160 caracteres.")]
+        public string? ExternalId { get; set; }
 
         [Required(ErrorMessage = "Selecciona un usuario.")]
         public Guid UserId { get; set; }
@@ -570,6 +594,7 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
             return new TripForm
             {
                 Id = trip.Id,
+                ExternalId = trip.ExternalId,
                 UserId = trip.AppUserId ?? Guid.Empty,
                 DestinationId = trip.DestinationId,
                 TravelerName = trip.TravelerName,
@@ -580,6 +605,7 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
 
         public void ApplyTo(Trip trip)
         {
+            trip.ExternalId = string.IsNullOrWhiteSpace(ExternalId) ? null : ExternalId.Trim();
             trip.AppUserId = UserId;
             trip.DestinationId = DestinationId;
             trip.TravelerName = (TravelerName ?? string.Empty).Trim();
