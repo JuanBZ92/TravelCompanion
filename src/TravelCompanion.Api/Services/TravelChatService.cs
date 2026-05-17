@@ -380,7 +380,7 @@ public sealed class TravelChatService(
             "Puedo ayudarte en 5 modos:\n1. Planificar: Proponeme un plan para hoy o para una fecha.\n2. Ajustar: Algo con menos caminata, mas corto u otra opcion.\n3. Agenda: Ver mi agenda.\n4. Preferencias: Ver mis preferencias o Evitar #culture.\n5. Ayuda: Que puedo pedirte.",
             HelpIntent,
             [],
-            ["Proponeme un plan", "Algo con menos caminata", "Ver mi agenda", "Ver mis preferencias", "Evitar culture"],
+            ["Proponeme un plan", "Algo con menos caminata", "Ver mi agenda", "Ver mis preferencias", "Evitar #culture"],
             null);
     }
 

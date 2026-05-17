@@ -32,6 +32,7 @@ public sealed partial class RecommendationsViewModel(
     public ObservableCollection<RecommendationListItemViewModel> Recommendations { get; } = [];
     public ObservableCollection<RecommendationPageViewModel> RecommendationPages { get; } = [];
     public ObservableCollection<string> Categories { get; } = [AllCategories, FavoritesCategory];
+    public ObservableCollection<CategoryFilterViewModel> CategoryFilters { get; } = [];
     public ObservableCollection<int> PageSizeOptions { get; } = [5, 10, 20];
 
     public IReadOnlyList<RecommendationListItemViewModel> VisibleRecommendations
@@ -171,6 +172,7 @@ public sealed partial class RecommendationsViewModel(
         Categories.Clear();
         Categories.Add(AllCategories);
         Categories.Add(FavoritesCategory);
+        CategoryFilters.Clear();
         SelectedCategory = AllCategories;
         CurrentPage = 1;
         TotalPages = 1;
@@ -206,6 +208,17 @@ public sealed partial class RecommendationsViewModel(
 
         recommendation.IsFavorite = favoritesService.ToggleFavorite(recommendation.Id);
         ApplyFilters(resetPage: false);
+    }
+
+    [RelayCommand]
+    private void SelectCategory(CategoryFilterViewModel? filter)
+    {
+        if (filter is null)
+        {
+            return;
+        }
+
+        SelectedCategory = filter.Label;
     }
 
     [RelayCommand]
@@ -251,6 +264,7 @@ public sealed partial class RecommendationsViewModel(
             }
 
             SelectedCategory = Categories.Contains(currentCategory) ? currentCategory : AllCategories;
+            RebuildCategoryFilters();
         }
         finally
         {
@@ -262,6 +276,7 @@ public sealed partial class RecommendationsViewModel(
     {
         var stopwatch = Stopwatch.StartNew();
         var filteredItems = GetFilteredItems().ToList();
+        SyncCategoryFilterSelection();
         TotalItems = filteredItems.Count;
         TotalPages = Math.Max(1, (int)Math.Ceiling(TotalItems / (double)SelectedPageSize));
 
@@ -428,9 +443,8 @@ public sealed partial class RecommendationsViewModel(
     private void ApplyDiscover(MobileDiscoverDto discover, bool resetPage)
     {
         var stopwatch = Stopwatch.StartNew();
-        var sourceRecommendations = discover.Recommendations ?? [];
         _allRecommendations.Clear();
-        foreach (var recommendation in sourceRecommendations)
+        foreach (var recommendation in discover.Recommendations)
         {
             _allRecommendations.Add(new RecommendationListItemViewModel(recommendation)
             {
@@ -446,7 +460,7 @@ public sealed partial class RecommendationsViewModel(
         logger.LogInformation(
             "Recommendations discover applied in {ElapsedMs}ms. SourceRecommendations={SourceCount}; PageRecommendations={PageCount}; ResetPage={ResetPage}.",
             stopwatch.Elapsed.TotalMilliseconds,
-            sourceRecommendations.Count,
+            discover.Recommendations.Count,
             VisibleRecommendations.Count,
             resetPage);
     }
@@ -456,6 +470,29 @@ public sealed partial class RecommendationsViewModel(
         OnPropertyChanged(nameof(CanGoPrevious));
         OnPropertyChanged(nameof(CanGoNext));
         OnPropertyChanged(nameof(PageSummary));
+    }
+
+    private void RebuildCategoryFilters()
+    {
+        CategoryFilters.Clear();
+        foreach (var category in Categories)
+        {
+            CategoryFilters.Add(new CategoryFilterViewModel(category, category == SelectedCategory));
+        }
+    }
+
+    private void SyncCategoryFilterSelection()
+    {
+        if (CategoryFilters.Count == 0)
+        {
+            RebuildCategoryFilters();
+            return;
+        }
+
+        foreach (var filter in CategoryFilters)
+        {
+            filter.IsSelected = filter.Label == SelectedCategory;
+        }
     }
 
     protected override void OnLoadStateChanged()
