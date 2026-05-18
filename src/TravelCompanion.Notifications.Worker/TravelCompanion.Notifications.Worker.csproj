@@ -16,4 +16,11 @@
   <ItemGroup>
     <ProjectReference Include="..\TravelCompanion.Api\TravelCompanion.Api.csproj" />
   </ItemGroup>
+
+  <Target Name="RemoveReferencedProjectAppSettingsFromPublish" BeforeTargets="_HandleFileConflictsForPublish">
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)"
+                             Condition="$([System.String]::Copy('%(ResolvedFileToPublish.Identity)').Contains('TravelCompanion.Api')) and $([System.String]::Copy('%(ResolvedFileToPublish.RelativePath)').StartsWith('appsettings')) and '%(ResolvedFileToPublish.Extension)' == '.json'" />
+    </ItemGroup>
+  </Target>
 </Project>

@@ -19,16 +19,15 @@ public sealed class TravelNotificationScheduler(
         CancellationToken cancellationToken)
     {
         var workerOptions = options.Value;
-        var timeZone = ResolveTimeZone(workerOptions.ScheduleTimeZoneId);
-        var localNow = TimeZoneInfo.ConvertTime(now, timeZone);
-        var localHorizon = TimeZoneInfo.ConvertTime(now.AddHours(workerOptions.LookAheadHours), timeZone);
-        var startDate = DateOnly.FromDateTime(localNow.DateTime.Date);
-        var endDate = DateOnly.FromDateTime(localHorizon.DateTime.Date.AddDays(1));
+        var fallbackTimeZone = ResolveTimeZone(workerOptions.ScheduleTimeZoneId);
+        var startDate = DateOnly.FromDateTime(now.UtcDateTime.Date.AddDays(-1));
+        var endDate = DateOnly.FromDateTime(now.UtcDateTime.Date.AddHours(workerOptions.LookAheadHours).AddDays(2));
         var staleBefore = now.AddMinutes(-Math.Max(0, workerOptions.StaleNotificationGraceMinutes));
 
         var reservations = await dbContext.Reservations
             .AsNoTracking()
             .Include(reservation => reservation.Trip)
+                .ThenInclude(trip => trip!.Destination)
             .Where(reservation =>
                 reservation.Trip != null
                 && reservation.Trip.AppUserId != null
@@ -42,6 +41,7 @@ public sealed class TravelNotificationScheduler(
         foreach (var reservation in reservations)
         {
             var userId = reservation.Trip!.AppUserId!.Value;
+            var timeZone = ResolveReservationTimeZone(reservation, fallbackTimeZone);
             var reservationStartUtc = ToUtc(reservation.Date, reservation.StartsAt, timeZone);
             if (reservationStartUtc <= now)
             {
@@ -72,7 +72,7 @@ public sealed class TravelNotificationScheduler(
                     DeduplicationKey = deduplicationKey,
                     Kind = ScheduleReminderKind,
                     Title = CreateTitle(reservation, leadMinutes),
-                    Body = CreateBody(reservation, leadMinutes),
+                    Body = CreateBody(reservation, leadMinutes, timeZone),
                     DeepLink = $"travelcompanion://schedule/{reservation.Id}",
                     ScheduledForUtc = scheduledForUtc,
                     CreatedAtUtc = now
@@ -176,9 +176,25 @@ public sealed class TravelNotificationScheduler(
         return new DateTimeOffset(TimeZoneInfo.ConvertTimeToUtc(localDateTime, timeZone), TimeSpan.Zero);
     }
 
+    private static TimeZoneInfo ResolveReservationTimeZone(Reservation reservation, TimeZoneInfo fallbackTimeZone)
+    {
+        var timeZoneId = reservation.TimeZoneId
+            ?? reservation.Trip?.TimeZoneId
+            ?? reservation.Trip?.Destination?.TimeZoneId;
+
+        return string.IsNullOrWhiteSpace(timeZoneId)
+            ? fallbackTimeZone
+            : ResolveTimeZone(timeZoneId, fallbackTimeZone);
+    }
+
     private static TimeZoneInfo ResolveTimeZone(string configuredTimeZoneId)
     {
-        foreach (var timeZoneId in new[] { configuredTimeZoneId, "Asia/Tokyo", "Tokyo Standard Time", "UTC" })
+        return ResolveTimeZone(configuredTimeZoneId, TimeZoneInfo.Utc);
+    }
+
+    private static TimeZoneInfo ResolveTimeZone(string configuredTimeZoneId, TimeZoneInfo fallbackTimeZone)
+    {
+        foreach (var timeZoneId in ExpandTimeZoneCandidates(configuredTimeZoneId))
         {
             try
             {
@@ -192,7 +208,27 @@ public sealed class TravelNotificationScheduler(
             }
         }
 
-        return TimeZoneInfo.Utc;
+        return fallbackTimeZone;
+    }
+
+    private static IEnumerable<string> ExpandTimeZoneCandidates(string configuredTimeZoneId)
+    {
+        if (!string.IsNullOrWhiteSpace(configuredTimeZoneId))
+        {
+            yield return configuredTimeZoneId.Trim();
+
+            if (TimeZoneInfo.TryConvertIanaIdToWindowsId(configuredTimeZoneId, out var windowsId))
+            {
+                yield return windowsId;
+            }
+
+            if (TimeZoneInfo.TryConvertWindowsIdToIanaId(configuredTimeZoneId, out var ianaId))
+            {
+                yield return ianaId;
+            }
+        }
+
+        yield return "UTC";
     }
 
     private static string CreateTitle(Reservation reservation, int leadMinutes)
@@ -202,7 +238,7 @@ public sealed class TravelNotificationScheduler(
             : $"Proximo plan: {reservation.Title}";
     }
 
-    private static string CreateBody(Reservation reservation, int leadMinutes)
+    private static string CreateBody(Reservation reservation, int leadMinutes, TimeZoneInfo timeZone)
     {
         var leadLabel = leadMinutes >= 1440
             ? "manana"
@@ -211,6 +247,6 @@ public sealed class TravelNotificationScheduler(
             ? reservation.City
             : reservation.LocationName;
 
-        return $"{reservation.Title} empieza {leadLabel} a las {reservation.StartsAt:HH\\:mm} en {location}.";
+        return $"{reservation.Title} empieza {leadLabel} a las {reservation.StartsAt:HH\\:mm} ({timeZone.Id}) en {location}.";
     }
 }

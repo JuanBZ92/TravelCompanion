@@ -9,6 +9,6 @@ public sealed class NotificationWorkerOptions
     public int LookAheadHours { get; set; } = 48;
     public int SendBatchSize { get; set; } = 50;
     public int StaleNotificationGraceMinutes { get; set; } = 30;
-    public string ScheduleTimeZoneId { get; set; } = "Asia/Tokyo";
+    public string ScheduleTimeZoneId { get; set; } = "UTC";
     public int[] ReservationReminderLeadMinutes { get; set; } = [1440, 180];
 }

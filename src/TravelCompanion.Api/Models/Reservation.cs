@@ -13,6 +13,7 @@ public sealed class Reservation
     public TimeOnly StartsAt { get; set; }
     public DateOnly? EndsOn { get; set; }
     public TimeOnly? EndsAt { get; set; }
+    public string? TimeZoneId { get; set; }
     public required string Title { get; set; }
     public required string City { get; set; }
     public required string LocationName { get; set; }

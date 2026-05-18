@@ -72,6 +72,7 @@ public sealed class DestinationsModel(TravelCompanionDbContext dbContext) : Page
                 Name = string.Empty,
                 Slug = string.Empty,
                 Country = string.Empty,
+                TimeZoneId = "UTC",
                 HeroImageUrl = string.Empty,
                 ShortDescription = string.Empty
             };
@@ -117,6 +118,7 @@ public sealed class DestinationsModel(TravelCompanionDbContext dbContext) : Page
                 destination.Name,
                 destination.Slug,
                 destination.Country,
+                destination.TimeZoneId,
                 destination.Packages.Count,
                 destination.Recommendations.Count,
                 dbContext.Trips.Count(trip => trip.DestinationId == destination.Id)))
@@ -133,6 +135,7 @@ public sealed class DestinationsModel(TravelCompanionDbContext dbContext) : Page
         string Name,
         string Slug,
         string Country,
+        string TimeZoneId,
         int PackageCount,
         int RecommendationCount,
         int TripCount);
@@ -143,6 +146,7 @@ public sealed class DestinationsModel(TravelCompanionDbContext dbContext) : Page
         public string Name { get; set; } = string.Empty;
         public string Slug { get; set; } = string.Empty;
         public string? Country { get; set; }
+        public string? TimeZoneId { get; set; } = "UTC";
         public string? HeroImageUrl { get; set; }
         public string? ShortDescription { get; set; }
 
@@ -154,6 +158,7 @@ public sealed class DestinationsModel(TravelCompanionDbContext dbContext) : Page
                 Name = destination.Name,
                 Slug = destination.Slug,
                 Country = destination.Country,
+                TimeZoneId = destination.TimeZoneId,
                 HeroImageUrl = destination.HeroImageUrl,
                 ShortDescription = destination.ShortDescription
             };
@@ -164,6 +169,7 @@ public sealed class DestinationsModel(TravelCompanionDbContext dbContext) : Page
             destination.Name = (Name ?? string.Empty).Trim();
             destination.Slug = normalizedSlug;
             destination.Country = (Country ?? string.Empty).Trim();
+            destination.TimeZoneId = string.IsNullOrWhiteSpace(TimeZoneId) ? "UTC" : TimeZoneId.Trim();
             destination.HeroImageUrl = (HeroImageUrl ?? string.Empty).Trim();
             destination.ShortDescription = (ShortDescription ?? string.Empty).Trim();
         }

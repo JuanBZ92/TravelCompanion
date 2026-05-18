@@ -33,7 +33,7 @@
             </div>
             <div>
                 <label asp-for="TripInput.UserId" class="required">Usuario</label>
-                <select asp-for="TripInput.UserId" asp-items="Model.UserOptions"></select>
+                <select asp-for="TripInput.UserId" asp-items="Model.UserOptions" data-trip-user-select></select>
                 <span asp-validation-for="TripInput.UserId"></span>
             </div>
             <div>
@@ -43,8 +43,14 @@
             </div>
             <div>
                 <label asp-for="TripInput.TravelerName" class="required">Viajero</label>
-                <input asp-for="TripInput.TravelerName" />
+                <input asp-for="TripInput.TravelerName" data-trip-traveler-name required />
                 <span asp-validation-for="TripInput.TravelerName"></span>
+            </div>
+            <div>
+                <label asp-for="TripInput.TimeZoneId">Zona horaria del viaje</label>
+                <input asp-for="TripInput.TimeZoneId" placeholder="Asia/Tokyo" />
+                <p class="form-hint">Los horarios del viaje se interpretan en esta zona y se convierten a UTC para notificaciones.</p>
+                <span asp-validation-for="TripInput.TimeZoneId"></span>
             </div>
             <div>
                 <label asp-for="TripInput.StartsOn" class="required">Inicio</label>
@@ -86,6 +92,8 @@
                 <td>
                     <strong>@trip.TravelerName</strong><br />
                     <span class="muted">@trip.DestinationName</span>
+                    <br />
+                    <span class="mono">@trip.TimeZoneId</span>
                     @if (!string.IsNullOrWhiteSpace(trip.ExternalId))
                     {
                         <br />
@@ -151,6 +159,12 @@
                 <label asp-for="Input.StartsAt" class="required">Hora</label>
                 <input asp-for="Input.StartsAt" type="time" />
                 <span asp-validation-for="Input.StartsAt"></span>
+            </div>
+            <div>
+                <label asp-for="Input.TimeZoneId">Zona horaria override <span class="muted">(opcional)</span></label>
+                <input asp-for="Input.TimeZoneId" placeholder="Europe/Paris" />
+                <p class="form-hint">Dejalo vacio para usar la zona del viaje. Usalo para vuelos o eventos en otra zona.</p>
+                <span asp-validation-for="Input.TimeZoneId"></span>
             </div>
             <div>
                 <label asp-for="Input.Title" class="required">Titulo</label>
@@ -278,6 +292,11 @@
                 <td>
                     <strong>@reservation.Date.ToString("MMM d")</strong><br />
                     <span class="muted">@reservation.StartsAt.ToString("HH\\:mm")</span>
+                    @if (!string.IsNullOrWhiteSpace(reservation.TimeZoneId))
+                    {
+                        <br />
+                        <span class="mono">@reservation.TimeZoneId</span>
+                    }
                 </td>
                 <td>@reservation.TypeLabel</td>
                 <td>

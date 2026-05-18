@@ -58,6 +58,84 @@ variable "app_stack_dotnet_version" {
   default     = "10.0"
 }
 
+variable "api_run_from_package_enabled" {
+  description = "Enable WEBSITE_RUN_FROM_PACKAGE for API-only deployments. Keep false when WebJobs must be visible/manageable in the App Service portal."
+  type        = bool
+  default     = false
+}
+
+variable "notifications_enabled" {
+  description = "Enable the notifications worker in the API App Service WebJob."
+  type        = bool
+  default     = true
+}
+
+variable "notifications_poll_interval_seconds" {
+  description = "Polling interval in seconds for the notifications worker."
+  type        = number
+  default     = 60
+
+  validation {
+    condition     = var.notifications_poll_interval_seconds >= 15
+    error_message = "notifications_poll_interval_seconds must be at least 15 seconds."
+  }
+}
+
+variable "notifications_look_ahead_hours" {
+  description = "How many hours ahead the worker scans for schedule reminders."
+  type        = number
+  default     = 48
+
+  validation {
+    condition     = var.notifications_look_ahead_hours > 0
+    error_message = "notifications_look_ahead_hours must be greater than 0."
+  }
+}
+
+variable "notifications_send_batch_size" {
+  description = "Maximum number of due notifications dispatched per worker pass."
+  type        = number
+  default     = 50
+
+  validation {
+    condition     = var.notifications_send_batch_size > 0
+    error_message = "notifications_send_batch_size must be greater than 0."
+  }
+}
+
+variable "notifications_stale_notification_grace_minutes" {
+  description = "Grace window in minutes before stale due notifications are skipped."
+  type        = number
+  default     = 30
+
+  validation {
+    condition     = var.notifications_stale_notification_grace_minutes >= 0
+    error_message = "notifications_stale_notification_grace_minutes cannot be negative."
+  }
+}
+
+variable "notifications_schedule_time_zone_id" {
+  description = "Fallback time zone used by the notifications worker when a reservation, trip, or destination time zone is missing."
+  type        = string
+  default     = "UTC"
+
+  validation {
+    condition     = length(trimspace(var.notifications_schedule_time_zone_id)) > 0
+    error_message = "notifications_schedule_time_zone_id cannot be empty."
+  }
+}
+
+variable "notifications_reservation_reminder_lead_minutes" {
+  description = "Lead times in minutes for reservation reminders."
+  type        = list(number)
+  default     = [1440, 180]
+
+  validation {
+    condition     = length(var.notifications_reservation_reminder_lead_minutes) > 0 && alltrue([for minutes in var.notifications_reservation_reminder_lead_minutes : minutes > 0])
+    error_message = "notifications_reservation_reminder_lead_minutes must contain positive minute values."
+  }
+}
+
 variable "log_analytics_daily_quota_gb" {
   # Cota baja para evitar sorpresas si algun recurso empieza a emitir muchos logs.
   description = "Daily ingestion quota in GB for Log Analytics."

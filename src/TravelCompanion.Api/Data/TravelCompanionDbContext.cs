@@ -27,6 +27,7 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
             entity.Property(destination => destination.Name).HasMaxLength(120);
             entity.Property(destination => destination.Slug).HasMaxLength(80);
             entity.Property(destination => destination.Country).HasMaxLength(80);
+            entity.Property(destination => destination.TimeZoneId).HasMaxLength(120).HasDefaultValue("UTC");
         });
 
         modelBuilder.Entity<TravelPackage>(entity =>
@@ -87,6 +88,7 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
             entity.HasIndex(trip => new { trip.DestinationId, trip.StartsOn });
             entity.Property(trip => trip.ExternalId).HasMaxLength(160);
             entity.Property(trip => trip.TravelerName).HasMaxLength(140);
+            entity.Property(trip => trip.TimeZoneId).HasMaxLength(120).HasDefaultValue("UTC");
             entity.HasOne(trip => trip.AppUser)
                 .WithMany(user => user.Trips)
                 .HasForeignKey(trip => trip.AppUserId)
@@ -104,6 +106,7 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
                 .HasMaxLength(32)
                 .HasDefaultValue(TravelCompanion.Shared.ReservationType.Event);
             entity.Property(reservation => reservation.Title).HasMaxLength(160);
+            entity.Property(reservation => reservation.TimeZoneId).HasMaxLength(120);
             entity.Property(reservation => reservation.City).HasMaxLength(120);
             entity.Property(reservation => reservation.LocationName).HasMaxLength(160);
             entity.Property(reservation => reservation.ConfirmationCode).HasMaxLength(80);

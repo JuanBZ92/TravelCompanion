@@ -271,15 +271,34 @@ resource "azurerm_key_vault_secret" "storage_connection_string" {
 }
 
 locals {
+  api_notification_lead_minute_settings = {
+    for index, minutes in var.notifications_reservation_reminder_lead_minutes :
+    "Notifications__ReservationReminderLeadMinutes__${index}" => tostring(minutes)
+  }
+
   api_base_app_settings = {
     ASPNETCORE_ENVIRONMENT                = "Production"
     APPLICATIONINSIGHTS_CONNECTION_STRING = azurerm_application_insights.api.connection_string
     ApplicationInsights__ConnectionString = azurerm_application_insights.api.connection_string
+    WEBSITE_SKIP_RUNNING_KUDUAGENT        = "false"
     ConnectionStrings__TravelCompanionDb  = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.postgres_connection_string[0].versionless_id})"
     AdminAuth__Username                   = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.admin_auth_username[0].versionless_id})"
     AdminAuth__Password                   = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.admin_auth_password[0].versionless_id})"
     OpenAI__ApiKey                        = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.openai_api_key[0].versionless_id})"
   }
+
+  api_notifications_app_settings = {
+    Notifications__Enabled                       = tostring(var.notifications_enabled)
+    Notifications__PollIntervalSeconds           = tostring(var.notifications_poll_interval_seconds)
+    Notifications__LookAheadHours                = tostring(var.notifications_look_ahead_hours)
+    Notifications__SendBatchSize                 = tostring(var.notifications_send_batch_size)
+    Notifications__StaleNotificationGraceMinutes = tostring(var.notifications_stale_notification_grace_minutes)
+    Notifications__ScheduleTimeZoneId            = var.notifications_schedule_time_zone_id
+  }
+
+  api_run_from_package_app_settings = var.api_run_from_package_enabled ? {
+    WEBSITE_RUN_FROM_PACKAGE = "1"
+  } : {}
 
   api_media_app_settings = var.enable_media_storage ? {
     Storage__MediaContainerName = azurerm_storage_container.media[0].name
@@ -324,7 +343,13 @@ resource "azurerm_linux_web_app" "api" {
     }
   }
 
-  app_settings = merge(local.api_base_app_settings, local.api_media_app_settings)
+  app_settings = merge(
+    local.api_base_app_settings,
+    local.api_run_from_package_app_settings,
+    local.api_notifications_app_settings,
+    local.api_notification_lead_minute_settings,
+    local.api_media_app_settings
+  )
 
   lifecycle {
     # Application Insights agrega este hidden-link tag automaticamente.

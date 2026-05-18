@@ -61,6 +61,12 @@ stages:
     - script: dotnet build src/TravelCompanion.Api/TravelCompanion.Api.csproj --configuration $(buildConfiguration) --no-restore
       displayName: Build API
 
+    - script: dotnet restore src/TravelCompanion.Notifications.Worker/TravelCompanion.Notifications.Worker.csproj
+      displayName: Restore notifications worker
+
+    - script: dotnet build src/TravelCompanion.Notifications.Worker/TravelCompanion.Notifications.Worker.csproj --configuration $(buildConfiguration) --no-restore
+      displayName: Build notifications worker
+
     - script: dotnet restore tests/TravelCompanion.Shared.Tests/TravelCompanion.Shared.Tests.csproj
       displayName: Restore shared tests
 

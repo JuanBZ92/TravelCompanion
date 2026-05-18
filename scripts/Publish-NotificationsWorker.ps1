@@ -8,15 +8,17 @@ param(
 
     [string]$ApiUrl,
 
-    [string]$ProjectPath,
+    [string]$ApiProjectPath,
 
     [string]$WorkerProjectPath,
 
     [string]$TerraformDirectory,
 
-    [string]$PublishDirectory,
+    [string]$PublishRoot,
 
     [string]$ZipPath,
+
+    [string]$WebJobName = "TravelCompanion.Notifications.Worker",
 
     [switch]$SkipRestore,
 
@@ -28,13 +30,13 @@ param(
 
     [string]$SmokeTestPath = "/health",
 
+    [switch]$SkipAlwaysOn,
+
+    [switch]$SkipAppSettings,
+
     [switch]$DisableRunFromPackage,
 
     [switch]$EnableRunFromPackage,
-
-    [switch]$SkipNotificationsWorker,
-
-    [string]$WebJobName = "TravelCompanion.Notifications.Worker",
 
     [switch]$TrackDeploymentStatus,
 
@@ -196,8 +198,8 @@ function Write-Utf8NoBomFile {
 
 $repoRoot = Resolve-RepoRoot
 
-if ([string]::IsNullOrWhiteSpace($ProjectPath)) {
-    $ProjectPath = Join-Path $repoRoot "src\TravelCompanion.Api\TravelCompanion.Api.csproj"
+if ([string]::IsNullOrWhiteSpace($ApiProjectPath)) {
+    $ApiProjectPath = Join-Path $repoRoot "src\TravelCompanion.Api\TravelCompanion.Api.csproj"
 }
 
 if ([string]::IsNullOrWhiteSpace($WorkerProjectPath)) {
@@ -208,16 +210,20 @@ if ([string]::IsNullOrWhiteSpace($TerraformDirectory)) {
     $TerraformDirectory = Join-Path $repoRoot "infra\terraform"
 }
 
-if ([string]::IsNullOrWhiteSpace($PublishDirectory)) {
-    $PublishDirectory = Join-Path $repoRoot "artifacts\api\publish"
+if ([string]::IsNullOrWhiteSpace($PublishRoot)) {
+    $PublishRoot = Join-Path $repoRoot "artifacts\notifications-worker"
 }
 
 if ([string]::IsNullOrWhiteSpace($ZipPath)) {
-    $ZipPath = Join-Path $repoRoot "artifacts\api\travelcompanion-api.zip"
+    $ZipPath = Join-Path $repoRoot "artifacts\notifications-worker\travelcompanion-api-with-notifications-worker.zip"
 }
 
-if (-not (Test-Path $ProjectPath)) {
-    throw "API project not found at '$ProjectPath'."
+if (-not (Test-Path $ApiProjectPath)) {
+    throw "API project not found at '$ApiProjectPath'."
+}
+
+if (-not (Test-Path $WorkerProjectPath)) {
+    throw "Worker project not found at '$WorkerProjectPath'."
 }
 
 Assert-Command "dotnet" "Install the .NET SDK."
@@ -247,17 +253,18 @@ if ($EnableRunFromPackage -and $DisableRunFromPackage) {
     throw "Use either EnableRunFromPackage or DisableRunFromPackage, not both."
 }
 
-$includeNotificationsWorker = -not $SkipNotificationsWorker -and (Test-Path $WorkerProjectPath)
-$useRunFromPackage = $EnableRunFromPackage -or ((-not $DisableRunFromPackage) -and (-not $includeNotificationsWorker))
+$useRunFromPackage = $EnableRunFromPackage -and (-not $DisableRunFromPackage)
 
-Write-Host "Travel Companion API deploy" -ForegroundColor Cyan
+$apiPublishDirectory = Join-Path $PublishRoot "package"
+$workerPublishDirectory = Join-Path $PublishRoot "worker-publish"
+$webJobDirectory = Join-Path $apiPublishDirectory "App_Data\jobs\continuous\$WebJobName"
+
+Write-Host "Travel Companion notifications worker deploy" -ForegroundColor Cyan
 Write-Host "Configuration: $Configuration"
-Write-Host "Project: $ProjectPath"
-if ($includeNotificationsWorker) {
-    Write-Host "Notifications worker: $WorkerProjectPath"
-    Write-Host "WebJob name: $WebJobName"
-}
-Write-Host "Publish directory: $PublishDirectory"
+Write-Host "API project: $ApiProjectPath"
+Write-Host "Worker project: $WorkerProjectPath"
+Write-Host "WebJob name: $WebJobName"
+Write-Host "Package directory: $apiPublishDirectory"
 Write-Host "Zip path: $ZipPath"
 Write-Host "Resource group: $ResourceGroupName"
 Write-Host "App Service: $AppName"
@@ -266,17 +273,15 @@ if (-not [string]::IsNullOrWhiteSpace($ApiUrl)) {
 }
 Write-Host ""
 
-$appSettings = @()
-if ($useRunFromPackage) {
-    $appSettings += "WEBSITE_RUN_FROM_PACKAGE=1"
-}
+if (-not $SkipAppSettings) {
+    $appSettings = @(
+        "Notifications__Enabled=true",
+        "WEBSITE_SKIP_RUNNING_KUDUAGENT=false"
+    )
+    if ($useRunFromPackage) {
+        $appSettings = @("WEBSITE_RUN_FROM_PACKAGE=1") + $appSettings
+    }
 
-if ($includeNotificationsWorker) {
-    $appSettings += "WEBSITE_SKIP_RUNNING_KUDUAGENT=false"
-    $appSettings += "Notifications__Enabled=true"
-}
-
-if ($appSettings.Count -gt 0) {
     Invoke-External `
         -Command "az" `
         -Arguments (@(
@@ -289,76 +294,77 @@ if ($appSettings.Count -gt 0) {
             "--settings"
         ) + $appSettings) `
         -WorkingDirectory $repoRoot
+
+    if (-not $useRunFromPackage) {
+        Invoke-External `
+            -Command "az" `
+            -Arguments @(
+                "webapp",
+                "config",
+                "appsettings",
+                "delete",
+                "--resource-group", $ResourceGroupName,
+                "--name", $AppName,
+                "--setting-names", "WEBSITE_RUN_FROM_PACKAGE"
+            ) `
+            -WorkingDirectory $repoRoot
+    }
 }
 
-if (-not $useRunFromPackage) {
+if (-not $SkipAlwaysOn) {
     Invoke-External `
         -Command "az" `
         -Arguments @(
             "webapp",
             "config",
-            "appsettings",
-            "delete",
+            "set",
             "--resource-group", $ResourceGroupName,
             "--name", $AppName,
-            "--setting-names", "WEBSITE_RUN_FROM_PACKAGE"
+            "--always-on", "true"
         ) `
         -WorkingDirectory $repoRoot
 }
 
-if (Test-Path $PublishDirectory) {
-    Remove-Item -LiteralPath $PublishDirectory -Recurse -Force
+if (Test-Path $PublishRoot) {
+    Remove-Item -LiteralPath $PublishRoot -Recurse -Force
 }
 
-$publishArgs = @(
+$apiPublishArgs = @(
     "publish",
-    $ProjectPath,
+    $ApiProjectPath,
     "-c", $Configuration,
-    "-o", $PublishDirectory
+    "-o", $apiPublishDirectory
+)
+
+$workerPublishArgs = @(
+    "publish",
+    $WorkerProjectPath,
+    "-c", $Configuration,
+    "-o", $workerPublishDirectory
 )
 
 if ($SkipRestore) {
-    $publishArgs += "--no-restore"
+    $apiPublishArgs += "--no-restore"
+    $workerPublishArgs += "--no-restore"
 }
 
-Invoke-External -Command "dotnet" -Arguments $publishArgs -WorkingDirectory $repoRoot
+Invoke-External -Command "dotnet" -Arguments $apiPublishArgs -WorkingDirectory $repoRoot
+Invoke-External -Command "dotnet" -Arguments $workerPublishArgs -WorkingDirectory $repoRoot
 
-if ($includeNotificationsWorker) {
-    $workerPublishDirectory = Join-Path (Split-Path -Parent $PublishDirectory) "notifications-worker-publish"
-    $webJobDirectory = Join-Path $PublishDirectory "App_Data\jobs\continuous\$WebJobName"
+New-Item -ItemType Directory -Path $webJobDirectory -Force | Out-Null
+Copy-Item -Path (Join-Path $workerPublishDirectory "*") -Destination $webJobDirectory -Recurse -Force
 
-    if (Test-Path $workerPublishDirectory) {
-        Remove-Item -LiteralPath $workerPublishDirectory -Recurse -Force
-    }
+$runScript = (@(
+    '#!/usr/bin/env bash',
+    'set -euo pipefail',
+    'cd "$(dirname "$0")"',
+    'exec dotnet TravelCompanion.Notifications.Worker.dll'
+) -join "`n") + "`n"
+$settingsJson = "{`n  `"is_singleton`": true,`n  `"stopping_wait_time`": 30`n}`n"
+Write-Utf8NoBomFile -Path (Join-Path $webJobDirectory "run.sh") -Content $runScript
+Write-Utf8NoBomFile -Path (Join-Path $webJobDirectory "settings.job") -Content $settingsJson
 
-    $workerPublishArgs = @(
-        "publish",
-        $WorkerProjectPath,
-        "-c", $Configuration,
-        "-o", $workerPublishDirectory
-    )
-
-    if ($SkipRestore) {
-        $workerPublishArgs += "--no-restore"
-    }
-
-    Invoke-External -Command "dotnet" -Arguments $workerPublishArgs -WorkingDirectory $repoRoot
-
-    New-Item -ItemType Directory -Path $webJobDirectory -Force | Out-Null
-    Copy-Item -Path (Join-Path $workerPublishDirectory "*") -Destination $webJobDirectory -Recurse -Force
-
-    $runScript = (@(
-        '#!/usr/bin/env bash',
-        'set -euo pipefail',
-        'cd "$(dirname "$0")"',
-        'exec dotnet TravelCompanion.Notifications.Worker.dll'
-    ) -join "`n") + "`n"
-    $settingsJson = "{`n  `"is_singleton`": true,`n  `"stopping_wait_time`": 30`n}`n"
-    Write-Utf8NoBomFile -Path (Join-Path $webJobDirectory "run.sh") -Content $runScript
-    Write-Utf8NoBomFile -Path (Join-Path $webJobDirectory "settings.job") -Content $settingsJson
-}
-
-$zipArtifact = New-ZipFromDirectory -SourceDirectory $PublishDirectory -DestinationZipPath $ZipPath
+$zipArtifact = New-ZipFromDirectory -SourceDirectory $apiPublishDirectory -DestinationZipPath $ZipPath
 Write-Host "Created ZIP: $($zipArtifact.FullName)" -ForegroundColor Green
 
 Invoke-External `
@@ -382,8 +388,13 @@ if (-not $SkipSmokeTest) {
     Invoke-SmokeTest -BaseUrl $ApiUrl -Path $SmokeTestPath -Attempts $SmokeTestAttempts -DelaySeconds $SmokeTestDelaySeconds
 }
 
+Write-Host ""
+Write-Host "WebJob path in package: App_Data/jobs/continuous/$WebJobName" -ForegroundColor Green
+Write-Host "Check logs in Azure App Service > WebJobs or Kudu once the app restarts." -ForegroundColor Green
+
 if ($OpenAzurePortal) {
-    $portalUrl = "https://portal.azure.com/#resource/subscriptions/$(az account show --query id -o tsv)/resourceGroups/$ResourceGroupName/providers/Microsoft.Web/sites/$AppName/overview"
+    $subscriptionId = az account show --query id -o tsv
+    $portalUrl = "https://portal.azure.com/#resource/subscriptions/$subscriptionId/resourceGroups/$ResourceGroupName/providers/Microsoft.Web/sites/$AppName/webjobs"
     Start-Process $portalUrl
 }
 

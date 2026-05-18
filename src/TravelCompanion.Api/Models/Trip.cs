@@ -11,5 +11,6 @@ public sealed class Trip
     public required string TravelerName { get; set; }
     public DateOnly StartsOn { get; set; }
     public DateOnly EndsOn { get; set; }
+    public string TimeZoneId { get; set; } = "UTC";
     public List<Reservation> Reservations { get; set; } = [];
 }
