@@ -21,6 +21,10 @@ public sealed partial class RecommendationTagCatalogService(TravelCompanionDbCon
             ["snacks"] = ["snack", "picoteo"],
             ["shopping"] = ["compras", "tiendas"],
             ["neighborhood"] = ["barrio", "barrios"],
+            ["walking"] = ["caminar", "caminata", "paseo", "walk"],
+            ["romantic"] = ["pareja", "cita", "romantico", "romántico"],
+            ["nightlife"] = ["nocturno", "noche", "night", "nightlife"],
+            ["dance"] = ["bailar", "baile", "boliche", "club"],
             ["vegetarian"] = ["vegetariano", "vegetariana"],
             ["vegan"] = ["vegano", "vegana"],
             ["onsen"] = ["baños termales", "banos termales", "termales"]
@@ -37,6 +41,10 @@ public sealed partial class RecommendationTagCatalogService(TravelCompanionDbCon
         ("snacks", "snacks", false),
         ("shopping", "Shopping", true),
         ("neighborhood", "Neighborhood", true),
+        ("walking", "walking", false),
+        ("romantic", "romantic", false),
+        ("nightlife", "nightlife", true),
+        ("dance", "dance", false),
         ("vegetarian", "vegetarian", false),
         ("vegan", "vegan", false),
         ("onsen", "onsen", false)

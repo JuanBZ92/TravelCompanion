@@ -17,6 +17,10 @@ public sealed class TravelChatIntentClassifierTests
     [InlineData("fabrica un plan")]
     [InlineData("fabricame algo para manana")]
     [InlineData("armame algo para el martes")]
+    [InlineData("recomendar plan para caminar")]
+    [InlineData("recomdar plan para pareja")]
+    [InlineData("recomendar plan nocturno")]
+    [InlineData("recomendar plan para bailar")]
     public void Classify_detects_plan_intent_variants(string message)
     {
         var result = _classifier.Classify(message);
@@ -80,6 +84,19 @@ public sealed class TravelChatIntentClassifierTests
     [InlineData("dime un plan de costo alto", TravelChatResponseModes.HighCost)]
     [InlineData("fabrica un plan premium", TravelChatResponseModes.HighCost)]
     public void Classify_detects_cost_response_modes(string message, string expectedResponseMode)
+    {
+        var result = _classifier.Classify(message);
+
+        Assert.Equal(TravelChatIntents.Plan, result.Intent);
+        Assert.Equal(expectedResponseMode, result.ResponseMode);
+    }
+
+    [Theory]
+    [InlineData("plan para comer", TravelChatResponseModes.Food)]
+    [InlineData("proponeme un plan para relajar", TravelChatResponseModes.LessWalking)]
+    [InlineData("recomendar por cercania teniendo en cuenta el pedido inicial", TravelChatResponseModes.LessWalking)]
+    [InlineData("recomendar por duracion teniendo en cuenta el pedido inicial", TravelChatResponseModes.Shorter)]
+    public void Classify_detects_guided_chip_response_modes(string message, string expectedResponseMode)
     {
         var result = _classifier.Classify(message);
 

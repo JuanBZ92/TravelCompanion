@@ -189,7 +189,7 @@ public sealed class TravelChatServiceTests
         Assert.NotNull(response.MissingContext);
         Assert.Equal("assistantCommand", response.MissingContext.Field);
         Assert.Contains("Que puedo pedirte", response.SuggestedReplies);
-        Assert.Contains("Proponeme un plan", response.SuggestedReplies);
+        Assert.Contains("Plan para comer", response.SuggestedReplies);
         Assert.Empty(response.Cards);
     }
 
@@ -790,7 +790,7 @@ public sealed class TravelChatServiceTests
 
         Assert.StartsWith("Busque una opcion con menos caminata", response.Message);
         Assert.Equal("Nearby tea stop", response.Cards[0].Title);
-        Assert.Contains("Algo mas corto", response.SuggestedReplies);
+        Assert.Contains("Recomendar por duracion", response.SuggestedReplies);
     }
 
     [Fact]
@@ -849,7 +849,7 @@ public sealed class TravelChatServiceTests
             CancellationToken.None);
 
         Assert.StartsWith("Busque algo de comida local", response.Message);
-        Assert.Contains("Algo cultural", response.SuggestedReplies);
+        Assert.Contains("Plan para relajar", response.SuggestedReplies);
     }
 
     [Fact]
@@ -898,6 +898,46 @@ public sealed class TravelChatServiceTests
         Assert.Equal("Premium dinner", response.Cards[0].Title);
         Assert.Equal("high", response.Cards[0].EstimatedCost);
         Assert.Contains("Coste bajo", response.SuggestedReplies);
+    }
+
+    [Theory]
+    [InlineData("recomendar plan para caminar", "walking", "Evening walking route")]
+    [InlineData("recomendar plan para pareja", "romantic", "Romantic riverside table")]
+    [InlineData("recomendar plan nocturno", "nightlife", "Nightlife alley")]
+    [InlineData("recomendar plan para bailar", "dance", "Dance club night")]
+    public async Task CreatePlanAsync_uses_plan_topic_as_temporary_ranking_signal(
+        string message,
+        string matchingTag,
+        string expectedTitle)
+    {
+        await using var dbContext = CreateDbContext();
+        var destinationId = Guid.NewGuid();
+        var matching = CreateRecommendation(
+            destinationId,
+            expectedTitle,
+            "Experience",
+            $"Curated {matchingTag} plan in Tokyo.",
+            60);
+        matching.Tags = [matchingTag];
+
+        var generic = CreateRecommendation(
+            destinationId,
+            "Generic market stop",
+            "Experience",
+            "A flexible stop in Tokyo.",
+            60);
+        generic.Tags = ["neighborhood"];
+
+        var user = await SeedPlanningWorldAsync(dbContext, destinationId, generic, matching);
+
+        var service = CreateService(dbContext);
+        var response = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest(message, null, "Tokyo", new DateOnly(2026, 10, 6), null, "es-ES"),
+            CancellationToken.None);
+
+        Assert.Equal(expectedTitle, response.Cards[0].Title);
+        Assert.Contains(matchingTag, response.Cards[0].Tags);
     }
 
     [Fact]

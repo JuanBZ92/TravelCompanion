@@ -26,7 +26,7 @@ Cada fila representa una recomendacion curada. En el sistema actual corresponde 
 | Columna | Obligatoria | Ejemplo | Como se usa |
 | --- | --- | --- | --- |
 | `external_id` | Si | `rec-tokyo-tsukiji-snack-walk` | Identificador estable externo guardado en DB. Permite que el importador actualice sin duplicar. |
-| `destination_slug` | Si | `japan` | Busca el destino (`Destination.Slug`). Para Japon usar `japan` si ese es el slug cargado. |
+| `destination_slug` | Si | `japon` | Busca el destino (`Destination.Slug`). Para la data demo actual de Japon usar `japon`. |
 | `title` | Si | `Tsukiji snack walk` | Titulo visible en Discover, Details y cards del Assistant. Maximo recomendado: 160 caracteres. |
 | `category` | Si | `Food` | Categoria principal. Tambien funciona como tag fallback. Valores recomendados: `Food`, `Culture`, `Nature`, `Shopping`, `Viewpoint`, `Nightlife`, `Neighborhood`, `Wellness`, `Transport`. |
 | `neighborhood` | Si | `Tsukiji, Tokyo` | Zona o barrio visible y usado para contexto geografico. |
@@ -51,9 +51,10 @@ Usar tags simples, en ingles y minusculas. Algunos ya tienen alias en el sistema
 - Intereses/categorias: `food`, `culture`, `nature`, `shopping`, `nightlife`, `viewpoint`, `neighborhood`, `wellness`.
 - Comida: `local food`, `snacks`, `cafe`, `vegetarian`, `vegan`, `market`, `ramen`, `sushi`, `sake`.
 - Cultura: `museum`, `history`, `art`, `temple`, `shrine`, `garden`.
-- Ritmo/contexto: `hidden gem`, `rainy day`, `family friendly`, `romantic`, `premium`, `free`.
+- Ritmo/contexto: `walking`, `romantic`, `dance`, `onsen`, `hidden gem`, `rainy day`, `family friendly`, `premium`, `free`.
+- Restricciones o filtros negativos: `meat-heavy`, `gluten`, `high-energy`. Usarlos solo cuando describen algo que el usuario podria querer evitar.
 
-Importante: restricciones como "evitar culture" funcionan sobre `tags` y `category`. Pedidos de presupuesto como "coste bajo" funcionan sobre `price_level`.
+Importante: restricciones como "evitar culture", "sin banos termales" o "evitar bailar" funcionan sobre `tags` y `category`. Pedidos de presupuesto como "coste bajo" funcionan sobre `price_level`, no sobre tags.
 
 ## Schedules
 

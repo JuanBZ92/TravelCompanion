@@ -103,7 +103,7 @@ public sealed class RecommendationTagCatalogServiceTests
             cancellationToken: CancellationToken.None);
 
         Assert.Equal(["culture", "nightlife", "onsen"], result.Tags);
-        Assert.Equal(["nightlife"], result.UnknownTags);
+        Assert.Empty(result.UnknownTags);
         Assert.Equal("culture", result.Replacements["Cultura"]);
         Assert.Equal("onsen", result.Replacements["baños termales"]);
     }

@@ -16,7 +16,7 @@ public sealed partial class TravelChatViewModel(
     OfflineMutationQueueService mutationQueueService) : ViewModelBase, ISessionStateResettable
 {
     private string? _conversationId;
-    private string _messageText = "Proponeme un plan entre mis reservas de hoy";
+    private string _messageText = "Plan para comer";
     private DateTime _planningDate = DateTime.Today;
     private string? _city;
     private bool _hasLoadedContext;
@@ -26,10 +26,10 @@ public sealed partial class TravelChatViewModel(
     public ObservableCollection<TravelChatMessageViewModel> Messages { get; } = [];
     public ObservableCollection<string> SuggestedReplies { get; } =
     [
-        "Proponeme un plan entre mis reservas de hoy",
-        "Algo con menos caminata",
-        "Ver mis preferencias",
-        "Que puedo pedirte"
+        "Plan para comer",
+        "Plan para relajar",
+        "Recomendar por cercania",
+        "Ver mis preferencias"
     ];
     public ObservableCollection<string> MissingContextSuggestions { get; } = [];
     public IReadOnlyList<TravelChatGuideSectionViewModel> GuideSections { get; } = CreateGuideSections();
@@ -122,15 +122,15 @@ public sealed partial class TravelChatViewModel(
         ResetLoadState();
         _conversationId = null;
         _hasLoadedContext = false;
-        MessageText = "Proponeme un plan entre mis reservas de hoy";
+        MessageText = "Plan para comer";
         PlanningDate = DateTime.Today;
         City = null;
         Messages.Clear();
         SuggestedReplies.Clear();
-        SuggestedReplies.Add("Proponeme un plan entre mis reservas de hoy");
-        SuggestedReplies.Add("Algo con menos caminata");
+        SuggestedReplies.Add("Plan para comer");
+        SuggestedReplies.Add("Plan para relajar");
+        SuggestedReplies.Add("Recomendar por cercania");
         SuggestedReplies.Add("Ver mis preferencias");
-        SuggestedReplies.Add("Que puedo pedirte");
         ClearMissingContext();
         OnMessagesChanged();
     }
@@ -166,7 +166,9 @@ public sealed partial class TravelChatViewModel(
             MessageText = string.Empty;
             Messages.Add(new TravelChatMessageViewModel(message, isFromUser: true));
             OnMessagesChanged();
-            var currentLocation = await locationService.GetCurrentLocationAsync();
+            var currentLocation = ShouldAttachLocation(message)
+                ? await locationService.GetCurrentLocationAsync()
+                : null;
 
             var response = await apiClient.SendTravelChatAsync(
                 token,
@@ -346,8 +348,8 @@ public sealed partial class TravelChatViewModel(
     {
         var reference = card?.RecommendationReference;
         return string.IsNullOrWhiteSpace(reference)
-            ? SendActionMessageAsync("Algo con menos caminata")
-            : SendActionMessageAsync($"Algo con menos caminata que {reference}");
+            ? SendActionMessageAsync("Recomendar por cercania")
+            : SendActionMessageAsync($"Recomendar por cercania teniendo en cuenta {reference}");
     }
 
     [RelayCommand]
@@ -473,8 +475,38 @@ public sealed partial class TravelChatViewModel(
 
     private static bool IsScheduleReply(string reply)
     {
-        return reply.Contains("agenda", StringComparison.OrdinalIgnoreCase)
-            || reply.Contains("schedule", StringComparison.OrdinalIgnoreCase);
+        var normalized = NormalizeCommandText(reply);
+        return normalized is "ver mi agenda"
+            or "ver agenda"
+            or "mi agenda"
+            or "agenda"
+            or "schedule"
+            or "ver schedule";
+    }
+
+    private static bool ShouldAttachLocation(string message)
+    {
+        var normalized = NormalizeCommandText(message);
+        if (normalized.Contains("preferencia", StringComparison.Ordinal)
+            || normalized.Contains("perfil", StringComparison.Ordinal)
+            || normalized is "ver mi agenda" or "ver agenda" or "mi agenda" or "agenda"
+            || normalized.Contains("que puedo pedirte", StringComparison.Ordinal)
+            || normalized is "ayuda" or "comandos")
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static string NormalizeCommandText(string value)
+    {
+        return string.Join(
+            ' ',
+            value
+                .Trim()
+                .ToLowerInvariant()
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries));
     }
 
     private void ApplyMissingContext(MissingContextDto? missingContext)
@@ -526,17 +558,21 @@ public sealed partial class TravelChatViewModel(
                 "1",
                 "Planificar",
                 [
-                    new TravelChatGuideActionViewModel("Plan para hoy", "Proponeme un plan"),
-                    new TravelChatGuideActionViewModel("Plan por fecha", "Proponeme planes para 2026-10-08"),
-                    new TravelChatGuideActionViewModel("Comida local", "Quiero comida local")
+                    new TravelChatGuideActionViewModel("Plan para comer", "Proponeme un plan para comer teniendo en cuenta mi agenda"),
+                    new TravelChatGuideActionViewModel("Plan para relajar", "Proponeme un plan para relajar teniendo en cuenta mi agenda"),
+                    new TravelChatGuideActionViewModel("Plan para caminar", "Recomendar plan para caminar teniendo en cuenta mi agenda"),
+                    new TravelChatGuideActionViewModel("Plan en pareja", "Recomendar plan para pareja teniendo en cuenta mi agenda"),
+                    new TravelChatGuideActionViewModel("Plan nocturno", "Recomendar plan nocturno teniendo en cuenta mi agenda"),
+                    new TravelChatGuideActionViewModel("Plan para bailar", "Recomendar plan para bailar teniendo en cuenta mi agenda"),
+                    new TravelChatGuideActionViewModel("Plan por fecha", "Proponeme planes para 2026-10-08 teniendo en cuenta mi agenda")
                 ]),
             new TravelChatGuideSectionViewModel(
                 "2",
                 "Ajustar",
                 [
-                    new TravelChatGuideActionViewModel("Menos caminata", "Algo con menos caminata"),
-                    new TravelChatGuideActionViewModel("Mas corto", "Algo mas corto"),
-                    new TravelChatGuideActionViewModel("Otra opcion", "Otra alternativa")
+                    new TravelChatGuideActionViewModel("Por cercania", "Recomendar por cercania teniendo en cuenta el pedido inicial"),
+                    new TravelChatGuideActionViewModel("Por duracion", "Recomendar por duracion teniendo en cuenta el pedido inicial"),
+                    new TravelChatGuideActionViewModel("Otra opcion", "Otra alternativa teniendo en cuenta el pedido inicial")
                 ]),
             new TravelChatGuideSectionViewModel(
                 "3",

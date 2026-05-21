@@ -184,13 +184,48 @@ public sealed partial class TravelChatIntentClassifier : ITravelChatIntentClassi
             "proposal_verb");
         var hasRequestVerb = ContainsAny(normalized, "dame", "dime", "decime", "quiero", "necesito", "me gustaria", "armame", "arma", "crea", "creame", "fabrica", "fabricame", "prepara", "preparame");
         var hasPlanningObject = ContainsAny(normalized, "plan", "planes", "actividad", "actividades", "algo", "opcion", "dia", "hoy", "manana", "fecha", "hacer", "paseo", "itinerario");
-        var hasPlanTopic = ContainsAny(normalized, "comida", "food", "cultura", "culture", "museo", "historia");
+        var hasPlanTopic = ContainsAny(
+            normalized,
+            "comida",
+            "food",
+            "cultura",
+            "culture",
+            "museo",
+            "historia",
+            "caminar",
+            "caminata",
+            "paseo",
+            "pareja",
+            "cita",
+            "romantico",
+            "romantico",
+            "nocturno",
+            "noche",
+            "bailar",
+            "baile");
         var hasCostTopic = ContainsCostRequest(normalized);
         var hasCostAdjustment = ContainsAny(normalized, "barato", "gratis", "economico", "coste bajo", "costo bajo", "coste medio", "costo medio", "coste alto", "costo alto", "premium", "caro");
         score.AddIf(hasRequestVerb && hasPlanningObject, 3, "request_verb");
         score.AddIf(hasRequestVerb && hasPlanTopic, 6, "request_topic");
         score.AddIf(hasRequestVerb && hasCostTopic, 6, "request_cost");
-        score.AddIf(ContainsAny(normalized, "menos caminata", "caminar menos", "mas corto", "otra opcion", "otra alternativa", "reemplazar", "algo distinto"), 4, "plan_adjustment");
+        score.AddIf(
+            ContainsAny(
+                normalized,
+                "menos caminata",
+                "caminar menos",
+                "mas corto",
+                "otra opcion",
+                "otra alternativa",
+                "reemplazar",
+                "algo distinto",
+                "por cercania",
+                "por cercanía",
+                "por duracion",
+                "por duración",
+                "recomendar por cercania",
+                "recomendar por duracion"),
+            4,
+            "plan_adjustment");
         score.AddIf(hasCostAdjustment && (!LooksLikePreferenceBudgetUpdate(normalized) || hasRequestVerb), 4, "cost_adjustment");
         score.AddIf(hasPlanTopic, 2, "plan_topic");
         score.AddIf(hasCostTopic, 2, "cost_topic");
@@ -199,12 +234,12 @@ public sealed partial class TravelChatIntentClassifier : ITravelChatIntentClassi
 
     private static string ResolveResponseMode(string normalized)
     {
-        if (ContainsAny(normalized, "menos caminata", "caminar menos", "poca caminata", "cerca", "nearby"))
+        if (ContainsAny(normalized, "menos caminata", "caminar menos", "poca caminata", "cerca", "cercania", "nearby", "relajar", "relajado", "tranquilo"))
         {
             return TravelChatResponseModes.LessWalking;
         }
 
-        if (ContainsAny(normalized, "mas corto", "rapido", "poco tiempo", "corta"))
+        if (ContainsAny(normalized, "mas corto", "rapido", "poco tiempo", "corta", "duracion", "duración"))
         {
             return TravelChatResponseModes.Shorter;
         }
@@ -224,7 +259,7 @@ public sealed partial class TravelChatIntentClassifier : ITravelChatIntentClassi
             return TravelChatResponseModes.HighCost;
         }
 
-        if (ContainsAny(normalized, "comida", "food", "local", "snack", "restaurante", "cafe"))
+        if (ContainsAny(normalized, "comida", "comer", "almorzar", "cenar", "food", "local", "snack", "restaurante", "cafe"))
         {
             return TravelChatResponseModes.Food;
         }

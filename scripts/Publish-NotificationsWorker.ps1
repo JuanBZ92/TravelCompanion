@@ -82,6 +82,60 @@ function Invoke-External {
     }
 }
 
+function Invoke-KuduZipDeploy {
+    param(
+        [string]$ResourceGroupName,
+        [string]$AppName,
+        [string]$ZipPath
+    )
+
+    Write-Host "Deploying ZIP through Kudu ZipDeploy..." -ForegroundColor Cyan
+
+    $credentialsJson = az webapp deployment list-publishing-credentials `
+        --resource-group $ResourceGroupName `
+        --name $AppName `
+        --output json
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "'az webapp deployment list-publishing-credentials' failed with exit code $LASTEXITCODE."
+    }
+
+    $credentials = $credentialsJson | ConvertFrom-Json
+    $pair = "$($credentials.publishingUserName):$($credentials.publishingPassword)"
+    $basic = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes($pair))
+    $headers = @{ Authorization = "Basic $basic" }
+    $deployUri = "https://$AppName.scm.azurewebsites.net/api/zipdeploy?isAsync=true"
+
+    $response = Invoke-WebRequest `
+        -Uri $deployUri `
+        -Headers $headers `
+        -Method Post `
+        -InFile $ZipPath `
+        -ContentType "application/zip" `
+        -UseBasicParsing `
+        -TimeoutSec 300
+
+    $statusUri = $response.Headers.Location
+    if ([string]::IsNullOrWhiteSpace($statusUri)) {
+        Write-Host "ZipDeploy request accepted." -ForegroundColor Green
+        return
+    }
+
+    do {
+        Start-Sleep -Seconds 5
+        $status = Invoke-RestMethod -Uri $statusUri -Headers $headers -Method Get -TimeoutSec 60
+        if (-not [string]::IsNullOrWhiteSpace($status.progress)) {
+            Write-Host $status.progress -ForegroundColor DarkGray
+        }
+    } while ($status.status -in @(0, 1, 2))
+
+    if ($status.status -ne 4) {
+        throw "ZipDeploy failed. Status=$($status.status); Message=$($status.message)"
+    }
+
+    Write-Host "ZipDeploy completed successfully." -ForegroundColor Green
+}
+
 function Get-TerraformOutput {
     param(
         [string]$TerraformDir,
@@ -367,20 +421,40 @@ Write-Utf8NoBomFile -Path (Join-Path $webJobDirectory "settings.job") -Content $
 $zipArtifact = New-ZipFromDirectory -SourceDirectory $apiPublishDirectory -DestinationZipPath $ZipPath
 Write-Host "Created ZIP: $($zipArtifact.FullName)" -ForegroundColor Green
 
-Invoke-External `
-    -Command "az" `
-    -Arguments @(
-        "webapp",
-        "deploy",
-        "--resource-group", $ResourceGroupName,
-        "--name", $AppName,
-        "--src-path", $zipArtifact.FullName,
-        "--type", "zip",
-        "--clean", "true",
-        "--restart", "true",
-        "--track-status", ([string]([bool]$TrackDeploymentStatus)).ToLowerInvariant()
-    ) `
-    -WorkingDirectory $repoRoot
+if ($useRunFromPackage) {
+    Invoke-External `
+        -Command "az" `
+        -Arguments @(
+            "webapp",
+            "deploy",
+            "--resource-group", $ResourceGroupName,
+            "--name", $AppName,
+            "--src-path", $zipArtifact.FullName,
+            "--type", "zip",
+            "--clean", "true",
+            "--restart", "true",
+            "--track-status", ([string]([bool]$TrackDeploymentStatus)).ToLowerInvariant()
+        ) `
+        -WorkingDirectory $repoRoot
+}
+else {
+    Invoke-KuduZipDeploy -ResourceGroupName $ResourceGroupName -AppName $AppName -ZipPath $zipArtifact.FullName
+}
+
+if (-not $useRunFromPackage) {
+    Invoke-External `
+        -Command "az" `
+        -Arguments @(
+            "webapp",
+            "config",
+            "appsettings",
+            "delete",
+            "--resource-group", $ResourceGroupName,
+            "--name", $AppName,
+            "--setting-names", "WEBSITE_RUN_FROM_PACKAGE"
+        ) `
+        -WorkingDirectory $repoRoot
+}
 
 Write-Host "Deploy finished." -ForegroundColor Green
 

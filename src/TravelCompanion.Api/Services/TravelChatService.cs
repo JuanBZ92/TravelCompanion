@@ -150,10 +150,10 @@ public sealed class TravelChatService(
                 "No entendi ese pedido. Puedo proponerte planes, revisar tu agenda o ayudarte a ajustar preferencias.",
                 [
                     "Que puedo pedirte",
-                    "Proponeme un plan",
+                    "Plan para comer",
                     "Ver mi agenda",
                     "Ver mis preferencias",
-                    "Algo con menos caminata"
+                    "Recomendar por cercania"
                 ]),
                 eventName: "unsupported_command");
         }
@@ -181,10 +181,10 @@ public sealed class TravelChatService(
                 "No entendi ese pedido. Puedo proponerte planes, revisar tu agenda o ayudarte a ajustar preferencias.",
                 [
                     "Que puedo pedirte",
-                    "Proponeme un plan",
+                    "Plan para comer",
                     "Ver mi agenda",
                     "Ver mis preferencias",
-                    "Algo con menos caminata"
+                    "Recomendar por cercania"
                 ]),
                 eventName: "unsupported_command");
         }
@@ -374,7 +374,7 @@ public sealed class TravelChatService(
                 $"El {date:dd/MM} no tenes reservas guardadas en {destinationName}. Puedo proponerte un plan libre para anticipar ese dia.",
                 ViewScheduleIntent,
                 [],
-                [$"Proponeme planes para {date:yyyy-MM-dd}", "Ver mis preferencias"],
+                [$"Plan para comer el {date:yyyy-MM-dd}", $"Plan para relajar el {date:yyyy-MM-dd}", "Ver mis preferencias"],
                 null),
                 eventName: "schedule_empty");
         }
@@ -392,7 +392,7 @@ public sealed class TravelChatService(
             $"Tu agenda del {date:dd/MM} en {destinationName}:\n{string.Join('\n', lines)}{extra}",
             ViewScheduleIntent,
             [],
-            [$"Proponeme planes para {date:yyyy-MM-dd}", "Algo con menos caminata", "Ver mis preferencias"],
+            [$"Plan para comer el {date:yyyy-MM-dd}", "Recomendar por cercania", "Recomendar por duracion", "Ver mis preferencias"],
             null),
             eventName: "schedule_response");
     }
@@ -401,10 +401,10 @@ public sealed class TravelChatService(
     {
         return new TravelChatResponse(
             conversationId,
-            "Puedo ayudarte en 5 modos:\n1. Planificar: Proponeme un plan para hoy o para una fecha.\n2. Ajustar: Algo con menos caminata, mas corto u otra opcion.\n3. Agenda: Ver mi agenda.\n4. Preferencias: Ver mis preferencias o Evitar #culture.\n5. Ayuda: Que puedo pedirte.",
+            "Puedo ayudarte en 5 modos:\n1. Planificar: Plan para comer, plan para relajar o plan por fecha.\n2. Ajustar: Recomendar por cercania, por duracion u otra opcion.\n3. Agenda: Ver mi agenda.\n4. Preferencias: Ver mis preferencias o Evitar #culture.\n5. Ayuda: Que puedo pedirte.",
             HelpIntent,
             [],
-            ["Proponeme un plan", "Algo con menos caminata", "Ver mi agenda", "Ver mis preferencias", "Evitar #culture"],
+            ["Plan para comer", "Plan para relajar", "Recomendar por cercania", "Ver mi agenda", "Ver mis preferencias"],
             null);
     }
 
@@ -432,7 +432,7 @@ public sealed class TravelChatService(
             $"{prefix}\n{FormatPreferenceProfile(profile)}",
             patch is null ? ViewPreferencesIntent : UpdatePreferencesIntent,
             [],
-            ["Cambiar intereses", "Presupuesto bajo", "Ritmo tranquilo", "Proponeme un plan"],
+            ["Cambiar intereses", "Presupuesto bajo", "Ritmo tranquilo", "Plan para comer"],
             null),
             eventName: patch is null ? "preferences_viewed" : "preference_updated");
     }
@@ -723,7 +723,7 @@ public sealed class TravelChatService(
         string? message,
         string responseMode)
     {
-        var normalized = message?.Trim().ToLowerInvariant() ?? string.Empty;
+        var normalized = TravelChatIntentClassifier.Normalize(message);
 
         if (responseMode == FoodMode)
         {
@@ -734,6 +734,34 @@ public sealed class TravelChatService(
         if (responseMode == CultureMode)
         {
             AddUnique(preferences.Interests, "Culture");
+        }
+
+        if (ContainsAny(normalized, "caminar", "caminata", "paseo", "walk", "walking"))
+        {
+            AddUnique(preferences.Interests, "walking");
+            AddUnique(preferences.Interests, "walk");
+            AddUnique(preferences.Interests, "paseo");
+        }
+
+        if (ContainsAny(normalized, "pareja", "cita", "romantico", "romance", "couple", "date"))
+        {
+            AddUnique(preferences.Interests, "romantic");
+            AddUnique(preferences.Interests, "couple");
+            AddUnique(preferences.Interests, "pareja");
+        }
+
+        if (ContainsAny(normalized, "nocturno", "noche", "night", "nightlife"))
+        {
+            AddUnique(preferences.Interests, "nightlife");
+            AddUnique(preferences.Interests, "night");
+            AddUnique(preferences.Interests, "noche");
+        }
+
+        if (ContainsAny(normalized, "bailar", "baile", "dance", "club", "boliche"))
+        {
+            AddUnique(preferences.Interests, "dance");
+            AddUnique(preferences.Interests, "bailar");
+            AddUnique(preferences.Interests, "nightlife");
         }
 
         if (responseMode == LessWalkingMode)
@@ -876,14 +904,14 @@ public sealed class TravelChatService(
     {
         return responseMode switch
         {
-            LessWalkingMode => ["Algo mas corto", "Algo de comida local", "Ver mi agenda", "Que puedo pedirte"],
-            ShorterMode => ["Menos caminata", "Algo de comida local", "Ver mi agenda", "Otra opcion"],
-            FoodMode => ["Menos caminata", "Algo cultural", "Algo mas corto", "Que puedo pedirte"],
-            CultureMode => ["Algo de comida local", "Menos caminata", "Algo mas corto", "Ver mi agenda"],
-            CheaperMode => ["Coste medio", "Algo premium", "Menos caminata", "Ver mi agenda"],
-            MediumCostMode => ["Coste bajo", "Algo premium", "Menos caminata", "Ver mi agenda"],
-            HighCostMode => ["Coste bajo", "Coste medio", "Menos caminata", "Ver mi agenda"],
-            _ => ["Algo con menos caminata", "Algo mas corto", "Ver mi agenda", "Que puedo pedirte"]
+            LessWalkingMode => ["Recomendar por duracion", "Plan para comer", "Ver mi agenda", "Que puedo pedirte"],
+            ShorterMode => ["Recomendar por cercania", "Plan para comer", "Ver mi agenda", "Otra opcion"],
+            FoodMode => ["Recomendar por cercania", "Plan para relajar", "Recomendar por duracion", "Que puedo pedirte"],
+            CultureMode => ["Plan para comer", "Recomendar por cercania", "Recomendar por duracion", "Ver mi agenda"],
+            CheaperMode => ["Coste medio", "Algo premium", "Recomendar por cercania", "Ver mi agenda"],
+            MediumCostMode => ["Coste bajo", "Algo premium", "Recomendar por cercania", "Ver mi agenda"],
+            HighCostMode => ["Coste bajo", "Coste medio", "Recomendar por cercania", "Ver mi agenda"],
+            _ => ["Plan para comer", "Plan nocturno", "Plan en pareja", "Recomendar por cercania"]
         };
     }
 

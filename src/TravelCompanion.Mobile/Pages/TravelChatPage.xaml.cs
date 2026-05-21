@@ -72,7 +72,7 @@ public partial class TravelChatPage : ContentPage
         }
     }
 
-    private async void OnGuideActionClicked(object? sender, EventArgs e)
+    private async void OnGuideActionTapped(object? sender, TappedEventArgs e)
     {
         if ((sender as BindableObject)?.BindingContext is TravelChatGuideActionViewModel guideAction)
         {
