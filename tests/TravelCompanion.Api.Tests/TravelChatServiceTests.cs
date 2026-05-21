@@ -76,6 +76,37 @@ public sealed class TravelChatServiceTests
         Assert.NotEmpty(response.SuggestedReplies);
     }
 
+    [Theory]
+    [InlineData("dime un plan")]
+    [InlineData("quiero un plan")]
+    [InlineData("propron un plan")]
+    [InlineData("fabricame algo para manana")]
+    [InlineData("armame algo para el 8 de octubre")]
+    public async Task CreatePlanAsync_accepts_natural_plan_prompt_variants(string message)
+    {
+        await using var dbContext = CreateDbContext();
+        var destinationId = Guid.NewGuid();
+        var user = await SeedPlanningWorldAsync(
+            dbContext,
+            destinationId,
+            CreateRecommendation(
+                destinationId,
+                "Tsukiji Snack Walk",
+                "Food",
+                "Local snacks in Tokyo before dinner.",
+                90));
+
+        var service = CreateService(dbContext);
+        var response = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest(message, null, "Tokyo", new DateOnly(2026, 10, 6), null, "es-ES"),
+            CancellationToken.None);
+
+        Assert.Equal("plan_between_reservations", response.Intent);
+        Assert.Null(response.MissingContext);
+        Assert.NotEmpty(response.Cards);
+    }
+
     [Fact]
     public async Task CreatePlanAsync_can_plan_open_day_when_no_reservations_exist()
     {
@@ -158,7 +189,7 @@ public sealed class TravelChatServiceTests
         Assert.NotNull(response.MissingContext);
         Assert.Equal("assistantCommand", response.MissingContext.Field);
         Assert.Contains("Que puedo pedirte", response.SuggestedReplies);
-        Assert.Contains("Proponeme un plan", response.SuggestedReplies);
+        Assert.Contains("Plan para comer", response.SuggestedReplies);
         Assert.Empty(response.Cards);
     }
 
@@ -759,7 +790,7 @@ public sealed class TravelChatServiceTests
 
         Assert.StartsWith("Busque una opcion con menos caminata", response.Message);
         Assert.Equal("Nearby tea stop", response.Cards[0].Title);
-        Assert.Contains("Algo mas corto", response.SuggestedReplies);
+        Assert.Contains("Recomendar por duracion", response.SuggestedReplies);
     }
 
     [Fact]
@@ -818,7 +849,95 @@ public sealed class TravelChatServiceTests
             CancellationToken.None);
 
         Assert.StartsWith("Busque algo de comida local", response.Message);
-        Assert.Contains("Algo cultural", response.SuggestedReplies);
+        Assert.Contains("Plan para relajar", response.SuggestedReplies);
+    }
+
+    [Fact]
+    public async Task CreatePlanAsync_understands_low_cost_request_and_orders_by_price_level()
+    {
+        await using var dbContext = CreateDbContext();
+        var destinationId = Guid.NewGuid();
+        var user = await SeedPlanningWorldAsync(
+            dbContext,
+            destinationId,
+            CreateRecommendation(destinationId, "Premium dinner", "Food", "Special dinner.", 60, "high"),
+            CreateRecommendation(destinationId, "Budget ramen", "Food", "Simple local ramen.", 60, "low"),
+            CreateRecommendation(destinationId, "Mid market", "Food", "Curated market route.", 60, "medium"));
+
+        var service = CreateService(dbContext);
+        var response = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest("proponme un plan de coste bajo", null, "Tokyo", new DateOnly(2026, 10, 6), null, "es-ES"),
+            CancellationToken.None);
+
+        Assert.StartsWith("Busque una opcion de bajo costo", response.Message);
+        Assert.Equal("Budget ramen", response.Cards[0].Title);
+        Assert.Equal("low", response.Cards[0].EstimatedCost);
+        Assert.Contains("Algo premium", response.SuggestedReplies);
+    }
+
+    [Fact]
+    public async Task CreatePlanAsync_understands_high_cost_request_and_orders_by_price_level()
+    {
+        await using var dbContext = CreateDbContext();
+        var destinationId = Guid.NewGuid();
+        var user = await SeedPlanningWorldAsync(
+            dbContext,
+            destinationId,
+            CreateRecommendation(destinationId, "Budget ramen", "Food", "Simple local ramen.", 60, "low"),
+            CreateRecommendation(destinationId, "Premium dinner", "Food", "Special dinner.", 60, "high"),
+            CreateRecommendation(destinationId, "Mid market", "Food", "Curated market route.", 60, "medium"));
+
+        var service = CreateService(dbContext);
+        var response = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest("quiero un plan de coste alto", null, "Tokyo", new DateOnly(2026, 10, 6), null, "es-ES"),
+            CancellationToken.None);
+
+        Assert.StartsWith("Busque una opcion premium", response.Message);
+        Assert.Equal("Premium dinner", response.Cards[0].Title);
+        Assert.Equal("high", response.Cards[0].EstimatedCost);
+        Assert.Contains("Coste bajo", response.SuggestedReplies);
+    }
+
+    [Theory]
+    [InlineData("recomendar plan para caminar", "walking", "Evening walking route")]
+    [InlineData("recomendar plan para pareja", "romantic", "Romantic riverside table")]
+    [InlineData("recomendar plan nocturno", "nightlife", "Nightlife alley")]
+    [InlineData("recomendar plan para bailar", "dance", "Dance club night")]
+    public async Task CreatePlanAsync_uses_plan_topic_as_temporary_ranking_signal(
+        string message,
+        string matchingTag,
+        string expectedTitle)
+    {
+        await using var dbContext = CreateDbContext();
+        var destinationId = Guid.NewGuid();
+        var matching = CreateRecommendation(
+            destinationId,
+            expectedTitle,
+            "Experience",
+            $"Curated {matchingTag} plan in Tokyo.",
+            60);
+        matching.Tags = [matchingTag];
+
+        var generic = CreateRecommendation(
+            destinationId,
+            "Generic market stop",
+            "Experience",
+            "A flexible stop in Tokyo.",
+            60);
+        generic.Tags = ["neighborhood"];
+
+        var user = await SeedPlanningWorldAsync(dbContext, destinationId, generic, matching);
+
+        var service = CreateService(dbContext);
+        var response = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest(message, null, "Tokyo", new DateOnly(2026, 10, 6), null, "es-ES"),
+            CancellationToken.None);
+
+        Assert.Equal(expectedTitle, response.Cards[0].Title);
+        Assert.Contains(matchingTag, response.Cards[0].Tags);
     }
 
     [Fact]
@@ -1201,6 +1320,7 @@ public sealed class TravelChatServiceTests
             new UserProfileService(dbContext),
             new DeterministicRecommendationRanker(),
             new RecommendationTagCatalogService(dbContext),
+            new TravelChatIntentClassifier(),
             modelClient ?? new FakeTravelAiModelClient(null),
             NullLogger<TravelChatService>.Instance);
     }
@@ -1269,7 +1389,8 @@ public sealed class TravelChatServiceTests
         string title,
         string category,
         string description,
-        int durationMinutes)
+        int durationMinutes,
+        string priceLevel = "medium")
     {
         return new Recommendation
         {
@@ -1280,7 +1401,7 @@ public sealed class TravelChatServiceTests
             Neighborhood = "Chuo, Tokyo",
             Description = description,
             Tags = ["local food"],
-            PriceLevel = "medium",
+            PriceLevel = priceLevel,
             Latitude = 35.665486m,
             Longitude = 139.770667m,
             SuggestedDurationMinutes = durationMinutes,

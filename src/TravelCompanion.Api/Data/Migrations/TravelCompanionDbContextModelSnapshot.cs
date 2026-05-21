@@ -140,12 +140,161 @@ namespace TravelCompanion.Api.Data.Migrations
                         .HasMaxLength(80)
                         .HasColumnType("character varying(80)");
 
+                    b.Property<string>("TimeZoneId")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasDefaultValue("UTC");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Slug")
                         .IsUnique();
 
                     b.ToTable("Destinations");
+                });
+
+            modelBuilder.Entity("TravelCompanion.Api.Models.NotificationDeviceRegistration", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("DisabledAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("InstallationId")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<DateTimeOffset>("LastSeenAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Locale")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("Platform")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("PushToken")
+                        .IsRequired()
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)");
+
+                    b.Property<bool>("RecommendationNotificationsEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("ScheduleRemindersEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("TimeZoneId")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "DisabledAtUtc");
+
+                    b.HasIndex("UserId", "InstallationId")
+                        .IsUnique();
+
+                    b.ToTable("NotificationDeviceRegistrations");
+                });
+
+            modelBuilder.Entity("TravelCompanion.Api.Models.NotificationOutboxItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("AttemptCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeduplicationKey")
+                        .IsRequired()
+                        .HasMaxLength(240)
+                        .HasColumnType("character varying(240)");
+
+                    b.Property<string>("DeepLink")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<DateTimeOffset?>("FailedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<Guid?>("RecommendationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ReservationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("ScheduledForUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("SentAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("SkippedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DeduplicationKey")
+                        .IsUnique();
+
+                    b.HasIndex("RecommendationId");
+
+                    b.HasIndex("ReservationId");
+
+                    b.HasIndex("Status", "ScheduledForUtc");
+
+                    b.HasIndex("UserId", "Status");
+
+                    b.ToTable("NotificationOutboxItems");
                 });
 
             modelBuilder.Entity("TravelCompanion.Api.Models.Recommendation", b =>
@@ -164,12 +313,20 @@ namespace TravelCompanion.Api.Data.Migrations
                         .HasMaxLength(80)
                         .HasColumnType("character varying(80)");
 
+                    b.Property<string>("CurationNotes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<Guid>("DestinationId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("ExternalId")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
 
                     b.Property<decimal>("Latitude")
                         .HasPrecision(9, 6)
@@ -196,6 +353,14 @@ namespace TravelCompanion.Api.Data.Migrations
                     b.Property<double?>("Rating")
                         .HasColumnType("double precision");
 
+                    b.Property<string>("SourceName")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<string>("SourceUrl")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
                     b.Property<int>("SuggestedDurationMinutes")
                         .HasColumnType("integer");
 
@@ -209,6 +374,9 @@ namespace TravelCompanion.Api.Data.Migrations
                         .HasColumnType("character varying(160)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("DestinationId", "ExternalId")
+                        .IsUnique();
 
                     b.HasIndex("DestinationId", "Title");
 
@@ -258,6 +426,10 @@ namespace TravelCompanion.Api.Data.Migrations
                     b.Property<DateOnly?>("EndsOn")
                         .HasColumnType("date");
 
+                    b.Property<string>("ExternalId")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
                     b.Property<string>("FlightNumber")
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)");
@@ -279,8 +451,20 @@ namespace TravelCompanion.Api.Data.Migrations
                         .HasMaxLength(160)
                         .HasColumnType("character varying(160)");
 
+                    b.Property<string>("SourceName")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<string>("SourceUrl")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
                     b.Property<TimeOnly>("StartsAt")
                         .HasColumnType("time without time zone");
+
+                    b.Property<string>("TimeZoneId")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
 
                     b.Property<string>("Title")
                         .IsRequired()
@@ -298,6 +482,9 @@ namespace TravelCompanion.Api.Data.Migrations
                         .HasDefaultValue("Event");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("TripId", "ExternalId")
+                        .IsUnique();
 
                     b.HasIndex("TripId", "Date", "StartsAt");
 
@@ -459,8 +646,19 @@ namespace TravelCompanion.Api.Data.Migrations
                     b.Property<DateOnly>("EndsOn")
                         .HasColumnType("date");
 
+                    b.Property<string>("ExternalId")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
                     b.Property<DateOnly>("StartsOn")
                         .HasColumnType("date");
+
+                    b.Property<string>("TimeZoneId")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasDefaultValue("UTC");
 
                     b.Property<string>("TravelerName")
                         .IsRequired()
@@ -468,6 +666,9 @@ namespace TravelCompanion.Api.Data.Migrations
                         .HasColumnType("character varying(140)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AppUserId", "ExternalId")
+                        .IsUnique();
 
                     b.HasIndex("AppUserId", "StartsOn");
 
@@ -540,6 +741,42 @@ namespace TravelCompanion.Api.Data.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("TravelCompanion.Api.Models.NotificationDeviceRegistration", b =>
+                {
+                    b.HasOne("TravelCompanion.Api.Models.AppUser", "User")
+                        .WithMany("NotificationDevices")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("TravelCompanion.Api.Models.NotificationOutboxItem", b =>
+                {
+                    b.HasOne("TravelCompanion.Api.Models.Recommendation", "Recommendation")
+                        .WithMany()
+                        .HasForeignKey("RecommendationId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("TravelCompanion.Api.Models.Reservation", "Reservation")
+                        .WithMany()
+                        .HasForeignKey("ReservationId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("TravelCompanion.Api.Models.AppUser", "User")
+                        .WithMany("NotificationOutboxItems")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Recommendation");
+
+                    b.Navigation("Reservation");
 
                     b.Navigation("User");
                 });
@@ -643,6 +880,10 @@ namespace TravelCompanion.Api.Data.Migrations
             modelBuilder.Entity("TravelCompanion.Api.Models.AppUser", b =>
                 {
                     b.Navigation("Entitlements");
+
+                    b.Navigation("NotificationDevices");
+
+                    b.Navigation("NotificationOutboxItems");
 
                     b.Navigation("Sessions");
 

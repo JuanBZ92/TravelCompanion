@@ -76,6 +76,7 @@ builder.Services.AddScoped<IUserProfileService, UserProfileService>();
 builder.Services.AddScoped<IItineraryService, ItineraryService>();
 builder.Services.AddScoped<IRecommendationRanker, DeterministicRecommendationRanker>();
 builder.Services.AddScoped<IRecommendationTagCatalogService, RecommendationTagCatalogService>();
+builder.Services.AddSingleton<ITravelChatIntentClassifier, TravelChatIntentClassifier>();
 builder.Services.AddSingleton<ITravelAiModelClient, OpenAiTravelModelClient>();
 builder.Services.AddScoped<ITravelChatService, TravelChatService>();
 builder.Services.AddSingleton<SlowDbCommandLoggingInterceptor>();

@@ -60,6 +60,7 @@ public static class DatabaseSeeder
             Name = "Japon",
             Slug = "japon",
             Country = "Japan",
+            TimeZoneId = "Asia/Tokyo",
             HeroImageUrl = "https://images.unsplash.com/photo-1542051841857-5f90071e7989",
             ShortDescription = "Tokyo, Kyoto y Osaka con planes curados, barrios caminables y reservas organizadas."
         };

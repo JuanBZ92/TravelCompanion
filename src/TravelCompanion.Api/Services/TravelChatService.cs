@@ -15,6 +15,7 @@ public sealed class TravelChatService(
     IUserProfileService userProfileService,
     IRecommendationRanker ranker,
     IRecommendationTagCatalogService tagCatalogService,
+    ITravelChatIntentClassifier intentClassifier,
     ITravelAiModelClient modelClient,
     ILogger<TravelChatService> logger) : ITravelChatService
 {
@@ -28,6 +29,8 @@ public sealed class TravelChatService(
     private const string FoodMode = "food";
     private const string CultureMode = "culture";
     private const string CheaperMode = "cheaper";
+    private const string MediumCostMode = "medium_cost";
+    private const string HighCostMode = "high_cost";
     private const string BalancedMode = "balanced";
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -57,7 +60,7 @@ public sealed class TravelChatService(
                 var updatedProfile = await ApplyPreferencePatchAsync(user.Id, pendingPreferencePatch, cancellationToken);
                 await ClearPendingPreferencePatchAsync(conversation, cancellationToken);
 
-                if (!IsPlanningRequest(originalMessage))
+                if (!intentClassifier.Classify(originalMessage).IsPlanning)
                 {
                     return TrackOutcome(new TravelChatResponse(
                         conversationId,
@@ -76,7 +79,7 @@ public sealed class TravelChatService(
             {
                 await ClearPendingPreferencePatchAsync(conversation, cancellationToken);
 
-                if (!IsPlanningRequest(originalMessage))
+                if (!intentClassifier.Classify(originalMessage).IsPlanning)
                 {
                     return TrackOutcome(new TravelChatResponse(
                         conversationId,
@@ -94,7 +97,10 @@ public sealed class TravelChatService(
             }
         }
 
-        if (IsSaveIntent(request.Message))
+        var intent = intentClassifier.Classify(request.Message);
+        LogIntentClassification(intent, request.Message);
+
+        if (intent.Intent == TravelChatIntents.SaveItinerary)
         {
             return TrackOutcome(MissingContext(
                 conversationId,
@@ -109,17 +115,17 @@ public sealed class TravelChatService(
             ?? DateOnly.FromDateTime(DateTime.UtcNow);
         var date = ResolveRequestedDate(request.Message, baseDate);
 
-        if (IsHelpIntent(request.Message))
+        if (intent.Intent == TravelChatIntents.Help)
         {
             return TrackOutcome(CreateHelpResponse(conversationId), eventName: "help");
         }
 
-        if (IsScheduleIntent(request.Message))
+        if (intent.Intent == TravelChatIntents.ViewSchedule)
         {
             return await CreateScheduleResponseAsync(user, conversationId, date, cancellationToken);
         }
 
-        if (!suppressPreferenceConfirmation && IsPreferenceIntent(request.Message))
+        if (!suppressPreferenceConfirmation && intent.Intent == TravelChatIntents.ViewPreferences)
         {
             var preferencePatch = await CreatePreferencePatchFromMessageAsync(request.Message, cancellationToken);
             if (preferencePatch is not null)
@@ -134,6 +140,22 @@ public sealed class TravelChatService(
             }
 
             return await CreatePreferenceResponseAsync(user.Id, conversationId, request.Message, cancellationToken);
+        }
+
+        if (!intent.IsSupported)
+        {
+            return TrackOutcome(MissingContext(
+                conversationId,
+                "assistantCommand",
+                "No entendi ese pedido. Puedo proponerte planes, revisar tu agenda o ayudarte a ajustar preferencias.",
+                [
+                    "Que puedo pedirte",
+                    "Plan para comer",
+                    "Ver mi agenda",
+                    "Ver mis preferencias",
+                    "Recomendar por cercania"
+                ]),
+                eventName: "unsupported_command");
         }
 
         var preferences = await userProfileService.GetProfileAsync(user.Id, cancellationToken);
@@ -151,7 +173,7 @@ public sealed class TravelChatService(
                 eventName: "missing_context");
         }
 
-        if (!IsSupportedPlanningRequest(request.Message))
+        if (!intent.IsPlanning)
         {
             return TrackOutcome(MissingContext(
                 conversationId,
@@ -159,10 +181,10 @@ public sealed class TravelChatService(
                 "No entendi ese pedido. Puedo proponerte planes, revisar tu agenda o ayudarte a ajustar preferencias.",
                 [
                     "Que puedo pedirte",
-                    "Proponeme un plan",
+                    "Plan para comer",
                     "Ver mi agenda",
                     "Ver mis preferencias",
-                    "Algo con menos caminata"
+                    "Recomendar por cercania"
                 ]),
                 eventName: "unsupported_command");
         }
@@ -223,7 +245,9 @@ public sealed class TravelChatService(
                 eventName: "missing_context");
         }
 
-        var responseMode = ResolveResponseMode(request.Message, conversation?.LastResponseMode);
+        var responseMode = IsAlternativeRequest(request.Message)
+            ? string.IsNullOrWhiteSpace(conversation?.LastResponseMode) ? BalancedMode : conversation.LastResponseMode
+            : intent.ResponseMode;
         var explicitRecommendationIds = ParseRecommendationIds(request.Message);
         var previousRecommendationIds = IsAlternativeRequest(request.Message)
             ? ParseRecommendationIds(conversation?.LastRecommendationIds)
@@ -350,7 +374,7 @@ public sealed class TravelChatService(
                 $"El {date:dd/MM} no tenes reservas guardadas en {destinationName}. Puedo proponerte un plan libre para anticipar ese dia.",
                 ViewScheduleIntent,
                 [],
-                [$"Proponeme planes para {date:yyyy-MM-dd}", "Ver mis preferencias"],
+                [$"Plan para comer el {date:yyyy-MM-dd}", $"Plan para relajar el {date:yyyy-MM-dd}", "Ver mis preferencias"],
                 null),
                 eventName: "schedule_empty");
         }
@@ -368,7 +392,7 @@ public sealed class TravelChatService(
             $"Tu agenda del {date:dd/MM} en {destinationName}:\n{string.Join('\n', lines)}{extra}",
             ViewScheduleIntent,
             [],
-            [$"Proponeme planes para {date:yyyy-MM-dd}", "Algo con menos caminata", "Ver mis preferencias"],
+            [$"Plan para comer el {date:yyyy-MM-dd}", "Recomendar por cercania", "Recomendar por duracion", "Ver mis preferencias"],
             null),
             eventName: "schedule_response");
     }
@@ -377,10 +401,10 @@ public sealed class TravelChatService(
     {
         return new TravelChatResponse(
             conversationId,
-            "Puedo ayudarte en 5 modos:\n1. Planificar: Proponeme un plan para hoy o para una fecha.\n2. Ajustar: Algo con menos caminata, mas corto u otra opcion.\n3. Agenda: Ver mi agenda.\n4. Preferencias: Ver mis preferencias o Evitar #culture.\n5. Ayuda: Que puedo pedirte.",
+            "Puedo ayudarte en 5 modos:\n1. Planificar: Plan para comer, plan para relajar o plan por fecha.\n2. Ajustar: Recomendar por cercania, por duracion u otra opcion.\n3. Agenda: Ver mi agenda.\n4. Preferencias: Ver mis preferencias o Evitar #culture.\n5. Ayuda: Que puedo pedirte.",
             HelpIntent,
             [],
-            ["Proponeme un plan", "Algo con menos caminata", "Ver mi agenda", "Ver mis preferencias", "Evitar culture"],
+            ["Plan para comer", "Plan para relajar", "Recomendar por cercania", "Ver mi agenda", "Ver mis preferencias"],
             null);
     }
 
@@ -408,7 +432,7 @@ public sealed class TravelChatService(
             $"{prefix}\n{FormatPreferenceProfile(profile)}",
             patch is null ? ViewPreferencesIntent : UpdatePreferencesIntent,
             [],
-            ["Cambiar intereses", "Presupuesto bajo", "Ritmo tranquilo", "Proponeme un plan"],
+            ["Cambiar intereses", "Presupuesto bajo", "Ritmo tranquilo", "Plan para comer"],
             null),
             eventName: patch is null ? "preferences_viewed" : "preference_updated");
     }
@@ -699,7 +723,7 @@ public sealed class TravelChatService(
         string? message,
         string responseMode)
     {
-        var normalized = message?.Trim().ToLowerInvariant() ?? string.Empty;
+        var normalized = TravelChatIntentClassifier.Normalize(message);
 
         if (responseMode == FoodMode)
         {
@@ -710,6 +734,34 @@ public sealed class TravelChatService(
         if (responseMode == CultureMode)
         {
             AddUnique(preferences.Interests, "Culture");
+        }
+
+        if (ContainsAny(normalized, "caminar", "caminata", "paseo", "walk", "walking"))
+        {
+            AddUnique(preferences.Interests, "walking");
+            AddUnique(preferences.Interests, "walk");
+            AddUnique(preferences.Interests, "paseo");
+        }
+
+        if (ContainsAny(normalized, "pareja", "cita", "romantico", "romance", "couple", "date"))
+        {
+            AddUnique(preferences.Interests, "romantic");
+            AddUnique(preferences.Interests, "couple");
+            AddUnique(preferences.Interests, "pareja");
+        }
+
+        if (ContainsAny(normalized, "nocturno", "noche", "night", "nightlife"))
+        {
+            AddUnique(preferences.Interests, "nightlife");
+            AddUnique(preferences.Interests, "night");
+            AddUnique(preferences.Interests, "noche");
+        }
+
+        if (ContainsAny(normalized, "bailar", "baile", "dance", "club", "boliche"))
+        {
+            AddUnique(preferences.Interests, "dance");
+            AddUnique(preferences.Interests, "bailar");
+            AddUnique(preferences.Interests, "nightlife");
         }
 
         if (responseMode == LessWalkingMode)
@@ -735,6 +787,18 @@ public sealed class TravelChatService(
             && !string.Equals(preferences.BudgetLevel, "low", StringComparison.Ordinal))
         {
             preferences.BudgetLevel = "low";
+        }
+
+        if (responseMode == MediumCostMode
+            && !string.Equals(preferences.BudgetLevel, "medium", StringComparison.Ordinal))
+        {
+            preferences.BudgetLevel = "medium";
+        }
+
+        if (responseMode == HighCostMode
+            && !string.Equals(preferences.BudgetLevel, "high", StringComparison.Ordinal))
+        {
+            preferences.BudgetLevel = "high";
         }
 
         if (ContainsAny(normalized, "vegetariano", "vegetariana", "vegetarian"))
@@ -825,6 +889,8 @@ public sealed class TravelChatService(
             FoodMode => "Busque algo de comida local",
             CultureMode => "Busque una opcion mas cultural",
             CheaperMode => "Busque una opcion de bajo costo",
+            MediumCostMode => "Busque una opcion de coste medio",
+            HighCostMode => "Busque una opcion premium",
             _ => "Te propongo este plan"
         };
         var walking = top.WalkingMinutes.HasValue
@@ -838,12 +904,14 @@ public sealed class TravelChatService(
     {
         return responseMode switch
         {
-            LessWalkingMode => ["Algo mas corto", "Algo de comida local", "Ver mi agenda", "Que puedo pedirte"],
-            ShorterMode => ["Menos caminata", "Algo de comida local", "Ver mi agenda", "Otra opcion"],
-            FoodMode => ["Menos caminata", "Algo cultural", "Algo mas corto", "Que puedo pedirte"],
-            CultureMode => ["Algo de comida local", "Menos caminata", "Algo mas corto", "Ver mi agenda"],
-            CheaperMode => ["Algo gratis", "Menos caminata", "Algo mas corto", "Ver mi agenda"],
-            _ => ["Algo con menos caminata", "Algo mas corto", "Ver mi agenda", "Que puedo pedirte"]
+            LessWalkingMode => ["Recomendar por duracion", "Plan para comer", "Ver mi agenda", "Que puedo pedirte"],
+            ShorterMode => ["Recomendar por cercania", "Plan para comer", "Ver mi agenda", "Otra opcion"],
+            FoodMode => ["Recomendar por cercania", "Plan para relajar", "Recomendar por duracion", "Que puedo pedirte"],
+            CultureMode => ["Plan para comer", "Recomendar por cercania", "Recomendar por duracion", "Ver mi agenda"],
+            CheaperMode => ["Coste medio", "Algo premium", "Recomendar por cercania", "Ver mi agenda"],
+            MediumCostMode => ["Coste bajo", "Algo premium", "Recomendar por cercania", "Ver mi agenda"],
+            HighCostMode => ["Coste bajo", "Coste medio", "Recomendar por cercania", "Ver mi agenda"],
+            _ => ["Plan para comer", "Plan nocturno", "Plan en pareja", "Recomendar por cercania"]
         };
     }
 
@@ -870,10 +938,31 @@ public sealed class TravelChatService(
                 .ThenByDescending(scored => scored.Score)
                 .ThenBy(scored => scored.Recommendation.Title),
             CheaperMode => ranked
-                .OrderBy(scored => scored.Recommendation.AccessLevel == ContentAccessLevel.Free ? 0 : 1)
+                .OrderBy(scored => PriceRank(scored.Recommendation.PriceLevel))
+                .ThenBy(scored => scored.Recommendation.AccessLevel == ContentAccessLevel.Free ? 0 : 1)
+                .ThenByDescending(scored => scored.Score)
+                .ThenBy(scored => scored.Recommendation.Title),
+            MediumCostMode => ranked
+                .OrderBy(scored => Math.Abs(PriceRank(scored.Recommendation.PriceLevel) - 2))
+                .ThenByDescending(scored => scored.Score)
+                .ThenBy(scored => scored.Recommendation.Title),
+            HighCostMode => ranked
+                .OrderByDescending(scored => PriceRank(scored.Recommendation.PriceLevel))
                 .ThenByDescending(scored => scored.Score)
                 .ThenBy(scored => scored.Recommendation.Title),
             _ => ranked
+        };
+    }
+
+    private static int PriceRank(string? value)
+    {
+        return value?.Trim().ToLowerInvariant() switch
+        {
+            "free" or "gratis" => 0,
+            "low" or "budget" or "cheap" or "barato" => 1,
+            "medium" or "moderate" or "medio" => 2,
+            "high" or "expensive" or "premium" or "alto" => 3,
+            _ => 2
         };
     }
 
@@ -904,131 +993,9 @@ public sealed class TravelChatService(
             "arte");
     }
 
-    private static string ResolveResponseMode(string? message, string? previousResponseMode)
-    {
-        if (string.IsNullOrWhiteSpace(message))
-        {
-            return string.IsNullOrWhiteSpace(previousResponseMode)
-                ? BalancedMode
-                : previousResponseMode;
-        }
-
-        var normalized = message.Trim().ToLowerInvariant();
-        if (IsAlternativeRequest(normalized))
-        {
-            return string.IsNullOrWhiteSpace(previousResponseMode)
-                ? BalancedMode
-                : previousResponseMode;
-        }
-
-        if (ContainsAny(normalized, "menos caminata", "caminar menos", "poca caminata", "cerca", "nearby"))
-        {
-            return LessWalkingMode;
-        }
-
-        if (ContainsAny(normalized, "mas corto", "más corto", "rapido", "rápido", "poco tiempo", "corta"))
-        {
-            return ShorterMode;
-        }
-
-        if (ContainsAny(normalized, "comida", "food", "local", "snack", "restaurante", "cafe", "café"))
-        {
-            return FoodMode;
-        }
-
-        if (ContainsAny(normalized, "cultura", "cultural", "museo", "historia", "arte"))
-        {
-            return CultureMode;
-        }
-
-        if (ContainsAny(normalized, "barato", "gratis", "economico", "económico", "free"))
-        {
-            return CheaperMode;
-        }
-
-        return BalancedMode;
-    }
-
     private static bool ContainsAny(string value, params string[] candidates)
     {
         return candidates.Any(candidate => value.Contains(candidate, StringComparison.OrdinalIgnoreCase));
-    }
-
-    private static bool IsScheduleIntent(string? message)
-    {
-        return !string.IsNullOrWhiteSpace(message)
-            && ContainsAny(
-                message.Trim().ToLowerInvariant(),
-                "ver mi agenda",
-                "ver agenda",
-                "mi agenda",
-                "ver mis reservas",
-                "mostrar mis reservas",
-                "mis schedules",
-                "schedule");
-    }
-
-    private static bool IsHelpIntent(string? message)
-    {
-        if (string.IsNullOrWhiteSpace(message))
-        {
-            return false;
-        }
-
-        var normalized = RemoveDiacritics(message.Trim()).ToLowerInvariant();
-        return ContainsAny(
-            normalized,
-            "que puedo pedirte",
-            "ayuda",
-            "comandos",
-            "help",
-            "what can i ask",
-            "what can you do");
-    }
-
-    private static bool IsPreferenceIntent(string? message)
-    {
-        if (string.IsNullOrWhiteSpace(message))
-        {
-            return false;
-        }
-
-        var normalized = message.Trim().ToLowerInvariant();
-        return ContainsAny(
-            normalized,
-            "preferencias",
-            "mis gustos",
-            "mi perfil",
-            "cambiar presupuesto",
-            "cambia presupuesto",
-            "actualizar presupuesto",
-            "actualiza presupuesto",
-            "mi presupuesto",
-            "cambiar ritmo",
-            "cambia ritmo",
-            "actualizar ritmo",
-            "actualiza ritmo",
-            "mi ritmo",
-            "cambiar intereses",
-            "cambia intereses",
-            "actualizar intereses",
-            "actualiza intereses",
-            "mis intereses",
-            "prefiero",
-            "me gusta",
-            "no me gusta",
-            "no quiero",
-            "evita",
-            "evite",
-            "evitando",
-            "evitar",
-            "avoid",
-            "soy vegetariano",
-            "soy vegetariana",
-            "soy celiaco",
-            "soy celiaca",
-            "tengo celiaquia",
-            "sin gluten");
     }
 
     private static bool IsAlternativeRequest(string? message)
@@ -1042,19 +1009,6 @@ public sealed class TravelChatService(
                 "algo distinto",
                 "reemplazar",
                 "replace");
-    }
-
-    private static bool IsSaveIntent(string? message)
-    {
-        return !string.IsNullOrWhiteSpace(message)
-            && ContainsAny(
-                message.Trim().ToLowerInvariant(),
-                "guardar plan",
-                "guarda el plan",
-                "guardá el plan",
-                "save plan",
-                "save itinerary",
-                "guardar itinerario");
     }
 
     private static bool MentionsSavedState(string message)
@@ -1097,15 +1051,15 @@ public sealed class TravelChatService(
         int? maxWalkingMinutes = null;
         var hasAvoidSignal = HasAvoidSignal(normalized);
 
-        if (ContainsAny(normalized, "presupuesto bajo", "barato", "economico", "gratis"))
+        if (ContainsAny(normalized, "presupuesto bajo", "coste bajo", "costo bajo", "precio bajo", "bajo coste", "bajo costo", "barato", "economico", "gratis"))
         {
             budgetLevel = ContainsAny(normalized, "gratis") ? "free" : "low";
         }
-        else if (ContainsAny(normalized, "presupuesto alto", "premium", "caro"))
+        else if (ContainsAny(normalized, "presupuesto alto", "coste alto", "costo alto", "precio alto", "premium", "caro", "alta gama"))
         {
             budgetLevel = "high";
         }
-        else if (ContainsAny(normalized, "presupuesto medio", "moderado"))
+        else if (ContainsAny(normalized, "presupuesto medio", "coste medio", "costo medio", "precio medio", "moderado"))
         {
             budgetLevel = "medium";
         }
@@ -1320,64 +1274,6 @@ public sealed class TravelChatService(
         return normalized == "no"
             || normalized.StartsWith("no ", StringComparison.Ordinal)
             || ContainsAny(normalized, "solo este pedido", "no guardar", "no lo guardes", "dont save", "do not save");
-    }
-
-    private static bool IsPlanningRequest(string? message)
-    {
-        if (string.IsNullOrWhiteSpace(message))
-        {
-            return false;
-        }
-
-        var normalized = RemoveDiacritics(message).ToLowerInvariant();
-        return ContainsAny(
-            normalized,
-            "plan",
-            "planes",
-            "propon",
-            "recomend",
-            "suger",
-            "que hago",
-            "que puedo hacer",
-            "algo para hacer");
-    }
-
-    private static bool IsSupportedPlanningRequest(string? message)
-    {
-        if (string.IsNullOrWhiteSpace(message))
-        {
-            return false;
-        }
-
-        var normalized = RemoveDiacritics(message).ToLowerInvariant();
-        return ContainsAny(
-            normalized,
-            "plan",
-            "planes",
-            "propon",
-            "recomend",
-            "suger",
-            "que hago",
-            "que puedo hacer",
-            "algo para hacer",
-            "que puedo pedirte",
-            "ayuda",
-            "comandos",
-            "menos caminata",
-            "caminar menos",
-            "mas corto",
-            "otra opcion",
-            "otra alternativa",
-            "reemplazar",
-            "replace",
-            "algo distinto",
-            "comida",
-            "food",
-            "cultura",
-            "culture",
-            "barato",
-            "gratis",
-            "economico");
     }
 
     private static void ApplyPatch(TravelPreferenceProfile profile, TravelPreferenceProfilePatchDto patch)
@@ -1673,6 +1569,42 @@ public sealed class TravelChatService(
             usedModelResponse);
 
         return response;
+    }
+
+    private void LogIntentClassification(TravelChatIntentResult intent, string? message)
+    {
+        logger.LogInformation(
+            "Travel assistant intent classified. Intent={Intent}; Confidence={Confidence}; ResponseMode={ResponseMode}; MatchedSignals={MatchedSignals}; HasPlanningSignal={HasPlanningSignal}; UnsupportedSample={UnsupportedSample}.",
+            intent.Intent,
+            Math.Round(intent.Confidence, 2),
+            intent.ResponseMode,
+            intent.MatchedSignals.Count == 0 ? "none" : string.Join(',', intent.MatchedSignals),
+            intent.HasPlanningSignal,
+            intent.IsSupported ? "none" : CreateUnsupportedIntentSample(message));
+    }
+
+    private static string CreateUnsupportedIntentSample(string? message)
+    {
+        var normalized = TravelChatIntentClassifier.Normalize(message);
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return "empty";
+        }
+
+        var tokens = normalized
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Take(8)
+            .Select(token =>
+            {
+                if (token.Any(char.IsDigit))
+                {
+                    return "<num>";
+                }
+
+                return token.Length > 24 ? "<long>" : token;
+            });
+
+        return string.Join(' ', tokens);
     }
 
     private static TravelChatResponse MissingContext(

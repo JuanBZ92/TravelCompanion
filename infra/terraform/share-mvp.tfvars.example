@@ -13,6 +13,15 @@ enable_media_storage = false
 
 app_service_sku_name     = "B1"
 app_stack_dotnet_version = "10.0"
+api_run_from_package_enabled = false
+
+notifications_enabled                           = true
+notifications_poll_interval_seconds             = 60
+notifications_look_ahead_hours                  = 48
+notifications_send_batch_size                   = 50
+notifications_stale_notification_grace_minutes  = 30
+notifications_schedule_time_zone_id             = "UTC"
+notifications_reservation_reminder_lead_minutes = [1440, 180]
 
 log_analytics_daily_quota_gb     = 0.1
 log_analytics_retention_in_days  = 30

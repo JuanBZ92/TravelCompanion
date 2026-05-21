@@ -247,7 +247,7 @@
                                                                 Padding="10,7"
                                                                 MinimumHeightRequest="34"
                                                                 Margin="0,0,6,6" />
-                                                        <Button Text="Menos caminata"
+                                                        <Button Text="Por cercania"
                                                                 Clicked="OnRequestLessWalkingClicked"
                                                                 Style="{StaticResource GhostButton}"
                                                                 FontSize="12"
@@ -306,13 +306,19 @@
                                                 BindableLayout.ItemsSource="{Binding Actions}">
                                         <BindableLayout.ItemTemplate>
                                             <DataTemplate x:DataType="viewModels:TravelChatGuideActionViewModel">
-                                                <Button Text="{Binding Title}"
-                                                        Clicked="OnGuideActionClicked"
-                                                        Style="{StaticResource GhostButton}"
-                                                        FontSize="12"
-                                                        Padding="10,7"
-                                                        MinimumHeightRequest="34"
-                                                        Margin="0,0,6,6" />
+                                                <Border Style="{StaticResource Chip}"
+                                                        Padding="10,6"
+                                                        Margin="0,0,6,6"
+                                                        MaximumWidthRequest="180">
+                                                    <Border.GestureRecognizers>
+                                                        <TapGestureRecognizer Tapped="OnGuideActionTapped" />
+                                                    </Border.GestureRecognizers>
+                                                    <Label Text="{Binding Title}"
+                                                           FontSize="12"
+                                                           TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
+                                                           LineBreakMode="TailTruncation"
+                                                           MaxLines="1" />
+                                                </Border>
                                             </DataTemplate>
                                         </BindableLayout.ItemTemplate>
                                     </FlexLayout>

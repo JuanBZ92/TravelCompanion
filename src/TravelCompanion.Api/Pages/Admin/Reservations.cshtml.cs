@@ -69,19 +69,7 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
 
     public async Task<IActionResult> OnPostSaveTripAsync()
     {
-        ModelState.Remove($"{nameof(Input)}.{nameof(Input.TripId)}");
-        ModelState.Remove($"{nameof(Input)}.{nameof(Input.Title)}");
-        ModelState.Remove($"{nameof(Input)}.{nameof(Input.City)}");
-        ModelState.Remove($"{nameof(Input)}.{nameof(Input.LocationName)}");
-        ModelState.Remove($"{nameof(Input)}.{nameof(Input.Address)}");
-        ModelState.Remove($"{nameof(Input)}.{nameof(Input.ConfirmationCode)}");
-        ModelState.Remove($"{nameof(Input)}.{nameof(Input.Notes)}");
-        ModelState.Remove($"{nameof(Input)}.{nameof(Input.Airline)}");
-        ModelState.Remove($"{nameof(Input)}.{nameof(Input.FlightNumber)}");
-        ModelState.Remove($"{nameof(Input)}.{nameof(Input.OriginName)}");
-        ModelState.Remove($"{nameof(Input)}.{nameof(Input.DestinationName)}");
-        ModelState.Remove($"{nameof(Input)}.{nameof(Input.OriginAirport)}");
-        ModelState.Remove($"{nameof(Input)}.{nameof(Input.DestinationAirport)}");
+        RemoveModelStateForPrefix(nameof(Input));
 
         if (TripInput.UserId == Guid.Empty)
         {
@@ -93,6 +81,8 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
             ModelState.AddModelError($"{nameof(TripInput)}.{nameof(TripInput.DestinationId)}", "Selecciona un destino.");
         }
 
+        await ApplyTravelerNameDefaultAsync();
+
         if (string.IsNullOrWhiteSpace(TripInput.TravelerName))
         {
             ModelState.AddModelError($"{nameof(TripInput)}.{nameof(TripInput.TravelerName)}", "El nombre del viajero es obligatorio.");
@@ -102,6 +92,8 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
         {
             ModelState.AddModelError($"{nameof(TripInput)}.{nameof(TripInput.EndsOn)}", "La fecha final no puede ser anterior al inicio.");
         }
+
+        await ApplyTripTimeZoneDefaultAsync();
 
         if (!ModelState.IsValid)
         {
@@ -135,9 +127,7 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
 
     public async Task<IActionResult> OnPostSaveAsync()
     {
-        ModelState.Remove($"{nameof(TripInput)}.{nameof(TripInput.UserId)}");
-        ModelState.Remove($"{nameof(TripInput)}.{nameof(TripInput.DestinationId)}");
-        ModelState.Remove($"{nameof(TripInput)}.{nameof(TripInput.TravelerName)}");
+        RemoveModelStateForPrefix(nameof(TripInput));
 
         if (Input.TripId == Guid.Empty)
         {
@@ -292,11 +282,13 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
             .OrderByDescending(trip => trip.StartsOn)
             .Select(trip => new TripRow(
                 trip.Id,
+                trip.ExternalId,
                 trip.AppUser != null ? trip.AppUser.Email : "-",
                 trip.TravelerName,
                 trip.Destination != null ? trip.Destination.Name : "Unknown",
                 trip.StartsOn,
                 trip.EndsOn,
+                trip.TimeZoneId,
                 trip.Reservations.Count))
             .ToListAsync();
 
@@ -318,6 +310,7 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
             .ThenBy(reservation => reservation.StartsAt)
             .Select(reservation => new ReservationRow(
                 reservation.Id,
+                reservation.ExternalId,
                 reservation.Trip != null
                     ? $"{reservation.Trip.TravelerName} - {(reservation.Trip.Destination != null ? reservation.Trip.Destination.Name : "Unknown")}"
                     : "Unknown",
@@ -325,6 +318,7 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
                 reservation.StartsAt,
                 reservation.EndsOn,
                 reservation.EndsAt,
+                reservation.TimeZoneId,
                 reservation.Type,
                 reservation.Title,
                 reservation.City,
@@ -336,7 +330,8 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
                 reservation.OriginName,
                 reservation.DestinationName,
                 reservation.OriginAirport,
-                reservation.DestinationAirport))
+                reservation.DestinationAirport,
+                reservation.SourceName))
             .ToListAsync();
     }
 
@@ -345,6 +340,11 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
         if (TripInput.UserId == Guid.Empty && UserOptions.Count > 0)
         {
             TripInput.UserId = Guid.Parse(UserOptions[0].Value);
+        }
+
+        if (string.IsNullOrWhiteSpace(TripInput.TravelerName))
+        {
+            TripInput.TravelerName = GetDisplayNameFromUserOption(TripInput.UserId);
         }
 
         if (TripInput.DestinationId == Guid.Empty && DestinationOptions.Count > 0)
@@ -360,6 +360,11 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
         if (TripInput.EndsOn == default)
         {
             TripInput.EndsOn = TripInput.StartsOn.AddDays(7);
+        }
+
+        if (string.IsNullOrWhiteSpace(TripInput.TimeZoneId))
+        {
+            TripInput.TimeZoneId = "UTC";
         }
     }
 
@@ -388,22 +393,101 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
         }
     }
 
+    private void RemoveModelStateForPrefix(string prefix)
+    {
+        foreach (var key in ModelState.Keys
+            .Where(key => string.Equals(key, prefix, StringComparison.Ordinal) ||
+                key.StartsWith($"{prefix}.", StringComparison.Ordinal))
+            .ToList())
+        {
+            ModelState.Remove(key);
+        }
+    }
+
+    private async Task ApplyTravelerNameDefaultAsync()
+    {
+        if (TripInput.UserId == Guid.Empty || !string.IsNullOrWhiteSpace(TripInput.TravelerName))
+        {
+            return;
+        }
+
+        var user = await dbContext.AppUsers
+            .AsNoTracking()
+            .Where(existingUser => existingUser.Id == TripInput.UserId)
+            .Select(existingUser => new { existingUser.DisplayName, existingUser.Email })
+            .FirstOrDefaultAsync();
+
+        if (user is null)
+        {
+            return;
+        }
+
+        TripInput.TravelerName = string.IsNullOrWhiteSpace(user.DisplayName)
+            ? user.Email
+            : user.DisplayName.Trim();
+
+        ModelState.Remove($"{nameof(TripInput)}.{nameof(TripInput.TravelerName)}");
+    }
+
+    private async Task ApplyTripTimeZoneDefaultAsync()
+    {
+        if (TripInput.DestinationId == Guid.Empty || !string.IsNullOrWhiteSpace(TripInput.TimeZoneId))
+        {
+            return;
+        }
+
+        var destinationTimeZoneId = await dbContext.Destinations
+            .AsNoTracking()
+            .Where(destination => destination.Id == TripInput.DestinationId)
+            .Select(destination => destination.TimeZoneId)
+            .FirstOrDefaultAsync();
+
+        TripInput.TimeZoneId = string.IsNullOrWhiteSpace(destinationTimeZoneId)
+            ? "UTC"
+            : destinationTimeZoneId.Trim();
+
+        ModelState.Remove($"{nameof(TripInput)}.{nameof(TripInput.TimeZoneId)}");
+    }
+
+    private string GetDisplayNameFromUserOption(Guid userId)
+    {
+        if (userId == Guid.Empty)
+        {
+            return string.Empty;
+        }
+
+        var option = UserOptions.FirstOrDefault(userOption => userOption.Value == userId.ToString());
+        if (option is null)
+        {
+            return string.Empty;
+        }
+
+        var parenthesisIndex = option.Text.IndexOf(" (", StringComparison.Ordinal);
+        return parenthesisIndex > 0
+            ? option.Text[..parenthesisIndex].Trim()
+            : option.Text.Trim();
+    }
+
     public sealed record TripRow(
         Guid Id,
+        string? ExternalId,
         string UserEmail,
         string TravelerName,
         string DestinationName,
         DateOnly StartsOn,
         DateOnly EndsOn,
+        string TimeZoneId,
         int ReservationCount);
 
     public sealed record ReservationRow(
         Guid Id,
+        string? ExternalId,
         string TripName,
         DateOnly Date,
         TimeOnly StartsAt,
         DateOnly? EndsOn,
         TimeOnly? EndsAt,
+        string? TimeZoneId,
         ReservationType Type,
         string Title,
         string City,
@@ -415,7 +499,8 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
         string? OriginName,
         string? DestinationName,
         string? OriginAirport,
-        string? DestinationAirport)
+        string? DestinationAirport,
+        string? SourceName)
     {
         public string TypeLabel => Type switch
         {
@@ -433,6 +518,9 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
     {
         public Guid? Id { get; set; }
 
+        [StringLength(160, ErrorMessage = "El external id no puede superar 160 caracteres.")]
+        public string? ExternalId { get; set; }
+
         [Required(ErrorMessage = "Selecciona un viaje.")]
         public Guid TripId { get; set; }
 
@@ -447,6 +535,9 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
 
         public DateOnly? EndsOn { get; set; }
         public TimeOnly? EndsAt { get; set; }
+
+        [StringLength(120, ErrorMessage = "La zona horaria no puede superar 120 caracteres.")]
+        public string? TimeZoneId { get; set; }
 
         [Required(ErrorMessage = "El titulo es obligatorio.")]
         [StringLength(160, ErrorMessage = "El titulo no puede superar 160 caracteres.")]
@@ -486,17 +577,25 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
         [StringLength(80, ErrorMessage = "El aeropuerto de destino no puede superar 80 caracteres.")]
         public string? DestinationAirport { get; set; }
 
+        [StringLength(160, ErrorMessage = "La fuente no puede superar 160 caracteres.")]
+        public string? SourceName { get; set; }
+
+        [StringLength(512, ErrorMessage = "La URL fuente no puede superar 512 caracteres.")]
+        public string? SourceUrl { get; set; }
+
         public static ReservationInput FromEntity(Reservation reservation)
         {
             return new ReservationInput
             {
                 Id = reservation.Id,
+                ExternalId = reservation.ExternalId,
                 TripId = reservation.TripId,
                 Type = reservation.Type,
                 Date = reservation.Date,
                 StartsAt = reservation.StartsAt,
                 EndsOn = reservation.EndsOn,
                 EndsAt = reservation.EndsAt,
+                TimeZoneId = reservation.TimeZoneId,
                 Title = reservation.Title,
                 City = reservation.City,
                 LocationName = reservation.LocationName,
@@ -508,18 +607,22 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
                 OriginName = reservation.OriginName,
                 DestinationName = reservation.DestinationName,
                 OriginAirport = reservation.OriginAirport,
-                DestinationAirport = reservation.DestinationAirport
+                DestinationAirport = reservation.DestinationAirport,
+                SourceName = reservation.SourceName,
+                SourceUrl = reservation.SourceUrl
             };
         }
 
         public void ApplyTo(Reservation reservation)
         {
+            reservation.ExternalId = NormalizeOptional(ExternalId);
             reservation.TripId = TripId;
             reservation.Type = Type;
             reservation.Date = Date;
             reservation.StartsAt = StartsAt;
             reservation.EndsOn = EndsOn;
             reservation.EndsAt = EndsAt;
+            reservation.TimeZoneId = NormalizeOptional(TimeZoneId);
             reservation.Title = Title.Trim();
             reservation.City = City.Trim();
             reservation.LocationName = NormalizeRequiredText(LocationName);
@@ -532,6 +635,8 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
             reservation.DestinationName = NormalizeOptional(DestinationName);
             reservation.OriginAirport = NormalizeOptional(OriginAirport);
             reservation.DestinationAirport = NormalizeOptional(DestinationAirport);
+            reservation.SourceName = NormalizeOptional(SourceName);
+            reservation.SourceUrl = NormalizeOptional(SourceUrl);
         }
 
         private static string? NormalizeOptional(string? value)
@@ -549,13 +654,15 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
     {
         public Guid? Id { get; set; }
 
+        [StringLength(160, ErrorMessage = "El external id no puede superar 160 caracteres.")]
+        public string? ExternalId { get; set; }
+
         [Required(ErrorMessage = "Selecciona un usuario.")]
         public Guid UserId { get; set; }
 
         [Required(ErrorMessage = "Selecciona un destino.")]
         public Guid DestinationId { get; set; }
 
-        [Required(ErrorMessage = "El viajero es obligatorio.")]
         [StringLength(160, ErrorMessage = "El viajero no puede superar 160 caracteres.")]
         public string TravelerName { get; set; } = string.Empty;
 
@@ -565,26 +672,33 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
         [Required(ErrorMessage = "La fecha final es obligatoria.")]
         public DateOnly EndsOn { get; set; }
 
+        [StringLength(120, ErrorMessage = "La zona horaria no puede superar 120 caracteres.")]
+        public string? TimeZoneId { get; set; } = "UTC";
+
         public static TripForm FromEntity(Trip trip)
         {
             return new TripForm
             {
                 Id = trip.Id,
+                ExternalId = trip.ExternalId,
                 UserId = trip.AppUserId ?? Guid.Empty,
                 DestinationId = trip.DestinationId,
                 TravelerName = trip.TravelerName,
                 StartsOn = trip.StartsOn,
-                EndsOn = trip.EndsOn
+                EndsOn = trip.EndsOn,
+                TimeZoneId = trip.TimeZoneId
             };
         }
 
         public void ApplyTo(Trip trip)
         {
+            trip.ExternalId = string.IsNullOrWhiteSpace(ExternalId) ? null : ExternalId.Trim();
             trip.AppUserId = UserId;
             trip.DestinationId = DestinationId;
             trip.TravelerName = (TravelerName ?? string.Empty).Trim();
             trip.StartsOn = StartsOn;
             trip.EndsOn = EndsOn;
+            trip.TimeZoneId = string.IsNullOrWhiteSpace(TimeZoneId) ? "UTC" : TimeZoneId.Trim();
         }
     }
 }

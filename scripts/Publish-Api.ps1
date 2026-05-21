@@ -10,6 +10,8 @@ param(
 
     [string]$ProjectPath,
 
+    [string]$WorkerProjectPath,
+
     [string]$TerraformDirectory,
 
     [string]$PublishDirectory,
@@ -27,6 +29,12 @@ param(
     [string]$SmokeTestPath = "/health",
 
     [switch]$DisableRunFromPackage,
+
+    [switch]$EnableRunFromPackage,
+
+    [switch]$SkipNotificationsWorker,
+
+    [string]$WebJobName = "TravelCompanion.Notifications.Worker",
 
     [switch]$TrackDeploymentStatus,
 
@@ -70,6 +78,60 @@ function Invoke-External {
     finally {
         Set-Location $originalLocation
     }
+}
+
+function Invoke-KuduZipDeploy {
+    param(
+        [string]$ResourceGroupName,
+        [string]$AppName,
+        [string]$ZipPath
+    )
+
+    Write-Host "Deploying ZIP through Kudu ZipDeploy..." -ForegroundColor Cyan
+
+    $credentialsJson = az webapp deployment list-publishing-credentials `
+        --resource-group $ResourceGroupName `
+        --name $AppName `
+        --output json
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "'az webapp deployment list-publishing-credentials' failed with exit code $LASTEXITCODE."
+    }
+
+    $credentials = $credentialsJson | ConvertFrom-Json
+    $pair = "$($credentials.publishingUserName):$($credentials.publishingPassword)"
+    $basic = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes($pair))
+    $headers = @{ Authorization = "Basic $basic" }
+    $deployUri = "https://$AppName.scm.azurewebsites.net/api/zipdeploy?isAsync=true"
+
+    $response = Invoke-WebRequest `
+        -Uri $deployUri `
+        -Headers $headers `
+        -Method Post `
+        -InFile $ZipPath `
+        -ContentType "application/zip" `
+        -UseBasicParsing `
+        -TimeoutSec 300
+
+    $statusUri = $response.Headers.Location
+    if ([string]::IsNullOrWhiteSpace($statusUri)) {
+        Write-Host "ZipDeploy request accepted." -ForegroundColor Green
+        return
+    }
+
+    do {
+        Start-Sleep -Seconds 5
+        $status = Invoke-RestMethod -Uri $statusUri -Headers $headers -Method Get -TimeoutSec 60
+        if (-not [string]::IsNullOrWhiteSpace($status.progress)) {
+            Write-Host $status.progress -ForegroundColor DarkGray
+        }
+    } while ($status.status -in @(0, 1, 2))
+
+    if ($status.status -ne 4) {
+        throw "ZipDeploy failed. Status=$($status.status); Message=$($status.message)"
+    }
+
+    Write-Host "ZipDeploy completed successfully." -ForegroundColor Green
 }
 
 function Get-TerraformOutput {
@@ -122,7 +184,11 @@ function New-ZipFromDirectory {
     try {
         Get-ChildItem -Path $sourcePath -Recurse -File | ForEach-Object {
             $entryName = $_.FullName.Substring($sourcePath.Length + 1).Replace("\", "/")
-            [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $_.FullName, $entryName) | Out-Null
+            $entry = [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $_.FullName, $entryName)
+            if ($entryName.EndsWith("/run.sh") -or $entryName -eq "run.sh") {
+                # Linux WebJobs require run.sh to be executable after ZIP extraction.
+                $entry.ExternalAttributes = [BitConverter]::ToInt32([BitConverter]::GetBytes([Convert]::ToUInt32("81ED0000", 16)), 0)
+            }
         }
     }
     finally {
@@ -167,10 +233,29 @@ function Invoke-SmokeTest {
     }
 }
 
+function Write-Utf8NoBomFile {
+    param(
+        [string]$Path,
+        [string]$Content
+    )
+
+    $parent = Split-Path -Parent $Path
+    if (-not (Test-Path $parent)) {
+        New-Item -ItemType Directory -Path $parent | Out-Null
+    }
+
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText($Path, $Content, $utf8NoBom)
+}
+
 $repoRoot = Resolve-RepoRoot
 
 if ([string]::IsNullOrWhiteSpace($ProjectPath)) {
     $ProjectPath = Join-Path $repoRoot "src\TravelCompanion.Api\TravelCompanion.Api.csproj"
+}
+
+if ([string]::IsNullOrWhiteSpace($WorkerProjectPath)) {
+    $WorkerProjectPath = Join-Path $repoRoot "src\TravelCompanion.Notifications.Worker\TravelCompanion.Notifications.Worker.csproj"
 }
 
 if ([string]::IsNullOrWhiteSpace($TerraformDirectory)) {
@@ -212,9 +297,20 @@ if ([string]::IsNullOrWhiteSpace($AppName)) {
     throw "AppName was not provided and could not be read from Terraform output."
 }
 
+if ($EnableRunFromPackage -and $DisableRunFromPackage) {
+    throw "Use either EnableRunFromPackage or DisableRunFromPackage, not both."
+}
+
+$includeNotificationsWorker = -not $SkipNotificationsWorker -and (Test-Path $WorkerProjectPath)
+$useRunFromPackage = $EnableRunFromPackage -or ((-not $DisableRunFromPackage) -and (-not $includeNotificationsWorker))
+
 Write-Host "Travel Companion API deploy" -ForegroundColor Cyan
 Write-Host "Configuration: $Configuration"
 Write-Host "Project: $ProjectPath"
+if ($includeNotificationsWorker) {
+    Write-Host "Notifications worker: $WorkerProjectPath"
+    Write-Host "WebJob name: $WebJobName"
+}
 Write-Host "Publish directory: $PublishDirectory"
 Write-Host "Zip path: $ZipPath"
 Write-Host "Resource group: $ResourceGroupName"
@@ -224,17 +320,42 @@ if (-not [string]::IsNullOrWhiteSpace($ApiUrl)) {
 }
 Write-Host ""
 
-if (-not $DisableRunFromPackage) {
+$appSettings = @()
+if ($useRunFromPackage) {
+    $appSettings += "WEBSITE_RUN_FROM_PACKAGE=1"
+}
+
+if ($includeNotificationsWorker) {
+    $appSettings += "WEBSITE_SKIP_RUNNING_KUDUAGENT=false"
+    $appSettings += "Notifications__Enabled=true"
+}
+
+if ($appSettings.Count -gt 0) {
     Invoke-External `
         -Command "az" `
-        -Arguments @(
+        -Arguments (@(
             "webapp",
             "config",
             "appsettings",
             "set",
             "--resource-group", $ResourceGroupName,
             "--name", $AppName,
-            "--settings", "WEBSITE_RUN_FROM_PACKAGE=1"
+            "--settings"
+        ) + $appSettings) `
+        -WorkingDirectory $repoRoot
+}
+
+if (-not $useRunFromPackage) {
+    Invoke-External `
+        -Command "az" `
+        -Arguments @(
+            "webapp",
+            "config",
+            "appsettings",
+            "delete",
+            "--resource-group", $ResourceGroupName,
+            "--name", $AppName,
+            "--setting-names", "WEBSITE_RUN_FROM_PACKAGE"
         ) `
         -WorkingDirectory $repoRoot
 }
@@ -256,23 +377,78 @@ if ($SkipRestore) {
 
 Invoke-External -Command "dotnet" -Arguments $publishArgs -WorkingDirectory $repoRoot
 
+if ($includeNotificationsWorker) {
+    $workerPublishDirectory = Join-Path (Split-Path -Parent $PublishDirectory) "notifications-worker-publish"
+    $webJobDirectory = Join-Path $PublishDirectory "App_Data\jobs\continuous\$WebJobName"
+
+    if (Test-Path $workerPublishDirectory) {
+        Remove-Item -LiteralPath $workerPublishDirectory -Recurse -Force
+    }
+
+    $workerPublishArgs = @(
+        "publish",
+        $WorkerProjectPath,
+        "-c", $Configuration,
+        "-o", $workerPublishDirectory
+    )
+
+    if ($SkipRestore) {
+        $workerPublishArgs += "--no-restore"
+    }
+
+    Invoke-External -Command "dotnet" -Arguments $workerPublishArgs -WorkingDirectory $repoRoot
+
+    New-Item -ItemType Directory -Path $webJobDirectory -Force | Out-Null
+    Copy-Item -Path (Join-Path $workerPublishDirectory "*") -Destination $webJobDirectory -Recurse -Force
+
+    $runScript = (@(
+        '#!/usr/bin/env bash',
+        'set -euo pipefail',
+        'cd "$(dirname "$0")"',
+        'exec dotnet TravelCompanion.Notifications.Worker.dll'
+    ) -join "`n") + "`n"
+    $settingsJson = "{`n  `"is_singleton`": true,`n  `"stopping_wait_time`": 30`n}`n"
+    Write-Utf8NoBomFile -Path (Join-Path $webJobDirectory "run.sh") -Content $runScript
+    Write-Utf8NoBomFile -Path (Join-Path $webJobDirectory "settings.job") -Content $settingsJson
+}
+
 $zipArtifact = New-ZipFromDirectory -SourceDirectory $PublishDirectory -DestinationZipPath $ZipPath
 Write-Host "Created ZIP: $($zipArtifact.FullName)" -ForegroundColor Green
 
-Invoke-External `
-    -Command "az" `
-    -Arguments @(
-        "webapp",
-        "deploy",
-        "--resource-group", $ResourceGroupName,
-        "--name", $AppName,
-        "--src-path", $zipArtifact.FullName,
-        "--type", "zip",
-        "--clean", "true",
-        "--restart", "true",
-        "--track-status", ([string]([bool]$TrackDeploymentStatus)).ToLowerInvariant()
-    ) `
-    -WorkingDirectory $repoRoot
+if ($useRunFromPackage) {
+    Invoke-External `
+        -Command "az" `
+        -Arguments @(
+            "webapp",
+            "deploy",
+            "--resource-group", $ResourceGroupName,
+            "--name", $AppName,
+            "--src-path", $zipArtifact.FullName,
+            "--type", "zip",
+            "--clean", "true",
+            "--restart", "true",
+            "--track-status", ([string]([bool]$TrackDeploymentStatus)).ToLowerInvariant()
+        ) `
+        -WorkingDirectory $repoRoot
+}
+else {
+    Invoke-KuduZipDeploy -ResourceGroupName $ResourceGroupName -AppName $AppName -ZipPath $zipArtifact.FullName
+}
+
+if (-not $useRunFromPackage) {
+    Invoke-External `
+        -Command "az" `
+        -Arguments @(
+            "webapp",
+            "config",
+            "appsettings",
+            "delete",
+            "--resource-group", $ResourceGroupName,
+            "--name", $AppName,
+            "--setting-names", "WEBSITE_RUN_FROM_PACKAGE"
+        ) `
+        -WorkingDirectory $repoRoot
+}
 
 Write-Host "Deploy finished." -ForegroundColor Green
 

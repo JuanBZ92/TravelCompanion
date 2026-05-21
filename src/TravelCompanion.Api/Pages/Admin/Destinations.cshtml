@@ -37,6 +37,12 @@
                 <span asp-validation-for="Input.Country"></span>
             </div>
             <div>
+                <label asp-for="Input.TimeZoneId">Zona horaria IANA</label>
+                <input asp-for="Input.TimeZoneId" placeholder="Europe/Paris" />
+                <p class="form-hint">Se usa como default para viajes y notificaciones. Ej: Asia/Tokyo, Europe/Paris, America/Argentina/Buenos_Aires.</p>
+                <span asp-validation-for="Input.TimeZoneId"></span>
+            </div>
+            <div>
                 <label asp-for="Input.HeroImageUrl">Hero image URL <span class="muted">(opcional)</span></label>
                 <input asp-for="Input.HeroImageUrl" />
                 <p class="form-hint">Imagen destacada del destino. Puede quedar vacia durante el MVP.</p>
@@ -74,7 +80,8 @@
             <tr>
                 <td>
                     <strong>@destination.Name</strong><br />
-                    <span class="muted">@destination.Country</span>
+                    <span class="muted">@destination.Country</span><br />
+                    <span class="mono">@destination.TimeZoneId</span>
                 </td>
                 <td>@destination.Slug</td>
                 <td>

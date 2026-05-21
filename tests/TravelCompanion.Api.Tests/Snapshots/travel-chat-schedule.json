@@ -4,8 +4,9 @@
   "intent": "view_schedule",
   "cards": [],
   "suggestedReplies": [
-    "Proponeme planes para 2026-10-06",
-    "Algo con menos caminata",
+    "Plan para comer el 2026-10-06",
+    "Recomendar por cercania",
+    "Recomendar por duracion",
     "Ver mis preferencias"
   ],
   "missingContext": null

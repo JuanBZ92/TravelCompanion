@@ -6,6 +6,7 @@ public sealed class Destination
     public required string Name { get; set; }
     public required string Slug { get; set; }
     public required string Country { get; set; }
+    public string TimeZoneId { get; set; } = "UTC";
     public required string HeroImageUrl { get; set; }
     public required string ShortDescription { get; set; }
 

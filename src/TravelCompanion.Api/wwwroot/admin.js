@@ -36,3 +36,24 @@ if (recommendationAccessSelect) {
     recommendationAccessSelect.addEventListener("change", updateRecommendationPackageField);
     updateRecommendationPackageField();
 }
+
+const tripUserSelect = document.querySelector("[data-trip-user-select]");
+const tripTravelerNameInput = document.querySelector("[data-trip-traveler-name]");
+
+function inferTravelerNameFromSelectedUser() {
+    if (!tripUserSelect || !tripTravelerNameInput || tripTravelerNameInput.value.trim().length > 0) {
+        return;
+    }
+
+    const selectedOption = tripUserSelect.options[tripUserSelect.selectedIndex];
+    if (!selectedOption) {
+        return;
+    }
+
+    tripTravelerNameInput.value = selectedOption.text.replace(/\s+\([^)]*\)\s*$/, "").trim();
+}
+
+if (tripUserSelect && tripTravelerNameInput) {
+    tripUserSelect.addEventListener("change", inferTravelerNameFromSelectedUser);
+    inferTravelerNameFromSelectedUser();
+}

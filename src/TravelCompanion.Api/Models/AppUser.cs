@@ -12,6 +12,8 @@ public sealed class AppUser
     public List<UserEntitlement> Entitlements { get; set; } = [];
     public List<Trip> Trips { get; set; } = [];
     public List<AppUserSession> Sessions { get; set; } = [];
+    public List<NotificationDeviceRegistration> NotificationDevices { get; set; } = [];
+    public List<NotificationOutboxItem> NotificationOutboxItems { get; set; } = [];
     public TravelPreferenceProfile? TravelPreferenceProfile { get; set; }
     public List<TravelChatConversation> TravelChatConversations { get; set; } = [];
 }

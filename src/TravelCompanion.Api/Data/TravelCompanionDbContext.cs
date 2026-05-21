@@ -16,6 +16,8 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
     public DbSet<AppUserSession> AppUserSessions => Set<AppUserSession>();
     public DbSet<TravelPreferenceProfile> TravelPreferenceProfiles => Set<TravelPreferenceProfile>();
     public DbSet<TravelChatConversation> TravelChatConversations => Set<TravelChatConversation>();
+    public DbSet<NotificationDeviceRegistration> NotificationDeviceRegistrations => Set<NotificationDeviceRegistration>();
+    public DbSet<NotificationOutboxItem> NotificationOutboxItems => Set<NotificationOutboxItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -25,6 +27,7 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
             entity.Property(destination => destination.Name).HasMaxLength(120);
             entity.Property(destination => destination.Slug).HasMaxLength(80);
             entity.Property(destination => destination.Country).HasMaxLength(80);
+            entity.Property(destination => destination.TimeZoneId).HasMaxLength(120).HasDefaultValue("UTC");
         });
 
         modelBuilder.Entity<TravelPackage>(entity =>
@@ -39,13 +42,18 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
 
         modelBuilder.Entity<Recommendation>(entity =>
         {
+            entity.HasIndex(recommendation => new { recommendation.DestinationId, recommendation.ExternalId }).IsUnique();
             entity.HasIndex(recommendation => new { recommendation.DestinationId, recommendation.Title });
             entity.HasIndex(recommendation => new { recommendation.DestinationId, recommendation.Category, recommendation.Title });
+            entity.Property(recommendation => recommendation.ExternalId).HasMaxLength(160);
             entity.Property(recommendation => recommendation.Title).HasMaxLength(160);
             entity.Property(recommendation => recommendation.Category).HasMaxLength(80);
             entity.Property(recommendation => recommendation.Neighborhood).HasMaxLength(120);
             entity.Property(recommendation => recommendation.PriceLevel).HasMaxLength(32);
             entity.Property(recommendation => recommendation.OpeningHours).HasMaxLength(256);
+            entity.Property(recommendation => recommendation.SourceName).HasMaxLength(160);
+            entity.Property(recommendation => recommendation.SourceUrl).HasMaxLength(512);
+            entity.Property(recommendation => recommendation.CurationNotes).HasMaxLength(1000);
             entity.Property(recommendation => recommendation.Latitude).HasPrecision(9, 6);
             entity.Property(recommendation => recommendation.Longitude).HasPrecision(9, 6);
             entity.Property(recommendation => recommendation.AccessLevel)
@@ -75,9 +83,12 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
 
         modelBuilder.Entity<Trip>(entity =>
         {
+            entity.HasIndex(trip => new { trip.AppUserId, trip.ExternalId }).IsUnique();
             entity.HasIndex(trip => new { trip.AppUserId, trip.StartsOn });
             entity.HasIndex(trip => new { trip.DestinationId, trip.StartsOn });
+            entity.Property(trip => trip.ExternalId).HasMaxLength(160);
             entity.Property(trip => trip.TravelerName).HasMaxLength(140);
+            entity.Property(trip => trip.TimeZoneId).HasMaxLength(120).HasDefaultValue("UTC");
             entity.HasOne(trip => trip.AppUser)
                 .WithMany(user => user.Trips)
                 .HasForeignKey(trip => trip.AppUserId)
@@ -86,13 +97,16 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
 
         modelBuilder.Entity<Reservation>(entity =>
         {
+            entity.HasIndex(reservation => new { reservation.TripId, reservation.ExternalId }).IsUnique();
             entity.HasIndex(reservation => new { reservation.TripId, reservation.Date, reservation.StartsAt });
             entity.HasIndex(reservation => new { reservation.TripId, reservation.Type, reservation.Date, reservation.StartsAt });
+            entity.Property(reservation => reservation.ExternalId).HasMaxLength(160);
             entity.Property(reservation => reservation.Type)
                 .HasConversion<string>()
                 .HasMaxLength(32)
                 .HasDefaultValue(TravelCompanion.Shared.ReservationType.Event);
             entity.Property(reservation => reservation.Title).HasMaxLength(160);
+            entity.Property(reservation => reservation.TimeZoneId).HasMaxLength(120);
             entity.Property(reservation => reservation.City).HasMaxLength(120);
             entity.Property(reservation => reservation.LocationName).HasMaxLength(160);
             entity.Property(reservation => reservation.ConfirmationCode).HasMaxLength(80);
@@ -102,6 +116,8 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
             entity.Property(reservation => reservation.DestinationName).HasMaxLength(160);
             entity.Property(reservation => reservation.OriginAirport).HasMaxLength(80);
             entity.Property(reservation => reservation.DestinationAirport).HasMaxLength(80);
+            entity.Property(reservation => reservation.SourceName).HasMaxLength(160);
+            entity.Property(reservation => reservation.SourceUrl).HasMaxLength(512);
         });
 
         modelBuilder.Entity<AppUser>(entity =>
@@ -147,6 +163,47 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
                 .WithMany(user => user.TravelChatConversations)
                 .HasForeignKey(conversation => conversation.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<NotificationDeviceRegistration>(entity =>
+        {
+            entity.HasIndex(device => new { device.UserId, device.InstallationId }).IsUnique();
+            entity.HasIndex(device => new { device.UserId, device.DisabledAtUtc });
+            entity.Property(device => device.InstallationId).HasMaxLength(160);
+            entity.Property(device => device.Platform).HasMaxLength(32);
+            entity.Property(device => device.PushToken).HasMaxLength(1024);
+            entity.Property(device => device.Locale).HasMaxLength(32);
+            entity.Property(device => device.TimeZoneId).HasMaxLength(120);
+            entity.HasOne(device => device.User)
+                .WithMany(user => user.NotificationDevices)
+                .HasForeignKey(device => device.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<NotificationOutboxItem>(entity =>
+        {
+            entity.HasIndex(notification => notification.DeduplicationKey).IsUnique();
+            entity.HasIndex(notification => new { notification.Status, notification.ScheduledForUtc });
+            entity.HasIndex(notification => new { notification.UserId, notification.Status });
+            entity.Property(notification => notification.DeduplicationKey).HasMaxLength(240);
+            entity.Property(notification => notification.Kind).HasMaxLength(80);
+            entity.Property(notification => notification.Title).HasMaxLength(160);
+            entity.Property(notification => notification.Body).HasMaxLength(500);
+            entity.Property(notification => notification.DeepLink).HasMaxLength(512);
+            entity.Property(notification => notification.Status).HasMaxLength(32);
+            entity.Property(notification => notification.LastError).HasMaxLength(1000);
+            entity.HasOne(notification => notification.User)
+                .WithMany(user => user.NotificationOutboxItems)
+                .HasForeignKey(notification => notification.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(notification => notification.Reservation)
+                .WithMany()
+                .HasForeignKey(notification => notification.ReservationId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(notification => notification.Recommendation)
+                .WithMany()
+                .HasForeignKey(notification => notification.RecommendationId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<UserEntitlement>(entity =>

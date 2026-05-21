@@ -1,5 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.Reflection;
+using Microsoft.EntityFrameworkCore;
+using TravelCompanion.Api.Data;
 using TravelCompanion.Api.Pages.Admin;
 using TravelCompanion.Shared;
 
@@ -55,6 +57,46 @@ public sealed class AdminInputValidationTests
     }
 
     [Fact]
+    public void Trip_form_traveler_name_is_validated_by_handler_only()
+    {
+        var input = new ReservationsModel.TripForm
+        {
+            UserId = Guid.NewGuid(),
+            DestinationId = Guid.NewGuid(),
+            TravelerName = string.Empty,
+            StartsOn = new DateOnly(2026, 5, 20),
+            EndsOn = new DateOnly(2026, 5, 27)
+        };
+
+        var errors = Validate(input);
+
+        Assert.DoesNotContain(errors, error =>
+            error.MemberNames.Contains(nameof(ReservationsModel.TripForm.TravelerName)));
+    }
+
+    [Fact]
+    public async Task Save_trip_still_rejects_empty_traveler_when_user_cannot_be_resolved()
+    {
+        await using var dbContext = CreateDbContext();
+        var page = new ReservationsModel(dbContext)
+        {
+            TripInput = new ReservationsModel.TripForm
+            {
+                UserId = Guid.NewGuid(),
+                DestinationId = Guid.NewGuid(),
+                TravelerName = string.Empty,
+                StartsOn = new DateOnly(2026, 5, 20),
+                EndsOn = new DateOnly(2026, 5, 27)
+            }
+        };
+
+        await page.OnPostSaveTripAsync();
+
+        Assert.False(page.ModelState.IsValid);
+        Assert.True(page.ModelState.ContainsKey("TripInput.TravelerName"));
+    }
+
+    [Fact]
     public void Package_allows_empty_optional_description()
     {
         var input = new PackagesModel.PackageInput
@@ -78,5 +120,14 @@ public sealed class AdminInputValidationTests
         var results = new List<ValidationResult>();
         Validator.TryValidateObject(instance, validationContext, results, validateAllProperties: true);
         return results;
+    }
+
+    private static TravelCompanionDbContext CreateDbContext()
+    {
+        var options = new Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<TravelCompanionDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+
+        return new TravelCompanionDbContext(options);
     }
 }
