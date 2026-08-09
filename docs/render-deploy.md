@@ -5,14 +5,20 @@ This repo can deploy the ASP.NET Core API to Render as a Docker web service with
 ## First deploy
 
 1. Commit and push `Dockerfile`, `.dockerignore`, `render.yaml`, and the API `DATABASE_URL` support in `src/TravelCompanion.Api/Program.cs` to `newapproach`.
-2. Open the Blueprint flow:
+2. Authenticate and validate from a terminal:
+   ```powershell
+   render login
+   render workspace current
+   render blueprints validate -o text
+   ```
+3. Open the Blueprint flow:
    `https://dashboard.render.com/blueprint/new?repo=https://github.com/JuanBZ92/TravelCompanion`
-3. Select branch `newapproach` if Render asks.
-4. Fill the secret values requested by the Blueprint:
+4. Select branch `newapproach` if Render asks.
+5. Fill the secret values requested by the Blueprint:
    - `AdminAuth__Username`
    - `AdminAuth__Password`
-5. Apply the Blueprint and wait for `travelcompanion-api` to become live.
-6. Test `https://<your-render-service>.onrender.com/health`.
+6. Apply the Blueprint and wait for `travelcompanion-api` to become live.
+7. Test `https://<your-render-service>.onrender.com/health`.
 
 ## Optional OpenAI
 
