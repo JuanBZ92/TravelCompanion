@@ -15,8 +15,10 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     private const string AllCitiesKey = "All Cities";
     private readonly AuthSessionService _sessionService;
     private readonly MobileBootstrapStore _bootstrapStore;
+    private readonly ILocationService _locationService;
     private readonly ILogger<ScheduleViewModel> _logger;
     private readonly List<ScheduleItemDto> _allItems = [];
+    private readonly List<RecommendationDto> _recommendations = [];
     private readonly Dictionary<string, ScheduleTypeSectionViewModel> _sectionCache = new(StringComparer.Ordinal);
     private ReservationType _selectedType = ReservationType.Event;
     private string _tripTitle = "Your Trip";
@@ -32,6 +34,9 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     private ScheduleTypeSectionViewModel? _activeSection;
     private IReadOnlyList<ScheduleDayViewModel> _activeDays = [];
     private IReadOnlyList<ScheduleTimelineItemViewModel> _selectedTimelineItems = [];
+    private IReadOnlyList<ScheduleTodaySectionViewModel> _todaySections = [];
+    private GeoPointDto? _currentLocation;
+    private bool _hasRequestedLocation;
 
     public ObservableCollection<ScheduleTypeSectionViewModel> TypeSections { get; } = [];
     public ObservableCollection<ScheduleTypeFilterViewModel> TypeFilters { get; } = [];
@@ -49,8 +54,14 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         private set => SetProperty(ref _selectedTimelineItems, value);
     }
 
+    public IReadOnlyList<ScheduleTodaySectionViewModel> TodaySections
+    {
+        get => _todaySections;
+        private set => SetProperty(ref _todaySections, value);
+    }
+
     public bool HasScheduleItems => _allItems.Count > 0;
-    public bool HasSelectedDayItems => SelectedTimelineItems.Count > 0;
+    public bool HasSelectedDayItems => TodaySections.Any(section => section.HasContent);
     public bool HasFocusItem => _focusItem is not null;
     public bool ShowInitialLoading => IsBusy && !HasScheduleItems;
     public bool ShowEmptyState => HasLoaded && !IsBusy && !HasSelectedDayItems && !HasStayCard;
@@ -90,10 +101,12 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     public ScheduleViewModel(
         AuthSessionService sessionService,
         MobileBootstrapStore bootstrapStore,
+        ILocationService locationService,
         ILogger<ScheduleViewModel> logger)
     {
         _sessionService = sessionService;
         _bootstrapStore = bootstrapStore;
+        _locationService = locationService;
         _logger = logger;
         _bootstrapStore.ScheduleUpdated += OnScheduleCacheUpdated;
     }
@@ -120,9 +133,11 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     {
         ResetLoadState();
         _allItems.Clear();
+        _recommendations.Clear();
         _sectionCache.Clear();
         ActiveDays = [];
         SelectedTimelineItems = [];
+        TodaySections = [];
         TypeSections.Clear();
         _activeSection = null;
         TypeFilters.Clear();
@@ -136,6 +151,8 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         PreviewMessage = null;
         StayTitle = null;
         _focusItem = null;
+        _currentLocation = null;
+        _hasRequestedLocation = false;
         TripTitle = "Your Trip";
         TripDates = null;
         SelectedItem = null;
@@ -307,6 +324,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         if (cached is not null)
         {
             ApplyBootstrapSchedule(cached.Value);
+            await UpdateLocationAsync(cancellationToken);
             MarkLastUpdated(cached.SavedAt);
 
             if (!forceRefresh && _bootstrapStore.HasFreshSnapshot())
@@ -331,6 +349,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
             }
 
             ApplyBootstrapSchedule(bootstrap);
+            await UpdateLocationAsync(cancellationToken);
             MarkLastUpdated(DateTimeOffset.UtcNow);
             StatusMessage = null;
         }
@@ -347,6 +366,9 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
 
     private void ApplyBootstrapSchedule(MobileBootstrapDto bootstrap)
     {
+        _recommendations.Clear();
+        _recommendations.AddRange(bootstrap.Recommendations ?? []);
+
         if (bootstrap.Schedule is null)
         {
             ApplyEmptySchedule();
@@ -390,6 +412,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         _focusItem = null;
         ActiveDays = [];
         SelectedTimelineItems = [];
+        TodaySections = [];
         TypeSections.Clear();
         _activeSection = null;
         TypeFilters.Clear();
@@ -440,6 +463,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
             StayTitle = null;
             PreviewMessage = null;
             SelectedTimelineItems = [];
+            TodaySections = [];
             ActiveDays = [];
             NotifySelectedDayChanged();
             return;
@@ -448,7 +472,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         var selectedDate = _selectedDate.Value;
         _selectedCity = GetCityForDate(selectedDate, TripTitle);
         StayTitle = GetStayTitleForDate(selectedDate);
-        PreviewMessage = GetPreviewMessage(selectedDate);
+        PreviewMessage = null;
 
         var selectedItems = _allItems
             .Where(item => item.Type != ReservationType.Lodging)
@@ -456,14 +480,185 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
             .OrderBy(item => item.StartsAt)
             .ToList();
 
+        var dayNumber = _tripStartsOn.HasValue
+            ? selectedDate.DayNumber - _tripStartsOn.Value.DayNumber + 1
+            : 1;
+        TodaySections = BuildTodaySections(selectedDate, dayNumber, selectedItems);
         SelectedTimelineItems = selectedItems
-            .Select(item => new ScheduleTimelineItemViewModel(item))
+            .Select(item => new ScheduleTimelineItemViewModel(item, dayNumber))
             .ToList();
         ActiveDays = selectedItems.Count == 0
             ? []
             : [new ScheduleDayViewModel(selectedDate, selectedItems)];
 
         NotifySelectedDayChanged();
+    }
+
+    [RelayCommand]
+    private async Task OpenRecommendationAsync(RecommendationDto? recommendation)
+    {
+        if (recommendation is null)
+        {
+            return;
+        }
+
+        await Shell.Current.GoToAsync(
+            nameof(RecommendationDetailPage),
+            new Dictionary<string, object>
+            {
+                ["Recommendation"] = recommendation,
+                ["IsUnlocked"] = true
+            });
+    }
+
+    private IReadOnlyList<ScheduleTodaySectionViewModel> BuildTodaySections(
+        DateOnly selectedDate,
+        int dayNumber,
+        IReadOnlyList<ScheduleItemDto> selectedReservations)
+    {
+        var usedRecommendationIds = new HashSet<Guid>();
+        return TodayPeriod.All
+            .Select(period =>
+            {
+                var reservations = selectedReservations
+                    .Where(item => period.Contains(item.StartsAt))
+                    .OrderBy(item => item.StartsAt)
+                    .Select(item => new TodayReservationViewModel(item))
+                    .ToList();
+                var locations = SelectRecommendationsForPeriod(period, selectedDate, usedRecommendationIds)
+                    .Select(recommendation => new TodayLocationViewModel(
+                        recommendation,
+                        CalculateDistanceKm(_currentLocation, recommendation)))
+                    .ToList();
+
+                return new ScheduleTodaySectionViewModel(
+                    dayNumber,
+                    period.Label,
+                    CreateSectionDescription(period, reservations, locations),
+                    locations,
+                    reservations);
+            })
+            .ToList();
+    }
+
+    private IReadOnlyList<RecommendationDto> SelectRecommendationsForPeriod(
+        TodayPeriod period,
+        DateOnly selectedDate,
+        ISet<Guid> usedRecommendationIds)
+    {
+        var selectedCity = GetCityForDate(selectedDate, string.Empty);
+        var candidates = _recommendations
+            .Where(recommendation => !usedRecommendationIds.Contains(recommendation.Id))
+            .Select(recommendation => new
+            {
+                Recommendation = recommendation,
+                Score = ScoreRecommendationForPeriod(recommendation, period, selectedCity)
+            })
+            .OrderByDescending(candidate => candidate.Score)
+            .ThenBy(candidate => CalculateDistanceKm(_currentLocation, candidate.Recommendation) ?? decimal.MaxValue)
+            .ThenBy(candidate => candidate.Recommendation.Title)
+            .Take(2)
+            .Select(candidate => candidate.Recommendation)
+            .ToList();
+
+        foreach (var recommendation in candidates)
+        {
+            usedRecommendationIds.Add(recommendation.Id);
+        }
+
+        return candidates;
+    }
+
+    private static int ScoreRecommendationForPeriod(
+        RecommendationDto recommendation,
+        TodayPeriod period,
+        string selectedCity)
+    {
+        var text = string.Join(
+            ' ',
+            recommendation.Title,
+            recommendation.Category,
+            recommendation.Neighborhood,
+            string.Join(' ', recommendation.Tags)).ToLowerInvariant();
+        var score = period.Keywords.Count(keyword => text.Contains(keyword, StringComparison.OrdinalIgnoreCase)) * 4;
+
+        if (!string.IsNullOrWhiteSpace(selectedCity)
+            && text.Contains(selectedCity.ToLowerInvariant(), StringComparison.OrdinalIgnoreCase))
+        {
+            score += 2;
+        }
+
+        if (recommendation.SuggestedDurationMinutes is > 0 and <= 120)
+        {
+            score += 1;
+        }
+
+        if (recommendation.Rating >= 4)
+        {
+            score += 1;
+        }
+
+        return score;
+    }
+
+    private static string CreateSectionDescription(
+        TodayPeriod period,
+        IReadOnlyList<TodayReservationViewModel> reservations,
+        IReadOnlyList<TodayLocationViewModel> locations)
+    {
+        if (reservations.Count > 0)
+        {
+            var reservationLabel = reservations.Count == 1
+                ? reservations[0].Title
+                : $"{reservations.Count} reservas";
+            return $"{period.Label}: tenes {reservationLabel}. Dejo cerca algunas locations utiles por si queres completar el bloque sin desviar demasiado el dia.";
+        }
+
+        if (locations.Count > 0)
+        {
+            return $"{period.Label}: bloque libre para elegir algo liviano. Estas locations encajan bien para sumar contexto al dia sin convertirlo en una agenda pesada.";
+        }
+
+        return $"{period.Label}: sin reservas cargadas ni locations sugeridas por ahora.";
+    }
+
+    private async Task UpdateLocationAsync(CancellationToken cancellationToken)
+    {
+        if (_hasRequestedLocation)
+        {
+            return;
+        }
+
+        _hasRequestedLocation = true;
+        _currentLocation = await _locationService.GetCurrentLocationAsync(cancellationToken);
+        if (_currentLocation is not null)
+        {
+            RebuildSelectedDay();
+        }
+    }
+
+    private static decimal? CalculateDistanceKm(GeoPointDto? currentLocation, RecommendationDto recommendation)
+    {
+        if (currentLocation is null)
+        {
+            return recommendation.DistanceKm;
+        }
+
+        const double earthRadiusKm = 6371;
+
+        static double ToRadians(decimal degrees) => (double)degrees * Math.PI / 180;
+
+        var latitudeDelta = ToRadians(recommendation.Latitude - currentLocation.Latitude);
+        var longitudeDelta = ToRadians(recommendation.Longitude - currentLocation.Longitude);
+        var originLatitudeRadians = ToRadians(currentLocation.Latitude);
+        var targetLatitudeRadians = ToRadians(recommendation.Latitude);
+
+        var a = Math.Sin(latitudeDelta / 2) * Math.Sin(latitudeDelta / 2)
+            + Math.Cos(originLatitudeRadians) * Math.Cos(targetLatitudeRadians)
+            * Math.Sin(longitudeDelta / 2) * Math.Sin(longitudeDelta / 2);
+
+        var c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+        return Math.Round((decimal)(earthRadiusKm * c), 1);
     }
 
     private string GetCityForDate(DateOnly date, string fallback)
@@ -493,31 +688,10 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     {
         return _allItems
             .Where(item => item.Type == ReservationType.Lodging)
-            .Where(item => item.Date <= date && (item.EndsOn is null || item.EndsOn >= date))
+            .Where(item => item.Date == date)
             .OrderByDescending(item => item.Date)
             .Select(item => string.IsNullOrWhiteSpace(item.LocationName) ? item.Title : item.LocationName)
             .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
-    }
-
-    private string? GetPreviewMessage(DateOnly selectedDate)
-    {
-        if (_tripStartsOn is null || _tripEndsOn is null)
-        {
-            return null;
-        }
-
-        var today = DateOnly.FromDateTime(DateTime.Now);
-        if (today < _tripStartsOn.Value && selectedDate == _tripStartsOn.Value)
-        {
-            return $"Vista previa - el viaje empieza el {FormatShortDate(_tripStartsOn.Value)}. Mostramos el Dia 1.";
-        }
-
-        if (today > _tripEndsOn.Value && selectedDate == _tripEndsOn.Value)
-        {
-            return "El viaje ya termino. Mostramos el ultimo dia cargado.";
-        }
-
-        return null;
     }
 
     private void UpdateTypeFilters()

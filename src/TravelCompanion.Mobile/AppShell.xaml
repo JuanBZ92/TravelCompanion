@@ -42,7 +42,7 @@
 
         <ShellContent
             x:Name="ScheduleTab"
-            Title="Schedule"
+            Title="Today"
             Icon="tab_trip.svg"
             ContentTemplate="{DataTemplate pages:SchedulePage}"
             Route="schedule" />

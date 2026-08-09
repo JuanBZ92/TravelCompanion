@@ -106,4 +106,20 @@ public partial class SchedulePage : ContentPage
             await _viewModel.OpenScheduleItemCommand.ExecuteAsync(timelineItem.Item);
         }
     }
+
+    private async void OnTodayLocationTapped(object? sender, TappedEventArgs e)
+    {
+        if ((sender as BindableObject)?.BindingContext is TodayLocationViewModel location)
+        {
+            await _viewModel.OpenRecommendationCommand.ExecuteAsync(location.Recommendation);
+        }
+    }
+
+    private async void OnTodayReservationTapped(object? sender, TappedEventArgs e)
+    {
+        if ((sender as BindableObject)?.BindingContext is TodayReservationViewModel reservation)
+        {
+            await _viewModel.OpenScheduleItemCommand.ExecuteAsync(reservation.Item);
+        }
+    }
 }

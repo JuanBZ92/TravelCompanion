@@ -6,7 +6,7 @@
              x:Class="TravelCompanion.Mobile.Pages.SchedulePage"
              x:Name="PageRoot"
              x:DataType="viewModels:ScheduleViewModel"
-             Title="Schedule"
+             Title="Today"
              Shell.NavBarIsVisible="False"
              BackgroundColor="#F8F3ED">
 
@@ -61,8 +61,8 @@
                     </Grid>
 
                     <Border Padding="16,14"
-                            BackgroundColor="#FFFFFF99"
-                            Stroke="#1A171414"
+                            BackgroundColor="#F6F1EA"
+                            Stroke="#D8CFC4"
                             StrokeThickness="1"
                             IsVisible="{Binding HasStayCard}">
                         <Border.StrokeShape>
@@ -153,9 +153,9 @@
                     </Border>
 
                     <VerticalStackLayout Spacing="0"
-                                         BindableLayout.ItemsSource="{Binding SelectedTimelineItems}">
+                                         BindableLayout.ItemsSource="{Binding TodaySections}">
                         <BindableLayout.ItemTemplate>
-                            <DataTemplate x:DataType="viewModels:ScheduleTimelineItemViewModel">
+                            <DataTemplate x:DataType="viewModels:ScheduleTodaySectionViewModel">
                                 <Grid ColumnDefinitions="26,*"
                                       Margin="0,0,0,26">
                                     <Grid>
@@ -174,14 +174,14 @@
                                     </Grid>
 
                                     <VerticalStackLayout Grid.Column="1"
-                                                         Spacing="11"
+                                                         Spacing="13"
                                                          Padding="12,0,0,8">
                                         <HorizontalStackLayout Spacing="12">
-                                            <Label Text="{Binding TimeOfDayLabel}"
+                                            <Label Text="{Binding Title}"
                                                    FontFamily="serif"
                                                    FontSize="16"
                                                    TextColor="#5A5148" />
-                                            <Label Text="{Binding TypeBadge}"
+                                            <Label Text="{Binding PeriodLabel}"
                                                    CharacterSpacing="4"
                                                    FontSize="10"
                                                    FontAttributes="Bold"
@@ -189,58 +189,107 @@
                                                    VerticalOptions="Center" />
                                         </HorizontalStackLayout>
 
-                                        <Label Text="{Binding Title}"
-                                               FontFamily="serif"
-                                               FontSize="24"
-                                               TextColor="#1A1714"
-                                               LineBreakMode="WordWrap"
-                                               MaxLines="2" />
-
-                                        <Label Text="{Binding MetaLine}"
-                                               FontSize="13"
-                                               TextColor="#8A8078"
-                                               LineBreakMode="TailTruncation"
-                                               MaxLines="1" />
-
-                                        <Label Text="{Binding Body}"
+                                        <Label Text="{Binding Description}"
                                                FontSize="16"
                                                LineHeight="1.35"
-                                               TextColor="#4D4741"
-                                               IsVisible="{Binding HasBody}" />
+                                               TextColor="#4D4741" />
 
-                                        <Label Text="{Binding DetailLine}"
-                                               FontSize="13"
-                                               TextColor="#6E675F"
-                                               IsVisible="{Binding HasDetailLine}"
-                                               LineBreakMode="TailTruncation"
-                                               MaxLines="2" />
-
-                                        <HorizontalStackLayout Spacing="8"
-                                                               IsVisible="{Binding HasActionTitle}">
-                                            <Label Text="MAPA"
-                                                   CharacterSpacing="2"
+                                        <VerticalStackLayout Spacing="8"
+                                                             IsVisible="{Binding HasLocations}">
+                                            <Label Text="LOCATIONS"
+                                                   CharacterSpacing="3"
                                                    FontSize="10"
                                                    FontAttributes="Bold"
-                                                   TextColor="#9B9288"
-                                                   VerticalOptions="Center" />
-                                            <Label Text="{Binding ActionTitle}"
-                                                   FontSize="14"
-                                                   TextColor="#3D3329"
-                                                   TextDecorations="Underline"
-                                                   LineBreakMode="TailTruncation"
-                                                   MaxLines="1" />
-                                        </HorizontalStackLayout>
+                                                   TextColor="#9B9288" />
+                                            <VerticalStackLayout Spacing="9"
+                                                                 BindableLayout.ItemsSource="{Binding Locations}">
+                                                <BindableLayout.ItemTemplate>
+                                                    <DataTemplate x:DataType="viewModels:TodayLocationViewModel">
+                                                        <Grid ColumnDefinitions="*,Auto"
+                                                              ColumnSpacing="12"
+                                                              Padding="0,2">
+                                                            <VerticalStackLayout Spacing="3">
+                                                                <Label Text="{Binding Title}"
+                                                                       FontFamily="serif"
+                                                                       FontSize="21"
+                                                                       TextColor="#1A1714"
+                                                                       LineBreakMode="WordWrap"
+                                                                       MaxLines="2" />
+                                                                <Label Text="{Binding Detail}"
+                                                                       FontSize="13"
+                                                                       TextColor="#8A8078"
+                                                                       LineBreakMode="TailTruncation"
+                                                                       MaxLines="1" />
+                                                                <Label Text="{Binding DistanceLabel}"
+                                                                       FontSize="12"
+                                                                       TextColor="#6E675F"
+                                                                       IsVisible="{Binding HasDistance}" />
+                                                            </VerticalStackLayout>
+                                                            <Label Grid.Column="1"
+                                                                   Text="MAP"
+                                                                   FontSize="11"
+                                                                   CharacterSpacing="2"
+                                                                   FontAttributes="Bold"
+                                                                   TextColor="#3D3329"
+                                                                   TextDecorations="Underline"
+                                                                   VerticalOptions="Center" />
+                                                            <Grid.GestureRecognizers>
+                                                                <TapGestureRecognizer Tapped="OnTodayLocationTapped" />
+                                                            </Grid.GestureRecognizers>
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </BindableLayout.ItemTemplate>
+                                            </VerticalStackLayout>
+                                        </VerticalStackLayout>
 
-                                        <Label Text="{Binding ConfirmationLine}"
-                                               FontSize="12"
-                                               TextColor="#8A8078"
-                                               IsVisible="{Binding HasConfirmationCode}"
-                                               LineBreakMode="TailTruncation"
-                                               MaxLines="1" />
-
-                                        <VerticalStackLayout.GestureRecognizers>
-                                            <TapGestureRecognizer Tapped="OnTimelineItemTapped" />
-                                        </VerticalStackLayout.GestureRecognizers>
+                                        <VerticalStackLayout Spacing="8"
+                                                             IsVisible="{Binding HasReservations}">
+                                            <Label Text="RESERVAS"
+                                                   CharacterSpacing="3"
+                                                   FontSize="10"
+                                                   FontAttributes="Bold"
+                                                   TextColor="#9B9288" />
+                                            <VerticalStackLayout Spacing="9"
+                                                                 BindableLayout.ItemsSource="{Binding Reservations}">
+                                                <BindableLayout.ItemTemplate>
+                                                    <DataTemplate x:DataType="viewModels:TodayReservationViewModel">
+                                                        <Border Padding="12,10"
+                                                                BackgroundColor="#F6F1EA"
+                                                                Stroke="#D8CFC4"
+                                                                StrokeThickness="1">
+                                                            <Border.StrokeShape>
+                                                                <RoundRectangle CornerRadius="0" />
+                                                            </Border.StrokeShape>
+                                                            <VerticalStackLayout Spacing="4">
+                                                                <Label Text="{Binding TimeLabel}"
+                                                                       FontSize="12"
+                                                                       TextColor="#8A8078" />
+                                                                <Label Text="{Binding Title}"
+                                                                       FontFamily="serif"
+                                                                       FontSize="21"
+                                                                       TextColor="#1A1714"
+                                                                       LineBreakMode="WordWrap"
+                                                                       MaxLines="2" />
+                                                                <Label Text="{Binding Place}"
+                                                                       FontSize="13"
+                                                                       TextColor="#6E675F"
+                                                                       LineBreakMode="TailTruncation"
+                                                                       MaxLines="2" />
+                                                                <Label Text="{Binding Confirmation}"
+                                                                       FontSize="12"
+                                                                       TextColor="#8A8078"
+                                                                       IsVisible="{Binding HasConfirmation}"
+                                                                       LineBreakMode="TailTruncation"
+                                                                       MaxLines="1" />
+                                                            </VerticalStackLayout>
+                                                            <Border.GestureRecognizers>
+                                                                <TapGestureRecognizer Tapped="OnTodayReservationTapped" />
+                                                            </Border.GestureRecognizers>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </BindableLayout.ItemTemplate>
+                                            </VerticalStackLayout>
+                                        </VerticalStackLayout>
                                     </VerticalStackLayout>
                                 </Grid>
                             </DataTemplate>
