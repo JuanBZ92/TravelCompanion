@@ -118,6 +118,11 @@ public partial class ScheduleItemDetailPage : ContentPage
 #endif
     }
 
+    private async void OnBackClicked(object? sender, EventArgs e)
+    {
+        await Shell.Current.GoToAsync("..");
+    }
+
 #if !WINDOWS
     private static Pin CreatePin(ScheduleItemDto item, Location location) =>
         new()

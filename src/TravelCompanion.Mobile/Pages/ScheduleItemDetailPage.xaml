@@ -5,7 +5,7 @@
              x:Class="TravelCompanion.Mobile.Pages.ScheduleItemDetailPage"
              x:DataType="viewModels:ScheduleItemDetailViewModel"
              Title=""
-             Shell.NavBarIsVisible="True"
+             Shell.NavBarIsVisible="False"
              Shell.BackgroundColor="#F8F3ED"
              BackgroundColor="#F8F3ED">
 
@@ -38,17 +38,31 @@
                                LineBreakMode="WordWrap"
                                MaxLines="2" />
                     </VerticalStackLayout>
+
+                    <Button Text="&lt;"
+                            Clicked="OnBackClicked"
+                            WidthRequest="44"
+                            HeightRequest="44"
+                            Padding="0"
+                            Margin="20,22,0,0"
+                            HorizontalOptions="Start"
+                            VerticalOptions="Start"
+                            BackgroundColor="#F8F3ED"
+                            TextColor="#1A1714"
+                            BorderColor="#D8CFC4"
+                            BorderWidth="1"
+                            CornerRadius="0"
+                            FontSize="20" />
                 </Grid>
             </Border>
 
             <VerticalStackLayout Padding="28,28,28,40"
                                  Spacing="24">
                 <VerticalStackLayout Spacing="10">
-                    <Label Text="{Binding ScheduleItem.TypeLabel}"
-                           CharacterSpacing="5"
-                           FontSize="10"
+                    <Label Text="RESERVA · YUKU JAPAN"
+                           CharacterSpacing="6"
+                           FontSize="11"
                            FontAttributes="Bold"
-                           TextTransform="Uppercase"
                            TextColor="#9B9288" />
                     <Label Text="{Binding ScheduleItem.Title}"
                            FontFamily="serif"
@@ -61,13 +75,20 @@
                            TextColor="#8A8078"
                            LineBreakMode="TailTruncation"
                            MaxLines="1" />
+                    <Label Text="{Binding ScheduleItem.TypeLabel}"
+                           CharacterSpacing="3"
+                           FontSize="11"
+                           FontAttributes="Bold"
+                           TextTransform="Uppercase"
+                           TextColor="#B8956A" />
                 </VerticalStackLayout>
 
                 <VerticalStackLayout Spacing="8">
-                    <Label Text="Fecha y horario"
-                           FontSize="16"
+                    <Label Text="FECHA Y HORARIO"
+                           CharacterSpacing="3"
+                           FontSize="11"
                            FontAttributes="Bold"
-                           TextColor="#1A1714" />
+                           TextColor="#9B9288" />
                     <Label Text="{Binding ReservationTimeLabel}"
                            FontSize="16"
                            LineHeight="1.35"
@@ -75,10 +96,11 @@
                 </VerticalStackLayout>
 
                 <VerticalStackLayout Spacing="8">
-                    <Label Text="Direccion"
-                           FontSize="16"
+                    <Label Text="DIRECCION"
+                           CharacterSpacing="3"
+                           FontSize="11"
                            FontAttributes="Bold"
-                           TextColor="#1A1714" />
+                           TextColor="#9B9288" />
                     <Label Text="{Binding AddressText}"
                            FontSize="16"
                            LineHeight="1.35"
@@ -87,10 +109,11 @@
 
                 <VerticalStackLayout Spacing="8"
                                      IsVisible="{Binding HasNotes}">
-                    <Label Text="Notas"
-                           FontSize="16"
+                    <Label Text="NOTAS"
+                           CharacterSpacing="3"
+                           FontSize="11"
                            FontAttributes="Bold"
-                           TextColor="#1A1714" />
+                           TextColor="#9B9288" />
                     <Label Text="{Binding NotesText}"
                            FontSize="16"
                            LineHeight="1.45"

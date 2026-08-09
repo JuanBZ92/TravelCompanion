@@ -100,6 +100,11 @@ public partial class RecommendationDetailPage : ContentPage
 #endif
     }
 
+    private async void OnBackClicked(object? sender, EventArgs e)
+    {
+        await Shell.Current.GoToAsync("..");
+    }
+
 #if !WINDOWS
     private static Pin CreatePin(RecommendationDto recommendation, Location location) =>
         new()
