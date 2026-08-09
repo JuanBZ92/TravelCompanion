@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="AssistantEyebrow" xml:space="preserve"><value>ASSISTANT · YUKU JAPAN</value></data>
+  <data name="AssistantTitle" xml:space="preserve"><value>Assistant</value></data>
+  <data name="AssistantEmptyTitle" xml:space="preserve"><value>What do you want to do now?</value></data>
+  <data name="AssistantEmptySubtitle" xml:space="preserve"><value>Choose an action or write a concrete request.</value></data>
+  <data name="AssistantMessagePlaceholder" xml:space="preserve"><value>Write your request</value></data>
+  <data name="AssistantSend" xml:space="preserve"><value>Send</value></data>
+  <data name="AssistantDefaultPrompt" xml:space="preserve"><value>Plan for food</value></data>
+  <data name="AssistantPlanFood" xml:space="preserve"><value>Plan for food</value></data>
+  <data name="AssistantPlanRelax" xml:space="preserve"><value>Plan to relax</value></data>
+  <data name="AssistantPlanNight" xml:space="preserve"><value>Night plan</value></data>
+  <data name="AssistantPlanCouple" xml:space="preserve"><value>Couple plan</value></data>
+  <data name="AssistantPlanWalk" xml:space="preserve"><value>Walking plan</value></data>
+  <data name="AssistantPlanDance" xml:space="preserve"><value>Dance plan</value></data>
+  <data name="AssistantPlanDate" xml:space="preserve"><value>Date plan</value></data>
+  <data name="AssistantRecommendNearby" xml:space="preserve"><value>Recommend nearby</value></data>
+  <data name="AssistantRecommendDuration" xml:space="preserve"><value>Recommend by duration</value></data>
+  <data name="AssistantOtherOption" xml:space="preserve"><value>Another option</value></data>
+  <data name="AssistantViewSchedule" xml:space="preserve"><value>Show my schedule</value></data>
+  <data name="AssistantViewPreferences" xml:space="preserve"><value>Show my preferences</value></data>
+  <data name="AssistantHelpCapabilities" xml:space="preserve"><value>What can I ask</value></data>
+  <data name="AssistantGuidePlan" xml:space="preserve"><value>Plan</value></data>
+  <data name="AssistantGuideAdjust" xml:space="preserve"><value>Adjust</value></data>
+  <data name="AssistantGuideSchedule" xml:space="preserve"><value>Schedule</value></data>
+  <data name="AssistantGuidePreferences" xml:space="preserve"><value>Preferences</value></data>
+  <data name="AssistantGuideHelp" xml:space="preserve"><value>Help</value></data>
+  <data name="AssistantPromptFood" xml:space="preserve"><value>Suggest a plan for food considering my schedule</value></data>
+  <data name="AssistantPromptRelax" xml:space="preserve"><value>Suggest a plan to relax considering my schedule</value></data>
+  <data name="AssistantPromptWalk" xml:space="preserve"><value>Recommend a walking plan considering my schedule</value></data>
+  <data name="AssistantPromptCouple" xml:space="preserve"><value>Recommend a couple plan considering my schedule</value></data>
+  <data name="AssistantPromptNight" xml:space="preserve"><value>Recommend a night plan considering my schedule</value></data>
+  <data name="AssistantPromptDance" xml:space="preserve"><value>Recommend a dance plan considering my schedule</value></data>
+  <data name="AssistantPromptDate" xml:space="preserve"><value>Suggest plans for 2026-10-08 considering my schedule</value></data>
+  <data name="AssistantPromptNearby" xml:space="preserve"><value>Recommend nearby considering the initial request</value></data>
+  <data name="AssistantPromptDuration" xml:space="preserve"><value>Recommend by duration considering the initial request</value></data>
+  <data name="AssistantPromptOther" xml:space="preserve"><value>Another option considering the initial request</value></data>
+  <data name="AssistantPromptTomorrow" xml:space="preserve"><value>Suggest plans for tomorrow</value></data>
+  <data name="AssistantTomorrow" xml:space="preserve"><value>Tomorrow</value></data>
+  <data name="AssistantPromptAvoidCulture" xml:space="preserve"><value>Avoid #culture</value></data>
+  <data name="AssistantPromptLowBudget" xml:space="preserve"><value>Low budget</value></data>
+  <data name="AssistantPromptCommands" xml:space="preserve"><value>Help</value></data>
+  <data name="AssistantDetailButton" xml:space="preserve"><value>Details</value></data>
+  <data name="AssistantNearbyButton" xml:space="preserve"><value>Nearby</value></data>
+  <data name="AssistantReplaceButton" xml:space="preserve"><value>Replace</value></data>
+  <data name="AssistantSaveButton" xml:space="preserve"><value>Save</value></data>
+  <data name="AssistantSavedButton" xml:space="preserve"><value>Saved</value></data>
+  <data name="AssistantUsefulButton" xml:space="preserve"><value>Useful</value></data>
+  <data name="AssistantNotUsefulButton" xml:space="preserve"><value>Not useful</value></data>
+  <data name="AssistantHideSimilarButton" xml:space="preserve"><value>Hide similar</value></data>
+  <data name="AssistantCostPrefix" xml:space="preserve"><value>Cost</value></data>
+  <data name="AssistantDistancePrefix" xml:space="preserve"><value>Distance</value></data>
+  <data name="AssistantWalkingPrefix" xml:space="preserve"><value>Walk</value></data>
+  <data name="AssistantTimePrefix" xml:space="preserve"><value>Time</value></data>
+  <data name="AssistantAvoidTagPrefix" xml:space="preserve"><value>Avoid</value></data>
+  <data name="AssistantAttentionPrefix" xml:space="preserve"><value>Attention</value></data>
+  <data name="AssistantLowCost" xml:space="preserve"><value>Low</value></data>
+  <data name="AssistantMediumCost" xml:space="preserve"><value>Medium</value></data>
+  <data name="AssistantHighCost" xml:space="preserve"><value>High</value></data>
+  <data name="AssistantFreeCost" xml:space="preserve"><value>Free</value></data>
+  <data name="AssistantNoReadyPlan" xml:space="preserve"><value>I could not find a plan ready to save.</value></data>
+  <data name="AssistantSaveTitle" xml:space="preserve"><value>Save plan</value></data>
+  <data name="AssistantSaveMessage" xml:space="preserve"><value>Save "{0}" to your itinerary?</value></data>
+  <data name="AssistantCancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="AssistantSendError" xml:space="preserve"><value>I could not send the message. Try again.</value></data>
+  <data name="AssistantPrepareError" xml:space="preserve"><value>I could not prepare the plan: {0}</value></data>
+  <data name="AssistantSaveError" xml:space="preserve"><value>I could not save the plan. Try again.</value></data>
+  <data name="AssistantSaveErrorWithReason" xml:space="preserve"><value>I could not save the plan: {0}</value></data>
+  <data name="AssistantDetailNotFound" xml:space="preserve"><value>I could not find that recommendation detail.</value></data>
+  <data name="AssistantDetailOpenError" xml:space="preserve"><value>I could not open the detail: {0}</value></data>
+  <data name="AssistantOfflineQueuedSingle" xml:space="preserve"><value>Network is unstable. I queued this plan and will sync it when the connection returns.</value></data>
+  <data name="AssistantOfflineQueuedMany" xml:space="preserve"><value>Network is unstable. There are {0} queued changes to sync.</value></data>
+  <data name="AssistantPendingSyncedSingle" xml:space="preserve"><value>Synced 1 pending change.</value></data>
+  <data name="AssistantPendingSyncedMany" xml:space="preserve"><value>Synced {0} pending changes.</value></data>
+  <data name="AssistantPendingPartial" xml:space="preserve"><value>Synced {0} changes; {1} remain pending.</value></data>
+  <data name="AssistantFeedbackError" xml:space="preserve"><value>I could not send the feedback.</value></data>
+  <data name="TabLogin" xml:space="preserve"><value>Login</value></data>
+  <data name="TabBiometricUnlock" xml:space="preserve"><value>Unlock</value></data>
+  <data name="TabChangePassword" xml:space="preserve"><value>New password</value></data>
+  <data name="TabDiscover" xml:space="preserve"><value>Discover</value></data>
+  <data name="TabToday" xml:space="preserve"><value>Today</value></data>
+  <data name="TabAssistant" xml:space="preserve"><value>Assistant</value></data>
+  <data name="TabDocs" xml:space="preserve"><value>Docs</value></data>
+</root>

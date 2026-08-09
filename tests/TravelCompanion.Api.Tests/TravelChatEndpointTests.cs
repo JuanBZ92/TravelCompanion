@@ -41,6 +41,25 @@ public sealed class TravelChatEndpointTests
     }
 
     [Fact]
+    public async Task TravelAssistantFeedback_requires_bearer_session()
+    {
+        await using var factory = new TravelCompanionApiFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync(
+            "/api/ai/feedback",
+            new TravelAssistantFeedbackRequest(
+                "conversation",
+                Guid.NewGuid(),
+                TravelAssistantFeedbackSignal.Helpful,
+                "en-US",
+                "plan_between_reservations",
+                "balanced"));
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
     public async Task TravelChat_validates_required_message()
     {
         await using var factory = new TravelCompanionApiFactory();
@@ -94,6 +113,58 @@ public sealed class TravelChatEndpointTests
         Assert.NotNull(card.Warnings);
         Assert.False(string.IsNullOrWhiteSpace(card.RecommendationId));
         Assert.Contains("food", card.Tags);
+    }
+
+    [Fact]
+    public async Task TravelAssistantFeedback_records_signal_without_updating_preferences()
+    {
+        await using var factory = new TravelCompanionApiFactory();
+        var token = await factory.SeedPlanningUserAsync();
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var chatResponse = await client.PostAsJsonAsync(
+            "/api/ai/travel-chat",
+            new TravelChatRequest(
+                "Proponeme un plan para 2026-10-06",
+                null,
+                "Tokyo",
+                null,
+                new GeoPointDto(35.665000m, 139.770000m),
+                "es-ES"));
+
+        chatResponse.EnsureSuccessStatusCode();
+        var chat = await chatResponse.Content.ReadFromJsonAsync<TravelChatResponse>();
+        Assert.NotNull(chat);
+        var recommendationId = Guid.Parse(chat.Cards[0].RecommendationId!);
+
+        var feedbackResponse = await client.PostAsJsonAsync(
+            "/api/ai/feedback",
+            new TravelAssistantFeedbackRequest(
+                chat.ConversationId,
+                recommendationId,
+                TravelAssistantFeedbackSignal.HideSimilar,
+                "es-ES",
+                chat.Intent,
+                "balanced"));
+
+        feedbackResponse.EnsureSuccessStatusCode();
+        var feedback = await feedbackResponse.Content.ReadFromJsonAsync<TravelAssistantFeedbackResponse>();
+        Assert.NotNull(feedback);
+        Assert.True(feedback.Accepted);
+
+        using var scope = factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<TravelCompanionDbContext>();
+        var savedFeedback = await dbContext.TravelAssistantFeedbackItems.SingleAsync();
+        Assert.Equal(TravelAssistantFeedbackSignal.HideSimilar, savedFeedback.Signal);
+        Assert.Equal(recommendationId, savedFeedback.RecommendationId);
+
+        var conversation = await dbContext.TravelChatConversations.FindAsync(chat.ConversationId);
+        Assert.NotNull(conversation);
+        Assert.Contains("food", conversation!.StateJson, StringComparison.OrdinalIgnoreCase);
+
+        var profile = await dbContext.TravelPreferenceProfiles.SingleAsync();
+        Assert.DoesNotContain("food", profile.Dislikes, StringComparer.OrdinalIgnoreCase);
     }
 
     [Theory]

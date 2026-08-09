@@ -86,7 +86,8 @@ internal static class MobilePayloadNormalizer
             Type = card.Type ?? string.Empty,
             Title = card.Title ?? string.Empty,
             WhyItFits = card.WhyItFits ?? [],
-            Warnings = card.Warnings ?? []
+            Warnings = card.Warnings ?? [],
+            Tags = card.Tags ?? []
         };
     }
 

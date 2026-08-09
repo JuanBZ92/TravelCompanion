@@ -19,6 +19,7 @@
 		<SingleProject>true</SingleProject>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
+		<NeutralLanguage>en-US</NeutralLanguage>
 
 		<!-- Display name -->
 		<ApplicationTitle>TravelCompanion.Mobile</ApplicationTitle>

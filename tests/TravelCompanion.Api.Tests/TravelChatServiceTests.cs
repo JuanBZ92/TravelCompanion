@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging.Abstractions;
 using TravelCompanion.Api.Data;
 using TravelCompanion.Api.Models;
+using TravelCompanion.Api.Options;
 using TravelCompanion.Api.Services;
 using TravelCompanion.Shared;
 using TravelCompanion.Shared.Dtos;
@@ -218,6 +220,56 @@ public sealed class TravelChatServiceTests
         Assert.Contains("Preferencias", response.Message);
         Assert.Contains("Ayuda", response.Message);
         Assert.Contains("Evitar #culture", response.Message);
+    }
+
+    [Fact]
+    public async Task CreatePlanAsync_returns_english_help_when_locale_is_en()
+    {
+        await using var dbContext = CreateDbContext();
+        var destinationId = Guid.NewGuid();
+        var user = CreateUser(destinationId, includeProfile: false);
+        dbContext.AppUsers.Add(user);
+        await dbContext.SaveChangesAsync();
+
+        var service = CreateService(dbContext);
+        var response = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest("What can I ask", null, "Tokyo", new DateOnly(2026, 10, 6), null, "en-US"),
+            CancellationToken.None);
+
+        Assert.Equal("help", response.Intent);
+        Assert.Contains("I can help", response.Message);
+        Assert.Contains("Show my schedule", response.SuggestedReplies);
+    }
+
+    [Fact]
+    public async Task CreatePlanAsync_passes_configured_prompt_version_to_model_client()
+    {
+        await using var dbContext = CreateDbContext();
+        var destinationId = Guid.NewGuid();
+        var user = await SeedPlanningWorldAsync(
+            dbContext,
+            destinationId,
+            CreateRecommendation(
+                destinationId,
+                "Tsukiji Snack Walk",
+                "Food",
+                "Local snacks in Tokyo before dinner.",
+                90));
+        var modelClient = new CapturingTravelAiModelClient();
+
+        var service = CreateService(
+            dbContext,
+            modelClient,
+            new OpenAiTravelOptions { PromptVersion = "travel-chat.v-test" });
+        await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest("Plan", null, "Tokyo", new DateOnly(2026, 10, 6), null, "en-US"),
+            CancellationToken.None);
+
+        Assert.NotNull(modelClient.LastRequest);
+        Assert.Equal("travel-chat.v-test", modelClient.LastRequest!.PromptVersion);
+        Assert.Equal("en-US", modelClient.LastRequest.Locale);
     }
 
     [Fact]
@@ -1267,6 +1319,198 @@ public sealed class TravelChatServiceTests
         Assert.DoesNotContain("onsen", profile!.Dislikes);
     }
 
+    [Fact]
+    public async Task Conversation_eval_handles_guided_plan_followups_and_confirmed_actions()
+    {
+        await using var dbContext = CreateDbContext();
+        var destinationId = Guid.NewGuid();
+        var firstFood = CreateRecommendation(
+            destinationId,
+            "First snack stop",
+            "Food",
+            "Local food in Tokyo.",
+            60,
+            "medium");
+        firstFood.Tags = ["food", "local food"];
+        var secondFood = CreateRecommendation(
+            destinationId,
+            "Second tea stop",
+            "Food",
+            "Local tea and snacks in Tokyo.",
+            45,
+            "low");
+        secondFood.Tags = ["food", "local food"];
+        var freeFood = CreateRecommendation(
+            destinationId,
+            "Free market stroll",
+            "Food",
+            "Free market route in Tokyo.",
+            45,
+            "free");
+        freeFood.Tags = ["food", "walking"];
+        var highFood = CreateRecommendation(
+            destinationId,
+            "Premium sushi counter",
+            "Food",
+            "Premium food counter in Tokyo.",
+            75,
+            "high");
+        highFood.Tags = ["food", "premium"];
+        var culture = CreateRecommendation(
+            destinationId,
+            "Culture gallery pause",
+            "Culture",
+            "Small culture gallery in Tokyo.",
+            60,
+            "medium");
+        culture.Tags = ["culture", "art"];
+
+        var user = await SeedPlanningWorldAsync(
+            dbContext,
+            destinationId,
+            firstFood,
+            secondFood,
+            freeFood,
+            highFood,
+            culture);
+
+        var service = CreateService(
+            dbContext,
+            new FakeTravelAiModelClient(new TravelAiModelResult(
+                "Texto del modelo controlado para plan.",
+                ["Ver mi agenda"])));
+
+        var firstPlan = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest(
+                "Proponeme un plan para 2026-10-06",
+                null,
+                "Tokyo",
+                null,
+                null,
+                "es-ES"),
+            CancellationToken.None);
+        var firstPlanIds = firstPlan.Cards.Select(card => card.RecommendationId).ToHashSet();
+
+        var alternative = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest(
+                "Otra opcion",
+                firstPlan.ConversationId,
+                null,
+                null,
+                null,
+                "es-ES"),
+            CancellationToken.None);
+
+        var avoidCultureConfirmation = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest(
+                "proponeme un plan para 2026-10-06 evitando culture",
+                null,
+                "Tokyo",
+                null,
+                null,
+                "es-ES"),
+            CancellationToken.None);
+        var oneOffAvoidCulture = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest(
+                "No, solo este pedido",
+                avoidCultureConfirmation.ConversationId,
+                "Tokyo",
+                null,
+                null,
+                "es-ES"),
+            CancellationToken.None);
+
+        Assert.NotNull(avoidCultureConfirmation.MissingContext);
+        Assert.Null(oneOffAvoidCulture.MissingContext);
+        Assert.DoesNotContain(
+            oneOffAvoidCulture.Cards,
+            card => card.Tags.Contains("culture", StringComparer.OrdinalIgnoreCase));
+        var profileAfterOneOff = await dbContext.TravelPreferenceProfiles.FindAsync(user.Id);
+        Assert.DoesNotContain("culture", profileAfterOneOff!.Dislikes);
+
+        var persistentPreferenceConfirmation = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest(
+                "editar preferencia evitar culture",
+                null,
+                null,
+                null,
+                null,
+                "es-ES"),
+            CancellationToken.None);
+        var persistentPreferenceApplied = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest(
+                "Si, guardar preferencia",
+                persistentPreferenceConfirmation.ConversationId,
+                null,
+                null,
+                null,
+                "es-ES"),
+            CancellationToken.None);
+
+        var lowCost = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest(
+                "proponeme un plan de coste bajo",
+                null,
+                "Tokyo",
+                new DateOnly(2026, 10, 6),
+                null,
+                "es-ES"),
+            CancellationToken.None);
+        var highCost = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest(
+                "proponeme un plan de coste alto",
+                null,
+                "Tokyo",
+                new DateOnly(2026, 10, 6),
+                null,
+                "es-ES"),
+            CancellationToken.None);
+
+        var schedule = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest(
+                "Ver mi agenda",
+                firstPlan.ConversationId,
+                "Tokyo",
+                null,
+                null,
+                "es-ES"),
+            CancellationToken.None);
+        var saveWithoutCardConfirmation = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest(
+                "guardar plan",
+                firstPlan.ConversationId,
+                "Tokyo",
+                null,
+                null,
+                "es-ES"),
+            CancellationToken.None);
+
+        Assert.Null(firstPlan.MissingContext);
+        Assert.NotEmpty(firstPlan.Cards);
+        Assert.NotEmpty(alternative.Cards);
+        Assert.All(alternative.Cards, card => Assert.DoesNotContain(card.RecommendationId, firstPlanIds));
+        Assert.Equal("update_preferences", persistentPreferenceApplied.Intent);
+        var profileAfterPersistentPreference = await dbContext.TravelPreferenceProfiles.FindAsync(user.Id);
+        Assert.Contains("culture", profileAfterPersistentPreference!.Dislikes);
+        Assert.Equal("free", lowCost.Cards[0].EstimatedCost);
+        Assert.Equal("high", highCost.Cards[0].EstimatedCost);
+        Assert.Equal("view_schedule", schedule.Intent);
+        Assert.Contains("Museum", schedule.Message);
+        Assert.NotNull(saveWithoutCardConfirmation.MissingContext);
+        Assert.Equal("confirmation", saveWithoutCardConfirmation.MissingContext.Field);
+        Assert.DoesNotContain("guardado", saveWithoutCardConfirmation.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static TravelCompanionDbContext CreateDbContext()
     {
         var options = new DbContextOptionsBuilder<TravelCompanionDbContext>()
@@ -1313,15 +1557,34 @@ public sealed class TravelChatServiceTests
 
     private static TravelChatService CreateService(
         TravelCompanionDbContext dbContext,
-        ITravelAiModelClient? modelClient = null)
+        ITravelAiModelClient? modelClient = null,
+        OpenAiTravelOptions? openAiOptions = null)
     {
+        var intentClassifier = new TravelChatIntentClassifier();
+        var textProvider = new TravelAssistantTextProvider();
+        var preferenceCommandParser = new TravelPreferenceCommandParser(
+            new RecommendationTagCatalogService(dbContext));
+        var actionPlanner = new TravelAssistantActionPlanner(
+            intentClassifier,
+            preferenceCommandParser);
+        var telemetry = new TravelAssistantTelemetry(
+            NullLogger<TravelAssistantTelemetry>.Instance);
+
         return new TravelChatService(
             dbContext,
             new UserProfileService(dbContext),
-            new DeterministicRecommendationRanker(),
-            new RecommendationTagCatalogService(dbContext),
-            new TravelChatIntentClassifier(),
+            actionPlanner,
+            textProvider,
+            new TravelAssistantConversationStateService(
+                dbContext,
+                NullLogger<TravelAssistantConversationStateService>.Instance),
+            new TravelChatResponseComposer(textProvider),
+            new TravelRecommendationPlanningService(
+                dbContext,
+                new DeterministicRecommendationRanker()),
             modelClient ?? new FakeTravelAiModelClient(null),
+            Microsoft.Extensions.Options.Options.Create(openAiOptions ?? new OpenAiTravelOptions()),
+            telemetry,
             NullLogger<TravelChatService>.Instance);
     }
 
@@ -1418,6 +1681,19 @@ public sealed class TravelChatServiceTests
             CancellationToken cancellationToken)
         {
             return Task.FromResult(result);
+        }
+    }
+
+    private sealed class CapturingTravelAiModelClient : ITravelAiModelClient
+    {
+        public TravelAiModelRequest? LastRequest { get; private set; }
+
+        public Task<TravelAiModelResult?> CreateStructuredResponseAsync(
+            TravelAiModelRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastRequest = request;
+            return Task.FromResult<TravelAiModelResult?>(null);
         }
     }
 

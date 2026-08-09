@@ -89,7 +89,16 @@ builder.Services.AddScoped<IUserInvitationSender, LoggingUserInvitationSender>()
 builder.Services.AddScoped<IUserProfileService, UserProfileService>();
 builder.Services.AddScoped<IItineraryService, ItineraryService>();
 builder.Services.AddScoped<IRecommendationRanker, DeterministicRecommendationRanker>();
+builder.Services.AddScoped<ITravelRecommendationPlanningService, TravelRecommendationPlanningService>();
 builder.Services.AddScoped<IRecommendationTagCatalogService, RecommendationTagCatalogService>();
+builder.Services.AddScoped<ITravelPreferenceCommandParser, TravelPreferenceCommandParser>();
+builder.Services.AddScoped<ITravelAssistantActionPlanner, TravelAssistantActionPlanner>();
+builder.Services.AddSingleton<ITravelAssistantTextProvider, TravelAssistantTextProvider>();
+builder.Services.AddSingleton<ITravelPromptTemplateProvider, TravelPromptTemplateProvider>();
+builder.Services.AddScoped<ITravelChatResponseComposer, TravelChatResponseComposer>();
+builder.Services.AddScoped<ITravelAssistantConversationStateService, TravelAssistantConversationStateService>();
+builder.Services.AddScoped<ITravelAssistantFeedbackService, TravelAssistantFeedbackService>();
+builder.Services.AddSingleton<TravelAssistantTelemetry>();
 builder.Services.AddSingleton<ITravelChatIntentClassifier, TravelChatIntentClassifier>();
 builder.Services.AddSingleton<ITravelAiModelClient, OpenAiTravelModelClient>();
 builder.Services.AddScoped<ITravelChatService, TravelChatService>();

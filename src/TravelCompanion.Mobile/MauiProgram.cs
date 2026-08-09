@@ -75,6 +75,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<OfflineMutationQueueService>();
         builder.Services.AddSingleton<FavoritesService>();
         builder.Services.AddSingleton<ILocationService, LocationService>();
+        builder.Services.AddSingleton(LocalizationResourceManager.Instance);
 
         builder.Services.AddTransient<LoginViewModel>();
         builder.Services.AddTransient<BiometricUnlockViewModel>();

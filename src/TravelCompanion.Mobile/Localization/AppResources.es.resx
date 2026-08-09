@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="AssistantEyebrow" xml:space="preserve"><value>ASSISTANT · YUKU JAPAN</value></data>
+  <data name="AssistantTitle" xml:space="preserve"><value>Assistant</value></data>
+  <data name="AssistantEmptyTitle" xml:space="preserve"><value>Que queres hacer ahora?</value></data>
+  <data name="AssistantEmptySubtitle" xml:space="preserve"><value>Elegi una accion o escribi un pedido concreto.</value></data>
+  <data name="AssistantMessagePlaceholder" xml:space="preserve"><value>Escribi tu pedido</value></data>
+  <data name="AssistantSend" xml:space="preserve"><value>Enviar</value></data>
+  <data name="AssistantDefaultPrompt" xml:space="preserve"><value>Plan para comer</value></data>
+  <data name="AssistantPlanFood" xml:space="preserve"><value>Plan para comer</value></data>
+  <data name="AssistantPlanRelax" xml:space="preserve"><value>Plan para relajar</value></data>
+  <data name="AssistantPlanNight" xml:space="preserve"><value>Plan nocturno</value></data>
+  <data name="AssistantPlanCouple" xml:space="preserve"><value>Plan en pareja</value></data>
+  <data name="AssistantPlanWalk" xml:space="preserve"><value>Plan para caminar</value></data>
+  <data name="AssistantPlanDance" xml:space="preserve"><value>Plan para bailar</value></data>
+  <data name="AssistantPlanDate" xml:space="preserve"><value>Plan por fecha</value></data>
+  <data name="AssistantRecommendNearby" xml:space="preserve"><value>Por cercania</value></data>
+  <data name="AssistantRecommendDuration" xml:space="preserve"><value>Por duracion</value></data>
+  <data name="AssistantOtherOption" xml:space="preserve"><value>Otra opcion</value></data>
+  <data name="AssistantViewSchedule" xml:space="preserve"><value>Ver mi agenda</value></data>
+  <data name="AssistantViewPreferences" xml:space="preserve"><value>Ver mis preferencias</value></data>
+  <data name="AssistantHelpCapabilities" xml:space="preserve"><value>Que puedo pedirte</value></data>
+  <data name="AssistantGuidePlan" xml:space="preserve"><value>Planificar</value></data>
+  <data name="AssistantGuideAdjust" xml:space="preserve"><value>Ajustar</value></data>
+  <data name="AssistantGuideSchedule" xml:space="preserve"><value>Agenda</value></data>
+  <data name="AssistantGuidePreferences" xml:space="preserve"><value>Preferencias</value></data>
+  <data name="AssistantGuideHelp" xml:space="preserve"><value>Ayuda</value></data>
+  <data name="AssistantPromptFood" xml:space="preserve"><value>Proponeme un plan para comer teniendo en cuenta mi agenda</value></data>
+  <data name="AssistantPromptRelax" xml:space="preserve"><value>Proponeme un plan para relajar teniendo en cuenta mi agenda</value></data>
+  <data name="AssistantPromptWalk" xml:space="preserve"><value>Recomendar plan para caminar teniendo en cuenta mi agenda</value></data>
+  <data name="AssistantPromptCouple" xml:space="preserve"><value>Recomendar plan para pareja teniendo en cuenta mi agenda</value></data>
+  <data name="AssistantPromptNight" xml:space="preserve"><value>Recomendar plan nocturno teniendo en cuenta mi agenda</value></data>
+  <data name="AssistantPromptDance" xml:space="preserve"><value>Recomendar plan para bailar teniendo en cuenta mi agenda</value></data>
+  <data name="AssistantPromptDate" xml:space="preserve"><value>Proponeme planes para 2026-10-08 teniendo en cuenta mi agenda</value></data>
+  <data name="AssistantPromptNearby" xml:space="preserve"><value>Recomendar por cercania teniendo en cuenta el pedido inicial</value></data>
+  <data name="AssistantPromptDuration" xml:space="preserve"><value>Recomendar por duracion teniendo en cuenta el pedido inicial</value></data>
+  <data name="AssistantPromptOther" xml:space="preserve"><value>Otra alternativa teniendo en cuenta el pedido inicial</value></data>
+  <data name="AssistantPromptTomorrow" xml:space="preserve"><value>Proponeme planes para manana</value></data>
+  <data name="AssistantTomorrow" xml:space="preserve"><value>Manana</value></data>
+  <data name="AssistantPromptAvoidCulture" xml:space="preserve"><value>Evitar #culture</value></data>
+  <data name="AssistantPromptLowBudget" xml:space="preserve"><value>Presupuesto bajo</value></data>
+  <data name="AssistantPromptCommands" xml:space="preserve"><value>Ayuda</value></data>
+  <data name="AssistantDetailButton" xml:space="preserve"><value>Ver detalle</value></data>
+  <data name="AssistantNearbyButton" xml:space="preserve"><value>Por cercania</value></data>
+  <data name="AssistantReplaceButton" xml:space="preserve"><value>Reemplazar</value></data>
+  <data name="AssistantSaveButton" xml:space="preserve"><value>Guardar</value></data>
+  <data name="AssistantSavedButton" xml:space="preserve"><value>Guardado</value></data>
+  <data name="AssistantUsefulButton" xml:space="preserve"><value>Util</value></data>
+  <data name="AssistantNotUsefulButton" xml:space="preserve"><value>No util</value></data>
+  <data name="AssistantHideSimilarButton" xml:space="preserve"><value>Ocultar similares</value></data>
+  <data name="AssistantCostPrefix" xml:space="preserve"><value>Coste</value></data>
+  <data name="AssistantDistancePrefix" xml:space="preserve"><value>Distancia</value></data>
+  <data name="AssistantWalkingPrefix" xml:space="preserve"><value>Caminata</value></data>
+  <data name="AssistantTimePrefix" xml:space="preserve"><value>Horario</value></data>
+  <data name="AssistantAvoidTagPrefix" xml:space="preserve"><value>Evitar</value></data>
+  <data name="AssistantAttentionPrefix" xml:space="preserve"><value>Atencion</value></data>
+  <data name="AssistantLowCost" xml:space="preserve"><value>Bajo</value></data>
+  <data name="AssistantMediumCost" xml:space="preserve"><value>Medio</value></data>
+  <data name="AssistantHighCost" xml:space="preserve"><value>Alto</value></data>
+  <data name="AssistantFreeCost" xml:space="preserve"><value>Gratis</value></data>
+  <data name="AssistantNoReadyPlan" xml:space="preserve"><value>No encontre un plan listo para guardar.</value></data>
+  <data name="AssistantSaveTitle" xml:space="preserve"><value>Guardar plan</value></data>
+  <data name="AssistantSaveMessage" xml:space="preserve"><value>Guardar "{0}" en tu itinerario?</value></data>
+  <data name="AssistantCancel" xml:space="preserve"><value>Cancelar</value></data>
+  <data name="AssistantSendError" xml:space="preserve"><value>No pude enviar el mensaje. Intenta nuevamente.</value></data>
+  <data name="AssistantPrepareError" xml:space="preserve"><value>No pude preparar el plan: {0}</value></data>
+  <data name="AssistantSaveError" xml:space="preserve"><value>No pude guardar el plan. Intenta nuevamente.</value></data>
+  <data name="AssistantSaveErrorWithReason" xml:space="preserve"><value>No pude guardar el plan: {0}</value></data>
+  <data name="AssistantDetailNotFound" xml:space="preserve"><value>No encontre el detalle de esa recomendacion.</value></data>
+  <data name="AssistantDetailOpenError" xml:space="preserve"><value>No pude abrir el detalle: {0}</value></data>
+  <data name="AssistantOfflineQueuedSingle" xml:space="preserve"><value>Sin conexion estable. Deje este plan en cola y lo voy a sincronizar cuando vuelva la red.</value></data>
+  <data name="AssistantOfflineQueuedMany" xml:space="preserve"><value>Sin conexion estable. Hay {0} cambios en cola para sincronizar.</value></data>
+  <data name="AssistantPendingSyncedSingle" xml:space="preserve"><value>Sincronice 1 cambio pendiente.</value></data>
+  <data name="AssistantPendingSyncedMany" xml:space="preserve"><value>Sincronice {0} cambios pendientes.</value></data>
+  <data name="AssistantPendingPartial" xml:space="preserve"><value>Sincronice {0} cambios; quedan {1} pendientes.</value></data>
+  <data name="AssistantFeedbackError" xml:space="preserve"><value>No pude enviar el feedback.</value></data>
+  <data name="TabLogin" xml:space="preserve"><value>Ingresar</value></data>
+  <data name="TabBiometricUnlock" xml:space="preserve"><value>Desbloquear</value></data>
+  <data name="TabChangePassword" xml:space="preserve"><value>Nueva password</value></data>
+  <data name="TabDiscover" xml:space="preserve"><value>Discover</value></data>
+  <data name="TabToday" xml:space="preserve"><value>Today</value></data>
+  <data name="TabAssistant" xml:space="preserve"><value>Assistant</value></data>
+  <data name="TabDocs" xml:space="preserve"><value>Docs</value></data>
+</root>

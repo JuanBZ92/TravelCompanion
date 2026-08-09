@@ -1,5 +1,6 @@
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
+using TravelCompanion.Mobile.Services;
 using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Mobile.ViewModels;
@@ -8,6 +9,7 @@ public sealed class TravelChatCardViewModel : ObservableObject
 {
     private readonly TravelCardDto _card;
     private bool _isSaved;
+    private string? _feedbackStatusMessage;
 
     public TravelChatCardViewModel(TravelCardDto card)
     {
@@ -21,6 +23,7 @@ public sealed class TravelChatCardViewModel : ObservableObject
         EndsAt = TimeOnly.TryParse(card.EndTime, out var endsAt)
             ? endsAt
             : null;
+        LocalizationResourceManager.Instance.CultureChanged += OnCultureChanged;
     }
 
     public string Title => _card.Title;
@@ -28,14 +31,14 @@ public sealed class TravelChatCardViewModel : ObservableObject
     public string? Description => _card.Description;
     public string CostLabel => string.IsNullOrWhiteSpace(FormatCost(_card.EstimatedCost))
         ? string.Empty
-        : $"Coste: {FormatCost(_card.EstimatedCost)}";
+        : $"{Resource("AssistantCostPrefix")}: {FormatCost(_card.EstimatedCost)}";
     public bool HasCostLabel => !string.IsNullOrWhiteSpace(CostLabel);
     public string DistanceLabel => _card.DistanceKm.HasValue
-        ? $"Distancia: {_card.DistanceKm.Value.ToString("0.0", CultureInfo.CurrentCulture)} km"
+        ? $"{Resource("AssistantDistancePrefix")}: {_card.DistanceKm.Value.ToString("0.0", CultureInfo.CurrentCulture)} km"
         : string.Empty;
     public bool HasDistanceLabel => !string.IsNullOrWhiteSpace(DistanceLabel);
     public string WalkingLabel => _card.WalkingMinutes.HasValue
-        ? $"Caminata: {_card.WalkingMinutes.Value} min"
+        ? $"{Resource("AssistantWalkingPrefix")}: {_card.WalkingMinutes.Value} min"
         : string.Empty;
     public bool HasWalkingLabel => !string.IsNullOrWhiteSpace(WalkingLabel);
     public Guid? RecommendationId { get; }
@@ -45,7 +48,26 @@ public sealed class TravelChatCardViewModel : ObservableObject
     public TimeOnly? StartsAt { get; }
     public TimeOnly? EndsAt { get; }
     public bool CanSave => RecommendationId.HasValue && StartsAt.HasValue && !IsSaved;
-    public string SaveButtonText => IsSaved ? "Guardado" : "Guardar";
+    public string SaveButtonText => IsSaved ? Resource("AssistantSavedButton") : Resource("AssistantSaveButton");
+    public string DetailButtonText => Resource("AssistantDetailButton");
+    public string NearbyButtonText => Resource("AssistantNearbyButton");
+    public string ReplaceButtonText => Resource("AssistantReplaceButton");
+    public string UsefulButtonText => Resource("AssistantUsefulButton");
+    public string NotUsefulButtonText => Resource("AssistantNotUsefulButton");
+    public string HideSimilarButtonText => Resource("AssistantHideSimilarButton");
+    public bool HasFeedbackActions => HasRecommendationId;
+    public string? FeedbackStatusMessage
+    {
+        get => _feedbackStatusMessage;
+        set
+        {
+            if (SetProperty(ref _feedbackStatusMessage, value))
+            {
+                OnPropertyChanged(nameof(HasFeedbackStatus));
+            }
+        }
+    }
+    public bool HasFeedbackStatus => !string.IsNullOrWhiteSpace(FeedbackStatusMessage);
     public bool IsSaved
     {
         get => _isSaved;
@@ -61,8 +83,8 @@ public sealed class TravelChatCardViewModel : ObservableObject
     public string TimeLabel => string.IsNullOrWhiteSpace(_card.StartTime)
         ? string.Empty
         : string.IsNullOrWhiteSpace(_card.EndTime)
-            ? $"Horario: {_card.StartTime!}"
-            : $"Horario: {_card.StartTime} - {_card.EndTime}";
+            ? $"{Resource("AssistantTimePrefix")}: {_card.StartTime!}"
+            : $"{Resource("AssistantTimePrefix")}: {_card.StartTime} - {_card.EndTime}";
     public bool HasTimeLabel => !string.IsNullOrWhiteSpace(TimeLabel);
     public IReadOnlyList<string> Tags => (_card.Tags ?? []).Take(4).ToList();
     public IReadOnlyList<TravelChatTagActionViewModel> TagActions => Tags
@@ -72,6 +94,9 @@ public sealed class TravelChatCardViewModel : ObservableObject
     public IReadOnlyList<string> WhyItFits => _card.WhyItFits.Take(2).ToList();
     public bool HasReasons => WhyItFits.Count > 0;
     public IReadOnlyList<string> Warnings => _card.Warnings.Take(1).ToList();
+    public IReadOnlyList<string> WarningLabels => Warnings
+        .Select(warning => $"{Resource("AssistantAttentionPrefix")}: {warning}")
+        .ToList();
     public bool HasWarnings => Warnings.Count > 0;
 
     private static string FormatCost(string? cost)
@@ -79,17 +104,39 @@ public sealed class TravelChatCardViewModel : ObservableObject
         return cost?.Trim().ToLowerInvariant() switch
         {
             null or "" => string.Empty,
-            "free" or "gratis" => "Gratis",
-            "low" or "budget" or "cheap" or "barato" => "Bajo",
-            "medium" or "moderate" or "medio" => "Medio",
-            "high" or "expensive" or "premium" or "alto" => "Alto",
+            "free" or "gratis" => Resource("AssistantFreeCost"),
+            "low" or "budget" or "cheap" or "barato" => Resource("AssistantLowCost"),
+            "medium" or "moderate" or "medio" => Resource("AssistantMediumCost"),
+            "high" or "expensive" or "premium" or "alto" => Resource("AssistantHighCost"),
             _ => cost.Trim()
         };
+    }
+
+    private void OnCultureChanged(object? sender, EventArgs e)
+    {
+        OnPropertyChanged(nameof(CostLabel));
+        OnPropertyChanged(nameof(DistanceLabel));
+        OnPropertyChanged(nameof(WalkingLabel));
+        OnPropertyChanged(nameof(TimeLabel));
+        OnPropertyChanged(nameof(SaveButtonText));
+        OnPropertyChanged(nameof(DetailButtonText));
+        OnPropertyChanged(nameof(NearbyButtonText));
+        OnPropertyChanged(nameof(ReplaceButtonText));
+        OnPropertyChanged(nameof(UsefulButtonText));
+        OnPropertyChanged(nameof(NotUsefulButtonText));
+        OnPropertyChanged(nameof(HideSimilarButtonText));
+        OnPropertyChanged(nameof(TagActions));
+        OnPropertyChanged(nameof(WarningLabels));
+    }
+
+    private static string Resource(string key)
+    {
+        return LocalizationResourceManager.Instance[key];
     }
 }
 
 public sealed class TravelChatTagActionViewModel(string tag)
 {
     public string Tag { get; } = tag;
-    public string Label => $"Evitar #{Tag}";
+    public string Label => $"{LocalizationResourceManager.Instance["AssistantAvoidTagPrefix"]} #{Tag}";
 }

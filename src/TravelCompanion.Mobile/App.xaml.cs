@@ -4,6 +4,7 @@ public partial class App : Application
 {
 	public App()
 	{
+		TravelCompanion.Mobile.Services.LocalizationResourceManager.Instance.Initialize();
 		InitializeComponent();
 	}
 

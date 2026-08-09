@@ -17,6 +17,7 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
     public DbSet<AppUserSession> AppUserSessions => Set<AppUserSession>();
     public DbSet<TravelPreferenceProfile> TravelPreferenceProfiles => Set<TravelPreferenceProfile>();
     public DbSet<TravelChatConversation> TravelChatConversations => Set<TravelChatConversation>();
+    public DbSet<TravelAssistantFeedback> TravelAssistantFeedbackItems => Set<TravelAssistantFeedback>();
     public DbSet<NotificationDeviceRegistration> NotificationDeviceRegistrations => Set<NotificationDeviceRegistration>();
     public DbSet<NotificationOutboxItem> NotificationOutboxItems => Set<NotificationOutboxItem>();
 
@@ -178,6 +179,9 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
         {
             entity.Property(conversation => conversation.Id).HasMaxLength(64);
             entity.Property(conversation => conversation.LastCity).HasMaxLength(120);
+            entity.Property(conversation => conversation.LastIntent).HasMaxLength(80);
+            entity.Property(conversation => conversation.LastLocale).HasMaxLength(32);
+            entity.Property(conversation => conversation.LastPromptVersion).HasMaxLength(80);
             entity.Property(conversation => conversation.LastResponseMode).HasMaxLength(40);
             entity.Property(conversation => conversation.LastRecommendationIds).HasMaxLength(512);
             entity.Property(conversation => conversation.PendingPreferenceOriginalMessage).HasMaxLength(512);
@@ -186,6 +190,33 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
             entity.HasOne(conversation => conversation.User)
                 .WithMany(user => user.TravelChatConversations)
                 .HasForeignKey(conversation => conversation.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<TravelAssistantFeedback>(entity =>
+        {
+            entity.HasKey(feedback => feedback.Id);
+            entity.HasIndex(feedback => new { feedback.UserId, feedback.CreatedAtUtc });
+            entity.HasIndex(feedback => new { feedback.RecommendationId, feedback.Signal });
+            entity.HasIndex(feedback => new { feedback.ConversationId, feedback.CreatedAtUtc });
+            entity.Property(feedback => feedback.ConversationId).HasMaxLength(64);
+            entity.Property(feedback => feedback.Signal)
+                .HasConversion<string>()
+                .HasMaxLength(32);
+            entity.Property(feedback => feedback.Locale).HasMaxLength(32);
+            entity.Property(feedback => feedback.Intent).HasMaxLength(80);
+            entity.Property(feedback => feedback.ResponseMode).HasMaxLength(40);
+            entity.HasOne(feedback => feedback.User)
+                .WithMany(user => user.TravelAssistantFeedbackItems)
+                .HasForeignKey(feedback => feedback.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(feedback => feedback.Conversation)
+                .WithMany(conversation => conversation.FeedbackItems)
+                .HasForeignKey(feedback => feedback.ConversationId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(feedback => feedback.Recommendation)
+                .WithMany()
+                .HasForeignKey(feedback => feedback.RecommendationId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 

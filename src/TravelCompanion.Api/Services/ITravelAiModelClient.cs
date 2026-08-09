@@ -19,7 +19,8 @@ public sealed record TravelAiModelRequest(
     TravelPlanningContext PlanningContext,
     IReadOnlyList<Reservation> Reservations,
     IReadOnlyList<TravelCardDto> RankedCards,
-    IReadOnlyList<string> SuggestedReplies);
+    IReadOnlyList<string> SuggestedReplies,
+    string PromptVersion);
 
 public sealed record TravelAiModelResult(
     string Message,

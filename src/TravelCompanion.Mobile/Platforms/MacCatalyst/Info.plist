@@ -34,6 +34,11 @@
 	</array>
 	<key>XSAppIconAssets</key>
 	<string>Assets.xcassets/appicon.appiconset</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>es</string>
+	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Travel Companion usa tu ubicacion aproximada para proponerte planes cercanos a tus reservas.</string>
 </dict>

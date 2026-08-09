@@ -56,22 +56,22 @@ public sealed class TravelChatMobilePresentationTests
         var viewModel = new TravelChatCardViewModel(card);
 
         Assert.Equal("Tsukiji Snack Walk", viewModel.Title);
-        Assert.Equal("Horario: 10:30 - 11:30", viewModel.TimeLabel);
-        Assert.Equal("Coste: Medio", viewModel.CostLabel);
-        Assert.StartsWith("Distancia:", viewModel.DistanceLabel);
-        Assert.Equal("Caminata: 14 min", viewModel.WalkingLabel);
+        Assert.Equal("Time: 10:30 - 11:30", viewModel.TimeLabel);
+        Assert.Equal("Cost: Medium", viewModel.CostLabel);
+        Assert.StartsWith("Distance:", viewModel.DistanceLabel);
+        Assert.Equal("Walk: 14 min", viewModel.WalkingLabel);
         Assert.True(viewModel.CanSave);
         Assert.True(viewModel.HasDetailAction);
-        Assert.Equal("Guardar", viewModel.SaveButtonText);
+        Assert.Equal("Save", viewModel.SaveButtonText);
         Assert.Equal(4, viewModel.Tags.Count);
         Assert.DoesNotContain("extra", viewModel.Tags);
-        Assert.Contains(viewModel.TagActions, tag => tag.Label == "Evitar #food");
+        Assert.Contains(viewModel.TagActions, tag => tag.Label == "Avoid #food");
         Assert.Equal(2, viewModel.WhyItFits.Count);
         Assert.Single(viewModel.Warnings);
 
         viewModel.IsSaved = true;
 
         Assert.False(viewModel.CanSave);
-        Assert.Equal("Guardado", viewModel.SaveButtonText);
+        Assert.Equal("Saved", viewModel.SaveButtonText);
     }
 }

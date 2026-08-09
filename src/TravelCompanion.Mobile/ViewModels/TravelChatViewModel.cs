@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Net.Http;
 using CommunityToolkit.Mvvm.Input;
 using TravelCompanion.Mobile.Pages;
@@ -16,7 +17,9 @@ public sealed partial class TravelChatViewModel(
     OfflineMutationQueueService mutationQueueService) : ViewModelBase, ISessionStateResettable
 {
     private string? _conversationId;
-    private string _messageText = "Plan para comer";
+    private string? _lastIntent;
+    private bool _isLocalizationSubscribed;
+    private string _messageText = Resource("AssistantDefaultPrompt");
     private DateTime _planningDate = DateTime.Today;
     private string? _city;
     private bool _hasLoadedContext;
@@ -26,13 +29,19 @@ public sealed partial class TravelChatViewModel(
     public ObservableCollection<TravelChatMessageViewModel> Messages { get; } = [];
     public ObservableCollection<string> SuggestedReplies { get; } =
     [
-        "Plan para comer",
-        "Plan para relajar",
-        "Recomendar por cercania",
-        "Ver mis preferencias"
+        Resource("AssistantPlanFood"),
+        Resource("AssistantPlanRelax"),
+        Resource("AssistantRecommendNearby"),
+        Resource("AssistantViewPreferences")
     ];
     public ObservableCollection<string> MissingContextSuggestions { get; } = [];
-    public IReadOnlyList<TravelChatGuideSectionViewModel> GuideSections { get; } = CreateGuideSections();
+    public ObservableCollection<TravelChatGuideSectionViewModel> GuideSections { get; } = new(CreateGuideSections());
+    public string AssistantEyebrow => Resource("AssistantEyebrow");
+    public string AssistantTitle => Resource("AssistantTitle");
+    public string EmptyStateTitle => Resource("AssistantEmptyTitle");
+    public string EmptyStateSubtitle => Resource("AssistantEmptySubtitle");
+    public string MessagePlaceholder => Resource("AssistantMessagePlaceholder");
+    public string SendButtonText => Resource("AssistantSend");
 
     public string MessageText
     {
@@ -82,6 +91,7 @@ public sealed partial class TravelChatViewModel(
 
     public async Task LoadContextAsync()
     {
+        EnsureLocalizationSubscription();
         if (_hasLoadedContext)
         {
             return;
@@ -121,16 +131,14 @@ public sealed partial class TravelChatViewModel(
     {
         ResetLoadState();
         _conversationId = null;
+        _lastIntent = null;
         _hasLoadedContext = false;
-        MessageText = "Plan para comer";
+        MessageText = Resource("AssistantDefaultPrompt");
         PlanningDate = DateTime.Today;
         City = null;
         Messages.Clear();
-        SuggestedReplies.Clear();
-        SuggestedReplies.Add("Plan para comer");
-        SuggestedReplies.Add("Plan para relajar");
-        SuggestedReplies.Add("Recomendar por cercania");
-        SuggestedReplies.Add("Ver mis preferencias");
+        ResetDefaultSuggestedReplies();
+        RefreshGuideSections();
         ClearMissingContext();
         OnMessagesChanged();
     }
@@ -178,15 +186,16 @@ public sealed partial class TravelChatViewModel(
                     City,
                     DateOnly.FromDateTime(PlanningDate),
                     currentLocation,
-                    "es-ES"));
+                    CultureInfo.CurrentUICulture.Name));
 
             if (response is null)
             {
-                ErrorMessage = "No pude enviar el mensaje. Intenta nuevamente.";
+                ErrorMessage = Resource("AssistantSendError");
                 return;
             }
 
             _conversationId = response.ConversationId;
+            _lastIntent = response.Intent;
             var cards = (response.Cards ?? [])
                 .Select(card => new TravelChatCardViewModel(card))
                 .ToList();
@@ -202,7 +211,7 @@ public sealed partial class TravelChatViewModel(
         }
         catch (Exception ex)
         {
-            ErrorMessage = $"No pude preparar el plan: {ex.Message}";
+            ErrorMessage = string.Format(CultureInfo.CurrentCulture, Resource("AssistantPrepareError"), ex.Message);
         }
         finally
         {
@@ -224,12 +233,6 @@ public sealed partial class TravelChatViewModel(
             return;
         }
 
-        if (IsScheduleReply(reply))
-        {
-            await Shell.Current.GoToAsync("//main/schedule");
-            return;
-        }
-
         MessageText = reply;
         await SendMessageAsync();
     }
@@ -239,15 +242,15 @@ public sealed partial class TravelChatViewModel(
     {
         if (card is null || !card.CanSave || !card.RecommendationId.HasValue || !card.StartsAt.HasValue)
         {
-            StatusMessage = "No encontre un plan listo para guardar.";
+            StatusMessage = Resource("AssistantNoReadyPlan");
             return;
         }
 
         var confirmed = await Shell.Current.DisplayAlertAsync(
-            "Guardar plan",
-            $"Guardar \"{card.Title}\" en tu itinerario?",
-            "Guardar",
-            "Cancelar");
+            Resource("AssistantSaveTitle"),
+            string.Format(CultureInfo.CurrentCulture, Resource("AssistantSaveMessage"), card.Title),
+            Resource("AssistantSaveButton"),
+            Resource("AssistantCancel"));
         if (!confirmed)
         {
             return;
@@ -287,7 +290,7 @@ public sealed partial class TravelChatViewModel(
                 return;
             }
 
-            ErrorMessage = response?.Message ?? "No pude guardar el plan. Intenta nuevamente.";
+            ErrorMessage = response?.Message ?? Resource("AssistantSaveError");
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
         {
@@ -295,7 +298,7 @@ public sealed partial class TravelChatViewModel(
         }
         catch (Exception ex)
         {
-            ErrorMessage = $"No pude guardar el plan: {ex.Message}";
+            ErrorMessage = string.Format(CultureInfo.CurrentCulture, Resource("AssistantSaveErrorWithReason"), ex.Message);
         }
         finally
         {
@@ -308,7 +311,7 @@ public sealed partial class TravelChatViewModel(
     {
         if (card?.RecommendationId is null)
         {
-            StatusMessage = "No encontre el detalle de esa recomendacion.";
+            StatusMessage = Resource("AssistantDetailNotFound");
             return;
         }
 
@@ -325,7 +328,7 @@ public sealed partial class TravelChatViewModel(
             var recommendation = await FindRecommendationAsync(card.RecommendationId.Value, token);
             if (recommendation is null)
             {
-                StatusMessage = "No encontre el detalle de esa recomendacion.";
+                StatusMessage = Resource("AssistantDetailNotFound");
                 return;
             }
 
@@ -339,7 +342,7 @@ public sealed partial class TravelChatViewModel(
         }
         catch (Exception ex)
         {
-            ErrorMessage = $"No pude abrir el detalle: {ex.Message}";
+            ErrorMessage = string.Format(CultureInfo.CurrentCulture, Resource("AssistantDetailOpenError"), ex.Message);
         }
     }
 
@@ -348,8 +351,8 @@ public sealed partial class TravelChatViewModel(
     {
         var reference = card?.RecommendationReference;
         return string.IsNullOrWhiteSpace(reference)
-            ? SendActionMessageAsync("Recomendar por cercania")
-            : SendActionMessageAsync($"Recomendar por cercania teniendo en cuenta {reference}");
+            ? SendActionMessageAsync(Resource("AssistantRecommendNearby"))
+            : SendActionMessageAsync($"{Resource("AssistantRecommendNearby")} {reference}");
     }
 
     [RelayCommand]
@@ -357,8 +360,8 @@ public sealed partial class TravelChatViewModel(
     {
         var reference = card?.RecommendationReference;
         return string.IsNullOrWhiteSpace(reference)
-            ? SendActionMessageAsync("Otra alternativa")
-            : SendActionMessageAsync($"Reemplazar {reference}");
+            ? SendActionMessageAsync(Resource("AssistantOtherOption"))
+            : SendActionMessageAsync($"{Resource("AssistantReplaceButton")} {reference}");
     }
 
     [RelayCommand]
@@ -369,7 +372,61 @@ public sealed partial class TravelChatViewModel(
             return Task.CompletedTask;
         }
 
-        return SendActionMessageAsync($"Evitar {tag.Trim()}");
+        return SendActionMessageAsync($"{Resource("AssistantAvoidTagPrefix")} {tag.Trim()}");
+    }
+
+    [RelayCommand]
+    private Task MarkUsefulAsync(TravelChatCardViewModel? card)
+    {
+        return SendFeedbackAsync(card, TravelAssistantFeedbackSignal.Helpful);
+    }
+
+    [RelayCommand]
+    private Task MarkNotUsefulAsync(TravelChatCardViewModel? card)
+    {
+        return SendFeedbackAsync(card, TravelAssistantFeedbackSignal.NotHelpful);
+    }
+
+    [RelayCommand]
+    private Task HideSimilarAsync(TravelChatCardViewModel? card)
+    {
+        return SendFeedbackAsync(card, TravelAssistantFeedbackSignal.HideSimilar);
+    }
+
+    private async Task SendFeedbackAsync(
+        TravelChatCardViewModel? card,
+        TravelAssistantFeedbackSignal signal)
+    {
+        if (card?.RecommendationId is null || string.IsNullOrWhiteSpace(_conversationId))
+        {
+            return;
+        }
+
+        var token = await sessionService.GetTokenAsync();
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            sessionService.Clear();
+            await Shell.Current.GoToAsync("//login");
+            return;
+        }
+
+        try
+        {
+            var response = await apiClient.SendTravelAssistantFeedbackAsync(
+                token,
+                new TravelAssistantFeedbackRequest(
+                    _conversationId,
+                    card.RecommendationId.Value,
+                    signal,
+                    CultureInfo.CurrentUICulture.Name,
+                    _lastIntent,
+                    null));
+            card.FeedbackStatusMessage = response?.Message ?? Resource("AssistantFeedbackError");
+        }
+        catch (Exception)
+        {
+            card.FeedbackStatusMessage = Resource("AssistantFeedbackError");
+        }
     }
 
     private async Task SendActionMessageAsync(string message)
@@ -387,7 +444,7 @@ public sealed partial class TravelChatViewModel(
     {
         if (!card.RecommendationId.HasValue || !card.StartsAt.HasValue)
         {
-            ErrorMessage = $"No pude guardar el plan: {reason}";
+            ErrorMessage = string.Format(CultureInfo.CurrentCulture, Resource("AssistantSaveErrorWithReason"), reason);
             return;
         }
 
@@ -400,8 +457,8 @@ public sealed partial class TravelChatViewModel(
         card.IsSaved = true;
         var pendingCount = await mutationQueueService.GetPendingCountAsync();
         StatusMessage = pendingCount == 1
-            ? "Sin conexion estable. Deje este plan en cola y lo voy a sincronizar cuando vuelva la red."
-            : $"Sin conexion estable. Hay {pendingCount} cambios en cola para sincronizar.";
+            ? Resource("AssistantOfflineQueuedSingle")
+            : string.Format(CultureInfo.CurrentCulture, Resource("AssistantOfflineQueuedMany"), pendingCount);
     }
 
     private async Task ReplayPendingMutationsAsync(string token, CancellationToken cancellationToken)
@@ -415,14 +472,14 @@ public sealed partial class TravelChatViewModel(
         if (result.Succeeded > 0 && result.Failed == 0)
         {
             StatusMessage = result.Succeeded == 1
-                ? "Sincronice 1 cambio pendiente."
-                : $"Sincronice {result.Succeeded} cambios pendientes.";
+                ? Resource("AssistantPendingSyncedSingle")
+                : string.Format(CultureInfo.CurrentCulture, Resource("AssistantPendingSyncedMany"), result.Succeeded);
             return;
         }
 
         if (result.Succeeded > 0)
         {
-            StatusMessage = $"Sincronice {result.Succeeded} cambios; quedan {result.Failed} pendientes.";
+            StatusMessage = string.Format(CultureInfo.CurrentCulture, Resource("AssistantPendingPartial"), result.Succeeded, result.Failed);
         }
     }
 
@@ -473,25 +530,17 @@ public sealed partial class TravelChatViewModel(
             || reply.Contains("save itinerary", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static bool IsScheduleReply(string reply)
-    {
-        var normalized = NormalizeCommandText(reply);
-        return normalized is "ver mi agenda"
-            or "ver agenda"
-            or "mi agenda"
-            or "agenda"
-            or "schedule"
-            or "ver schedule";
-    }
-
     private static bool ShouldAttachLocation(string message)
     {
         var normalized = NormalizeCommandText(message);
         if (normalized.Contains("preferencia", StringComparison.Ordinal)
+            || normalized.Contains("preference", StringComparison.Ordinal)
             || normalized.Contains("perfil", StringComparison.Ordinal)
-            || normalized is "ver mi agenda" or "ver agenda" or "mi agenda" or "agenda"
+            || normalized.Contains("profile", StringComparison.Ordinal)
+            || normalized is "ver mi agenda" or "ver agenda" or "mi agenda" or "agenda" or "show my schedule" or "my schedule" or "schedule"
             || normalized.Contains("que puedo pedirte", StringComparison.Ordinal)
-            || normalized is "ayuda" or "comandos")
+            || normalized.Contains("what can i ask", StringComparison.Ordinal)
+            || normalized is "ayuda" or "comandos" or "help")
         {
             return false;
         }
@@ -550,51 +599,102 @@ public sealed partial class TravelChatViewModel(
         OnPropertyChanged(nameof(ShowEmptyState));
     }
 
+    private void EnsureLocalizationSubscription()
+    {
+        if (_isLocalizationSubscribed)
+        {
+            return;
+        }
+
+        _isLocalizationSubscribed = true;
+        LocalizationResourceManager.Instance.CultureChanged += OnCultureChanged;
+    }
+
+    private void OnCultureChanged(object? sender, EventArgs e)
+    {
+        OnPropertyChanged(nameof(AssistantEyebrow));
+        OnPropertyChanged(nameof(AssistantTitle));
+        OnPropertyChanged(nameof(EmptyStateTitle));
+        OnPropertyChanged(nameof(EmptyStateSubtitle));
+        OnPropertyChanged(nameof(MessagePlaceholder));
+        OnPropertyChanged(nameof(SendButtonText));
+        RefreshGuideSections();
+
+        if (!HasMessages)
+        {
+            MessageText = Resource("AssistantDefaultPrompt");
+            ResetDefaultSuggestedReplies();
+        }
+    }
+
+    private void ResetDefaultSuggestedReplies()
+    {
+        SuggestedReplies.Clear();
+        SuggestedReplies.Add(Resource("AssistantPlanFood"));
+        SuggestedReplies.Add(Resource("AssistantPlanRelax"));
+        SuggestedReplies.Add(Resource("AssistantRecommendNearby"));
+        SuggestedReplies.Add(Resource("AssistantViewPreferences"));
+    }
+
+    private void RefreshGuideSections()
+    {
+        GuideSections.Clear();
+        foreach (var section in CreateGuideSections())
+        {
+            GuideSections.Add(section);
+        }
+    }
+
+    private static string Resource(string key)
+    {
+        return LocalizationResourceManager.Instance[key];
+    }
+
     private static IReadOnlyList<TravelChatGuideSectionViewModel> CreateGuideSections()
     {
         return
         [
             new TravelChatGuideSectionViewModel(
                 "1",
-                "Planificar",
+                Resource("AssistantGuidePlan"),
                 [
-                    new TravelChatGuideActionViewModel("Plan para comer", "Proponeme un plan para comer teniendo en cuenta mi agenda"),
-                    new TravelChatGuideActionViewModel("Plan para relajar", "Proponeme un plan para relajar teniendo en cuenta mi agenda"),
-                    new TravelChatGuideActionViewModel("Plan para caminar", "Recomendar plan para caminar teniendo en cuenta mi agenda"),
-                    new TravelChatGuideActionViewModel("Plan en pareja", "Recomendar plan para pareja teniendo en cuenta mi agenda"),
-                    new TravelChatGuideActionViewModel("Plan nocturno", "Recomendar plan nocturno teniendo en cuenta mi agenda"),
-                    new TravelChatGuideActionViewModel("Plan para bailar", "Recomendar plan para bailar teniendo en cuenta mi agenda"),
-                    new TravelChatGuideActionViewModel("Plan por fecha", "Proponeme planes para 2026-10-08 teniendo en cuenta mi agenda")
+                    new TravelChatGuideActionViewModel(Resource("AssistantPlanFood"), Resource("AssistantPromptFood")),
+                    new TravelChatGuideActionViewModel(Resource("AssistantPlanRelax"), Resource("AssistantPromptRelax")),
+                    new TravelChatGuideActionViewModel(Resource("AssistantPlanWalk"), Resource("AssistantPromptWalk")),
+                    new TravelChatGuideActionViewModel(Resource("AssistantPlanCouple"), Resource("AssistantPromptCouple")),
+                    new TravelChatGuideActionViewModel(Resource("AssistantPlanNight"), Resource("AssistantPromptNight")),
+                    new TravelChatGuideActionViewModel(Resource("AssistantPlanDance"), Resource("AssistantPromptDance")),
+                    new TravelChatGuideActionViewModel(Resource("AssistantPlanDate"), Resource("AssistantPromptDate"))
                 ]),
             new TravelChatGuideSectionViewModel(
                 "2",
-                "Ajustar",
+                Resource("AssistantGuideAdjust"),
                 [
-                    new TravelChatGuideActionViewModel("Por cercania", "Recomendar por cercania teniendo en cuenta el pedido inicial"),
-                    new TravelChatGuideActionViewModel("Por duracion", "Recomendar por duracion teniendo en cuenta el pedido inicial"),
-                    new TravelChatGuideActionViewModel("Otra opcion", "Otra alternativa teniendo en cuenta el pedido inicial")
+                    new TravelChatGuideActionViewModel(Resource("AssistantRecommendNearby"), Resource("AssistantPromptNearby")),
+                    new TravelChatGuideActionViewModel(Resource("AssistantRecommendDuration"), Resource("AssistantPromptDuration")),
+                    new TravelChatGuideActionViewModel(Resource("AssistantOtherOption"), Resource("AssistantPromptOther"))
                 ]),
             new TravelChatGuideSectionViewModel(
                 "3",
-                "Agenda",
+                Resource("AssistantGuideSchedule"),
                 [
-                    new TravelChatGuideActionViewModel("Ver agenda", "Ver mi agenda"),
-                    new TravelChatGuideActionViewModel("Mañana", "Proponeme planes para mañana")
+                    new TravelChatGuideActionViewModel(Resource("AssistantViewSchedule"), Resource("AssistantViewSchedule")),
+                    new TravelChatGuideActionViewModel(Resource("AssistantTomorrow"), Resource("AssistantPromptTomorrow"))
                 ]),
             new TravelChatGuideSectionViewModel(
                 "4",
-                "Preferencias",
+                Resource("AssistantGuidePreferences"),
                 [
-                    new TravelChatGuideActionViewModel("Ver perfil", "Ver mis preferencias"),
-                    new TravelChatGuideActionViewModel("Evitar #culture", "Evitar #culture"),
-                    new TravelChatGuideActionViewModel("Presupuesto bajo", "Presupuesto bajo")
+                    new TravelChatGuideActionViewModel(Resource("AssistantViewPreferences"), Resource("AssistantViewPreferences")),
+                    new TravelChatGuideActionViewModel(Resource("AssistantPromptAvoidCulture"), Resource("AssistantPromptAvoidCulture")),
+                    new TravelChatGuideActionViewModel(Resource("AssistantPromptLowBudget"), Resource("AssistantPromptLowBudget"))
                 ]),
             new TravelChatGuideSectionViewModel(
                 "5",
-                "Ayuda",
+                Resource("AssistantGuideHelp"),
                 [
-                    new TravelChatGuideActionViewModel("Que puedo pedirte", "Que puedo pedirte"),
-                    new TravelChatGuideActionViewModel("Comandos", "Ayuda")
+                    new TravelChatGuideActionViewModel(Resource("AssistantHelpCapabilities"), Resource("AssistantHelpCapabilities")),
+                    new TravelChatGuideActionViewModel(Resource("AssistantPromptCommands"), Resource("AssistantPromptCommands"))
                 ])
         ];
     }

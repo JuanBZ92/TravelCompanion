@@ -11,16 +11,19 @@
     Shell.TabBarUnselectedColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}">
 
     <ShellContent
+        x:Name="LoginTab"
         Title="Ingresar"
         ContentTemplate="{DataTemplate pages:LoginPage}"
         Route="login" />
 
     <ShellContent
+        x:Name="BiometricUnlockTab"
         Title="Desbloquear"
         ContentTemplate="{DataTemplate pages:BiometricUnlockPage}"
         Route="biometric-unlock" />
 
     <ShellContent
+        x:Name="ChangePasswordTab"
         Title="Nueva password"
         ContentTemplate="{DataTemplate pages:ChangePasswordPage}"
         Route="change-password" />

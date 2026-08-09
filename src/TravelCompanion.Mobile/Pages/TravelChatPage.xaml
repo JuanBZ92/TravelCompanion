@@ -13,12 +13,12 @@
     <Grid Padding="28,26,28,0" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="18">
         <Grid ColumnDefinitions="*,140" ColumnSpacing="12">
             <VerticalStackLayout Spacing="6">
-                <Label Text="ASSISTANT · YUKU JAPAN"
+                <Label Text="{Binding AssistantEyebrow}"
                        CharacterSpacing="6"
                        FontSize="11"
                        FontAttributes="Bold"
                        TextColor="#8E867D" />
-                <Label Text="Assistant"
+                <Label Text="{Binding AssistantTitle}"
                        FontFamily="serif"
                        FontSize="34"
                        TextColor="#1A1714" />
@@ -130,7 +130,7 @@
                                         <DataTemplate x:DataType="viewModels:TravelChatCardViewModel">
                                             <Border Style="{StaticResource Card}"
                                                     Padding="14">
-                                                <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="6">
+                                                <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="6">
                                                     <Label Text="{Binding Title}"
                                                            FontSize="21"
                                                            FontFamily="serif"
@@ -219,10 +219,10 @@
                                                     <VerticalStackLayout Grid.Row="6"
                                                                          Spacing="4"
                                                                          IsVisible="{Binding HasWarnings}"
-                                                                         BindableLayout.ItemsSource="{Binding Warnings}">
+                                                                         BindableLayout.ItemsSource="{Binding WarningLabels}">
                                                         <BindableLayout.ItemTemplate>
                                                             <DataTemplate x:DataType="system:String">
-                                                                <Label Text="{Binding ., StringFormat='Atencion: {0}'}"
+                                                                <Label Text="{Binding .}"
                                                                        FontSize="12"
                                                                        TextColor="{AppThemeBinding Light={StaticResource Rose}, Dark={StaticResource GoldSoft}}" />
                                                             </DataTemplate>
@@ -233,7 +233,7 @@
                                                                 Wrap="Wrap"
                                                                 AlignItems="Start"
                                                                 Margin="0,2,0,0">
-                                                        <Button Text="Ver detalle"
+                                                        <Button Text="{Binding DetailButtonText}"
                                                                 Clicked="OnOpenRecommendationDetailClicked"
                                                                 IsVisible="{Binding HasDetailAction}"
                                                                 Style="{StaticResource GhostButton}"
@@ -249,21 +249,50 @@
                                                                 Padding="10,7"
                                                                 MinimumHeightRequest="34"
                                                                 Margin="0,0,6,6" />
-                                                        <Button Text="Por cercania"
+                                                        <Button Text="{Binding NearbyButtonText}"
                                                                 Clicked="OnRequestLessWalkingClicked"
                                                                 Style="{StaticResource GhostButton}"
                                                                 FontSize="12"
                                                                 Padding="10,7"
                                                                 MinimumHeightRequest="34"
                                                                 Margin="0,0,6,6" />
-                                                        <Button Text="Reemplazar"
+                                                        <Button Text="{Binding ReplaceButtonText}"
                                                                 Clicked="OnReplaceRecommendationClicked"
                                                                 Style="{StaticResource GhostButton}"
                                                                 FontSize="12"
                                                                 Padding="10,7"
                                                                 MinimumHeightRequest="34"
                                                                 Margin="0,0,6,6" />
+                                                        <Button Text="{Binding UsefulButtonText}"
+                                                                Clicked="OnMarkUsefulClicked"
+                                                                IsVisible="{Binding HasFeedbackActions}"
+                                                                Style="{StaticResource GhostButton}"
+                                                                FontSize="12"
+                                                                Padding="10,7"
+                                                                MinimumHeightRequest="34"
+                                                                Margin="0,0,6,6" />
+                                                        <Button Text="{Binding NotUsefulButtonText}"
+                                                                Clicked="OnMarkNotUsefulClicked"
+                                                                IsVisible="{Binding HasFeedbackActions}"
+                                                                Style="{StaticResource GhostButton}"
+                                                                FontSize="12"
+                                                                Padding="10,7"
+                                                                MinimumHeightRequest="34"
+                                                                Margin="0,0,6,6" />
+                                                        <Button Text="{Binding HideSimilarButtonText}"
+                                                                Clicked="OnHideSimilarClicked"
+                                                                IsVisible="{Binding HasFeedbackActions}"
+                                                                Style="{StaticResource GhostButton}"
+                                                                FontSize="12"
+                                                                Padding="10,7"
+                                                                MinimumHeightRequest="34"
+                                                                Margin="0,0,6,6" />
                                                     </FlexLayout>
+                                                    <Label Grid.Row="8"
+                                                           Text="{Binding FeedbackStatusMessage}"
+                                                           FontSize="12"
+                                                           TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                                                           IsVisible="{Binding HasFeedbackStatus}" />
                                                 </Grid>
                                             </Border>
                                         </DataTemplate>
@@ -282,12 +311,12 @@
                                      HorizontalOptions="Center"
                                      MaximumWidthRequest="640">
                     <VerticalStackLayout Spacing="4">
-                        <Label Text="Que queres hacer ahora?"
+                        <Label Text="{Binding EmptyStateTitle}"
                                FontSize="18"
                                FontAttributes="Bold"
                                HorizontalTextAlignment="Center"
                                TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
-                        <Label Text="Elegi una accion o escribi un pedido concreto."
+                        <Label Text="{Binding EmptyStateSubtitle}"
                                FontSize="13"
                                HorizontalTextAlignment="Center"
                                TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
@@ -365,13 +394,13 @@
                         <RoundRectangle CornerRadius="0" />
                     </Border.StrokeShape>
                     <Entry Text="{Binding MessageText}"
-                           Placeholder="Escribi tu pedido"
+                           Placeholder="{Binding MessagePlaceholder}"
                            ReturnCommand="{Binding SendMessageCommand}"
                            FontSize="14" />
                 </Border>
 
                 <Button Grid.Column="1"
-                        Text="Send"
+                        Text="{Binding SendButtonText}"
                         Command="{Binding SendMessageCommand}"
                         FontSize="14"
                         Padding="16,10"

@@ -16,4 +16,5 @@ public sealed class AppUser
     public List<NotificationOutboxItem> NotificationOutboxItems { get; set; } = [];
     public TravelPreferenceProfile? TravelPreferenceProfile { get; set; }
     public List<TravelChatConversation> TravelChatConversations { get; set; } = [];
+    public List<TravelAssistantFeedback> TravelAssistantFeedbackItems { get; set; } = [];
 }

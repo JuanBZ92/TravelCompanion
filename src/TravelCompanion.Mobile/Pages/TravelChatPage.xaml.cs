@@ -64,6 +64,30 @@ public partial class TravelChatPage : ContentPage
         }
     }
 
+    private async void OnMarkUsefulClicked(object? sender, EventArgs e)
+    {
+        if ((sender as BindableObject)?.BindingContext is TravelChatCardViewModel card)
+        {
+            await _viewModel.MarkUsefulCommand.ExecuteAsync(card);
+        }
+    }
+
+    private async void OnMarkNotUsefulClicked(object? sender, EventArgs e)
+    {
+        if ((sender as BindableObject)?.BindingContext is TravelChatCardViewModel card)
+        {
+            await _viewModel.MarkNotUsefulCommand.ExecuteAsync(card);
+        }
+    }
+
+    private async void OnHideSimilarClicked(object? sender, EventArgs e)
+    {
+        if ((sender as BindableObject)?.BindingContext is TravelChatCardViewModel card)
+        {
+            await _viewModel.HideSimilarCommand.ExecuteAsync(card);
+        }
+    }
+
     private async void OnTagActionTapped(object? sender, TappedEventArgs e)
     {
         if ((sender as BindableObject)?.BindingContext is TravelChatTagActionViewModel tagAction)

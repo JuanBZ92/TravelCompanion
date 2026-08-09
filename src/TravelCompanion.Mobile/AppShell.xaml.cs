@@ -8,6 +8,8 @@ public partial class AppShell : Shell
     public AppShell()
     {
         InitializeComponent();
+        ApplyLocalizedTitles();
+        LocalizationResourceManager.Instance.CultureChanged += OnCultureChanged;
         Routing.RegisterRoute(nameof(RecommendationDetailPage), typeof(RecommendationDetailPage));
         Routing.RegisterRoute(nameof(ScheduleItemDetailPage), typeof(ScheduleItemDetailPage));
         WarmMainTabPages();
@@ -31,5 +33,22 @@ public partial class AppShell : Shell
         ScheduleTab.Content ??= MauiProgram.Services.GetRequiredService<SchedulePage>();
         AssistantTab.Content ??= MauiProgram.Services.GetRequiredService<TravelChatPage>();
         DocsTab.Content ??= MauiProgram.Services.GetRequiredService<DocsPage>();
+    }
+
+    private void OnCultureChanged(object? sender, EventArgs e)
+    {
+        ApplyLocalizedTitles();
+    }
+
+    private void ApplyLocalizedTitles()
+    {
+        var resources = LocalizationResourceManager.Instance;
+        LoginTab.Title = resources["TabLogin"];
+        BiometricUnlockTab.Title = resources["TabBiometricUnlock"];
+        ChangePasswordTab.Title = resources["TabChangePassword"];
+        RecommendationsTab.Title = resources["TabDiscover"];
+        ScheduleTab.Title = resources["TabToday"];
+        AssistantTab.Title = resources["TabAssistant"];
+        DocsTab.Title = resources["TabDocs"];
     }
 }

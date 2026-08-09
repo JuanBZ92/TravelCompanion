@@ -9,7 +9,8 @@ namespace TravelCompanion.Api.Controllers;
 public sealed class AiController(
     UserSessionService sessionService,
     ITravelChatService travelChatService,
-    IItineraryService itineraryService) : ControllerBase
+    IItineraryService itineraryService,
+    ITravelAssistantFeedbackService feedbackService) : ControllerBase
 {
     [HttpPost("travel-chat")]
     public async Task<ActionResult<TravelChatResponse>> TravelChat(
@@ -50,5 +51,30 @@ public sealed class AiController(
 
         var response = await itineraryService.SaveItineraryItemAsync(user, request, cancellationToken);
         return response.Saved ? Ok(response) : BadRequest(response);
+    }
+
+    [HttpPost("feedback")]
+    public async Task<ActionResult<TravelAssistantFeedbackResponse>> Feedback(
+        [FromBody] TravelAssistantFeedbackRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.ConversationId))
+        {
+            return this.ValidationError(nameof(request.ConversationId), "ConversationId is required.");
+        }
+
+        if (request.RecommendationId == Guid.Empty)
+        {
+            return this.ValidationError(nameof(request.RecommendationId), "RecommendationId is required.");
+        }
+
+        var user = await sessionService.GetUserAsync(HttpContext, cancellationToken);
+        if (user is null)
+        {
+            return Unauthorized();
+        }
+
+        var response = await feedbackService.RecordAsync(user, request, cancellationToken);
+        return response.Accepted ? Ok(response) : BadRequest(response);
     }
 }

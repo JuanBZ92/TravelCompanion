@@ -16,14 +16,17 @@ public sealed class OpenAiTravelModelClient : ITravelAiModelClient
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly OpenAiTravelOptions _options;
+    private readonly ITravelPromptTemplateProvider _promptTemplateProvider;
     private readonly ILogger<OpenAiTravelModelClient> _logger;
     private readonly ChatClient? _chatClient;
 
     public OpenAiTravelModelClient(
         IOptions<OpenAiTravelOptions> options,
+        ITravelPromptTemplateProvider promptTemplateProvider,
         ILogger<OpenAiTravelModelClient> logger)
     {
         _options = options.Value;
+        _promptTemplateProvider = promptTemplateProvider;
         _logger = logger;
 
         if (_options.Enabled && !string.IsNullOrWhiteSpace(_options.ApiKey))
@@ -95,30 +98,20 @@ public sealed class OpenAiTravelModelClient : ITravelAiModelClient
         }
     }
 
-    private static List<ChatMessage> CreateMessages(TravelAiModelRequest request)
+    private List<ChatMessage> CreateMessages(TravelAiModelRequest request)
     {
+        var template = _promptTemplateProvider.GetTemplate(request.PromptVersion, request.Locale);
         return
         [
-            new SystemChatMessage("""
-                You are a travel assistant inside a mobile app.
-
-                Rules:
-                - Use only tool results as source of truth.
-                - Do not invent reservations, prices, opening hours, distances, preferences, or booking status.
-                - Keep replies concise for mobile.
-                - Explain the plan using concrete reasons from ranked recommendations.
-                - Return only JSON that matches the requested schema.
-                - Do not include sensitive data such as confirmation codes or internal notes.
-                - Never say a plan was saved. Saving requires an explicit backend save_itinerary_item action after user confirmation.
-                """),
+            new SystemChatMessage(template.SystemPrompt),
             new UserChatMessage($"""
                 Traveler message: {request.UserMessage}
-                Locale: {request.Locale ?? "es-ES"}
+                Locale: {template.Locale}
+                PromptVersion: {template.Version}
                 Intent: {request.Intent}
                 Conversation: {request.ConversationId}
 
-                First inspect the available travel tools. Then write a concise assistant message and suggested replies.
-                The backend will render deterministic cards separately, so do not create new places or reservations.
+                {template.UserInstruction}
                 """)
         ];
     }

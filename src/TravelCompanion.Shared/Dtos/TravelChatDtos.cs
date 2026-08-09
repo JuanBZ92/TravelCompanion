@@ -77,3 +77,22 @@ public sealed record SaveItineraryItemResponse(
     bool Saved,
     string Message,
     ScheduleItemDto? Item);
+
+public enum TravelAssistantFeedbackSignal
+{
+    Helpful,
+    NotHelpful,
+    HideSimilar
+}
+
+public sealed record TravelAssistantFeedbackRequest(
+    string ConversationId,
+    Guid RecommendationId,
+    TravelAssistantFeedbackSignal Signal,
+    string? Locale,
+    string? Intent,
+    string? ResponseMode);
+
+public sealed record TravelAssistantFeedbackResponse(
+    bool Accepted,
+    string Message);

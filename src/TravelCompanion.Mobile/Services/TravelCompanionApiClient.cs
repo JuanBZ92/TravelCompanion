@@ -304,6 +304,28 @@ public sealed class TravelCompanionApiClient
         return payload;
     }
 
+    public async Task<TravelAssistantFeedbackResponse?> SendTravelAssistantFeedbackAsync(
+        string token,
+        TravelAssistantFeedbackRequest feedbackRequest,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Post, "api/ai/feedback", token);
+        request.Content = JsonContent.Create(feedbackRequest, options: JsonOptions);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning(
+                "Travel assistant feedback request failed with {StatusCode}.",
+                (int)response.StatusCode);
+            return null;
+        }
+
+        return await response.Content
+            .ReadFromJsonAsync<TravelAssistantFeedbackResponse>(JsonOptions, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
     public async Task<IReadOnlyList<RecommendationDto>> GetRecommendationsAsync(
         string? destinationSlug = null,
         decimal? latitude = null,
