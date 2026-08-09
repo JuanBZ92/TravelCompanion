@@ -4,6 +4,7 @@ services:
     runtime: docker
     plan: free
     region: frankfurt
+    repo: https://github.com/JuanBZ92/TravelCompanion
     branch: newapproach
     autoDeployTrigger: commit
     dockerfilePath: ./Dockerfile
