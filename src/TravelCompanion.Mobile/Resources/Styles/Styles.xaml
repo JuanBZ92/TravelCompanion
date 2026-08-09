@@ -29,7 +29,7 @@
         <Setter Property="FontFamily" Value="OpenSansSemibold"/>
         <Setter Property="FontSize" Value="16"/>
         <Setter Property="BorderWidth" Value="0"/>
-        <Setter Property="CornerRadius" Value="12"/>
+        <Setter Property="CornerRadius" Value="0"/>
         <Setter Property="Padding" Value="18,14"/>
         <Setter Property="MinimumHeightRequest" Value="48"/>
         <Setter Property="MinimumWidthRequest" Value="48"/>
@@ -175,8 +175,8 @@
 
     <Style TargetType="Label" x:Key="Headline">
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
-        <Setter Property="FontFamily" Value="OpenSansSemibold" />
-        <Setter Property="FontSize" Value="28" />
+        <Setter Property="FontFamily" Value="serif" />
+        <Setter Property="FontSize" Value="34" />
         <Setter Property="LineHeight" Value="1.2" />
     </Style>
 
@@ -217,12 +217,12 @@
     </Style>
 
     <Style TargetType="Border" x:Key="Card">
-        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Paper}, Dark={StaticResource NightSurface}}" />
-        <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}" />
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource AccentSoft}, Dark={StaticResource NightSurface}}" />
+        <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource NightLine}}" />
         <Setter Property="StrokeThickness" Value="1" />
         <Setter Property="Padding" Value="16" />
         <Setter Property="StrokeShape">
-            <RoundRectangle CornerRadius="12" />
+            <RoundRectangle CornerRadius="0" />
         </Setter>
     </Style>
 
@@ -232,7 +232,7 @@
         <Setter Property="StrokeThickness" Value="0" />
         <Setter Property="Padding" Value="16" />
         <Setter Property="StrokeShape">
-            <RoundRectangle CornerRadius="12" />
+            <RoundRectangle CornerRadius="0" />
         </Setter>
     </Style>
 
@@ -242,7 +242,7 @@
         <Setter Property="StrokeThickness" Value="1" />
         <Setter Property="Padding" Value="12,10" />
         <Setter Property="StrokeShape">
-            <RoundRectangle CornerRadius="8" />
+            <RoundRectangle CornerRadius="0" />
         </Setter>
     </Style>
 
@@ -252,7 +252,7 @@
         <Setter Property="StrokeThickness" Value="1" />
         <Setter Property="Padding" Value="12" />
         <Setter Property="StrokeShape">
-            <RoundRectangle CornerRadius="8" />
+            <RoundRectangle CornerRadius="0" />
         </Setter>
     </Style>
 
@@ -261,7 +261,7 @@
         <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource GoldSoft}, Dark={StaticResource NightLine}}" />
         <Setter Property="Padding" Value="10,6" />
         <Setter Property="StrokeShape">
-            <RoundRectangle CornerRadius="16" />
+            <RoundRectangle CornerRadius="0" />
         </Setter>
     </Style>
 
@@ -272,7 +272,7 @@
         <Setter Property="BorderWidth" Value="1"/>
         <Setter Property="FontFamily" Value="OpenSansSemibold"/>
         <Setter Property="FontSize" Value="16"/>
-        <Setter Property="CornerRadius" Value="12"/>
+        <Setter Property="CornerRadius" Value="0"/>
         <Setter Property="Padding" Value="18,14"/>
         <Setter Property="MinimumHeightRequest" Value="48"/>
         <Setter Property="MinimumWidthRequest" Value="48"/>
@@ -287,7 +287,7 @@
         <Setter Property="Padding" Value="8,6" />
         <Setter Property="MinimumHeightRequest" Value="34" />
         <Setter Property="MinimumWidthRequest" Value="72" />
-        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="CornerRadius" Value="0" />
     </Style>
 
     <Style TargetType="Border" x:Key="Chip">
@@ -296,7 +296,7 @@
         <Setter Property="StrokeThickness" Value="1" />
         <Setter Property="Padding" Value="12,8" />
         <Setter Property="StrokeShape">
-            <RoundRectangle CornerRadius="20" />
+            <RoundRectangle CornerRadius="0" />
         </Setter>
     </Style>
 
@@ -306,7 +306,7 @@
         <Setter Property="StrokeThickness" Value="1" />
         <Setter Property="Padding" Value="12,8" />
         <Setter Property="StrokeShape">
-            <RoundRectangle CornerRadius="20" />
+            <RoundRectangle CornerRadius="0" />
         </Setter>
     </Style>
 

@@ -5,18 +5,28 @@
              x:Class="TravelCompanion.Mobile.Pages.BiometricUnlockPage"
              x:DataType="viewModels:BiometricUnlockViewModel"
              Title="Desbloquear"
-             Shell.NavBarIsVisible="False">
-    <Grid Padding="24" RowDefinitions="*,Auto,*">
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="#F8F3ED">
+    <Grid Padding="28" RowDefinitions="*,Auto,*" BackgroundColor="#F8F3ED">
         <VerticalStackLayout Grid.Row="1" Spacing="20">
-            <VerticalStackLayout Spacing="8">
-                <Label Text="Travel Companion" Style="{StaticResource Eyebrow}" />
-                <Label Text="Bienvenido" Style="{StaticResource Headline}" />
-                <Label Text="{Binding DisplayName, StringFormat='Desbloquea la sesion de {0}.'}" Style="{StaticResource SubHeadline}" />
+            <VerticalStackLayout Spacing="10">
+                <Label Text="YUKU JAPAN"
+                       CharacterSpacing="6"
+                       FontSize="11"
+                       FontAttributes="Bold"
+                       TextColor="#8E867D" />
+                <Label Text="Bienvenido"
+                       FontFamily="serif"
+                       FontSize="34"
+                       TextColor="#1A1714" />
+                <Label Text="{Binding DisplayName, StringFormat='Desbloquea la sesion de {0}.'}"
+                       FontSize="16"
+                       TextColor="#6E675F" />
             </VerticalStackLayout>
 
             <Border Style="{StaticResource Card}">
                 <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="8" />
+                    <RoundRectangle CornerRadius="0" />
                 </Border.StrokeShape>
                 <VerticalStackLayout Spacing="14">
                     <Label Text="{Binding UnlockStatusMessage}" FontSize="14" />

@@ -5,28 +5,33 @@
              x:Class="TravelCompanion.Mobile.Pages.LoginPage"
              x:DataType="viewModels:LoginViewModel"
              Title="Ingresar"
-             Shell.NavBarIsVisible="False">
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="#F8F3ED">
     <Grid Padding="28" RowDefinitions="*,Auto,*"
-          BackgroundColor="{AppThemeBinding Light={StaticResource Mist}, Dark={StaticResource Night}}">
+          BackgroundColor="#F8F3ED">
         <VerticalStackLayout Grid.Row="1" Spacing="24">
             <VerticalStackLayout Spacing="10">
-                <Label Text="YUKU"
-                       Style="{StaticResource Eyebrow}"
-                       CharacterSpacing="6" />
+                <Label Text="YUKU JAPAN"
+                       CharacterSpacing="6"
+                       FontSize="11"
+                       FontAttributes="Bold"
+                       TextColor="#8E867D" />
                 <Label Text="Ingresa tu PIN"
                        FontSize="34"
-                       FontFamily="OpenSansRegular"
-                       TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
+                       FontFamily="serif"
+                       TextColor="#1A1714" />
                 <Label Text="Usa el codigo de 4 numeros de tu viaje para cargar agenda, vuelos, documentos y recomendaciones."
-                       Style="{StaticResource SubHeadline}" />
+                       FontSize="16"
+                       LineHeight="1.45"
+                       TextColor="#6E675F" />
             </VerticalStackLayout>
 
-            <Border BackgroundColor="{AppThemeBinding Light={StaticResource Paper}, Dark={StaticResource NightSurface}}"
-                    Stroke="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
+            <Border BackgroundColor="#F6F1EA"
+                    Stroke="#D8CFC4"
                     StrokeThickness="1"
                     Padding="20">
                 <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="8" />
+                    <RoundRectangle CornerRadius="0" />
                 </Border.StrokeShape>
                 <VerticalStackLayout Spacing="18">
                     <Entry Text="{Binding Pin}"
@@ -41,19 +46,20 @@
                            ClearButtonVisibility="WhileEditing" />
 
                     <Border Padding="12"
-                            BackgroundColor="{AppThemeBinding Light={StaticResource RoseSoft}, Dark={StaticResource NightSurfaceAlt}}"
-                            Stroke="{AppThemeBinding Light={StaticResource Rose}, Dark={StaticResource NightLine}}"
+                            BackgroundColor="#F6F1EA"
+                            Stroke="{StaticResource Rose}"
                             StrokeThickness="1"
                             IsVisible="{Binding HasError}">
                         <Border.StrokeShape>
-                            <RoundRectangle CornerRadius="8" />
+                            <RoundRectangle CornerRadius="0" />
                         </Border.StrokeShape>
                         <Label Text="{Binding ErrorMessage}" TextColor="{AppThemeBinding Light={StaticResource Rose}, Dark={StaticResource Paper}}" />
                     </Border>
 
                     <Button Text="Abrir viaje"
                             Command="{Binding LoginCommand}"
-                            IsEnabled="{Binding IsNotBusy}" />
+                            IsEnabled="{Binding IsNotBusy}"
+                            CornerRadius="0" />
                     <Button Text="Desbloquear con biometria"
                             Style="{StaticResource GhostButton}"
                             Command="{Binding UnlockWithBiometricsCommand}"

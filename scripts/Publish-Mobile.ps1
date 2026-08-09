@@ -10,6 +10,9 @@ param(
     [ValidateSet("apk", "aab")]
     [string]$AndroidPackageFormat = "apk",
 
+    [Alias("Fast")]
+    [switch]$FastAndroid,
+
     [switch]$InstallAndroid,
 
     [string]$AndroidDevice,
@@ -176,6 +179,47 @@ function Publish-Android {
             throw "Only APK files can be installed directly with adb. Use -AndroidPackageFormat apk."
         }
 
+        Install-AndroidApk -ApkPath $artifact.FullName -Device $Device
+        Write-Host "Android app installed on device." -ForegroundColor Green
+    }
+}
+
+function Build-AndroidFast {
+    param(
+        [string]$RepoRoot,
+        [string]$ProjectPath,
+        [string]$ResolvedApiUrl,
+        [string]$BuildConfiguration,
+        [bool]$ShouldInstall,
+        [string]$Device,
+        [string]$ArtifactsRoot
+    )
+
+    Write-Host "Building Android package in fast mode..." -ForegroundColor Cyan
+    Write-Host "Fast mode uses dotnet build instead of dotnet publish and always looks for an APK." -ForegroundColor DarkGray
+
+    Invoke-DotNet @(
+        "build",
+        $ProjectPath,
+        "-f", "net10.0-android",
+        "-c", $BuildConfiguration,
+        "-p:TravelCompanionApiBaseUrl=$ResolvedApiUrl",
+        "-p:AndroidPackageFormat=apk"
+    )
+
+    $artifact = Copy-NewestArtifact `
+        -SearchRoot (Join-Path $RepoRoot "src\TravelCompanion.Mobile\bin\$BuildConfiguration\net10.0-android") `
+        -Patterns @("*.apk") `
+        -DestinationRoot $ArtifactsRoot
+
+    if ($null -eq $artifact) {
+        Write-Host "Fast Android build finished. No APK was copied; check output under src\TravelCompanion.Mobile\bin\$BuildConfiguration\net10.0-android." -ForegroundColor Yellow
+        return
+    }
+
+    Write-Host "Android fast artifact: $($artifact.FullName)" -ForegroundColor Green
+
+    if ($ShouldInstall) {
         Install-AndroidApk -ApkPath $artifact.FullName -Device $Device
         Write-Host "Android app installed on device." -ForegroundColor Green
     }
@@ -350,18 +394,35 @@ Write-Host "Travel Companion mobile publish" -ForegroundColor Cyan
 Write-Host "Platform: $Platform"
 Write-Host "Configuration: $Configuration"
 Write-Host "API URL: $resolvedApiUrl"
+Write-Host "Fast Android: $([bool]$FastAndroid)"
 Write-Host ""
 
 if ($Platform -eq "Android" -or $Platform -eq "Both") {
-    Publish-Android `
-        -RepoRoot $repoRoot `
-        -ProjectPath $projectPath `
-        -ResolvedApiUrl $resolvedApiUrl `
-        -BuildConfiguration $Configuration `
-        -PackageFormat $AndroidPackageFormat `
-        -ShouldInstall ([bool]$InstallAndroid) `
-        -Device $AndroidDevice `
-        -ArtifactsRoot $artifactsRoot
+    if ($FastAndroid) {
+        if ($AndroidPackageFormat -ne "apk") {
+            Write-Warning "Fast Android mode ignores -AndroidPackageFormat $AndroidPackageFormat and builds an APK."
+        }
+
+        Build-AndroidFast `
+            -RepoRoot $repoRoot `
+            -ProjectPath $projectPath `
+            -ResolvedApiUrl $resolvedApiUrl `
+            -BuildConfiguration $Configuration `
+            -ShouldInstall ([bool]$InstallAndroid) `
+            -Device $AndroidDevice `
+            -ArtifactsRoot $artifactsRoot
+    }
+    else {
+        Publish-Android `
+            -RepoRoot $repoRoot `
+            -ProjectPath $projectPath `
+            -ResolvedApiUrl $resolvedApiUrl `
+            -BuildConfiguration $Configuration `
+            -PackageFormat $AndroidPackageFormat `
+            -ShouldInstall ([bool]$InstallAndroid) `
+            -Device $AndroidDevice `
+            -ArtifactsRoot $artifactsRoot
+    }
 }
 
 if ($Platform -eq "iOS" -or $Platform -eq "Both") {
