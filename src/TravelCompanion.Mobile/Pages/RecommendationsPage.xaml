@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:shapes="clr-namespace:Microsoft.Maui.Controls.Shapes;assembly=Microsoft.Maui.Controls"
              xmlns:system="clr-namespace:System;assembly=System.Runtime"
              xmlns:itemViewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
              xmlns:viewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
@@ -9,320 +10,333 @@
              x:DataType="viewModels:RecommendationsViewModel"
              Title="Discover"
              Shell.NavBarIsVisible="False"
-             BackgroundColor="{AppThemeBinding Light={StaticResource PaperAlt}, Dark={StaticResource Night}}">
+             BackgroundColor="#F8F3ED">
 
-    <Grid Padding="20,12,20,0"
-          RowDefinitions="Auto,Auto,Auto,*"
-          RowSpacing="14">
+    <Grid RowDefinitions="*">
+        <ScrollView VerticalScrollBarVisibility="Never">
+            <VerticalStackLayout Padding="28,26,28,36"
+                                 Spacing="22">
 
-        <Border HeightRequest="176"
-                Padding="0"
-                StrokeThickness="0"
-                BackgroundColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource NightSurface}}">
-            <Border.StrokeShape>
-                <RoundRectangle CornerRadius="8" />
-            </Border.StrokeShape>
-            <Grid>
-                <Image Source="japan_hero.png"
-                       Aspect="AspectFill"
-                       Opacity="0.92" />
-                <BoxView BackgroundColor="#66000000" />
-                <Grid Padding="18"
-                      RowDefinitions="*,Auto,Auto,Auto"
-                      RowSpacing="4">
-                    <Label Grid.Row="1"
-                           Text="Japon curado"
-                           FontSize="28"
-                           FontAttributes="Bold"
-                           TextColor="{StaticResource Paper}"
-                           LineBreakMode="TailTruncation" />
-                    <Label Grid.Row="2"
-                           Text="Ideas seleccionadas para viajar con calma, criterio y buen gusto."
-                           FontSize="13"
-                           TextColor="{StaticResource Paper}"
-                           Opacity="0.9"
-                           MaxLines="2" />
-                    <Label Grid.Row="3"
-                           Text="{Binding LastUpdatedMessage}"
+                <Grid RowDefinitions="Auto,Auto,Auto"
+                      RowSpacing="10">
+                    <Label Text="DISCOVER · YUKU JAPAN"
+                           CharacterSpacing="6"
                            FontSize="11"
-                           TextColor="{StaticResource Paper}"
-                           Opacity="0.75"
-                           IsVisible="{Binding HasLastUpdated}" />
-                </Grid>
-            </Grid>
-        </Border>
-
-        <VerticalStackLayout Grid.Row="1"
-                             Spacing="10">
-            <CollectionView ItemsSource="{Binding CategoryFilters}"
-                            SelectionMode="None"
-                            HeightRequest="38"
-                            HorizontalScrollBarVisibility="Never">
-                <CollectionView.ItemsLayout>
-                    <LinearItemsLayout Orientation="Horizontal"
-                                       ItemSpacing="8" />
-                </CollectionView.ItemsLayout>
-                <CollectionView.ItemTemplate>
-                    <DataTemplate x:DataType="viewModels:CategoryFilterViewModel">
-                        <Border Padding="14,7"
-                                BackgroundColor="{Binding BackgroundColor}"
-                                Stroke="{Binding BorderColor}"
-                                StrokeThickness="1"
-                                HeightRequest="34">
-                            <Border.StrokeShape>
-                                <RoundRectangle CornerRadius="8" />
-                            </Border.StrokeShape>
-                            <Border.GestureRecognizers>
-                                <TapGestureRecognizer Tapped="OnCategoryFilterTapped" />
-                            </Border.GestureRecognizers>
-                            <Label Text="{Binding Label}"
-                                   FontSize="12"
-                                   FontAttributes="Bold"
-                                   TextColor="{Binding TextColor}"
-                                   VerticalOptions="Center" />
-                        </Border>
-                    </DataTemplate>
-                </CollectionView.ItemTemplate>
-            </CollectionView>
-
-            <Grid ColumnDefinitions="*,Auto"
-                  ColumnSpacing="12">
-                <VerticalStackLayout Spacing="2">
-                    <Label Text="Guia editorial"
-                           FontSize="17"
                            FontAttributes="Bold"
-                           TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
-                    <Label Text="{Binding PageSummary}"
-                           FontSize="12"
-                           TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
-                </VerticalStackLayout>
+                           TextColor="#8E867D" />
 
-                <Picker Grid.Column="1"
-                        ItemsSource="{Binding PageSizeOptions}"
-                        SelectedItem="{Binding SelectedPageSize}"
-                        FontSize="12"
-                        WidthRequest="78"
-                        HorizontalTextAlignment="End"
-                        TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
-            </Grid>
-        </VerticalStackLayout>
+                    <Grid Grid.Row="1"
+                          ColumnDefinitions="*,Auto"
+                          ColumnSpacing="12">
+                        <Label Text="Discover"
+                               FontFamily="serif"
+                               FontSize="34"
+                               TextColor="#1A1714"
+                               LineBreakMode="TailTruncation"
+                               MaxLines="1" />
+                        <Label Grid.Column="1"
+                               Text="JP"
+                               FontSize="52"
+                               TextColor="#1A17140D"
+                               TranslationY="-14" />
+                    </Grid>
 
-        <VerticalStackLayout Grid.Row="2" Spacing="8">
-            <Border Style="{StaticResource NoticePanel}"
-                    IsVisible="{Binding HasStatus}">
-                <Label Text="{Binding StatusMessage}"
-                       FontSize="13"
-                       TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}" />
-            </Border>
-
-            <Border Style="{StaticResource ErrorPanel}"
-                    IsVisible="{Binding HasError}">
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                    <Label Text="{Binding ErrorMessage}"
-                           FontSize="13"
-                           TextColor="{AppThemeBinding Light={StaticResource Rose}, Dark={StaticResource Paper}}"
-                           VerticalOptions="Center" />
-                    <Button Grid.Column="1"
-                            Text="Reintentar"
-                            Command="{Binding LoadRecommendationsCommand}"
-                            Style="{StaticResource GhostButton}"
-                            FontSize="12"
-                            Padding="12,8"
-                            MinimumHeightRequest="34" />
+                    <VerticalStackLayout Grid.Row="2"
+                                         Spacing="3">
+                        <Label Text="{Binding PageSummary}"
+                               FontSize="17"
+                               TextColor="#6E675F" />
+                        <Label Text="{Binding LastUpdatedMessage}"
+                               FontSize="12"
+                               TextColor="#8A8078"
+                               IsVisible="{Binding HasLastUpdated}" />
+                    </VerticalStackLayout>
                 </Grid>
-            </Border>
-        </VerticalStackLayout>
 
-        <Grid Grid.Row="3" RowDefinitions="Auto,*" RowSpacing="10">
-            <Grid ColumnDefinitions="Auto,*,Auto"
-                  ColumnSpacing="8"
-                  HeightRequest="38">
-                <Button Text="Anterior"
-                        Command="{Binding PreviousPageCommand}"
-                        IsEnabled="{Binding CanGoPrevious}"
-                        Style="{StaticResource PagerButton}" />
-                <BoxView Grid.Column="1"
-                         HeightRequest="1"
-                         VerticalOptions="Center"
-                         BackgroundColor="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}" />
-                <Button Grid.Column="2"
-                        Text="Siguiente"
-                        Command="{Binding NextPageCommand}"
-                        IsEnabled="{Binding CanGoNext}"
-                        Style="{StaticResource PagerButton}" />
-            </Grid>
+                <CollectionView ItemsSource="{Binding CategoryFilters}"
+                                SelectionMode="None"
+                                HeightRequest="42"
+                                HorizontalScrollBarVisibility="Never">
+                    <CollectionView.ItemsLayout>
+                        <LinearItemsLayout Orientation="Horizontal"
+                                           ItemSpacing="10" />
+                    </CollectionView.ItemsLayout>
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="viewModels:CategoryFilterViewModel">
+                            <Border HeightRequest="38"
+                                    Padding="14,9"
+                                    BackgroundColor="{Binding BackgroundColor}"
+                                    Stroke="{Binding BorderColor}"
+                                    StrokeThickness="1">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="0" />
+                                </Border.StrokeShape>
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Tapped="OnCategoryFilterTapped" />
+                                </Border.GestureRecognizers>
+                                <Label Text="{Binding Label}"
+                                       CharacterSpacing="2"
+                                       FontSize="10"
+                                       FontAttributes="Bold"
+                                       TextColor="{Binding TextColor}"
+                                       VerticalTextAlignment="Center"
+                                       LineBreakMode="TailTruncation"
+                                       MaxLines="1" />
+                            </Border>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
 
-            <ScrollView Grid.Row="1"
-                        VerticalScrollBarVisibility="Never">
-                <VerticalStackLayout Spacing="0">
-                    <VerticalStackLayout HorizontalOptions="Center"
-                                         VerticalOptions="Center"
-                                         Spacing="8"
-                                         Padding="24"
-                                         IsVisible="False">
-                        <VerticalStackLayout.Triggers>
-                            <DataTrigger TargetType="VerticalStackLayout"
-                                         Binding="{Binding ShowEmptyState}"
-                                         Value="True">
-                                <Setter Property="IsVisible" Value="True" />
-                            </DataTrigger>
-                        </VerticalStackLayout.Triggers>
-                        <Label Text="No hay recomendaciones disponibles"
-                               FontSize="16"
-                               TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
-                               HorizontalOptions="Center" />
-                        <Label Text="Cambia el filtro o intenta nuevamente"
-                               FontSize="13"
-                               TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
-                               HorizontalOptions="Center" />
+                <Grid ColumnDefinitions="*,Auto"
+                      ColumnSpacing="12">
+                    <VerticalStackLayout Spacing="2">
+                        <Label Text="GUIA EDITORIAL"
+                               CharacterSpacing="4"
+                               FontSize="10"
+                               FontAttributes="Bold"
+                               TextColor="#9B9288" />
+                        <Label Text="Ideas seleccionadas para viajar con calma, criterio y buen gusto."
+                               FontSize="14"
+                               LineHeight="1.35"
+                               TextColor="#6E675F" />
                     </VerticalStackLayout>
 
-                    <VerticalStackLayout Spacing="0"
-                                         BindableLayout.ItemsSource="{Binding VisibleRecommendations}">
-                        <BindableLayout.ItemTemplate>
-                            <DataTemplate x:DataType="itemViewModels:RecommendationListItemViewModel">
-                                <Border HeightRequest="176"
-                                        Padding="0"
-                                        Margin="0,0,0,12"
-                                        BackgroundColor="{AppThemeBinding Light={StaticResource Paper}, Dark={StaticResource NightSurface}}"
-                                        Stroke="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
-                                        StrokeThickness="1">
-                                    <Border.StrokeShape>
-                                        <RoundRectangle CornerRadius="8" />
-                                    </Border.StrokeShape>
-                                    <Border.GestureRecognizers>
+                    <Picker Grid.Column="1"
+                            ItemsSource="{Binding PageSizeOptions}"
+                            SelectedItem="{Binding SelectedPageSize}"
+                            FontSize="12"
+                            WidthRequest="76"
+                            HorizontalTextAlignment="End"
+                            TextColor="#6E675F" />
+                </Grid>
+
+                <Border Style="{StaticResource NoticePanel}"
+                        IsVisible="{Binding HasStatus}">
+                    <Label Text="{Binding StatusMessage}"
+                           FontSize="13"
+                           TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}" />
+                </Border>
+
+                <Border Style="{StaticResource ErrorPanel}"
+                        IsVisible="{Binding HasError}">
+                    <Grid ColumnDefinitions="*,Auto"
+                          ColumnSpacing="12">
+                        <Label Text="{Binding ErrorMessage}"
+                               FontSize="13"
+                               TextColor="{AppThemeBinding Light={StaticResource Rose}, Dark={StaticResource Paper}}"
+                               VerticalOptions="Center" />
+                        <Button Grid.Column="1"
+                                Text="Reintentar"
+                                Command="{Binding LoadRecommendationsCommand}"
+                                Style="{StaticResource GhostButton}"
+                                FontSize="12"
+                                Padding="12,8"
+                                MinimumHeightRequest="34" />
+                    </Grid>
+                </Border>
+
+                <Grid ColumnDefinitions="Auto,*,Auto"
+                      ColumnSpacing="8"
+                      HeightRequest="38">
+                    <Button Text="Anterior"
+                            Command="{Binding PreviousPageCommand}"
+                            IsEnabled="{Binding CanGoPrevious}"
+                            Style="{StaticResource PagerButton}" />
+                    <BoxView Grid.Column="1"
+                             HeightRequest="1"
+                             VerticalOptions="Center"
+                             BackgroundColor="#1A171426" />
+                    <Button Grid.Column="2"
+                            Text="Siguiente"
+                            Command="{Binding NextPageCommand}"
+                            IsEnabled="{Binding CanGoNext}"
+                            Style="{StaticResource PagerButton}" />
+                </Grid>
+
+                <VerticalStackLayout HorizontalOptions="Center"
+                                     Spacing="8"
+                                     Padding="8,26"
+                                     IsVisible="{Binding ShowEmptyState}">
+                    <Label Text="No hay recomendaciones disponibles"
+                           FontFamily="serif"
+                           FontSize="22"
+                           TextColor="#1A1714"
+                           HorizontalOptions="Center" />
+                    <Label Text="Cambia el filtro o intenta nuevamente."
+                           FontSize="13"
+                           TextColor="#8A8078"
+                           HorizontalTextAlignment="Center"
+                           HorizontalOptions="Center" />
+                </VerticalStackLayout>
+
+                <VerticalStackLayout Spacing="0"
+                                     BindableLayout.ItemsSource="{Binding VisibleRecommendations}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="itemViewModels:RecommendationListItemViewModel">
+                            <Grid ColumnDefinitions="26,*"
+                                  Margin="0,0,0,26">
+                                <Grid>
+                                    <BoxView WidthRequest="1"
+                                             HorizontalOptions="Center"
+                                             VerticalOptions="Fill"
+                                             BackgroundColor="#1A171426" />
+                                    <shapes:Ellipse WidthRequest="10"
+                                                    HeightRequest="10"
+                                                    Stroke="#B9B1A8"
+                                                    StrokeThickness="2"
+                                                    Fill="#F8F3ED"
+                                                    HorizontalOptions="Center"
+                                                    VerticalOptions="Start"
+                                                    Margin="0,6,0,0" />
+                                </Grid>
+
+                                <Grid Grid.Column="1"
+                                      Padding="12,0,0,8"
+                                      RowDefinitions="Auto,Auto,Auto,Auto,Auto"
+                                      ColumnDefinitions="*,44"
+                                      RowSpacing="8">
+                                    <Grid.GestureRecognizers>
                                         <TapGestureRecognizer Tapped="OnRecommendationTapped" />
-                                    </Border.GestureRecognizers>
-                                    <Grid Padding="14"
-                                          RowDefinitions="Auto,Auto,*,Auto,Auto"
-                                          ColumnDefinitions="*,44">
-                                        <HorizontalStackLayout Spacing="8">
-                                            <Label Text="{Binding Category, Mode=OneTime}"
-                                                   FontSize="11"
-                                                   FontAttributes="Bold"
-                                                   TextTransform="Uppercase"
-                                                   TextColor="{AppThemeBinding Light={StaticResource Gold}, Dark={StaticResource GoldSoft}}"
-                                                   LineBreakMode="TailTruncation"
-                                                   MaxLines="1" />
-                                            <Label Text="{Binding AccessStatus}"
-                                                   FontSize="11"
-                                                   TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
-                                                   LineBreakMode="TailTruncation"
-                                                   MaxLines="1" />
-                                            <Label Text="{Binding CostLabel}"
-                                                   FontSize="11"
-                                                   TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
-                                                   LineBreakMode="TailTruncation"
-                                                   MaxLines="1" />
-                                        </HorizontalStackLayout>
+                                    </Grid.GestureRecognizers>
 
-                                        <Label Grid.Column="1"
-                                               Grid.RowSpan="2"
-                                               Text="{Binding FavoriteGlyph}"
-                                               FontSize="21"
-                                               TextColor="{AppThemeBinding Light={StaticResource Gold}, Dark={StaticResource Gold}}"
-                                               HorizontalTextAlignment="Center"
-                                               VerticalTextAlignment="Start"
-                                               WidthRequest="44"
-                                               HeightRequest="44">
-                                            <Label.GestureRecognizers>
-                                                <TapGestureRecognizer Tapped="OnFavoriteTapped" />
-                                            </Label.GestureRecognizers>
-                                        </Label>
-
-                                        <Label Grid.Row="1"
-                                               Text="{Binding Title, Mode=OneTime}"
-                                               FontSize="18"
+                                    <HorizontalStackLayout Spacing="8">
+                                        <Label Text="{Binding Category, Mode=OneTime}"
+                                               CharacterSpacing="4"
+                                               FontSize="10"
                                                FontAttributes="Bold"
-                                               Margin="0,6,0,0"
-                                               TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
+                                               TextTransform="Uppercase"
+                                               TextColor="#9B9288"
                                                LineBreakMode="TailTruncation"
                                                MaxLines="1" />
-                                        <Label Grid.Row="2"
-                                               Grid.ColumnSpan="2"
-                                               Text="{Binding Description, Mode=OneTime}"
-                                               FontSize="13"
-                                               Margin="0,6,0,0"
-                                               TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}"
+                                        <Label Text="{Binding AccessStatus}"
+                                               FontSize="11"
+                                               TextColor="#8A8078"
                                                LineBreakMode="TailTruncation"
-                                               MaxLines="2" />
-                                        <Grid Grid.Row="3"
-                                              Grid.ColumnSpan="2"
-                                              ColumnDefinitions="*,Auto">
-                                            <Label Text="{Binding Neighborhood, Mode=OneTime}"
-                                                   FontSize="12"
-                                                   TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
-                                                   LineBreakMode="TailTruncation"
-                                                   MaxLines="1" />
-                                            <Label Grid.Column="1"
-                                                   Text="{Binding SuggestedDurationMinutes, StringFormat='{0} min', Mode=OneTime}"
-                                                   FontSize="12"
-                                                   TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
-                                        </Grid>
-                                        <FlexLayout Grid.Row="4"
-                                                    Grid.ColumnSpan="2"
-                                                    Direction="Row"
-                                                    Wrap="Wrap"
-                                                    AlignItems="Start"
-                                                    Margin="0,7,0,0"
-                                                    IsVisible="{Binding HasVisibleTags}"
-                                                    BindableLayout.ItemsSource="{Binding VisibleTags}">
-                                            <BindableLayout.ItemTemplate>
-                                                <DataTemplate x:DataType="system:String">
-                                                    <Border Style="{StaticResource Chip}"
-                                                            Padding="8,5"
-                                                            Margin="0,0,6,4">
-                                                        <Label Text="{Binding ., StringFormat='#{0}'}"
-                                                               FontSize="11"
-                                                               TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}"
-                                                               MaxLines="1"
-                                                               LineBreakMode="TailTruncation" />
-                                                    </Border>
-                                                </DataTemplate>
-                                            </BindableLayout.ItemTemplate>
-                                        </FlexLayout>
-                                    </Grid>
-                                </Border>
-                            </DataTemplate>
-                        </BindableLayout.ItemTemplate>
-                    </VerticalStackLayout>
-                    <BoxView HeightRequest="28" Opacity="0" />
+                                               MaxLines="1" />
+                                    </HorizontalStackLayout>
+
+                                    <Label Grid.Column="1"
+                                           Grid.RowSpan="2"
+                                           Text="{Binding FavoriteGlyph}"
+                                           FontSize="24"
+                                           TextColor="#B8956A"
+                                           HorizontalTextAlignment="Center"
+                                           VerticalTextAlignment="Start"
+                                           WidthRequest="44"
+                                           HeightRequest="44">
+                                        <Label.GestureRecognizers>
+                                            <TapGestureRecognizer Tapped="OnFavoriteTapped" />
+                                        </Label.GestureRecognizers>
+                                    </Label>
+
+                                    <Label Grid.Row="1"
+                                           Text="{Binding Title, Mode=OneTime}"
+                                           FontFamily="serif"
+                                           FontSize="23"
+                                           TextColor="#1A1714"
+                                           LineBreakMode="WordWrap"
+                                           MaxLines="2" />
+
+                                    <Label Grid.Row="2"
+                                           Grid.ColumnSpan="2"
+                                           Text="{Binding Description, Mode=OneTime}"
+                                           FontSize="14"
+                                           LineHeight="1.35"
+                                           TextColor="#4D4741"
+                                           LineBreakMode="TailTruncation"
+                                           MaxLines="2" />
+
+                                    <FlexLayout Grid.Row="3"
+                                                Grid.ColumnSpan="2"
+                                                Direction="Row"
+                                                Wrap="Wrap"
+                                                AlignItems="Start">
+                                        <Label Text="{Binding Neighborhood, Mode=OneTime}"
+                                               FontSize="12"
+                                               TextColor="#8A8078"
+                                               Margin="0,0,10,4"
+                                               LineBreakMode="TailTruncation"
+                                               MaxLines="1" />
+                                        <Label Text="{Binding SuggestedDurationMinutes, StringFormat='{0} min', Mode=OneTime}"
+                                               FontSize="12"
+                                               TextColor="#8A8078"
+                                               Margin="0,0,10,4" />
+                                        <Label Text="{Binding CostLabel}"
+                                               FontSize="12"
+                                               TextColor="#8A8078"
+                                               Margin="0,0,10,4"
+                                               LineBreakMode="TailTruncation"
+                                               MaxLines="1" />
+                                    </FlexLayout>
+
+                                    <FlexLayout Grid.Row="4"
+                                                Grid.ColumnSpan="2"
+                                                Direction="Row"
+                                                Wrap="Wrap"
+                                                AlignItems="Start"
+                                                IsVisible="{Binding HasVisibleTags}"
+                                                BindableLayout.ItemsSource="{Binding VisibleTags}">
+                                        <BindableLayout.ItemTemplate>
+                                            <DataTemplate x:DataType="system:String">
+                                                <Border Padding="8,5"
+                                                        Margin="0,0,6,5"
+                                                        BackgroundColor="#F6F1EA"
+                                                        Stroke="#D8CFC4"
+                                                        StrokeThickness="1">
+                                                    <Border.StrokeShape>
+                                                        <RoundRectangle CornerRadius="0" />
+                                                    </Border.StrokeShape>
+                                                    <Label Text="{Binding ., StringFormat='#{0}'}"
+                                                           FontSize="11"
+                                                           TextColor="#6E675F"
+                                                           MaxLines="1"
+                                                           LineBreakMode="TailTruncation" />
+                                                </Border>
+                                            </DataTemplate>
+                                        </BindableLayout.ItemTemplate>
+                                    </FlexLayout>
+                                </Grid>
+                            </Grid>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
                 </VerticalStackLayout>
-            </ScrollView>
 
-            <Border Grid.Row="1"
-                    Padding="14,10"
-                    HorizontalOptions="Center"
-                    VerticalOptions="Start"
-                    BackgroundColor="{AppThemeBinding Light={StaticResource Paper}, Dark={StaticResource NightSurface}}"
-                    Stroke="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
-                    StrokeThickness="1"
-                    IsVisible="{Binding IsPaging}">
-                <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="8" />
-                </Border.StrokeShape>
-                <HorizontalStackLayout Spacing="10">
-                    <ActivityIndicator IsRunning="{Binding IsPaging}"
-                                       WidthRequest="16"
-                                       HeightRequest="16" />
-                    <Label Text="Cargando pagina"
-                           FontSize="12"
-                           TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
-                </HorizontalStackLayout>
-            </Border>
-
-            <VerticalStackLayout Grid.Row="1"
-                                 Spacing="12"
-                                 HorizontalOptions="Center"
-                                 VerticalOptions="Center"
-                                 IsVisible="{Binding ShowInitialLoading}">
-                <ActivityIndicator IsRunning="{Binding ShowInitialLoading}"
-                                   WidthRequest="28"
-                                   HeightRequest="28" />
-                <Label Text="Cargando recomendaciones"
-                       FontSize="13"
-                       TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
+                <BoxView HeightRequest="18"
+                         Opacity="0" />
             </VerticalStackLayout>
-        </Grid>
+        </ScrollView>
+
+        <Border Padding="14,10"
+                HorizontalOptions="Center"
+                VerticalOptions="Start"
+                Margin="0,24,0,0"
+                BackgroundColor="{AppThemeBinding Light={StaticResource Paper}, Dark={StaticResource NightSurface}}"
+                Stroke="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
+                StrokeThickness="1"
+                IsVisible="{Binding IsPaging}">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="0" />
+            </Border.StrokeShape>
+            <HorizontalStackLayout Spacing="10">
+                <ActivityIndicator IsRunning="{Binding IsPaging}"
+                                   WidthRequest="16"
+                                   HeightRequest="16" />
+                <Label Text="Cargando pagina"
+                       FontSize="12"
+                       TextColor="#8A8078" />
+            </HorizontalStackLayout>
+        </Border>
+
+        <VerticalStackLayout Spacing="12"
+                             HorizontalOptions="Center"
+                             VerticalOptions="Center"
+                             IsVisible="{Binding ShowInitialLoading}">
+            <ActivityIndicator IsRunning="{Binding ShowInitialLoading}"
+                               WidthRequest="28"
+                               HeightRequest="28" />
+            <Label Text="Cargando recomendaciones"
+                   FontSize="13"
+                   TextColor="#8A8078" />
+        </VerticalStackLayout>
     </Grid>
 </ContentPage>

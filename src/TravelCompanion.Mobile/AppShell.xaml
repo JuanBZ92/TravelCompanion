@@ -34,13 +34,6 @@
             Route="recommendations" />
 
         <ShellContent
-            x:Name="MapTab"
-            Title="Map"
-            Icon="tab_map.svg"
-            ContentTemplate="{DataTemplate pages:MapPage}"
-            Route="map" />
-
-        <ShellContent
             x:Name="ScheduleTab"
             Title="Today"
             Icon="tab_trip.svg"
@@ -53,13 +46,6 @@
             Icon="tab_ideas.svg"
             ContentTemplate="{DataTemplate pages:TravelChatPage}"
             Route="assistant" />
-
-        <ShellContent
-            x:Name="PackagesTab"
-            Title="Packs"
-            Icon="tab_packs.svg"
-            ContentTemplate="{DataTemplate pages:PackagesPage}"
-            Route="packages" />
 
         <ShellContent
             x:Name="DocsTab"

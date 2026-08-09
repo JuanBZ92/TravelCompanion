@@ -28,10 +28,8 @@ public partial class AppShell : Shell
     private void WarmMainTabPages()
     {
         RecommendationsTab.Content ??= MauiProgram.Services.GetRequiredService<RecommendationsPage>();
-        MapTab.Content ??= MauiProgram.Services.GetRequiredService<MapPage>();
         ScheduleTab.Content ??= MauiProgram.Services.GetRequiredService<SchedulePage>();
         AssistantTab.Content ??= MauiProgram.Services.GetRequiredService<TravelChatPage>();
-        PackagesTab.Content ??= MauiProgram.Services.GetRequiredService<PackagesPage>();
         DocsTab.Content ??= MauiProgram.Services.GetRequiredService<DocsPage>();
     }
 }
