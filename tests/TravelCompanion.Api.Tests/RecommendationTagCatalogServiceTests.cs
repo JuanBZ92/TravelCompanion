@@ -53,6 +53,9 @@ public sealed class RecommendationTagCatalogServiceTests
     [Theory]
     [InlineData("evitar cultura", "culture")]
     [InlineData("sin baños termales", "onsen")]
+    [InlineData("evitar miradores", "viewpoint")]
+    [InlineData("sin jardines", "nature")]
+    [InlineData("evitar compras vintage", "shopping")]
     [InlineData("avoid history", "history")]
     public async Task ResolveAvoidedTagsAsync_maps_aliases_to_canonical_tags(
         string message,

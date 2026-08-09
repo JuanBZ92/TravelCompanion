@@ -30,7 +30,33 @@ public sealed class TravelChatService(
     private const string LessWalkingMode = "less_walking";
     private const string ShorterMode = "shorter";
     private const string FoodMode = "food";
+    private const string FoodBreakfastMode = "food_breakfast";
+    private const string FoodLunchMode = "food_lunch";
+    private const string FoodDinnerMode = "food_dinner";
+    private const string FoodBrunchMode = "food_brunch";
     private const string CultureMode = "culture";
+    private const string CultureMuseumMode = "culture_museum";
+    private const string CultureTempleMode = "culture_temple";
+    private const string CultureArtMode = "culture_art";
+    private const string CultureHistoryMode = "culture_history";
+    private const string NatureMode = "nature";
+    private const string NatureGardenMode = "nature_garden";
+    private const string NatureParkMode = "nature_park";
+    private const string NatureCoastMode = "nature_coast";
+    private const string NatureOnsenMode = "nature_onsen";
+    private const string ShoppingMode = "shopping";
+    private const string ShoppingMarketMode = "shopping_market";
+    private const string ShoppingVintageMode = "shopping_vintage";
+    private const string ShoppingSouvenirMode = "shopping_souvenir";
+    private const string ViewpointMode = "viewpoint";
+    private const string ViewpointSunsetMode = "viewpoint_sunset";
+    private const string ViewpointPhotoMode = "viewpoint_photo";
+    private const string NightlifeMode = "nightlife";
+    private const string NightlifeBarMode = "nightlife_bar";
+    private const string NightlifeKaraokeMode = "nightlife_karaoke";
+    private const string NightlifeLiveMusicMode = "nightlife_live_music";
+    private const string DanceMode = "dance";
+    private const string NeighborhoodMode = "neighborhood";
     private const string CheaperMode = "cheaper";
     private const string MediumCostMode = "medium_cost";
     private const string HighCostMode = "high_cost";
@@ -608,15 +634,151 @@ public sealed class TravelChatService(
     {
         var normalized = TravelChatIntentClassifier.Normalize(message);
 
-        if (responseMode == FoodMode)
+        if (IsFoodResponseMode(responseMode))
         {
             AddUnique(preferences.Interests, "Food");
             AddUnique(preferences.FoodPreferences, "local food");
         }
 
-        if (responseMode == CultureMode)
+        if (responseMode == FoodBreakfastMode)
+        {
+            AddUnique(preferences.Interests, "breakfast");
+        }
+
+        if (responseMode == FoodLunchMode)
+        {
+            AddUnique(preferences.Interests, "lunch");
+            AddUnique(preferences.Interests, "almuerzo");
+        }
+
+        if (responseMode == FoodDinnerMode)
+        {
+            AddUnique(preferences.Interests, "dinner");
+            AddUnique(preferences.Interests, "cena");
+        }
+
+        if (responseMode == FoodBrunchMode)
+        {
+            AddUnique(preferences.Interests, "brunch");
+        }
+
+        if (IsCultureResponseMode(responseMode))
         {
             AddUnique(preferences.Interests, "Culture");
+        }
+
+        if (responseMode == CultureMuseumMode)
+        {
+            AddUnique(preferences.Interests, "museum");
+        }
+
+        if (responseMode == CultureTempleMode)
+        {
+            AddUnique(preferences.Interests, "temple");
+            AddUnique(preferences.Interests, "shrine");
+        }
+
+        if (responseMode == CultureArtMode)
+        {
+            AddUnique(preferences.Interests, "art");
+        }
+
+        if (responseMode == CultureHistoryMode)
+        {
+            AddUnique(preferences.Interests, "history");
+        }
+
+        if (IsNatureResponseMode(responseMode))
+        {
+            AddUnique(preferences.Interests, "Nature");
+        }
+
+        if (responseMode == NatureGardenMode)
+        {
+            AddUnique(preferences.Interests, "garden");
+        }
+
+        if (responseMode == NatureParkMode)
+        {
+            AddUnique(preferences.Interests, "park");
+        }
+
+        if (responseMode == NatureCoastMode)
+        {
+            AddUnique(preferences.Interests, "coast");
+            AddUnique(preferences.Interests, "river");
+        }
+
+        if (responseMode == NatureOnsenMode)
+        {
+            AddUnique(preferences.Interests, "onsen");
+        }
+
+        if (IsShoppingResponseMode(responseMode))
+        {
+            AddUnique(preferences.Interests, "Shopping");
+        }
+
+        if (responseMode == ShoppingMarketMode)
+        {
+            AddUnique(preferences.Interests, "market");
+        }
+
+        if (responseMode == ShoppingVintageMode)
+        {
+            AddUnique(preferences.Interests, "vintage");
+        }
+
+        if (responseMode == ShoppingSouvenirMode)
+        {
+            AddUnique(preferences.Interests, "souvenir");
+        }
+
+        if (IsViewpointResponseMode(responseMode))
+        {
+            AddUnique(preferences.Interests, "Viewpoint");
+        }
+
+        if (responseMode == ViewpointSunsetMode)
+        {
+            AddUnique(preferences.Interests, "sunset");
+        }
+
+        if (responseMode == ViewpointPhotoMode)
+        {
+            AddUnique(preferences.Interests, "photo");
+        }
+
+        if (IsNightlifeResponseMode(responseMode))
+        {
+            AddUnique(preferences.Interests, "nightlife");
+            AddUnique(preferences.Interests, "bar");
+            AddUnique(preferences.Interests, "music");
+        }
+
+        if (responseMode == NightlifeKaraokeMode)
+        {
+            AddUnique(preferences.Interests, "karaoke");
+        }
+
+        if (responseMode == NightlifeLiveMusicMode)
+        {
+            AddUnique(preferences.Interests, "live music");
+            AddUnique(preferences.Interests, "jazz");
+        }
+
+        if (responseMode == DanceMode)
+        {
+            AddUnique(preferences.Interests, "dance");
+            AddUnique(preferences.Interests, "nightlife");
+            AddUnique(preferences.Interests, "club");
+            AddUnique(preferences.Interests, "music");
+        }
+
+        if (responseMode == NeighborhoodMode)
+        {
+            AddUnique(preferences.Interests, "neighborhood");
+            AddUnique(preferences.Interests, "local");
         }
 
         if (ContainsAny(normalized, "caminar", "caminata", "paseo", "walk", "walking"))
@@ -719,6 +881,57 @@ public sealed class TravelChatService(
     private static bool ContainsAny(string value, params string[] candidates)
     {
         return candidates.Any(candidate => value.Contains(candidate, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsFoodResponseMode(string responseMode)
+    {
+        return responseMode is FoodMode
+            or FoodBreakfastMode
+            or FoodLunchMode
+            or FoodDinnerMode
+            or FoodBrunchMode;
+    }
+
+    private static bool IsCultureResponseMode(string responseMode)
+    {
+        return responseMode is CultureMode
+            or CultureMuseumMode
+            or CultureTempleMode
+            or CultureArtMode
+            or CultureHistoryMode;
+    }
+
+    private static bool IsNatureResponseMode(string responseMode)
+    {
+        return responseMode is NatureMode
+            or NatureGardenMode
+            or NatureParkMode
+            or NatureCoastMode
+            or NatureOnsenMode;
+    }
+
+    private static bool IsShoppingResponseMode(string responseMode)
+    {
+        return responseMode is ShoppingMode
+            or ShoppingMarketMode
+            or ShoppingVintageMode
+            or ShoppingSouvenirMode;
+    }
+
+    private static bool IsViewpointResponseMode(string responseMode)
+    {
+        return responseMode is ViewpointMode
+            or ViewpointSunsetMode
+            or ViewpointPhotoMode;
+    }
+
+    private static bool IsNightlifeResponseMode(string responseMode)
+    {
+        return responseMode is NightlifeMode
+            or NightlifeBarMode
+            or NightlifeKaraokeMode
+            or NightlifeLiveMusicMode
+            or DanceMode;
     }
 
     private static bool IsAlternativeRequest(string? message)

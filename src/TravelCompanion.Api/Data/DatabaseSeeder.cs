@@ -481,7 +481,9 @@ public static class DatabaseSeeder
         CreateJapanRecommendation(336, "Hiroshima okonomiyaki counter", "Food", "Hiroshima", "Counter recomendado para probar estilo Hiroshima sin hacer cola eterna.", 34.392801m, 132.461683m, 90, ContentAccessLevel.Paid),
         CreateJapanRecommendation(337, "Miyajima low tide timing", "Nature", "Miyajima", "Plan ajustado a marea para ver el torii y subir parcialmente el monte.", 34.279632m, 132.315007m, 300, ContentAccessLevel.Subscription),
         CreateJapanRecommendation(338, "Kanazawa garden and sushi", "Culture", "Kanazawa", "Dia elegante entre Kenrokuen, barrios historicos y sushi local.", 36.561325m, 136.656205m, 360, ContentAccessLevel.Subscription),
-        CreateJapanRecommendation(339, "Takayama old town morning", "Culture", "Takayama", "Recorrido de manana para mercado, casco antiguo y comida regional.", 36.142849m, 137.252765m, 240, ContentAccessLevel.Subscription)
+        CreateJapanRecommendation(339, "Takayama old town morning", "Culture", "Takayama", "Recorrido de manana para mercado, casco antiguo y comida regional.", 36.142849m, 137.252765m, 240, ContentAccessLevel.Subscription),
+        CreateJapanRecommendation(340, "Shibuya dance night", "Nightlife", "Shibuya, Tokyo", "Ruta corta de club y bares con musica para bailar sin alejarse de Shibuya.", 35.659482m, 139.700559m, 150, ContentAccessLevel.Paid),
+        CreateJapanRecommendation(341, "Omotesando brunch table", "Food", "Omotesando, Tokyo", "Cafe luminoso para brunch tardio, cafe y algo dulce antes de caminar por Omotesando.", 35.666188m, 139.711949m, 90, ContentAccessLevel.Paid)
     ];
 
     private static Recommendation CreateJapanRecommendation(
@@ -523,6 +525,14 @@ public static class DatabaseSeeder
         if (description.Contains("cafe", StringComparison.OrdinalIgnoreCase))
         {
             tags.Add("cafe");
+        }
+
+        if (description.Contains("club", StringComparison.OrdinalIgnoreCase)
+            || description.Contains("bailar", StringComparison.OrdinalIgnoreCase)
+            || description.Contains("baile", StringComparison.OrdinalIgnoreCase)
+            || description.Contains("dance", StringComparison.OrdinalIgnoreCase))
+        {
+            tags.Add("dance");
         }
 
         if (description.Contains("gratis", StringComparison.OrdinalIgnoreCase)

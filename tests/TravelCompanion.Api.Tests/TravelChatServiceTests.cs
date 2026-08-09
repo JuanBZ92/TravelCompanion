@@ -993,6 +993,159 @@ public sealed class TravelChatServiceTests
     }
 
     [Fact]
+    public async Task CreatePlanAsync_does_not_fallback_to_food_when_dance_request_has_no_matching_content()
+    {
+        await using var dbContext = CreateDbContext();
+        var destinationId = Guid.NewGuid();
+        var food = CreateRecommendation(
+            destinationId,
+            "Generic dinner stop",
+            "Food",
+            "Local food in Tokyo.",
+            60);
+        food.Tags = ["food", "local food"];
+        var culture = CreateRecommendation(
+            destinationId,
+            "Generic culture walk",
+            "Culture",
+            "A flexible culture walk in Tokyo.",
+            60);
+        culture.Tags = ["culture"];
+        var user = await SeedPlanningWorldAsync(dbContext, destinationId, food, culture);
+
+        var service = CreateService(dbContext);
+        var response = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest("recomendar plan para bailar", null, "Tokyo", new DateOnly(2026, 10, 6), null, "es-ES"),
+            CancellationToken.None);
+
+        Assert.StartsWith("Tenes", response.Message);
+        Assert.Empty(response.Cards);
+    }
+
+    [Fact]
+    public async Task CreatePlanAsync_requires_brunch_semantic_match_for_brunch_requests()
+    {
+        await using var dbContext = CreateDbContext();
+        var destinationId = Guid.NewGuid();
+        var genericFood = CreateRecommendation(
+            destinationId,
+            "Generic cafe stop",
+            "Food",
+            "Local coffee and snacks in Tokyo.",
+            60);
+        genericFood.Tags = ["food", "local food"];
+        var brunch = CreateRecommendation(
+            destinationId,
+            "Omotesando brunch table",
+            "Food",
+            "Bright brunch cafe in Tokyo.",
+            90);
+        brunch.Tags = ["food"];
+        var user = await SeedPlanningWorldAsync(dbContext, destinationId, genericFood, brunch);
+
+        var service = CreateService(dbContext);
+        var response = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest("quiero un brunch", null, "Tokyo", new DateOnly(2026, 10, 6), null, "es-ES"),
+            CancellationToken.None);
+
+        Assert.StartsWith("Busque una opcion de brunch", response.Message);
+        Assert.Equal("Omotesando brunch table", response.Cards[0].Title);
+        Assert.DoesNotContain(response.Cards, card => card.Title == "Generic cafe stop");
+    }
+
+    [Fact]
+    public async Task CreatePlanAsync_does_not_fallback_to_generic_food_for_brunch_request()
+    {
+        await using var dbContext = CreateDbContext();
+        var destinationId = Guid.NewGuid();
+        var genericFood = CreateRecommendation(
+            destinationId,
+            "Generic cafe stop",
+            "Food",
+            "Local coffee and snacks in Tokyo.",
+            60);
+        genericFood.Tags = ["food", "local food"];
+        var user = await SeedPlanningWorldAsync(dbContext, destinationId, genericFood);
+
+        var service = CreateService(dbContext);
+        var response = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest("quiero un brunch", null, "Tokyo", new DateOnly(2026, 10, 6), null, "es-ES"),
+            CancellationToken.None);
+
+        Assert.StartsWith("Tenes", response.Message);
+        Assert.Empty(response.Cards);
+    }
+
+    [Theory]
+    [InlineData("quiero templos", "Culture", "Morning temple", "Quiet temple and shrine route in Tokyo.")]
+    [InlineData("recomendar jardines", "Nature", "Hidden garden", "Small garden pause in Tokyo.")]
+    [InlineData("compras vintage", "Shopping", "Vintage map", "Curated vintage shops in Tokyo.")]
+    [InlineData("mirador al atardecer", "Viewpoint", "Sunset deck", "Observation deck for sunset in Tokyo.")]
+    [InlineData("plan de karaoke", "Nightlife", "Karaoke night", "Private karaoke rooms in Tokyo.")]
+    [InlineData("quiero un onsen", "Nature", "Onsen pause", "Urban onsen and hot spring pause in Tokyo.")]
+    [InlineData("barrio local", "Neighborhood", "Local alley walk", "Local neighborhood alleys in Tokyo.")]
+    public async Task CreatePlanAsync_uses_semantic_facets_without_requiring_micro_tags(
+        string message,
+        string category,
+        string expectedTitle,
+        string expectedDescription)
+    {
+        await using var dbContext = CreateDbContext();
+        var destinationId = Guid.NewGuid();
+        var generic = CreateRecommendation(
+            destinationId,
+            "Generic category stop",
+            category,
+            $"Generic {category} recommendation in Tokyo.",
+            60);
+        generic.Tags = [category.ToLowerInvariant()];
+        var matching = CreateRecommendation(
+            destinationId,
+            expectedTitle,
+            category,
+            expectedDescription,
+            60);
+        matching.Tags = [category.ToLowerInvariant()];
+        var user = await SeedPlanningWorldAsync(dbContext, destinationId, generic, matching);
+
+        var service = CreateService(dbContext);
+        var response = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest(message, null, "Tokyo", new DateOnly(2026, 10, 6), null, "es-ES"),
+            CancellationToken.None);
+
+        Assert.Equal(expectedTitle, response.Cards[0].Title);
+        Assert.DoesNotContain(response.Cards, card => card.Title == "Generic category stop");
+    }
+
+    [Fact]
+    public async Task CreatePlanAsync_does_not_fallback_to_generic_culture_for_temple_request()
+    {
+        await using var dbContext = CreateDbContext();
+        var destinationId = Guid.NewGuid();
+        var genericCulture = CreateRecommendation(
+            destinationId,
+            "Generic culture stop",
+            "Culture",
+            "A broad cultural activity in Tokyo.",
+            60);
+        genericCulture.Tags = ["culture"];
+        var user = await SeedPlanningWorldAsync(dbContext, destinationId, genericCulture);
+
+        var service = CreateService(dbContext);
+        var response = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest("quiero templos", null, "Tokyo", new DateOnly(2026, 10, 6), null, "es-ES"),
+            CancellationToken.None);
+
+        Assert.StartsWith("Tenes", response.Message);
+        Assert.Empty(response.Cards);
+    }
+
+    [Fact]
     public async Task CreatePlanAsync_uses_request_signals_and_reuses_conversation_context_for_followups()
     {
         await using var dbContext = CreateDbContext();
