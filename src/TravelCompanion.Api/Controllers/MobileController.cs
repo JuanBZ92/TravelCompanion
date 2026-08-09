@@ -31,8 +31,11 @@ public sealed class MobileController(
             return Unauthorized();
         }
 
+        var sessionTripId = await sessionService.GetSessionTripIdAsync(HttpContext, cancellationToken);
         var destinationStopwatch = Stopwatch.StartNew();
-        var destination = await FindDestinationAsync(destinationSlug, cancellationToken);
+        var destination = string.IsNullOrWhiteSpace(destinationSlug) && sessionTripId.HasValue
+            ? await FindDestinationForTripAsync(user.Id, sessionTripId.Value, cancellationToken)
+            : await FindDestinationAsync(destinationSlug, cancellationToken);
         destinationStopwatch.Stop();
         if (destination is null)
         {
@@ -78,8 +81,11 @@ public sealed class MobileController(
             return Unauthorized();
         }
 
+        var sessionTripId = await sessionService.GetSessionTripIdAsync(HttpContext, cancellationToken);
         var destinationStopwatch = Stopwatch.StartNew();
-        var destination = await FindDestinationAsync(destinationSlug, cancellationToken);
+        var destination = string.IsNullOrWhiteSpace(destinationSlug) && sessionTripId.HasValue
+            ? await FindDestinationForTripAsync(user.Id, sessionTripId.Value, cancellationToken)
+            : await FindDestinationAsync(destinationSlug, cancellationToken);
         destinationStopwatch.Stop();
 
         if (destination is null)
@@ -101,7 +107,7 @@ public sealed class MobileController(
         packagesStopwatch.Stop();
 
         var scheduleStopwatch = Stopwatch.StartNew();
-        var schedule = await FindScheduleAsync(user.Id, cancellationToken);
+        var schedule = await FindScheduleAsync(user.Id, sessionTripId, cancellationToken);
         scheduleStopwatch.Stop();
         totalStopwatch.Stop();
 
@@ -160,14 +166,81 @@ public sealed class MobileController(
         return Ok(ToRecommendationDto(recommendation, useSummaryDescription: false));
     }
 
-    private async Task<TripScheduleDto?> FindScheduleAsync(Guid userId, CancellationToken cancellationToken)
+    [HttpGet("docs")]
+    public async Task<ActionResult<TravelDocsDto>> GetDocs(CancellationToken cancellationToken = default)
     {
+        var user = await sessionService.GetUserAsync(HttpContext, cancellationToken);
+        if (user is null)
+        {
+            return Unauthorized();
+        }
+
+        var sessionTripId = await sessionService.GetSessionTripIdAsync(HttpContext, cancellationToken);
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
-        var trip = await dbContext.Trips
+        var tripsQuery = dbContext.Trips
             .AsNoTracking()
             .Include(existingTrip => existingTrip.Destination)
             .Include(existingTrip => existingTrip.Reservations)
-            .Where(existingTrip => existingTrip.AppUserId == userId)
+            .Include(existingTrip => existingTrip.Documents)
+            .Where(existingTrip => existingTrip.AppUserId == user.Id);
+
+        if (sessionTripId.HasValue)
+        {
+            tripsQuery = tripsQuery.Where(existingTrip => existingTrip.Id == sessionTripId.Value);
+        }
+
+        var trip = await tripsQuery
+            .OrderBy(existingTrip => existingTrip.StartsOn < today)
+            .ThenBy(existingTrip => existingTrip.StartsOn)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (trip is null || trip.Destination is null)
+        {
+            return NotFound();
+        }
+
+        var documents = trip.Documents
+            .OrderBy(document => document.Category)
+            .ThenBy(document => document.SortOrder)
+            .ThenBy(document => document.Title)
+            .Select(ToTravelDocumentDto)
+            .ToList();
+
+        return Ok(new TravelDocsDto(
+            trip.Id,
+            trip.TravelerName,
+            trip.Destination.Name,
+            trip.StartsOn,
+            trip.EndsOn,
+            CreateFlightDocsSection(trip),
+            documents.Where(document => document.Category == TravelDocumentCategory.Hotel).ToList(),
+            documents.Where(document => document.Category == TravelDocumentCategory.Other).ToList(),
+            trip.Reservations
+                .Where(reservation => reservation.Type == ReservationType.Lodging)
+                .OrderBy(reservation => reservation.Date)
+                .ThenBy(reservation => reservation.StartsAt)
+                .Select(ToHotelDocDto)
+                .ToList()));
+    }
+
+    private async Task<TripScheduleDto?> FindScheduleAsync(
+        Guid userId,
+        Guid? sessionTripId,
+        CancellationToken cancellationToken)
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var tripsQuery = dbContext.Trips
+            .AsNoTracking()
+            .Include(existingTrip => existingTrip.Destination)
+            .Include(existingTrip => existingTrip.Reservations)
+            .Where(existingTrip => existingTrip.AppUserId == userId);
+
+        if (sessionTripId.HasValue)
+        {
+            tripsQuery = tripsQuery.Where(existingTrip => existingTrip.Id == sessionTripId.Value);
+        }
+
+        var trip = await tripsQuery
             .OrderBy(existingTrip => existingTrip.StartsOn < today)
             .ThenBy(existingTrip => existingTrip.StartsOn)
             .FirstOrDefaultAsync(cancellationToken);
@@ -203,6 +276,166 @@ public sealed class MobileController(
                         reservation.OriginAirport,
                         reservation.DestinationAirport))
                     .ToList());
+    }
+
+    private static FlightDocsSectionDto? CreateFlightDocsSection(Trip trip)
+    {
+        var flights = trip.Reservations
+            .Where(reservation => reservation.Type == ReservationType.Flight)
+            .OrderBy(reservation => reservation.Date)
+            .ThenBy(reservation => reservation.StartsAt)
+            .ToList();
+
+        if (flights.Count == 0)
+        {
+            return null;
+        }
+
+        var splitIndex = flights.Count > 2
+            ? (int)Math.Ceiling(flights.Count / 2d)
+            : flights.Count;
+        var outbound = flights.Take(splitIndex).ToList();
+        var inbound = flights.Skip(splitIndex).ToList();
+        var journeys = new List<FlightJourneyDto> { CreateFlightJourney("ida", "Ida", outbound) };
+        if (inbound.Count > 0)
+        {
+            journeys.Add(CreateFlightJourney("vuelta", "Vuelta", inbound));
+        }
+
+        return new FlightDocsSectionDto(
+            flights.FirstOrDefault(flight => !string.IsNullOrWhiteSpace(flight.Airline))?.Airline,
+            trip.TravelerName,
+            CreateRouteLabel(flights.First(), flights.Last()),
+            flights.FirstOrDefault(flight => !string.IsNullOrWhiteSpace(flight.ConfirmationCode))?.ConfirmationCode,
+            journeys);
+    }
+
+    private static FlightJourneyDto CreateFlightJourney(string id, string label, IReadOnlyList<Reservation> flights)
+    {
+        return new FlightJourneyDto(
+            id,
+            label,
+            CreateRouteLabel(flights.First(), flights.Last()),
+            flights.Select((flight, index) => ToFlightLegDto(
+                flight,
+                index > 0 ? flights[index - 1] : null)).ToList());
+    }
+
+    private static FlightLegDto ToFlightLegDto(Reservation flight, Reservation? previousFlight)
+    {
+        var arriveDate = flight.EndsOn ?? flight.Date;
+        return new FlightLegDto(
+            flight.Id,
+            flight.Date,
+            flight.StartsAt,
+            arriveDate,
+            flight.EndsAt,
+            flight.FlightNumber,
+            CreateDurationLabel(flight.Date, flight.StartsAt, arriveDate, flight.EndsAt),
+            null,
+            CreateAirportLabel(flight.OriginName, flight.OriginAirport),
+            CreateAirportLabel(flight.DestinationName, flight.DestinationAirport),
+            CreateConnectionNote(previousFlight, flight));
+    }
+
+    private static string? CreateConnectionNote(Reservation? previousFlight, Reservation flight)
+    {
+        if (previousFlight?.EndsAt is null)
+        {
+            return null;
+        }
+
+        var previousEndDate = previousFlight.EndsOn ?? previousFlight.Date;
+        var previousEnd = previousEndDate.ToDateTime(previousFlight.EndsAt.Value);
+        var nextStart = flight.Date.ToDateTime(flight.StartsAt);
+        if (nextStart <= previousEnd)
+        {
+            return null;
+        }
+
+        var layover = nextStart - previousEnd;
+        var place = !string.IsNullOrWhiteSpace(previousFlight.DestinationName)
+            ? previousFlight.DestinationName
+            : previousFlight.DestinationAirport;
+
+        return string.IsNullOrWhiteSpace(place)
+            ? $"Escala · {FormatDuration(layover)}"
+            : $"Escala en {place} · {FormatDuration(layover)}";
+    }
+
+    private static string? CreateDurationLabel(
+        DateOnly date,
+        TimeOnly startsAt,
+        DateOnly endsOn,
+        TimeOnly? endsAt)
+    {
+        if (!endsAt.HasValue)
+        {
+            return null;
+        }
+
+        var duration = endsOn.ToDateTime(endsAt.Value) - date.ToDateTime(startsAt);
+        return duration <= TimeSpan.Zero ? null : FormatDuration(duration);
+    }
+
+    private static string FormatDuration(TimeSpan duration)
+    {
+        var hours = (int)duration.TotalHours;
+        return duration.Minutes == 0
+            ? $"{hours}h"
+            : $"{hours}h {duration.Minutes:00}m";
+    }
+
+    private static string CreateRouteLabel(Reservation firstFlight, Reservation lastFlight)
+    {
+        return $"{CreatePlaceLabel(firstFlight.OriginName, firstFlight.OriginAirport)} -> {CreatePlaceLabel(lastFlight.DestinationName, lastFlight.DestinationAirport)}";
+    }
+
+    private static string CreateAirportLabel(string? name, string? airport)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return airport ?? string.Empty;
+        }
+
+        return string.IsNullOrWhiteSpace(airport)
+            ? name
+            : $"{airport} · {name}";
+    }
+
+    private static string CreatePlaceLabel(string? name, string? fallback)
+    {
+        return string.IsNullOrWhiteSpace(name)
+            ? fallback ?? string.Empty
+            : name;
+    }
+
+    private static TravelDocumentDto ToTravelDocumentDto(TravelDocument document) =>
+        new(
+            document.Id,
+            document.Category,
+            document.Title,
+            document.Subtitle,
+            document.FileUrl,
+            document.SortOrder);
+
+    private static TravelHotelDocDto ToHotelDocDto(Reservation reservation) =>
+        new(
+            reservation.Id,
+            reservation.City,
+            string.IsNullOrWhiteSpace(reservation.LocationName)
+                ? reservation.Title
+                : reservation.LocationName,
+            CreateHotelDateRange(reservation),
+            string.IsNullOrWhiteSpace(reservation.ConfirmationCode) ? null : reservation.ConfirmationCode,
+            string.IsNullOrWhiteSpace(reservation.Address) ? null : reservation.Address);
+
+    private static string CreateHotelDateRange(Reservation reservation)
+    {
+        var start = reservation.Date.ToString("dd/MM");
+        return reservation.EndsOn.HasValue
+            ? $"{start} - {reservation.EndsOn.Value:dd/MM}"
+            : start;
     }
 
     private static TravelPackageDto ToPackageDto(TravelPackage package, AppUser user)
@@ -291,6 +524,27 @@ public sealed class MobileController(
                 existingDestination.Country,
                 existingDestination.HeroImageUrl,
                 existingDestination.ShortDescription))
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    private async Task<DestinationSummaryDto?> FindDestinationForTripAsync(
+        Guid userId,
+        Guid tripId,
+        CancellationToken cancellationToken)
+    {
+        return await dbContext.Trips
+            .AsNoTracking()
+            .Where(trip => trip.Id == tripId && trip.AppUserId == userId)
+            .Include(trip => trip.Destination)
+            .Select(trip => trip.Destination == null
+                ? null
+                : new DestinationSummaryDto(
+                    trip.Destination.Id,
+                    trip.Destination.Name,
+                    trip.Destination.Slug,
+                    trip.Destination.Country,
+                    trip.Destination.HeroImageUrl,
+                    trip.Destination.ShortDescription))
             .FirstOrDefaultAsync(cancellationToken);
     }
 

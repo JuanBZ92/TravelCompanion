@@ -11,6 +11,7 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
     public DbSet<Recommendation> Recommendations => Set<Recommendation>();
     public DbSet<Trip> Trips => Set<Trip>();
     public DbSet<Reservation> Reservations => Set<Reservation>();
+    public DbSet<TravelDocument> TravelDocuments => Set<TravelDocument>();
     public DbSet<AppUser> AppUsers => Set<AppUser>();
     public DbSet<UserEntitlement> UserEntitlements => Set<UserEntitlement>();
     public DbSet<AppUserSession> AppUserSessions => Set<AppUserSession>();
@@ -87,6 +88,7 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
             entity.HasIndex(trip => new { trip.AppUserId, trip.StartsOn });
             entity.HasIndex(trip => new { trip.DestinationId, trip.StartsOn });
             entity.Property(trip => trip.ExternalId).HasMaxLength(160);
+            entity.Property(trip => trip.AccessPinHash).HasMaxLength(512);
             entity.Property(trip => trip.TravelerName).HasMaxLength(140);
             entity.Property(trip => trip.TimeZoneId).HasMaxLength(120).HasDefaultValue("UTC");
             entity.HasOne(trip => trip.AppUser)
@@ -120,6 +122,23 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
             entity.Property(reservation => reservation.SourceUrl).HasMaxLength(512);
         });
 
+        modelBuilder.Entity<TravelDocument>(entity =>
+        {
+            entity.HasIndex(document => new { document.TripId, document.Category, document.SortOrder });
+            entity.HasIndex(document => new { document.TripId, document.ExternalId }).IsUnique();
+            entity.Property(document => document.ExternalId).HasMaxLength(160);
+            entity.Property(document => document.Category)
+                .HasConversion<string>()
+                .HasMaxLength(32);
+            entity.Property(document => document.Title).HasMaxLength(160);
+            entity.Property(document => document.Subtitle).HasMaxLength(220);
+            entity.Property(document => document.FileUrl).HasMaxLength(512);
+            entity.HasOne(document => document.Trip)
+                .WithMany(trip => trip.Documents)
+                .HasForeignKey(document => document.TripId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
         modelBuilder.Entity<AppUser>(entity =>
         {
             entity.HasIndex(user => user.Email).IsUnique();
@@ -132,11 +151,16 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
         {
             entity.HasIndex(session => session.TokenHash).IsUnique();
             entity.HasIndex(session => new { session.UserId, session.RevokedAt });
+            entity.HasIndex(session => new { session.TripId, session.RevokedAt });
             entity.Property(session => session.TokenHash).HasMaxLength(128);
             entity.HasOne(session => session.User)
                 .WithMany(user => user.Sessions)
                 .HasForeignKey(session => session.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(session => session.Trip)
+                .WithMany()
+                .HasForeignKey(session => session.TripId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<TravelPreferenceProfile>(entity =>

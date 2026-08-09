@@ -26,6 +26,8 @@ public sealed class TravelCompanionApiClient
         _logger = logger;
     }
 
+    public Uri? BaseAddress => _httpClient.BaseAddress;
+
     public async Task<IReadOnlyList<DestinationSummaryDto>> GetDestinationsAsync(CancellationToken cancellationToken = default)
     {
         return await GetPagedItemsAsync<DestinationSummaryDto>("api/destinations?pageSize=100", cancellationToken).ConfigureAwait(false);
@@ -57,6 +59,23 @@ public sealed class TravelCompanionApiClient
         using var response = await _httpClient.PostAsJsonAsync(
             "api/auth/login",
             new LoginRequestDto(email, password),
+            JsonOptions,
+            cancellationToken).ConfigureAwait(false);
+
+        if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<AuthSessionDto>(JsonOptions, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<AuthSessionDto?> LoginWithPinAsync(string pin, CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PostAsJsonAsync(
+            "api/auth/pin-login",
+            new PinLoginRequestDto(pin),
             JsonOptions,
             cancellationToken).ConfigureAwait(false);
 
@@ -188,6 +207,29 @@ public sealed class TravelCompanionApiClient
             GetServerTiming(response));
 
         return MobilePayloadNormalizer.Normalize(discover);
+    }
+
+    public async Task<TravelDocsDto?> GetTravelDocsAsync(
+        string token,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Get, "api/mobile/docs", token);
+        using var response = await _httpClient.SendAsync(
+            request,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken).ConfigureAwait(false);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning(
+                "Travel docs request failed with {StatusCode}.",
+                (int)response.StatusCode);
+            return null;
+        }
+
+        return await response.Content
+            .ReadFromJsonAsync<TravelDocsDto>(JsonOptions, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     public async Task<TravelChatResponse?> SendTravelChatAsync(

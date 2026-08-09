@@ -11,6 +11,11 @@ public sealed record LoginRequestDto(
     [param: MaxLength(256)]
     string Password);
 
+public sealed record PinLoginRequestDto(
+    [param: Required]
+    [param: RegularExpression(@"^\d{4}$")]
+    string Pin);
+
 public sealed record ChangePasswordRequestDto(
     [property: MaxLength(256)]
     string? CurrentPassword,
@@ -24,4 +29,6 @@ public sealed record AuthSessionDto(
     string Email,
     string DisplayName,
     bool MustChangePassword,
-    string Token);
+    string Token,
+    Guid? TripId = null,
+    string? DestinationName = null);

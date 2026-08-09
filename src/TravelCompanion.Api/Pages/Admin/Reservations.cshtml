@@ -53,6 +53,12 @@
                 <span asp-validation-for="TripInput.TimeZoneId"></span>
             </div>
             <div>
+                <label asp-for="TripInput.AccessPin">PIN de acceso <span class="muted">(4 numeros)</span></label>
+                <input asp-for="TripInput.AccessPin" inputmode="numeric" maxlength="4" placeholder="1908" autocomplete="off" />
+                <p class="form-hint">Dejalo vacio al editar para conservar el PIN actual.</p>
+                <span asp-validation-for="TripInput.AccessPin"></span>
+            </div>
+            <div>
                 <label asp-for="TripInput.StartsOn" class="required">Inicio</label>
                 <input asp-for="TripInput.StartsOn" type="date" />
                 <span asp-validation-for="TripInput.StartsOn"></span>
@@ -81,6 +87,7 @@
                 <th>Viaje</th>
                 <th>Usuario</th>
                 <th>Fechas</th>
+                <th>PIN</th>
                 <th>Reservas</th>
                 <th></th>
             </tr>
@@ -104,6 +111,9 @@
                 <td>
                     @trip.StartsOn.ToString("yyyy-MM-dd")<br />
                     <span class="muted">@trip.EndsOn.ToString("yyyy-MM-dd")</span>
+                </td>
+                <td>
+                    <span class="badge">@(trip.HasAccessPin ? "Configurado" : "Sin PIN")</span>
                 </td>
                 <td>@trip.ReservationCount</td>
                 <td>

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using TravelCompanion.Api.Data;
 using TravelCompanion.Api.Models;
@@ -13,6 +14,7 @@ namespace TravelCompanion.Api.Controllers;
 public sealed class AuthController(
     TravelCompanionDbContext dbContext,
     IPasswordHasher<AppUser> passwordHasher,
+    IPasswordHasher<Trip> tripPinHasher,
     UserSessionService sessionService) : ControllerBase
 {
     [HttpPost("login")]
@@ -47,6 +49,60 @@ public sealed class AuthController(
 
         var (_, token) = await sessionService.CreateSessionAsync(user, cancellationToken);
         return Ok(ToSessionDto(user, token));
+    }
+
+    [HttpPost("pin-login")]
+    [EnableRateLimiting("PinLogin")]
+    public async Task<ActionResult<AuthSessionDto>> LoginWithPin(
+        PinLoginRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var pin = request.Pin.Trim();
+        if (pin.Length != 4 || pin.Any(character => !char.IsDigit(character)))
+        {
+            return this.ValidationError(nameof(request.Pin), "PIN must contain exactly 4 digits.");
+        }
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var trips = await dbContext.Trips
+            .Include(trip => trip.AppUser)
+            .Include(trip => trip.Destination)
+            .Where(trip =>
+                trip.AppUserId != null
+                && trip.AppUser != null
+                && !string.IsNullOrWhiteSpace(trip.AccessPinHash))
+            .OrderBy(trip => trip.StartsOn < today)
+            .ThenBy(trip => trip.StartsOn)
+            .ToListAsync(cancellationToken);
+
+        foreach (var trip in trips)
+        {
+            var verification = tripPinHasher.VerifyHashedPassword(trip, trip.AccessPinHash!, pin);
+            if (verification == PasswordVerificationResult.Failed || trip.AppUser is null)
+            {
+                continue;
+            }
+
+            if (verification == PasswordVerificationResult.SuccessRehashNeeded)
+            {
+                trip.AccessPinHash = tripPinHasher.HashPassword(trip, pin);
+                trip.AccessPinUpdatedAt = DateTimeOffset.UtcNow;
+                await dbContext.SaveChangesAsync(cancellationToken);
+            }
+
+            var (_, token) = await sessionService.CreateSessionAsync(
+                trip.AppUser,
+                cancellationToken,
+                trip.Id);
+            return Ok(ToSessionDto(
+                trip.AppUser,
+                token,
+                mustChangePassword: false,
+                trip.Id,
+                trip.Destination?.Name));
+        }
+
+        return Unauthorized();
     }
 
     [HttpPost("change-password")]
@@ -95,13 +151,20 @@ public sealed class AuthController(
         return NoContent();
     }
 
-    private static AuthSessionDto ToSessionDto(AppUser user, string token)
+    private static AuthSessionDto ToSessionDto(
+        AppUser user,
+        string token,
+        bool? mustChangePassword = null,
+        Guid? tripId = null,
+        string? destinationName = null)
     {
         return new AuthSessionDto(
             user.Id,
             user.Email,
             user.DisplayName,
-            user.MustChangePassword,
-            token);
+            mustChangePassword ?? user.MustChangePassword,
+            token,
+            tripId,
+            destinationName);
     }
 }

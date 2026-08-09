@@ -1,4 +1,7 @@
 param(
+    [ValidateSet("Auto", "Azure", "Render")]
+    [string]$Provider = "Auto",
+
     [ValidateSet("Debug", "Release")]
     [string]$Configuration = "Release",
 
@@ -38,7 +41,17 @@ param(
 
     [switch]$TrackDeploymentStatus,
 
-    [switch]$OpenAzurePortal
+    [switch]$OpenAzurePortal,
+
+    [string]$RenderServiceId,
+
+    [string]$RenderApiUrl,
+
+    [string]$RenderBranch,
+
+    [switch]$ClearRenderCache,
+
+    [switch]$SkipRenderGitStatusCheck
 )
 
 $ErrorActionPreference = "Stop"
@@ -248,6 +261,142 @@ function Write-Utf8NoBomFile {
     [System.IO.File]::WriteAllText($Path, $Content, $utf8NoBom)
 }
 
+function Resolve-RenderCli {
+    $command = Get-Command "render" -ErrorAction SilentlyContinue
+    if ($null -ne $command) {
+        return $command.Source
+    }
+
+    $fallbackPath = Join-Path $env:USERPROFILE ".local\bin\render.exe"
+    if (Test-Path $fallbackPath) {
+        return $fallbackPath
+    }
+
+    throw "Render CLI was not found. Install it or add render.exe to PATH."
+}
+
+function Invoke-GitText {
+    param(
+        [string[]]$Arguments,
+        [string]$WorkingDirectory
+    )
+
+    $originalLocation = Get-Location
+    try {
+        if (-not [string]::IsNullOrWhiteSpace($WorkingDirectory)) {
+            Set-Location $WorkingDirectory
+        }
+
+        $output = & git @Arguments 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            throw "'git $($Arguments -join ' ')' failed with exit code $LASTEXITCODE."
+        }
+
+        return (($output | Out-String).Trim())
+    }
+    finally {
+        Set-Location $originalLocation
+    }
+}
+
+function Assert-RenderGitState {
+    param(
+        [string]$RepoRoot,
+        [string]$Branch,
+        [bool]$SkipCheck
+    )
+
+    Assert-Command "git" "Install Git or run this from a Git-enabled shell."
+
+    if ($SkipCheck) {
+        return Invoke-GitText -Arguments @("rev-parse", "HEAD") -WorkingDirectory $RepoRoot
+    }
+
+    $status = Invoke-GitText -Arguments @("status", "--porcelain") -WorkingDirectory $RepoRoot
+    if (-not [string]::IsNullOrWhiteSpace($status)) {
+        throw "Render deploy uses GitHub, but the working tree has uncommitted changes. Commit and push them, or pass -SkipRenderGitStatusCheck if you intentionally want to deploy the current remote commit."
+    }
+
+    Invoke-External -Command "git" -Arguments @("fetch", "origin", $Branch) -WorkingDirectory $RepoRoot
+
+    $localHead = Invoke-GitText -Arguments @("rev-parse", "HEAD") -WorkingDirectory $RepoRoot
+    $remoteHead = Invoke-GitText -Arguments @("rev-parse", "origin/$Branch") -WorkingDirectory $RepoRoot
+
+    if ($localHead -ne $remoteHead) {
+        throw "Local HEAD ($($localHead.Substring(0, 7))) does not match origin/$Branch ($($remoteHead.Substring(0, 7))). Push the branch before deploying to Render."
+    }
+
+    return $localHead
+}
+
+function Invoke-RenderApiDeploy {
+    param(
+        [string]$RepoRoot,
+        [string]$ServiceId,
+        [string]$Branch,
+        [string]$BaseUrl,
+        [bool]$ClearCache,
+        [bool]$SkipGitStatusCheck,
+        [bool]$SkipSmokeTest,
+        [string]$SmokeTestPath,
+        [int]$SmokeTestAttempts,
+        [int]$SmokeTestDelaySeconds
+    )
+
+    $render = Resolve-RenderCli
+    if ([string]::IsNullOrWhiteSpace($ServiceId)) {
+        throw "RenderServiceId is required for Render deploy."
+    }
+
+    if ([string]::IsNullOrWhiteSpace($Branch)) {
+        $Branch = Invoke-GitText -Arguments @("branch", "--show-current") -WorkingDirectory $RepoRoot
+    }
+
+    if ([string]::IsNullOrWhiteSpace($BaseUrl)) {
+        $BaseUrl = "https://travelcompanion-api-57dw.onrender.com"
+    }
+
+    Write-Host "Travel Companion API deploy (Render)" -ForegroundColor Cyan
+    Write-Host "Service ID: $ServiceId"
+    Write-Host "Branch: $Branch"
+    Write-Host "API URL: $BaseUrl"
+    Write-Host ""
+
+    $commit = Assert-RenderGitState `
+        -RepoRoot $RepoRoot `
+        -Branch $Branch `
+        -SkipCheck $SkipGitStatusCheck
+
+    if (Test-Path (Join-Path $RepoRoot "render.yaml")) {
+        Invoke-External `
+            -Command $render `
+            -Arguments @("blueprints", "validate", "render.yaml", "-o", "text") `
+            -WorkingDirectory $RepoRoot
+    }
+
+    $deployArgs = @(
+        "deploys",
+        "create",
+        $ServiceId,
+        "--commit",
+        $commit,
+        "--wait",
+        "--confirm",
+        "-o",
+        "text"
+    )
+
+    if ($ClearCache) {
+        $deployArgs += "--clear-cache"
+    }
+
+    Invoke-External -Command $render -Arguments $deployArgs -WorkingDirectory $RepoRoot
+
+    if (-not $SkipSmokeTest) {
+        Invoke-SmokeTest -BaseUrl $BaseUrl -Path $SmokeTestPath -Attempts $SmokeTestAttempts -DelaySeconds $SmokeTestDelaySeconds
+    }
+}
+
 $repoRoot = Resolve-RepoRoot
 
 if ([string]::IsNullOrWhiteSpace($ProjectPath)) {
@@ -272,6 +421,46 @@ if ([string]::IsNullOrWhiteSpace($ZipPath)) {
 
 if (-not (Test-Path $ProjectPath)) {
     throw "API project not found at '$ProjectPath'."
+}
+
+$resolvedProvider = $Provider
+if ($resolvedProvider -eq "Auto") {
+    $resolvedProvider = if (Test-Path (Join-Path $repoRoot "render.yaml")) { "Render" } else { "Azure" }
+}
+
+if ([string]::IsNullOrWhiteSpace($RenderServiceId)) {
+    $RenderServiceId = "srv-d9s7s6p42hec73brl08g"
+}
+
+if ([string]::IsNullOrWhiteSpace($RenderApiUrl)) {
+    $RenderApiUrl = if (-not [string]::IsNullOrWhiteSpace($ApiUrl)) {
+        $ApiUrl
+    }
+    else {
+        "https://travelcompanion-api-57dw.onrender.com"
+    }
+}
+
+if ([string]::IsNullOrWhiteSpace($RenderBranch)) {
+    $RenderBranch = "newapproach"
+}
+
+if ($resolvedProvider -eq "Render") {
+    Invoke-RenderApiDeploy `
+        -RepoRoot $repoRoot `
+        -ServiceId $RenderServiceId `
+        -Branch $RenderBranch `
+        -BaseUrl $RenderApiUrl `
+        -ClearCache ([bool]$ClearRenderCache) `
+        -SkipGitStatusCheck ([bool]$SkipRenderGitStatusCheck) `
+        -SkipSmokeTest ([bool]$SkipSmokeTest) `
+        -SmokeTestPath $SmokeTestPath `
+        -SmokeTestAttempts $SmokeTestAttempts `
+        -SmokeTestDelaySeconds $SmokeTestDelaySeconds
+
+    Write-Host ""
+    Write-Host "Done." -ForegroundColor Green
+    return
 }
 
 Assert-Command "dotnet" "Install the .NET SDK."

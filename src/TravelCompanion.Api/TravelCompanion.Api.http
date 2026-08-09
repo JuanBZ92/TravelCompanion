@@ -37,6 +37,15 @@ Content-Type: application/json
 
 ###
 
+POST {{TravelCompanion.Api_HostAddress}}/api/auth/pin-login
+Content-Type: application/json
+
+{
+  "pin": "1908"
+}
+
+###
+
 POST {{TravelCompanion.Api_HostAddress}}/api/auth/change-password
 Content-Type: application/json
 Authorization: Bearer paste-token-from-login

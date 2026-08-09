@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -9,7 +10,9 @@ using TravelCompanion.Shared;
 
 namespace TravelCompanion.Api.Pages.Admin;
 
-public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : PageModel
+public sealed class ReservationsModel(
+    TravelCompanionDbContext dbContext,
+    IPasswordHasher<Trip>? tripPinHasher = null) : PageModel
 {
     public List<TripRow> Trips { get; private set; } = [];
     public List<ReservationRow> Reservations { get; private set; } = [];
@@ -93,6 +96,13 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
             ModelState.AddModelError($"{nameof(TripInput)}.{nameof(TripInput.EndsOn)}", "La fecha final no puede ser anterior al inicio.");
         }
 
+        var normalizedPin = NormalizePin(TripInput.AccessPin);
+        if (!string.IsNullOrWhiteSpace(normalizedPin)
+            && (normalizedPin.Length != 4 || normalizedPin.Any(character => !char.IsDigit(character))))
+        {
+            ModelState.AddModelError($"{nameof(TripInput)}.{nameof(TripInput.AccessPin)}", "El PIN debe tener exactamente 4 numeros.");
+        }
+
         await ApplyTripTimeZoneDefaultAsync();
 
         if (!ModelState.IsValid)
@@ -120,7 +130,7 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
             dbContext.Trips.Add(trip);
         }
 
-        TripInput.ApplyTo(trip);
+        TripInput.ApplyTo(trip, tripPinHasher ?? new PasswordHasher<Trip>(), normalizedPin);
         await dbContext.SaveChangesAsync();
         return RedirectToReservations(trip.Id);
     }
@@ -289,6 +299,7 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
                 trip.StartsOn,
                 trip.EndsOn,
                 trip.TimeZoneId,
+                !string.IsNullOrWhiteSpace(trip.AccessPinHash),
                 trip.Reservations.Count))
             .ToListAsync();
 
@@ -468,6 +479,13 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
             : option.Text.Trim();
     }
 
+    private static string NormalizePin(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? string.Empty
+            : value.Trim();
+    }
+
     public sealed record TripRow(
         Guid Id,
         string? ExternalId,
@@ -477,6 +495,7 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
         DateOnly StartsOn,
         DateOnly EndsOn,
         string TimeZoneId,
+        bool HasAccessPin,
         int ReservationCount);
 
     public sealed record ReservationRow(
@@ -675,6 +694,9 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
         [StringLength(120, ErrorMessage = "La zona horaria no puede superar 120 caracteres.")]
         public string? TimeZoneId { get; set; } = "UTC";
 
+        [StringLength(4, MinimumLength = 4, ErrorMessage = "El PIN debe tener 4 numeros.")]
+        public string? AccessPin { get; set; }
+
         public static TripForm FromEntity(Trip trip)
         {
             return new TripForm
@@ -686,11 +708,12 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
                 TravelerName = trip.TravelerName,
                 StartsOn = trip.StartsOn,
                 EndsOn = trip.EndsOn,
-                TimeZoneId = trip.TimeZoneId
+                TimeZoneId = trip.TimeZoneId,
+                AccessPin = string.Empty
             };
         }
 
-        public void ApplyTo(Trip trip)
+        public void ApplyTo(Trip trip, IPasswordHasher<Trip> pinHasher, string? normalizedPin)
         {
             trip.ExternalId = string.IsNullOrWhiteSpace(ExternalId) ? null : ExternalId.Trim();
             trip.AppUserId = UserId;
@@ -699,6 +722,11 @@ public sealed class ReservationsModel(TravelCompanionDbContext dbContext) : Page
             trip.StartsOn = StartsOn;
             trip.EndsOn = EndsOn;
             trip.TimeZoneId = string.IsNullOrWhiteSpace(TimeZoneId) ? "UTC" : TimeZoneId.Trim();
+            if (!string.IsNullOrWhiteSpace(normalizedPin))
+            {
+                trip.AccessPinHash = pinHasher.HashPassword(trip, normalizedPin);
+                trip.AccessPinUpdatedAt = DateTimeOffset.UtcNow;
+            }
         }
     }
 }

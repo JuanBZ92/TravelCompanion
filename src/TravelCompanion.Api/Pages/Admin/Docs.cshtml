@@ -1,0 +1,115 @@
+@page "/admin/docs"
+@model TravelCompanion.Api.Pages.Admin.DocsModel
+@{
+    ViewData["Title"] = "Docs";
+}
+
+<h1>Docs</h1>
+<p class="lede">Documentos del viaje: PDFs de hoteles, trenes, tickets y guias que se muestran en la app.</p>
+
+<section class="panel">
+    <div class="section-header">
+        <div>
+            <h2>@(Model.Input.Id.HasValue ? "Editar documento" : "Nuevo documento")</h2>
+            <p class="muted">Guarda una URL publica o interna. La app la abrira desde la tab Docs.</p>
+        </div>
+        <span class="badge">PDF / link</span>
+    </div>
+    <form method="post" asp-page-handler="Save">
+        <div asp-validation-summary="All"></div>
+        <input type="hidden" asp-for="Input.Id" />
+        <div class="form-grid">
+            <div>
+                <label asp-for="Input.TripId" class="required">Viaje</label>
+                <select asp-for="Input.TripId" asp-items="Model.TripOptions"></select>
+                <span asp-validation-for="Input.TripId"></span>
+            </div>
+            <div>
+                <label asp-for="Input.Category" class="required">Categoria</label>
+                <select asp-for="Input.Category" asp-items="Model.CategoryOptions"></select>
+                <span asp-validation-for="Input.Category"></span>
+            </div>
+            <div>
+                <label asp-for="Input.ExternalId">External ID <span class="muted">(import)</span></label>
+                <input asp-for="Input.ExternalId" placeholder="hotel-tokyo-ida" />
+                <span asp-validation-for="Input.ExternalId"></span>
+            </div>
+            <div>
+                <label asp-for="Input.SortOrder">Orden</label>
+                <input asp-for="Input.SortOrder" type="number" />
+                <span asp-validation-for="Input.SortOrder"></span>
+            </div>
+            <div>
+                <label asp-for="Input.Title" class="required">Titulo</label>
+                <input asp-for="Input.Title" placeholder="Hotel Tokio (ida)" />
+                <span asp-validation-for="Input.Title"></span>
+            </div>
+            <div>
+                <label asp-for="Input.Subtitle">Subtitulo</label>
+                <input asp-for="Input.Subtitle" placeholder="APA Resort Roppongi - llegada" />
+                <span asp-validation-for="Input.Subtitle"></span>
+            </div>
+        </div>
+        <div style="margin-top: 12px;">
+            <label asp-for="Input.FileUrl" class="required">URL del documento</label>
+            <input asp-for="Input.FileUrl" placeholder="https://.../documento.pdf" />
+            <p class="form-hint">Por ahora usamos URL. Cuando sumemos storage, este campo puede apuntar a Blob/S3/CDN.</p>
+            <span asp-validation-for="Input.FileUrl"></span>
+        </div>
+        <div class="actions">
+            <button type="submit">Guardar documento</button>
+            @if (Model.Input.Id.HasValue)
+            {
+                <a class="button secondary" asp-page="/Admin/Docs" asp-route-selectedTripId="@Model.Input.TripId">Cancelar</a>
+            }
+        </div>
+    </form>
+</section>
+
+<section id="docs-list" class="panel" style="margin-top: 18px;">
+    <div class="section-header">
+        <div>
+            <h2>Documentos @(Model.SelectedTripId.HasValue ? "del viaje seleccionado" : "")</h2>
+            <p class="muted">Los hoteles de la app tambien se derivan de reservas de tipo Hospedaje.</p>
+        </div>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>Documento</th>
+                <th>Viaje</th>
+                <th>Categoria</th>
+                <th>Orden</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var document in Model.Documents)
+        {
+            <tr>
+                <td>
+                    <strong>@document.Title</strong><br />
+                    <span class="muted">@document.Subtitle</span><br />
+                    <a href="@document.FileUrl" target="_blank" rel="noopener">@document.FileUrl</a>
+                    @if (!string.IsNullOrWhiteSpace(document.ExternalId))
+                    {
+                        <br />
+                        <span class="mono">@document.ExternalId</span>
+                    }
+                </td>
+                <td>@document.TripName</td>
+                <td>@document.CategoryLabel</td>
+                <td>@document.SortOrder</td>
+                <td>
+                    <div class="row-actions">
+                        <a class="button secondary" asp-page="/Admin/Docs" asp-route-editId="@document.Id">Editar</a>
+                        <form method="post" asp-page-handler="Delete" asp-route-id="@document.Id" asp-route-selectedTripId="@Model.SelectedTripId">
+                            <button class="danger" type="submit">Borrar</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</section>

@@ -13,7 +13,8 @@ public sealed class UserSessionService(TravelCompanionDbContext dbContext)
 
     public async Task<(AppUserSession Session, string Token)> CreateSessionAsync(
         AppUser user,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        Guid? tripId = null)
     {
         var token = CreateToken();
         var now = DateTimeOffset.UtcNow;
@@ -21,9 +22,11 @@ public sealed class UserSessionService(TravelCompanionDbContext dbContext)
         {
             Id = Guid.NewGuid(),
             UserId = user.Id,
+            TripId = tripId,
             TokenHash = HashToken(token),
             CreatedAt = now,
-            ExpiresAt = now.Add(SessionLifetime)
+            ExpiresAt = now.Add(SessionLifetime),
+            LastSeenAt = now
         };
 
         dbContext.AppUserSessions.Add(session);
@@ -69,6 +72,28 @@ public sealed class UserSessionService(TravelCompanionDbContext dbContext)
         }
 
         return session.User;
+    }
+
+    public async Task<Guid?> GetSessionTripIdAsync(
+        HttpContext httpContext,
+        CancellationToken cancellationToken = default)
+    {
+        var token = GetBearerToken(httpContext);
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return null;
+        }
+
+        var tokenHash = HashToken(token);
+        var now = DateTimeOffset.UtcNow;
+        return await dbContext.AppUserSessions
+            .AsNoTracking()
+            .Where(existingSession =>
+                existingSession.TokenHash == tokenHash
+                && existingSession.RevokedAt == null
+                && existingSession.ExpiresAt > now)
+            .Select(existingSession => existingSession.TripId)
+            .FirstOrDefaultAsync(cancellationToken);
     }
 
     public async Task RevokeCurrentSessionAsync(HttpContext httpContext, CancellationToken cancellationToken = default)

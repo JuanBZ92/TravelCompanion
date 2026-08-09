@@ -7,6 +7,8 @@ public sealed class AuthSessionService
     private const string UserIdKey = "auth_user_id";
     private const string EmailKey = "auth_email";
     private const string DisplayNameKey = "auth_display_name";
+    private const string TripIdKey = "auth_trip_id";
+    private const string DestinationNameKey = "auth_destination_name";
     private const string MustChangePasswordKey = "auth_must_change_password";
     private const string BiometricEnabledKey = "auth_biometric_enabled";
     private const string TokenKey = "auth_token";
@@ -46,11 +48,47 @@ public sealed class AuthSessionService
         }
     }
 
+    public Guid? CurrentTripId
+    {
+        get
+        {
+            var value = Preferences.Default.Get(TripIdKey, string.Empty);
+            return Guid.TryParse(value, out var tripId) ? tripId : null;
+        }
+    }
+
+    public string? CurrentDestinationName
+    {
+        get
+        {
+            var value = Preferences.Default.Get(DestinationNameKey, string.Empty);
+            return string.IsNullOrWhiteSpace(value) ? null : value;
+        }
+    }
+
     public async Task SaveAsync(AuthSessionDto session)
     {
         Preferences.Default.Set(UserIdKey, session.UserId.ToString());
         Preferences.Default.Set(EmailKey, session.Email);
         Preferences.Default.Set(DisplayNameKey, session.DisplayName);
+        if (session.TripId.HasValue)
+        {
+            Preferences.Default.Set(TripIdKey, session.TripId.Value.ToString());
+        }
+        else
+        {
+            Preferences.Default.Remove(TripIdKey);
+        }
+
+        if (!string.IsNullOrWhiteSpace(session.DestinationName))
+        {
+            Preferences.Default.Set(DestinationNameKey, session.DestinationName);
+        }
+        else
+        {
+            Preferences.Default.Remove(DestinationNameKey);
+        }
+
         Preferences.Default.Set(MustChangePasswordKey, session.MustChangePassword);
         Preferences.Default.Set(BiometricEnabledKey, !session.MustChangePassword);
         await SecureStorage.Default.SetAsync(TokenKey, session.Token).ConfigureAwait(false);
@@ -79,6 +117,8 @@ public sealed class AuthSessionService
         Preferences.Default.Remove(UserIdKey);
         Preferences.Default.Remove(EmailKey);
         Preferences.Default.Remove(DisplayNameKey);
+        Preferences.Default.Remove(TripIdKey);
+        Preferences.Default.Remove(DestinationNameKey);
         Preferences.Default.Remove(MustChangePasswordKey);
         Preferences.Default.Remove(BiometricEnabledKey);
         SecureStorage.Default.Remove(TokenKey);

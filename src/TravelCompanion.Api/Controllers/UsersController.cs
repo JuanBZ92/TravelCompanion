@@ -60,7 +60,7 @@ public sealed class UsersController(
             return accessError;
         }
 
-        var schedule = await FindScheduleAsync(userId, cancellationToken);
+        var schedule = await FindScheduleAsync(userId, cancellationToken: cancellationToken);
         return schedule is null
             ? NotFound()
             : Ok(schedule);
@@ -84,7 +84,8 @@ public sealed class UsersController(
             return Unauthorized();
         }
 
-        var schedule = await FindScheduleAsync(user.Id, cancellationToken);
+        var sessionTripId = await sessionService.GetSessionTripIdAsync(HttpContext, cancellationToken);
+        var schedule = await FindScheduleAsync(user.Id, sessionTripId, cancellationToken);
         return schedule is null
             ? NotFound()
             : Ok(schedule);
@@ -126,14 +127,24 @@ public sealed class UsersController(
         }
     }
 
-    private async Task<TripScheduleDto?> FindScheduleAsync(Guid userId, CancellationToken cancellationToken = default)
+    private async Task<TripScheduleDto?> FindScheduleAsync(
+        Guid userId,
+        Guid? sessionTripId = null,
+        CancellationToken cancellationToken = default)
     {
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
-        var trip = await dbContext.Trips
+        var tripsQuery = dbContext.Trips
             .AsNoTracking()
             .Include(existingTrip => existingTrip.Destination)
             .Include(existingTrip => existingTrip.Reservations)
-            .Where(existingTrip => existingTrip.AppUserId == userId)
+            .Where(existingTrip => existingTrip.AppUserId == userId);
+
+        if (sessionTripId.HasValue)
+        {
+            tripsQuery = tripsQuery.Where(existingTrip => existingTrip.Id == sessionTripId.Value);
+        }
+
+        var trip = await tripsQuery
             .OrderBy(existingTrip => existingTrip.StartsOn < today)
             .ThenBy(existingTrip => existingTrip.StartsOn)
             .FirstOrDefaultAsync(cancellationToken);

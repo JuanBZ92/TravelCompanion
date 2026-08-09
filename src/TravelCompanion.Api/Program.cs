@@ -1,11 +1,13 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.ApplicationInsights.AspNetCore.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
 using TravelCompanion.Api.Middleware;
 using TravelCompanion.Api.Data;
 using TravelCompanion.Api.Models;
@@ -51,6 +53,16 @@ builder.Services.AddResponseCompression(options =>
     options.Providers.Add<BrotliCompressionProvider>();
     options.Providers.Add<GzipCompressionProvider>();
 });
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddFixedWindowLimiter("PinLogin", limiterOptions =>
+    {
+        limiterOptions.PermitLimit = 8;
+        limiterOptions.Window = TimeSpan.FromMinutes(1);
+        limiterOptions.QueueLimit = 0;
+        limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+    });
+});
 builder.Services.Configure<AdminAuthOptions>(
     builder.Configuration.GetSection(AdminAuthOptions.SectionName));
 builder.Services.Configure<ObservabilityOptions>(
@@ -71,6 +83,7 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("AdminOnly", policy => policy.RequireAuthenticatedUser());
 });
 builder.Services.AddScoped<IPasswordHasher<AppUser>, PasswordHasher<AppUser>>();
+builder.Services.AddScoped<IPasswordHasher<Trip>, PasswordHasher<Trip>>();
 builder.Services.AddScoped<UserSessionService>();
 builder.Services.AddScoped<IUserInvitationSender, LoggingUserInvitationSender>();
 builder.Services.AddScoped<IUserProfileService, UserProfileService>();
@@ -104,6 +117,7 @@ if (!app.Environment.IsDevelopment())
 
 app.UseStatusCodePages();
 app.UseResponseCompression();
+app.UseRateLimiter();
 app.UseStaticFiles();
 app.UseMiddleware<RequestObservabilityMiddleware>();
 

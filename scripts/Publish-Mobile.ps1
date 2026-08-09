@@ -41,6 +41,8 @@ function Resolve-RepoRoot {
 function Resolve-ApiUrl {
     param([string]$ExplicitApiUrl, [string]$RepoRoot)
 
+    $defaultHostedApiUrl = "https://travelcompanion-api-57dw.onrender.com"
+
     if (-not [string]::IsNullOrWhiteSpace($ExplicitApiUrl)) {
         return $ExplicitApiUrl.TrimEnd("/")
     }
@@ -58,7 +60,7 @@ function Resolve-ApiUrl {
         }
     }
 
-    return "https://app-tc-dev-q352ao.azurewebsites.net"
+    return $defaultHostedApiUrl
 }
 
 function Assert-Command {

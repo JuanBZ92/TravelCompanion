@@ -62,11 +62,11 @@
             Route="packages" />
 
         <ShellContent
-            x:Name="SupportTab"
-            Title="Support"
-            Icon="tab_account.svg"
-            ContentTemplate="{DataTemplate pages:SupportPage}"
-            Route="support" />
+            x:Name="DocsTab"
+            Title="Docs"
+            Icon="tab_docs.svg"
+            ContentTemplate="{DataTemplate pages:DocsPage}"
+            Route="docs" />
     </TabBar>
 
 </Shell>

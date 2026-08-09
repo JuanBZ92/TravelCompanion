@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using TravelCompanion.Api.Data;
@@ -12,9 +13,11 @@ using TravelCompanion.Api.Data;
 namespace TravelCompanion.Api.Data.Migrations
 {
     [DbContext(typeof(TravelCompanionDbContext))]
-    partial class TravelCompanionDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260809135006_AddTravelDocuments")]
+    partial class AddTravelDocuments
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -98,9 +101,6 @@ namespace TravelCompanion.Api.Data.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
 
-                    b.Property<Guid?>("TripId")
-                        .HasColumnType("uuid");
-
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
@@ -108,8 +108,6 @@ namespace TravelCompanion.Api.Data.Migrations
 
                     b.HasIndex("TokenHash")
                         .IsUnique();
-
-                    b.HasIndex("TripId", "RevokedAt");
 
                     b.HasIndex("UserId", "RevokedAt");
 
@@ -688,13 +686,6 @@ namespace TravelCompanion.Api.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<string>("AccessPinHash")
-                        .HasMaxLength(512)
-                        .HasColumnType("character varying(512)");
-
-                    b.Property<DateTimeOffset?>("AccessPinUpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<Guid?>("AppUserId")
                         .HasColumnType("uuid");
 
@@ -794,18 +785,11 @@ namespace TravelCompanion.Api.Data.Migrations
 
             modelBuilder.Entity("TravelCompanion.Api.Models.AppUserSession", b =>
                 {
-                    b.HasOne("TravelCompanion.Api.Models.Trip", "Trip")
-                        .WithMany()
-                        .HasForeignKey("TripId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("TravelCompanion.Api.Models.AppUser", "User")
                         .WithMany("Sessions")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("Trip");
 
                     b.Navigation("User");
                 });

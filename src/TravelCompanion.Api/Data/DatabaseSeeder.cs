@@ -46,6 +46,7 @@ public static class DatabaseSeeder
         await SeedAdditionalJapanRecommendationsAsync(dbContext);
         await SeedAccessScenarioUsersAsync(dbContext, passwordHasher);
         await SeedDemoTravelPreferenceProfilesAsync(dbContext);
+        await SeedDemoTravelDocumentsAsync(dbContext);
 
         await dbContext.SaveChangesAsync();
         await SyncSeedRecommendationPackageLinksAsync(dbContext);
@@ -210,6 +211,7 @@ public static class DatabaseSeeder
                 }
             ]
         };
+        EnsureTripPin(demoTrip, "1908");
 
         dbContext.Destinations.Add(japan);
         dbContext.Trips.Add(demoTrip);
@@ -310,6 +312,8 @@ public static class DatabaseSeeder
 
         if (demoTrip is not null)
         {
+            EnsureTripPin(demoTrip, "1908");
+
             await AddDemoReservationIfMissingAsync(
                 dbContext,
                 demoTrip.Id,
@@ -635,6 +639,7 @@ public static class DatabaseSeeder
             "UsuarioFree",
             new DateOnly(2026, 11, 2),
             new DateOnly(2026, 11, 16),
+            "1001",
             CreateFreeUserReservations());
 
         await EnsureScenarioTripAsync(
@@ -644,6 +649,7 @@ public static class DatabaseSeeder
             "UsuarioSub",
             new DateOnly(2026, 11, 18),
             new DateOnly(2026, 12, 3),
+            "2002",
             CreateSubscriptionUserReservations());
 
         await EnsureScenarioTripAsync(
@@ -653,6 +659,7 @@ public static class DatabaseSeeder
             "UsuarioPaid",
             new DateOnly(2026, 12, 4),
             new DateOnly(2026, 12, 24),
+            "3003",
             CreatePaidUserReservations());
     }
 
@@ -741,6 +748,7 @@ public static class DatabaseSeeder
         string travelerName,
         DateOnly startsOn,
         DateOnly endsOn,
+        string accessPin,
         IReadOnlyCollection<Reservation> reservations)
     {
         var trip = await dbContext.Trips
@@ -767,6 +775,7 @@ public static class DatabaseSeeder
         trip.TravelerName = travelerName;
         trip.StartsOn = startsOn;
         trip.EndsOn = endsOn;
+        EnsureTripPin(trip, accessPin);
 
         foreach (var reservation in reservations)
         {
@@ -780,6 +789,18 @@ public static class DatabaseSeeder
 
             ApplyReservation(existingReservation, reservation);
         }
+    }
+
+    private static void EnsureTripPin(Trip trip, string pin)
+    {
+        if (!string.IsNullOrWhiteSpace(trip.AccessPinHash))
+        {
+            return;
+        }
+
+        var pinHasher = new PasswordHasher<Trip>();
+        trip.AccessPinHash = pinHasher.HashPassword(trip, pin);
+        trip.AccessPinUpdatedAt = DateTimeOffset.UtcNow;
     }
 
     private static void ApplyReservation(Reservation target, Reservation source)
@@ -1518,4 +1539,60 @@ public static class DatabaseSeeder
             });
         }
     }
+
+    private static async Task SeedDemoTravelDocumentsAsync(TravelCompanionDbContext dbContext)
+    {
+        var documents = new[]
+        {
+            CreateTravelDocument(1, Guid.Parse("44444444-4444-4444-4444-444444444401"), "demo-hotel-tokyo", TravelDocumentCategory.Hotel, "Hotel Tokyo", "Hotel demo Ginza", "/docs/hotel-tokyo.pdf", 10),
+            CreateTravelDocument(2, Guid.Parse("44444444-4444-4444-4444-444444444401"), "demo-trenes", TravelDocumentCategory.Other, "Trenes", "Tickets y pases", "/docs/trenes.pdf", 20),
+            CreateTravelDocument(3, SubscriptionTripId, "sub-hotel-tokyo-ida", TravelDocumentCategory.Hotel, "Hotel Tokio (ida)", "Hotel The Celestine Ginza", "/docs/hotel-tokyo-ida.pdf", 10),
+            CreateTravelDocument(4, SubscriptionTripId, "sub-hotel-kyoto", TravelDocumentCategory.Hotel, "Hotel Kioto", "Kyoto Machiya Stay", "/docs/hotel-kyoto.pdf", 20),
+            CreateTravelDocument(5, SubscriptionTripId, "sub-hotel-osaka", TravelDocumentCategory.Hotel, "Hotel Osaka", "Hotel Hankyu Respire Osaka", "/docs/hotel-osaka.pdf", 30),
+            CreateTravelDocument(6, SubscriptionTripId, "sub-trenes", TravelDocumentCategory.Other, "Trenes", "Shinkansen y tickets", "/docs/trenes.pdf", 10),
+            CreateTravelDocument(7, SubscriptionTripId, "sub-disney", TravelDocumentCategory.Other, "Tokyo Disney", "Guia del dia", "/docs/tokyo-disney.pdf", 20),
+            CreateTravelDocument(8, PaidTripId, "paid-hotel-tokyo", TravelDocumentCategory.Hotel, "Hotel Tokio", "Hotel The Celestine Ginza", "/docs/hotel-tokyo.pdf", 10),
+            CreateTravelDocument(9, PaidTripId, "paid-hotel-osaka", TravelDocumentCategory.Hotel, "Hotel Osaka", "Conrad Osaka", "/docs/hotel-osaka.pdf", 20),
+            CreateTravelDocument(10, PaidTripId, "paid-trenes", TravelDocumentCategory.Other, "Trenes", "Tickets intercity", "/docs/trenes.pdf", 10)
+        };
+
+        foreach (var document in documents)
+        {
+            var existing = await dbContext.TravelDocuments
+                .FirstOrDefaultAsync(current => current.TripId == document.TripId && current.ExternalId == document.ExternalId);
+
+            if (existing is null)
+            {
+                dbContext.TravelDocuments.Add(document);
+                continue;
+            }
+
+            existing.Category = document.Category;
+            existing.Title = document.Title;
+            existing.Subtitle = document.Subtitle;
+            existing.FileUrl = document.FileUrl;
+            existing.SortOrder = document.SortOrder;
+        }
+    }
+
+    private static TravelDocument CreateTravelDocument(
+        int seedNumber,
+        Guid tripId,
+        string externalId,
+        TravelDocumentCategory category,
+        string title,
+        string subtitle,
+        string fileUrl,
+        int sortOrder) =>
+        new()
+        {
+            Id = Guid.Parse($"88888888-8888-8888-8888-{seedNumber:000000000000}"),
+            TripId = tripId,
+            ExternalId = externalId,
+            Category = category,
+            Title = title,
+            Subtitle = subtitle,
+            FileUrl = fileUrl,
+            SortOrder = sortOrder
+        };
 }

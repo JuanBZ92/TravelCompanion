@@ -25,6 +25,10 @@
         <div class="muted">Reservas</div>
     </div>
     <div class="panel">
+        <div class="metric">@Model.DocumentCount</div>
+        <div class="muted">Docs</div>
+    </div>
+    <div class="panel">
         <div class="metric">@Model.UserCount</div>
         <div class="muted">Usuarios</div>
     </div>
@@ -54,6 +58,11 @@
         <h2>Schedule</h2>
         <p class="muted">Administra reservas y eventos del viaje demo.</p>
         <a class="button" asp-page="/Admin/Reservations">Gestionar</a>
+    </div>
+    <div class="panel">
+        <h2>Docs</h2>
+        <p class="muted">Carga PDFs y links del viaje para la tab Docs de la app.</p>
+        <a class="button" asp-page="/Admin/Docs">Gestionar</a>
     </div>
     <div class="panel">
         <h2>Users & access</h2>

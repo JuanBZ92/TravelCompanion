@@ -6,42 +6,39 @@
              x:DataType="viewModels:LoginViewModel"
              Title="Ingresar"
              Shell.NavBarIsVisible="False">
-    <Grid Padding="24" RowDefinitions="*,Auto,*">
-        <VerticalStackLayout Grid.Row="1" Spacing="20">
-            <VerticalStackLayout Spacing="8">
-                <Label Text="Travel Companion" Style="{StaticResource Eyebrow}" />
-                <Label Text="Ingresar" Style="{StaticResource Headline}" />
-                <Label Text="Tu cuenta conecta recomendaciones, accesos y reservas del viaje." Style="{StaticResource SubHeadline}" />
+    <Grid Padding="28" RowDefinitions="*,Auto,*"
+          BackgroundColor="{AppThemeBinding Light={StaticResource Mist}, Dark={StaticResource Night}}">
+        <VerticalStackLayout Grid.Row="1" Spacing="24">
+            <VerticalStackLayout Spacing="10">
+                <Label Text="YUKU"
+                       Style="{StaticResource Eyebrow}"
+                       CharacterSpacing="6" />
+                <Label Text="Ingresa tu PIN"
+                       FontSize="34"
+                       FontFamily="OpenSansRegular"
+                       TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
+                <Label Text="Usa el codigo de 4 numeros de tu viaje para cargar agenda, vuelos, documentos y recomendaciones."
+                       Style="{StaticResource SubHeadline}" />
             </VerticalStackLayout>
 
-            <Border Style="{StaticResource Card}">
+            <Border BackgroundColor="{AppThemeBinding Light={StaticResource Paper}, Dark={StaticResource NightSurface}}"
+                    Stroke="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
+                    StrokeThickness="1"
+                    Padding="20">
                 <Border.StrokeShape>
                     <RoundRectangle CornerRadius="8" />
                 </Border.StrokeShape>
-                <VerticalStackLayout Spacing="14">
-                    <VerticalStackLayout Spacing="6">
-                        <Label Text="Email" Style="{StaticResource Metadata}" />
-                        <Entry Text="{Binding Email}"
-                               Keyboard="Email"
-                               ReturnType="Go"
-                               ClearButtonVisibility="WhileEditing" />
-                    </VerticalStackLayout>
-
-                    <VerticalStackLayout Spacing="6">
-                        <Label Text="Password" Style="{StaticResource Metadata}" />
-                        <Grid ColumnDefinitions="*,44" ColumnSpacing="8">
-                            <Entry Text="{Binding Password}"
-                                   IsPassword="{Binding IsPasswordHidden}"
-                                   ReturnType="Go" />
-                            <Button Grid.Column="1"
-                                    Text="👁"
-                                    Style="{StaticResource GhostButton}"
-                                    Command="{Binding TogglePasswordVisibilityCommand}"
-                                    Padding="0"
-                                    HeightRequest="44"
-                                    WidthRequest="44" />
-                        </Grid>
-                    </VerticalStackLayout>
+                <VerticalStackLayout Spacing="18">
+                    <Entry Text="{Binding Pin}"
+                           Keyboard="Numeric"
+                           MaxLength="4"
+                           IsPassword="True"
+                           ReturnType="Go"
+                           HorizontalTextAlignment="Center"
+                           FontSize="32"
+                           CharacterSpacing="12"
+                           Placeholder="0000"
+                           ClearButtonVisibility="WhileEditing" />
 
                     <Border Padding="12"
                             BackgroundColor="{AppThemeBinding Light={StaticResource RoseSoft}, Dark={StaticResource NightSurfaceAlt}}"
@@ -54,7 +51,7 @@
                         <Label Text="{Binding ErrorMessage}" TextColor="{AppThemeBinding Light={StaticResource Rose}, Dark={StaticResource Paper}}" />
                     </Border>
 
-                    <Button Text="Ingresar"
+                    <Button Text="Abrir viaje"
                             Command="{Binding LoginCommand}"
                             IsEnabled="{Binding IsNotBusy}" />
                     <Button Text="Desbloquear con biometria"

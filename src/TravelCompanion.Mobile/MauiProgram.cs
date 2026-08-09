@@ -91,7 +91,8 @@ public static class MauiProgram
         builder.Services.AddSingleton<PackagesViewModel>();
         builder.Services.AddSingleton<ISessionStateResettable>(sp => sp.GetRequiredService<PackagesViewModel>());
         builder.Services.AddTransient<RecommendationDetailViewModel>();
-        builder.Services.AddTransient<SupportViewModel>();
+        builder.Services.AddSingleton<DocsViewModel>();
+        builder.Services.AddSingleton<ISessionStateResettable>(sp => sp.GetRequiredService<DocsViewModel>());
 
         builder.Services.AddTransient<LoginPage>();
         builder.Services.AddTransient<BiometricUnlockPage>();
@@ -102,7 +103,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<TravelChatPage>();
         builder.Services.AddTransient<ScheduleItemDetailPage>();
         builder.Services.AddSingleton<PackagesPage>();
-        builder.Services.AddSingleton<SupportPage>();
+        builder.Services.AddSingleton<DocsPage>();
         builder.Services.AddTransient<RecommendationDetailPage>();
 
         var app = builder.Build();
