@@ -1,152 +1,83 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:system="clr-namespace:System;assembly=System.Runtime"
              xmlns:viewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
              x:Class="TravelCompanion.Mobile.Pages.RecommendationDetailPage"
              x:DataType="viewModels:RecommendationDetailViewModel"
              Title=""
              Shell.NavBarIsVisible="True"
-             Shell.BackgroundColor="{AppThemeBinding Light={StaticResource Paper}, Dark={StaticResource Night}}"
-             BackgroundColor="{AppThemeBinding Light={StaticResource Paper}, Dark={StaticResource Night}}">
+             Shell.BackgroundColor="#F8F3ED"
+             BackgroundColor="#F8F3ED">
 
-    <ScrollView>
+    <ScrollView VerticalScrollBarVisibility="Never">
         <VerticalStackLayout Spacing="0">
-            <!-- Hero Image -->
             <Border HeightRequest="300"
-                    BackgroundColor="{AppThemeBinding Light={StaticResource Mist}, Dark={StaticResource NightSurfaceAlt}}">
+                    BackgroundColor="#F6F1EA"
+                    Stroke="#D8CFC4"
+                    StrokeThickness="1">
                 <Border.StrokeShape>
                     <RoundRectangle CornerRadius="0" />
                 </Border.StrokeShape>
-                <Label Text="📸"
-                       FontSize="64"
-                       HorizontalOptions="Center"
-                       VerticalOptions="Center"
-                       Opacity="0.3" />
+                <Grid x:Name="MapContainer">
+                    <VerticalStackLayout x:Name="MapFallback"
+                                         Padding="28"
+                                         Spacing="8"
+                                         HorizontalOptions="Center"
+                                         VerticalOptions="Center">
+                        <Label Text="{Binding Recommendation.Title}"
+                               FontFamily="serif"
+                               FontSize="24"
+                               TextColor="#1A1714"
+                               HorizontalTextAlignment="Center"
+                               LineBreakMode="WordWrap"
+                               MaxLines="2" />
+                        <Label Text="{Binding Recommendation.Neighborhood}"
+                               FontSize="13"
+                               TextColor="#8A8078"
+                               HorizontalTextAlignment="Center"
+                               LineBreakMode="TailTruncation"
+                               MaxLines="1" />
+                    </VerticalStackLayout>
+                </Grid>
             </Border>
 
-            <VerticalStackLayout Padding="24" Spacing="8">
-                <!-- Title Section -->
-                <Label Text="{Binding Recommendation.Category}"
-                       FontSize="12"
-                       TextTransform="Uppercase"
-                       TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
-                <Label Text="{Binding Recommendation.Title}"
-                       FontSize="28"
-                       FontAttributes="Bold"
-                       TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
-                <Label Text="{Binding Recommendation.Neighborhood}"
-                       FontSize="16"
-                       TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}"
-                       Margin="0,0,0,8" />
+            <VerticalStackLayout Padding="28,28,28,40"
+                                 Spacing="24">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="{Binding Recommendation.Category}"
+                           CharacterSpacing="5"
+                           FontSize="10"
+                           FontAttributes="Bold"
+                           TextTransform="Uppercase"
+                           TextColor="#9B9288" />
+                    <Label Text="{Binding Recommendation.Title}"
+                           FontFamily="serif"
+                           FontSize="34"
+                           TextColor="#1A1714"
+                           LineBreakMode="WordWrap"
+                           MaxLines="3" />
+                </VerticalStackLayout>
 
-                <FlexLayout Direction="Row"
-                            Wrap="Wrap"
-                            AlignItems="Start"
-                            Margin="0,0,0,16"
-                            IsVisible="{Binding HasRecommendationTags}"
-                            BindableLayout.ItemsSource="{Binding RecommendationTags}">
-                    <BindableLayout.ItemTemplate>
-                        <DataTemplate x:DataType="system:String">
-                            <Border Style="{StaticResource Chip}"
-                                    Padding="9,6"
-                                    Margin="0,0,6,6">
-                                <Label Text="{Binding ., StringFormat='#{0}'}"
-                                       FontSize="12"
-                                       TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}" />
-                            </Border>
-                        </DataTemplate>
-                    </BindableLayout.ItemTemplate>
-                </FlexLayout>
-
-                <!-- Reservation Info -->
-                <Border Padding="16"
-                        BackgroundColor="{AppThemeBinding Light={StaticResource Mist}, Dark={StaticResource NightSurface}}"
-                        Stroke="Transparent"
-                        StrokeThickness="0">
-                    <Border.StrokeShape>
-                        <RoundRectangle CornerRadius="12" />
-                    </Border.StrokeShape>
-                    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="12" ColumnSpacing="12">
-                        <Label Grid.Row="0" Grid.Column="0"
-                               Text="Duration"
-                               FontSize="12"
-                               TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
-                               VerticalOptions="Center" />
-                        <Label Grid.Row="0" Grid.Column="1"
-                               Text="{Binding Recommendation.SuggestedDurationMinutes, StringFormat='{0} minutes'}"
-                               FontSize="14"
-                               FontAttributes="Bold"
-                               TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
-                               VerticalOptions="Center" />
-
-                        <Label Grid.Row="1" Grid.Column="0"
-                               Text="Coste"
-                               FontSize="12"
-                               TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
-                               VerticalOptions="Center" />
-                        <Label Grid.Row="1" Grid.Column="1"
-                               Text="{Binding CostLevelText}"
-                               FontSize="14"
-                               FontAttributes="Bold"
-                               TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
-                               VerticalOptions="Center" />
-
-                        <Label Grid.Row="2" Grid.Column="0"
-                               Text="Access"
-                               FontSize="12"
-                               TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
-                               VerticalOptions="Center" />
-                        <Label Grid.Row="2" Grid.Column="1"
-                               Text="{Binding AccessLevelText}"
-                               FontSize="14"
-                               FontAttributes="Bold"
-                               TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
-                               VerticalOptions="Center" />
-                    </Grid>
-                </Border>
-
-                <!-- Description -->
-                <Label Text="About This Experience"
-                       FontSize="14"
-                       FontAttributes="Bold"
-                       TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
-                       Margin="0,16,0,0" />
-                <Label Text="{Binding Recommendation.Description}"
-                       FontSize="14"
-                       LineHeight="1.6"
-                       TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}" />
-
-                <!-- Location -->
-                <Label Text="Location"
-                       FontSize="14"
-                       FontAttributes="Bold"
-                       TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
-                       Margin="0,16,0,0" />
-                <Label Text="{Binding Recommendation.Neighborhood}"
-                       FontSize="14"
-                       LineHeight="1.5"
-                       TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}" />
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="About This Experience"
+                           FontSize="16"
+                           FontAttributes="Bold"
+                           TextColor="#1A1714" />
+                    <Label Text="{Binding Recommendation.Description}"
+                           FontSize="16"
+                           LineHeight="1.45"
+                           TextColor="#4D4741" />
+                </VerticalStackLayout>
 
                 <Button Text="View on Map"
                         Command="{Binding OpenMapsCommand}"
                         IsEnabled="{Binding IsUnlocked}"
-                        BackgroundColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}"
-                        TextColor="{AppThemeBinding Light={StaticResource Paper}, Dark={StaticResource PrimaryDarkText}}"
-                        HeightRequest="48"
-                        CornerRadius="12"
+                        BackgroundColor="#3D3329"
+                        TextColor="#FFFFFF"
+                        HeightRequest="54"
+                        CornerRadius="0"
                         FontSize="16"
-                        FontAttributes="Bold"
-                        Margin="0,20,0,0" />
-                <Button Text="Contact Concierge to Book"
-                        BackgroundColor="Transparent"
-                        TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
-                        BorderColor="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
-                        BorderWidth="1"
-                        HeightRequest="48"
-                        CornerRadius="12"
-                        FontSize="16"
-                        Margin="0,0,0,24" />
+                        FontAttributes="Bold" />
             </VerticalStackLayout>
         </VerticalStackLayout>
     </ScrollView>

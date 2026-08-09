@@ -4,65 +4,109 @@
              xmlns:viewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
              x:Class="TravelCompanion.Mobile.Pages.ScheduleItemDetailPage"
              x:DataType="viewModels:ScheduleItemDetailViewModel"
-             Title="{Binding ScheduleItem.Title}">
-    <ScrollView>
-        <VerticalStackLayout Padding="22" Spacing="6">
-            <Label Text="{Binding ScheduleItem.TypeLabel}" Style="{StaticResource Eyebrow}" />
-            <Label Text="{Binding ScheduleItem.Title}" Style="{StaticResource Headline}" />
-            <Label Text="{Binding ScheduleItem.City}" Style="{StaticResource Metadata}" TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}" />
-            <Label Text="{Binding ScheduleItem.MainDetail}" Style="{StaticResource SubHeadline}" Margin="0,0,0,12" />
+             Title=""
+             Shell.NavBarIsVisible="True"
+             Shell.BackgroundColor="#F8F3ED"
+             BackgroundColor="#F8F3ED">
 
-            <Button Text="Abrir mapa"
-                    Command="{Binding OpenMapsCommand}"
-                    Margin="0,0,0,12" />
-
-            <Border Style="{StaticResource Card}">
+    <ScrollView VerticalScrollBarVisibility="Never">
+        <VerticalStackLayout Spacing="0">
+            <Border HeightRequest="300"
+                    BackgroundColor="#F6F1EA"
+                    Stroke="#D8CFC4"
+                    StrokeThickness="1">
                 <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="8" />
+                    <RoundRectangle CornerRadius="0" />
                 </Border.StrokeShape>
-                <VerticalStackLayout Spacing="8">
-                    <Label Text="Horario" Style="{StaticResource SectionTitle}" />
-                    <Label Text="{Binding ScheduleItem.Date, StringFormat='Fecha: {0:dddd, MMM d}'}" FontSize="14" />
-                    <Label Text="{Binding ScheduleItem.StartDisplay}" FontSize="14" />
-                    <Label Text="{Binding ScheduleItem.EndDisplay}" IsVisible="{Binding ScheduleItem.HasEnd}" FontSize="14" />
-                    <Label Text="{Binding ScheduleItem.ConfirmationCode, StringFormat='Codigo: {0}'}" FontSize="14" FontAttributes="Bold" />
-                </VerticalStackLayout>
+                <Grid x:Name="MapContainer">
+                    <VerticalStackLayout x:Name="MapFallback"
+                                         Padding="28"
+                                         Spacing="8"
+                                         HorizontalOptions="Center"
+                                         VerticalOptions="Center">
+                        <Label Text="{Binding ScheduleItem.LocationName}"
+                               FontFamily="serif"
+                               FontSize="24"
+                               TextColor="#1A1714"
+                               HorizontalTextAlignment="Center"
+                               LineBreakMode="WordWrap"
+                               MaxLines="2" />
+                        <Label Text="{Binding AddressText}"
+                               FontSize="13"
+                               TextColor="#8A8078"
+                               HorizontalTextAlignment="Center"
+                               LineBreakMode="WordWrap"
+                               MaxLines="2" />
+                    </VerticalStackLayout>
+                </Grid>
             </Border>
 
-            <Border Style="{StaticResource Card}">
-                <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="8" />
-                </Border.StrokeShape>
-                <VerticalStackLayout Spacing="8">
-                    <Label Text="Detalle" Style="{StaticResource SectionTitle}" />
-                    <Label Text="{Binding ScheduleItem.MainDetail}" FontSize="14" />
-                    <Label Text="{Binding ScheduleItem.SecondaryDetail}" FontSize="14" />
-                    <Label Text="{Binding ScheduleItem.Airline, StringFormat='Aerolinea: {0}'}" IsVisible="{Binding ScheduleItem.HasAirline}" FontSize="14" />
-                    <Label Text="{Binding ScheduleItem.FlightNumber, StringFormat='Vuelo: {0}'}" IsVisible="{Binding ScheduleItem.HasFlightNumber}" FontSize="14" FontAttributes="Bold" />
-                    <Label Text="{Binding ScheduleItem.OriginAirport, StringFormat='Aeropuerto origen: {0}'}" IsVisible="{Binding ScheduleItem.HasOriginAirport}" FontSize="14" />
-                    <Label Text="{Binding ScheduleItem.DestinationAirport, StringFormat='Aeropuerto destino: {0}'}" IsVisible="{Binding ScheduleItem.HasDestinationAirport}" FontSize="14" />
+            <VerticalStackLayout Padding="28,28,28,40"
+                                 Spacing="24">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="{Binding ScheduleItem.TypeLabel}"
+                           CharacterSpacing="5"
+                           FontSize="10"
+                           FontAttributes="Bold"
+                           TextTransform="Uppercase"
+                           TextColor="#9B9288" />
+                    <Label Text="{Binding ScheduleItem.Title}"
+                           FontFamily="serif"
+                           FontSize="34"
+                           TextColor="#1A1714"
+                           LineBreakMode="WordWrap"
+                           MaxLines="3" />
+                    <Label Text="{Binding ReservationReferenceLabel}"
+                           FontSize="14"
+                           TextColor="#8A8078"
+                           LineBreakMode="TailTruncation"
+                           MaxLines="1" />
                 </VerticalStackLayout>
-            </Border>
 
-            <Border Style="{StaticResource Card}">
-                <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="8" />
-                </Border.StrokeShape>
                 <VerticalStackLayout Spacing="8">
-                    <Label Text="Direccion" Style="{StaticResource SectionTitle}" />
-                    <Label Text="{Binding ScheduleItem.Address}" FontSize="14" />
+                    <Label Text="Fecha y horario"
+                           FontSize="16"
+                           FontAttributes="Bold"
+                           TextColor="#1A1714" />
+                    <Label Text="{Binding ReservationTimeLabel}"
+                           FontSize="16"
+                           LineHeight="1.35"
+                           TextColor="#4D4741" />
                 </VerticalStackLayout>
-            </Border>
 
-            <Border Style="{StaticResource Card}">
-                <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="8" />
-                </Border.StrokeShape>
                 <VerticalStackLayout Spacing="8">
-                    <Label Text="Notas" Style="{StaticResource SectionTitle}" />
-                    <Label Text="{Binding ScheduleItem.Notes}" FontSize="14" />
+                    <Label Text="Direccion"
+                           FontSize="16"
+                           FontAttributes="Bold"
+                           TextColor="#1A1714" />
+                    <Label Text="{Binding AddressText}"
+                           FontSize="16"
+                           LineHeight="1.35"
+                           TextColor="#4D4741" />
                 </VerticalStackLayout>
-            </Border>
+
+                <VerticalStackLayout Spacing="8"
+                                     IsVisible="{Binding HasNotes}">
+                    <Label Text="Notas"
+                           FontSize="16"
+                           FontAttributes="Bold"
+                           TextColor="#1A1714" />
+                    <Label Text="{Binding NotesText}"
+                           FontSize="16"
+                           LineHeight="1.45"
+                           TextColor="#4D4741" />
+                </VerticalStackLayout>
+
+                <Button Text="Abrir mapa"
+                        Command="{Binding OpenMapsCommand}"
+                        IsEnabled="{Binding HasAddress}"
+                        BackgroundColor="#3D3329"
+                        TextColor="#FFFFFF"
+                        HeightRequest="54"
+                        CornerRadius="0"
+                        FontSize="16"
+                        FontAttributes="Bold" />
+            </VerticalStackLayout>
         </VerticalStackLayout>
     </ScrollView>
 </ContentPage>

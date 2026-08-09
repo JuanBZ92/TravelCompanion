@@ -16,12 +16,13 @@ public sealed partial class RecommendationsViewModel(
     MobileDiscoverStore discoverStore,
     ILogger<RecommendationsViewModel> logger) : ViewModelBase, ISessionStateResettable
 {
+    private const int DefaultPageSize = 10;
     private const string AllCategories = "Todas";
     private const string FavoritesCategory = "Favoritos";
     private readonly List<RecommendationListItemViewModel> _allRecommendations = [];
     private RecommendationListItemViewModel? _selectedRecommendation;
     private string _selectedCategory = AllCategories;
-    private int _selectedPageSize = 5;
+    private int _selectedPageSize = DefaultPageSize;
     private int _currentPage = 1;
     private int _totalPages = 1;
     private int _totalItems;
@@ -174,6 +175,7 @@ public sealed partial class RecommendationsViewModel(
         Categories.Add(FavoritesCategory);
         CategoryFilters.Clear();
         SelectedCategory = AllCategories;
+        SelectedPageSize = DefaultPageSize;
         CurrentPage = 1;
         TotalPages = 1;
         TotalItems = 0;
@@ -384,7 +386,6 @@ public sealed partial class RecommendationsViewModel(
         if (cached is not null)
         {
             ApplyDiscover(cached.Value, resetPage);
-            MarkLastUpdated(cached.SavedAt);
             resetPage = false;
 
             if (discoverStore.HasFreshSnapshot())
@@ -394,7 +395,7 @@ public sealed partial class RecommendationsViewModel(
                 return;
             }
 
-            StatusMessage = OfflineCacheService.FormatSavedAt(cached.SavedAt);
+            StatusMessage = "Modo offline. Mostrando datos guardados.";
         }
 
         try
@@ -408,7 +409,6 @@ public sealed partial class RecommendationsViewModel(
             }
 
             ApplyDiscover(discover, resetPage);
-            MarkLastUpdated(DateTimeOffset.UtcNow);
             StatusMessage = null;
             _ = PrimeBootstrapAsync(token);
         }
@@ -419,7 +419,7 @@ public sealed partial class RecommendationsViewModel(
                 throw;
             }
 
-            StatusMessage = $"Modo offline. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
+            StatusMessage = "Modo offline. Mostrando datos guardados.";
         }
     }
 

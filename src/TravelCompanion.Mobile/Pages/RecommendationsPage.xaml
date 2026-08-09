@@ -17,7 +17,7 @@
             <VerticalStackLayout Padding="28,26,28,36"
                                  Spacing="22">
 
-                <Grid RowDefinitions="Auto,Auto,Auto"
+                <Grid RowDefinitions="Auto,Auto"
                       RowSpacing="10">
                     <Label Text="DISCOVER · YUKU JAPAN"
                            CharacterSpacing="6"
@@ -41,16 +41,6 @@
                                TranslationY="-14" />
                     </Grid>
 
-                    <VerticalStackLayout Grid.Row="2"
-                                         Spacing="3">
-                        <Label Text="{Binding PageSummary}"
-                               FontSize="17"
-                               TextColor="#6E675F" />
-                        <Label Text="{Binding LastUpdatedMessage}"
-                               FontSize="12"
-                               TextColor="#8A8078"
-                               IsVisible="{Binding HasLastUpdated}" />
-                    </VerticalStackLayout>
                 </Grid>
 
                 <CollectionView ItemsSource="{Binding CategoryFilters}"
@@ -87,29 +77,6 @@
                     </CollectionView.ItemTemplate>
                 </CollectionView>
 
-                <Grid ColumnDefinitions="*,Auto"
-                      ColumnSpacing="12">
-                    <VerticalStackLayout Spacing="2">
-                        <Label Text="GUIA EDITORIAL"
-                               CharacterSpacing="4"
-                               FontSize="10"
-                               FontAttributes="Bold"
-                               TextColor="#9B9288" />
-                        <Label Text="Ideas seleccionadas para viajar con calma, criterio y buen gusto."
-                               FontSize="14"
-                               LineHeight="1.35"
-                               TextColor="#6E675F" />
-                    </VerticalStackLayout>
-
-                    <Picker Grid.Column="1"
-                            ItemsSource="{Binding PageSizeOptions}"
-                            SelectedItem="{Binding SelectedPageSize}"
-                            FontSize="12"
-                            WidthRequest="76"
-                            HorizontalTextAlignment="End"
-                            TextColor="#6E675F" />
-                </Grid>
-
                 <Border Style="{StaticResource NoticePanel}"
                         IsVisible="{Binding HasStatus}">
                     <Label Text="{Binding StatusMessage}"
@@ -134,24 +101,6 @@
                                 MinimumHeightRequest="34" />
                     </Grid>
                 </Border>
-
-                <Grid ColumnDefinitions="Auto,*,Auto"
-                      ColumnSpacing="8"
-                      HeightRequest="38">
-                    <Button Text="Anterior"
-                            Command="{Binding PreviousPageCommand}"
-                            IsEnabled="{Binding CanGoPrevious}"
-                            Style="{StaticResource PagerButton}" />
-                    <BoxView Grid.Column="1"
-                             HeightRequest="1"
-                             VerticalOptions="Center"
-                             BackgroundColor="#1A171426" />
-                    <Button Grid.Column="2"
-                            Text="Siguiente"
-                            Command="{Binding NextPageCommand}"
-                            IsEnabled="{Binding CanGoNext}"
-                            Style="{StaticResource PagerButton}" />
-                </Grid>
 
                 <VerticalStackLayout HorizontalOptions="Center"
                                      Spacing="8"
@@ -300,6 +249,25 @@
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
                 </VerticalStackLayout>
+
+                <Grid ColumnDefinitions="Auto,*,Auto"
+                      ColumnSpacing="8"
+                      HeightRequest="38"
+                      Margin="0,2,0,0">
+                    <Button Text="Anterior"
+                            Command="{Binding PreviousPageCommand}"
+                            IsEnabled="{Binding CanGoPrevious}"
+                            Style="{StaticResource PagerButton}" />
+                    <BoxView Grid.Column="1"
+                             HeightRequest="1"
+                             VerticalOptions="Center"
+                             BackgroundColor="#1A171426" />
+                    <Button Grid.Column="2"
+                            Text="Siguiente"
+                            Command="{Binding NextPageCommand}"
+                            IsEnabled="{Binding CanGoNext}"
+                            Style="{StaticResource PagerButton}" />
+                </Grid>
 
                 <BoxView HeightRequest="18"
                          Opacity="0" />

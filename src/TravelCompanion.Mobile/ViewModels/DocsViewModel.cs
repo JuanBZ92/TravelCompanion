@@ -4,6 +4,7 @@ using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using TravelCompanion.Mobile.Services;
+using TravelCompanion.Shared;
 using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Mobile.ViewModels;
@@ -68,12 +69,24 @@ public sealed partial class DocsViewModel(
             IsBusy = true;
             ErrorMessage = null;
             var docs = await apiClient.GetTravelDocsAsync(token);
-            ApplyDocs(docs);
+            if (docs is null)
+            {
+                ApplyPreviewDocs();
+                StatusMessage = "Vista previa con documentos dummy. Carga los documentos reales desde el admin cuando esten disponibles.";
+            }
+            else
+            {
+                ApplyDocs(docs);
+                StatusMessage = null;
+            }
+
             HasLoaded = true;
         }
         catch
         {
-            ErrorMessage = "No pudimos cargar tus documentos.";
+            ApplyPreviewDocs();
+            ErrorMessage = null;
+            StatusMessage = "No pudimos cargar documentos reales. Mostrando una vista previa dummy.";
             HasLoaded = true;
         }
         finally
@@ -158,6 +171,93 @@ public sealed partial class DocsViewModel(
         }
 
         NotifySectionsChanged();
+    }
+
+    private void ApplyPreviewDocs()
+    {
+        ApplyDocs(new TravelDocsDto(
+            Guid.Empty,
+            "Viajero demo",
+            "Japon",
+            new DateOnly(2026, 10, 5),
+            new DateOnly(2026, 10, 15),
+            new FlightDocsSectionDto(
+                "Japan Airlines",
+                "Viajero demo",
+                "Buenos Aires -> Tokyo",
+                "DEMO-PNR",
+                [
+                    new FlightJourneyDto(
+                        "ida",
+                        "Ida",
+                        "Buenos Aires -> Tokyo",
+                        [
+                            new FlightLegDto(
+                                Guid.Empty,
+                                new DateOnly(2026, 10, 5),
+                                new TimeOnly(13, 30),
+                                new DateOnly(2026, 10, 6),
+                                new TimeOnly(9, 25),
+                                "JL0042",
+                                "19h 55m",
+                                "Economy",
+                                "EZE · Buenos Aires",
+                                "HND · Tokyo",
+                                null)
+                        ]),
+                    new FlightJourneyDto(
+                        "vuelta",
+                        "Vuelta",
+                        "Tokyo -> Buenos Aires",
+                        [
+                            new FlightLegDto(
+                                Guid.Empty,
+                                new DateOnly(2026, 10, 15),
+                                new TimeOnly(22, 45),
+                                new DateOnly(2026, 10, 16),
+                                new TimeOnly(19, 10),
+                                "JL0041",
+                                "20h 25m",
+                                "Economy",
+                                "HND · Tokyo",
+                                "EZE · Buenos Aires",
+                                null)
+                        ])
+                ]),
+            [
+                new TravelDocumentDto(
+                    Guid.Empty,
+                    TravelDocumentCategory.Hotel,
+                    "Hotel Tokyo",
+                    "Confirmacion Hotel demo Ginza",
+                    string.Empty,
+                    10)
+            ],
+            [
+                new TravelDocumentDto(
+                    Guid.Empty,
+                    TravelDocumentCategory.Other,
+                    "Trenes",
+                    "Tickets y pases de transporte",
+                    string.Empty,
+                    20),
+                new TravelDocumentDto(
+                    Guid.Empty,
+                    TravelDocumentCategory.Other,
+                    "Seguro de viaje",
+                    "Poliza y telefonos utiles",
+                    string.Empty,
+                    30)
+            ],
+            [
+                new TravelHotelDocDto(
+                    Guid.Empty,
+                    "Tokyo",
+                    "Hotel demo Ginza",
+                    "06/10 - 10/10",
+                    "DEMO-HTL-1026",
+                    "Ginza, Chuo City, Tokyo")
+            ]));
     }
 
     private void NotifySectionsChanged()
