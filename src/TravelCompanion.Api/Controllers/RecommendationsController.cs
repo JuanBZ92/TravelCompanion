@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using TravelCompanion.Api.Data;
 using TravelCompanion.Api.Models;
 using TravelCompanion.Api.Services;
+using TravelCompanion.Shared;
 using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Api.Controllers;
@@ -39,6 +40,9 @@ public sealed class RecommendationsController(
         var query = dbContext.Recommendations
             .AsNoTracking()
             .Include(recommendation => recommendation.Packages)
+            .Where(recommendation =>
+                recommendation.AccessLevel == ContentAccessLevel.Free
+                && !recommendation.Packages.Any())
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(destinationSlug))

@@ -128,7 +128,7 @@ Parametros utiles:
 
 Si queres que el deploy no reescriba app settings porque los maneja Terraform/CI, usa `-SkipAppSettings`.
 
-Nota: `Always On` requiere un tier Basic, Standard o Premium. Si el App Service no lo permite, el WebJob puede detenerse cuando la app queda idle.
+Nota: `Always On` requiere un tier Basic, Standard o Premium. Con el tier `F1` el WebJob puede detenerse cuando la app queda idle; es aceptable para demos de bajo costo, pero no para notificaciones confiables.
 
 ## Migraciones
 

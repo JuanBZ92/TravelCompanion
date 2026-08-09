@@ -130,6 +130,36 @@ public sealed class MobileController(
             schedule));
     }
 
+    [HttpGet("recommendations/{id:guid}")]
+    public async Task<ActionResult<RecommendationDto>> GetRecommendationDetail(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        var user = await sessionService.GetUserAsync(HttpContext, cancellationToken);
+        if (user is null)
+        {
+            return Unauthorized();
+        }
+
+        var recommendation = await dbContext.Recommendations
+            .AsNoTracking()
+            .Include(existingRecommendation => existingRecommendation.Packages)
+            .FirstOrDefaultAsync(existingRecommendation => existingRecommendation.Id == id, cancellationToken);
+
+        if (recommendation is null)
+        {
+            return NotFound();
+        }
+
+        var entitlements = ToEntitlementsDto(user);
+        if (!IsRecommendationUnlocked(recommendation, entitlements))
+        {
+            return NotFound();
+        }
+
+        return Ok(ToRecommendationDto(recommendation, useSummaryDescription: false));
+    }
+
     private async Task<TripScheduleDto?> FindScheduleAsync(Guid userId, CancellationToken cancellationToken)
     {
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
@@ -278,24 +308,43 @@ public sealed class MobileController(
 
         return recommendations
             .Where(recommendation => IsRecommendationUnlocked(recommendation, entitlements))
-            .Select(recommendation => new RecommendationDto(
-                recommendation.Id,
-                recommendation.DestinationId,
-                recommendation.Title,
-                recommendation.Category,
-                recommendation.Neighborhood,
-                recommendation.Description,
-                recommendation.Tags,
-                recommendation.PriceLevel,
-                recommendation.Latitude,
-                recommendation.Longitude,
-                recommendation.SuggestedDurationMinutes,
-                recommendation.Rating,
-                recommendation.OpeningHours,
-                recommendation.AccessLevel,
-                recommendation.Packages.Select(package => package.Id).ToList(),
-                null))
+            .Select(recommendation => ToRecommendationDto(recommendation, useSummaryDescription: true))
             .ToList();
+    }
+
+    private static RecommendationDto ToRecommendationDto(
+        Recommendation recommendation,
+        bool useSummaryDescription) =>
+        new(
+            recommendation.Id,
+            recommendation.DestinationId,
+            recommendation.Title,
+            recommendation.Category,
+            recommendation.Neighborhood,
+            useSummaryDescription
+                ? CreateSummaryDescription(recommendation.Description)
+                : recommendation.Description,
+            recommendation.Tags,
+            recommendation.PriceLevel,
+            recommendation.Latitude,
+            recommendation.Longitude,
+            recommendation.SuggestedDurationMinutes,
+            recommendation.Rating,
+            recommendation.OpeningHours,
+            recommendation.AccessLevel,
+            recommendation.Packages.Select(package => package.Id).ToList(),
+            null);
+
+    private static string CreateSummaryDescription(string description)
+    {
+        const int maxLength = 96;
+        var normalized = string.Join(
+            ' ',
+            description.Split(['\r', '\n', '\t', ' '], StringSplitOptions.RemoveEmptyEntries));
+
+        return normalized.Length <= maxLength
+            ? normalized
+            : $"{normalized[..maxLength].TrimEnd()}...";
     }
 
     private static bool IsRecommendationUnlocked(Recommendation recommendation, UserEntitlementsDto entitlements)

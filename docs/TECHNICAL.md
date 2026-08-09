@@ -345,9 +345,9 @@ Servicios principales:
 - `AuthSessionService`: guarda metadata de sesion en Preferences y token en SecureStorage.
 - `BiometricUnlockService`: integra autenticacion biometrica local con `Oscore.Maui.Biometric`.
 - `OfflineCacheService`: guarda snapshots offline cifrados (AES-GCM) en `FileSystem.AppDataDirectory` usando una clave simetrica por dispositivo protegida en `SecureStorage`.
-- `MobileBootstrapStore`: coordina el snapshot mobile agregado de Japon, lo expone local-first y evita que cada tab tenga que pedir endpoints separados. Tambien mantiene una ventana corta de frescura en memoria para que las tabs no vuelvan a refrescar `/api/mobile/bootstrap` inmediatamente despues de que otra tab ya lo actualizo.
+- `MobileBootstrapStore`: coordina el snapshot mobile agregado de Japon, lo expone local-first y evita que cada tab tenga que pedir endpoints separados. Tambien mantiene una ventana corta de frescura en memoria para que las tabs no vuelvan a refrescar `/api/mobile/bootstrap` inmediatamente despues de que otra tab ya lo actualizo. El snapshot en disco vence a las 6 horas.
 - `MobileBootstrapStore` coalesce refreshes concurrentes: si Discover esta precalentando bootstrap y otra tab lo pide al mismo tiempo, se reutiliza la misma request en vuelo.
-- `MobileDiscoverStore`: coordina el snapshot reducido de `Ideas` (`/api/mobile/discover`) para que la primera carga de recomendaciones no tenga que esperar schedule ni paquetes.
+- `MobileDiscoverStore`: coordina el snapshot reducido de `Ideas` (`/api/mobile/discover`) para que la primera carga de recomendaciones no tenga que esperar schedule ni paquetes. El snapshot en disco vence a las 6 horas.
 - `FavoritesService`: favoritos locales usando Preferences.
 
 `TravelCompanionApiClient` usa opciones JSON compartidas con `JsonStringEnumConverter` para leer enums serializados como strings por la API.
@@ -370,7 +370,7 @@ El flujo mobile actual:
 12. Viaje permite alternar por tipo de reserva (`Eventos`, `Vuelos`, `Hospedajes`) y luego filtrar por ciudad dentro del tipo seleccionado.
 13. Cuenta permite activar/desactivar biometria.
 14. `Bloquear app` conserva token local y navega al desbloqueo biometrico/password.
-15. `Cerrar sesion` revoca la sesion en API, borra token local y exige login con password.
+15. `Cerrar sesion` revoca la sesion en API, borra token local, limpia snapshots offline del usuario y exige login con password.
 
 Las pantallas principales usan estrategia offline `local first`:
 
@@ -394,6 +394,8 @@ Formato de cache offline:
 - El contenido sensible (schedule, recomendaciones, entitlements y paquetes) se serializa y cifra con AES-GCM.
 - La clave de cifrado se guarda en `SecureStorage` (`offline_cache_encryption_key_v1`).
 - El archivo local contiene solo un envelope cifrado (`version`, `nonce`, `tag`, `ciphertext`).
+- Los snapshots de Discover/Bootstrap se ignoran y borran si superan 6 horas de antiguedad.
+- Al cerrar sesion se borran los snapshots `mobile-discover-*` y `mobile-bootstrap-*` asociados al usuario actual.
 - Si existe cache legacy en texto plano, se lee una vez y se migra automaticamente al formato cifrado.
 
 Decision vigente: por ahora no implementamos delta sync completo porque la app es mayormente read-only. La prioridad tecnica es mantener snapshots offline confiables, endpoints no chatty y agregar sync solo cuando existan mutaciones reales desde mobile.

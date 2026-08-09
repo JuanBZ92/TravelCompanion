@@ -5,11 +5,15 @@ using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Mobile.ViewModels;
 
-public sealed partial class RecommendationDetailViewModel(FavoritesService favoritesService) : ViewModelBase, IQueryAttributable
+public sealed partial class RecommendationDetailViewModel(
+    FavoritesService favoritesService,
+    TravelCompanionApiClient apiClient,
+    AuthSessionService sessionService) : ViewModelBase, IQueryAttributable
 {
     private RecommendationDto? _recommendation;
     private bool _isFavorite;
     private bool _isUnlocked = true;
+    private bool _isLoadingDetail;
 
     public RecommendationDto? Recommendation
     {
@@ -39,6 +43,12 @@ public sealed partial class RecommendationDetailViewModel(FavoritesService favor
     }
 
     public string FavoriteButtonText => IsFavorite ? "Quitar de favoritos" : "Guardar favorito";
+    public bool IsLoadingDetail
+    {
+        get => _isLoadingDetail;
+        set => SetProperty(ref _isLoadingDetail, value);
+    }
+
     public string AccessStatus => IsUnlocked ? "Incluido en tu acceso" : "Contenido bloqueado";
     public string AccessLevelText => Recommendation is null
         ? string.Empty
@@ -67,16 +77,47 @@ public sealed partial class RecommendationDetailViewModel(FavoritesService favor
 
     public void ApplyQueryAttributes(IDictionary<string, object> query)
     {
+        if (query.TryGetValue("IsUnlocked", out var unlockedValue) && unlockedValue is bool unlocked)
+        {
+            IsUnlocked = unlocked;
+        }
+
         if (query.TryGetValue("Recommendation", out var value) && value is RecommendationDto selectedRecommendation)
         {
             Recommendation = selectedRecommendation;
             OnPropertyChanged(nameof(AccessLevelText));
             OnPropertyChanged(nameof(CostLevelText));
+            _ = LoadFullRecommendationAsync(selectedRecommendation.Id);
+        }
+    }
+
+    private async Task LoadFullRecommendationAsync(Guid recommendationId)
+    {
+        if (!IsUnlocked)
+        {
+            return;
         }
 
-        if (query.TryGetValue("IsUnlocked", out var unlockedValue) && unlockedValue is bool unlocked)
+        var token = await sessionService.GetTokenAsync();
+        if (string.IsNullOrWhiteSpace(token))
         {
-            IsUnlocked = unlocked;
+            return;
+        }
+
+        try
+        {
+            IsLoadingDetail = true;
+            var detail = await apiClient.GetMobileRecommendationDetailAsync(token, recommendationId);
+            if (detail is not null && Recommendation?.Id == recommendationId)
+            {
+                Recommendation = detail;
+                OnPropertyChanged(nameof(AccessLevelText));
+                OnPropertyChanged(nameof(CostLevelText));
+            }
+        }
+        finally
+        {
+            IsLoadingDetail = false;
         }
     }
 

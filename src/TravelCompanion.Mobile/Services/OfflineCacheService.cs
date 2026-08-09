@@ -21,7 +21,10 @@ public sealed class OfflineCacheService
         await SaveEntryEncryptedAsync(key, entry, cancellationToken).ConfigureAwait(false);
     }
 
-    public async Task<OfflineCacheResult<T>?> GetAsync<T>(string key, CancellationToken cancellationToken = default)
+    public async Task<OfflineCacheResult<T>?> GetAsync<T>(
+        string key,
+        TimeSpan? maxAge = null,
+        CancellationToken cancellationToken = default)
     {
         var path = GetPath(key);
         if (!File.Exists(path))
@@ -36,6 +39,12 @@ public sealed class OfflineCacheService
             var encryptedEntry = await TryReadEncryptedEntryAsync<T>(json, cancellationToken).ConfigureAwait(false);
             if (encryptedEntry is not null)
             {
+                if (IsExpired(encryptedEntry.SavedAt, maxAge))
+                {
+                    await DeleteAsync(key).ConfigureAwait(false);
+                    return null;
+                }
+
                 return new OfflineCacheResult<T>(encryptedEntry.Value, encryptedEntry.SavedAt);
             }
 
@@ -43,6 +52,12 @@ public sealed class OfflineCacheService
             var legacyEntry = JsonSerializer.Deserialize<OfflineCacheEntry<T>>(json, JsonOptions);
             if (legacyEntry is null)
             {
+                return null;
+            }
+
+            if (IsExpired(legacyEntry.SavedAt, maxAge))
+            {
+                await DeleteAsync(key).ConfigureAwait(false);
                 return null;
             }
 
@@ -55,12 +70,40 @@ public sealed class OfflineCacheService
         }
     }
 
+    public Task<OfflineCacheResult<T>?> GetAsync<T>(
+        string key,
+        CancellationToken cancellationToken) =>
+        GetAsync<T>(key, maxAge: null, cancellationToken);
+
     public Task DeleteAsync(string key)
     {
         var path = GetPath(key);
         if (File.Exists(path))
         {
             File.Delete(path);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteByPrefixAndSuffixAsync(string keyPrefix, string keySuffix)
+    {
+        var directory = Path.Combine(FileSystem.AppDataDirectory, "offline-cache");
+        if (!Directory.Exists(directory))
+        {
+            return Task.CompletedTask;
+        }
+
+        var safePrefix = SanitizeKey(keyPrefix);
+        var safeSuffix = SanitizeKey(keySuffix);
+        foreach (var path in Directory.EnumerateFiles(directory, "*.json"))
+        {
+            var name = Path.GetFileNameWithoutExtension(path);
+            if (name.StartsWith(safePrefix, StringComparison.Ordinal)
+                && name.EndsWith(safeSuffix, StringComparison.Ordinal))
+            {
+                File.Delete(path);
+            }
         }
 
         return Task.CompletedTask;
@@ -74,13 +117,21 @@ public sealed class OfflineCacheService
 
     private static string GetPath(string key)
     {
-        var safeKey = string.Concat(key.Select(character =>
-            char.IsLetterOrDigit(character) || character is '-' or '_'
-                ? character
-                : '_'));
+        var safeKey = SanitizeKey(key);
 
         return Path.Combine(FileSystem.AppDataDirectory, "offline-cache", $"{safeKey}.json");
     }
+
+    private static string SanitizeKey(string key)
+    {
+        return string.Concat(key.Select(character =>
+            char.IsLetterOrDigit(character) || character is '-' or '_'
+                ? character
+                : '_'));
+    }
+
+    private static bool IsExpired(DateTimeOffset savedAt, TimeSpan? maxAge) =>
+        maxAge.HasValue && DateTimeOffset.UtcNow - savedAt > maxAge.Value;
 
     private async Task SaveEntryEncryptedAsync<T>(
         string cacheKey,

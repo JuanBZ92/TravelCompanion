@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Globalization;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using TravelCompanion.Mobile.Pages;
@@ -20,24 +21,58 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     private ReservationType _selectedType = ReservationType.Event;
     private string _tripTitle = "Your Trip";
     private string? _tripDates;
+    private DateOnly? _tripStartsOn;
+    private DateOnly? _tripEndsOn;
+    private DateOnly? _selectedDate;
+    private string _selectedCity = "Tu viaje";
+    private string? _previewMessage;
+    private string? _stayTitle;
     private ScheduleItemDto? _selectedItem;
     private ScheduleItemDto? _focusItem;
     private ScheduleTypeSectionViewModel? _activeSection;
     private IReadOnlyList<ScheduleDayViewModel> _activeDays = [];
+    private IReadOnlyList<ScheduleTimelineItemViewModel> _selectedTimelineItems = [];
 
     public ObservableCollection<ScheduleTypeSectionViewModel> TypeSections { get; } = [];
     public ObservableCollection<ScheduleTypeFilterViewModel> TypeFilters { get; } = [];
     public ObservableCollection<CityFilterViewModel> CityFilters { get; } = [];
+    public ObservableCollection<ScheduleDayFilterViewModel> DayFilters { get; } = [];
     public IReadOnlyList<ScheduleDayViewModel> ActiveDays
     {
         get => _activeDays;
         private set => SetProperty(ref _activeDays, value);
     }
 
-    public bool HasScheduleItems => ActiveDays.Count > 0;
+    public IReadOnlyList<ScheduleTimelineItemViewModel> SelectedTimelineItems
+    {
+        get => _selectedTimelineItems;
+        private set => SetProperty(ref _selectedTimelineItems, value);
+    }
+
+    public bool HasScheduleItems => _allItems.Count > 0;
+    public bool HasSelectedDayItems => SelectedTimelineItems.Count > 0;
     public bool HasFocusItem => _focusItem is not null;
     public bool ShowInitialLoading => IsBusy && !HasScheduleItems;
-    public bool ShowEmptyState => HasLoaded && !IsBusy && !HasScheduleItems;
+    public bool ShowEmptyState => HasLoaded && !IsBusy && !HasSelectedDayItems && !HasStayCard;
+    public bool HasPreviewMessage => !string.IsNullOrWhiteSpace(PreviewMessage);
+    public bool HasStayCard => !string.IsNullOrWhiteSpace(StayTitle);
+    public string SelectedCity => _selectedCity;
+    public string SelectedDateLabel => _selectedDate.HasValue
+        ? FormatLongDate(_selectedDate.Value)
+        : TripDates ?? string.Empty;
+    public string AmbientGlyph => GetAmbientGlyph(SelectedCity);
+    public string? PreviewMessage
+    {
+        get => _previewMessage;
+        private set => SetProperty(ref _previewMessage, value);
+    }
+
+    public string? StayTitle
+    {
+        get => _stayTitle;
+        private set => SetProperty(ref _stayTitle, value);
+    }
+
     public string SelectedTypeLabel => _selectedType switch
     {
         ReservationType.Flight => "Vuelos",
@@ -87,15 +122,24 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         _allItems.Clear();
         _sectionCache.Clear();
         ActiveDays = [];
+        SelectedTimelineItems = [];
         TypeSections.Clear();
         _activeSection = null;
         TypeFilters.Clear();
         CityFilters.Clear();
+        DayFilters.Clear();
         _selectedType = ReservationType.Event;
+        _tripStartsOn = null;
+        _tripEndsOn = null;
+        _selectedDate = null;
+        _selectedCity = "Tu viaje";
+        PreviewMessage = null;
+        StayTitle = null;
         _focusItem = null;
         TripTitle = "Your Trip";
         TripDates = null;
         SelectedItem = null;
+        NotifySelectedDayChanged();
         NotifyFocusChanged();
     }
 
@@ -234,6 +278,26 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         ApplyCityFilter();
     }
 
+    [RelayCommand]
+    private void SelectDay(ScheduleDayFilterViewModel? day)
+    {
+        if (day is null || _selectedDate == day.Date)
+        {
+            return;
+        }
+
+        var stopwatch = Stopwatch.StartNew();
+        _selectedDate = day.Date;
+        RebuildSelectedDay();
+        stopwatch.Stop();
+
+        _logger.LogInformation(
+            "Schedule day changed in {ElapsedMs}ms. Date={Date}; VisibleItems={VisibleItems}.",
+            stopwatch.Elapsed.TotalMilliseconds,
+            day.Date,
+            SelectedTimelineItems.Count);
+    }
+
     private async Task LoadScheduleLocalFirstAsync(
         string token,
         bool forceRefresh,
@@ -298,25 +362,23 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         var sourceItems = schedule.Items ?? [];
         TripTitle = $"{schedule.DestinationName} for {schedule.TravelerName}";
         TripDates = $"{schedule.StartsOn:MMM d} - {schedule.EndsOn:MMM d, yyyy}";
+        _tripStartsOn = schedule.StartsOn;
+        _tripEndsOn = schedule.EndsOn;
         _allItems.Clear();
         _allItems.AddRange(sourceItems);
         _focusItem = GetFocusItem(_allItems);
-        _selectedType = GetInitialScheduleType(_allItems);
-        OnPropertyChanged(nameof(SelectedTypeLabel));
+        _selectedDate = GetInitialSelectedDate(schedule, _allItems);
         NotifyFocusChanged();
-        UpdateTypeFilters();
-        UpdateCityFilters();
-        RebuildDefaultTypeSections();
-        ApplyCityFilter();
+        RebuildDayFilters(schedule);
+        RebuildSelectedDay();
         stopwatch.Stop();
 
         _logger.LogInformation(
-            "Schedule applied in {ElapsedMs}ms. SourceItems={SourceItems}; InitialType={ReservationType}; VisibleDays={VisibleDays}; VisibleItems={VisibleItems}.",
+            "Schedule applied in {ElapsedMs}ms. SourceItems={SourceItems}; SelectedDate={SelectedDate}; VisibleItems={VisibleItems}.",
             stopwatch.Elapsed.TotalMilliseconds,
             sourceItems.Count,
-            _selectedType,
-            ActiveDays.Count,
-            ActiveDays.Sum(day => day.Count));
+            _selectedDate,
+            SelectedTimelineItems.Count);
     }
 
     private void ApplyEmptySchedule()
@@ -327,16 +389,135 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         _sectionCache.Clear();
         _focusItem = null;
         ActiveDays = [];
+        SelectedTimelineItems = [];
         TypeSections.Clear();
         _activeSection = null;
         TypeFilters.Clear();
         UpdateTypeFilters();
         CityFilters.Clear();
         CityFilters.Add(new CityFilterViewModel(AllCitiesKey, isSelected: true));
+        DayFilters.Clear();
+        _tripStartsOn = null;
+        _tripEndsOn = null;
+        _selectedDate = null;
+        _selectedCity = "Tu viaje";
+        PreviewMessage = null;
+        StayTitle = null;
+        NotifySelectedDayChanged();
         NotifyFocusChanged();
         OnPropertyChanged(nameof(HasScheduleItems));
+        OnPropertyChanged(nameof(HasSelectedDayItems));
         OnPropertyChanged(nameof(ShowInitialLoading));
         OnPropertyChanged(nameof(ShowEmptyState));
+    }
+
+    private void RebuildDayFilters(TripScheduleDto schedule)
+    {
+        DayFilters.Clear();
+
+        var totalDays = schedule.EndsOn.DayNumber - schedule.StartsOn.DayNumber;
+        for (var offset = 0; offset <= totalDays; offset++)
+        {
+            var date = schedule.StartsOn.AddDays(offset);
+            DayFilters.Add(new ScheduleDayFilterViewModel(
+                date,
+                offset + 1,
+                GetCityForDate(date, schedule.DestinationName),
+                _selectedDate == date));
+        }
+    }
+
+    private void RebuildSelectedDay()
+    {
+        foreach (var filter in DayFilters)
+        {
+            filter.IsSelected = filter.Date == _selectedDate;
+        }
+
+        if (_selectedDate is null)
+        {
+            _selectedCity = "Tu viaje";
+            StayTitle = null;
+            PreviewMessage = null;
+            SelectedTimelineItems = [];
+            ActiveDays = [];
+            NotifySelectedDayChanged();
+            return;
+        }
+
+        var selectedDate = _selectedDate.Value;
+        _selectedCity = GetCityForDate(selectedDate, TripTitle);
+        StayTitle = GetStayTitleForDate(selectedDate);
+        PreviewMessage = GetPreviewMessage(selectedDate);
+
+        var selectedItems = _allItems
+            .Where(item => item.Type != ReservationType.Lodging)
+            .Where(item => item.Date == selectedDate)
+            .OrderBy(item => item.StartsAt)
+            .ToList();
+
+        SelectedTimelineItems = selectedItems
+            .Select(item => new ScheduleTimelineItemViewModel(item))
+            .ToList();
+        ActiveDays = selectedItems.Count == 0
+            ? []
+            : [new ScheduleDayViewModel(selectedDate, selectedItems)];
+
+        NotifySelectedDayChanged();
+    }
+
+    private string GetCityForDate(DateOnly date, string fallback)
+    {
+        var sameDayCity = _allItems
+            .Where(item => item.Date == date)
+            .Select(item => NormalizeCity(item.City))
+            .FirstOrDefault(city => !string.Equals(city, "Unknown City", StringComparison.OrdinalIgnoreCase));
+
+        if (!string.IsNullOrWhiteSpace(sameDayCity))
+        {
+            return sameDayCity;
+        }
+
+        var activeStayCity = _allItems
+            .Where(item => item.Type == ReservationType.Lodging)
+            .Where(item => item.Date <= date && (item.EndsOn is null || item.EndsOn >= date))
+            .Select(item => NormalizeCity(item.City))
+            .FirstOrDefault(city => !string.Equals(city, "Unknown City", StringComparison.OrdinalIgnoreCase));
+
+        return string.IsNullOrWhiteSpace(activeStayCity)
+            ? fallback
+            : activeStayCity;
+    }
+
+    private string? GetStayTitleForDate(DateOnly date)
+    {
+        return _allItems
+            .Where(item => item.Type == ReservationType.Lodging)
+            .Where(item => item.Date <= date && (item.EndsOn is null || item.EndsOn >= date))
+            .OrderByDescending(item => item.Date)
+            .Select(item => string.IsNullOrWhiteSpace(item.LocationName) ? item.Title : item.LocationName)
+            .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+    }
+
+    private string? GetPreviewMessage(DateOnly selectedDate)
+    {
+        if (_tripStartsOn is null || _tripEndsOn is null)
+        {
+            return null;
+        }
+
+        var today = DateOnly.FromDateTime(DateTime.Now);
+        if (today < _tripStartsOn.Value && selectedDate == _tripStartsOn.Value)
+        {
+            return $"Vista previa - el viaje empieza el {FormatShortDate(_tripStartsOn.Value)}. Mostramos el Dia 1.";
+        }
+
+        if (today > _tripEndsOn.Value && selectedDate == _tripEndsOn.Value)
+        {
+            return "El viaje ya termino. Mostramos el ultimo dia cargado.";
+        }
+
+        return null;
     }
 
     private void UpdateTypeFilters()
@@ -524,6 +705,23 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
             .FirstOrDefault(ReservationType.Event);
     }
 
+    private static DateOnly? GetInitialSelectedDate(TripScheduleDto schedule, IReadOnlyList<ScheduleItemDto> items)
+    {
+        var today = DateOnly.FromDateTime(DateTime.Now);
+        if (today >= schedule.StartsOn && today <= schedule.EndsOn)
+        {
+            return today;
+        }
+
+        var now = DateTime.Now;
+        var nextItem = items
+            .Where(item => !IsPast(item, now))
+            .OrderBy(item => GetTimelineSortValue(item, now))
+            .FirstOrDefault();
+
+        return nextItem?.Date ?? schedule.StartsOn;
+    }
+
     private static ScheduleItemDto? GetFocusItem(IReadOnlyList<ScheduleItemDto> items)
     {
         var now = DateTime.Now;
@@ -582,5 +780,56 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         OnPropertyChanged(nameof(FocusTitle));
         OnPropertyChanged(nameof(FocusSubtitle));
         OnPropertyChanged(nameof(FocusMeta));
+    }
+
+    private void NotifySelectedDayChanged()
+    {
+        OnPropertyChanged(nameof(SelectedCity));
+        OnPropertyChanged(nameof(SelectedDateLabel));
+        OnPropertyChanged(nameof(AmbientGlyph));
+        OnPropertyChanged(nameof(HasPreviewMessage));
+        OnPropertyChanged(nameof(HasStayCard));
+        OnPropertyChanged(nameof(HasScheduleItems));
+        OnPropertyChanged(nameof(HasSelectedDayItems));
+        OnPropertyChanged(nameof(ShowInitialLoading));
+        OnPropertyChanged(nameof(ShowEmptyState));
+    }
+
+    private static string FormatLongDate(DateOnly date)
+    {
+        var culture = CultureInfo.CurrentCulture;
+        var dayName = culture.TextInfo.ToTitleCase(date.ToString("dddd", culture));
+        return $"{dayName} · {date.Day} de {date.ToString("MMMM", culture)}";
+    }
+
+    private static string FormatShortDate(DateOnly date)
+    {
+        return $"{date.Day} de {date.ToString("MMMM", CultureInfo.CurrentCulture)}";
+    }
+
+    private static string GetAmbientGlyph(string city)
+    {
+        if (city.Contains("tok", StringComparison.OrdinalIgnoreCase))
+        {
+            return "東京";
+        }
+
+        if (city.Contains("kyo", StringComparison.OrdinalIgnoreCase)
+            || city.Contains("kio", StringComparison.OrdinalIgnoreCase))
+        {
+            return "京都";
+        }
+
+        if (city.Contains("osaka", StringComparison.OrdinalIgnoreCase))
+        {
+            return "大阪";
+        }
+
+        if (city.Contains("hiroshima", StringComparison.OrdinalIgnoreCase))
+        {
+            return "広島";
+        }
+
+        return "旅";
     }
 }

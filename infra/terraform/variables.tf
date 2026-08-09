@@ -25,6 +25,12 @@ variable "location" {
   default     = "westeurope"
 }
 
+variable "workload_location" {
+  description = "Azure region for workload resources such as App Service, Key Vault, Log Analytics, Application Insights and Storage. Leave null to use location."
+  type        = string
+  default     = null
+}
+
 variable "tags" {
   description = "Extra tags applied to all taggable resources."
   type        = map(string)
@@ -46,10 +52,10 @@ variable "enable_media_storage" {
 }
 
 variable "app_service_sku_name" {
-  # B1 es barato y suficiente para un MVP. Prod puede subir a P1v3/P2v3.
-  description = "Azure App Service plan SKU."
+  # F1 minimiza costo para demos/dev. Para worker confiable o Always On, subir a B1+.
+  description = "Azure App Service plan SKU. F1/D1 disable Always On automatically."
   type        = string
-  default     = "B1"
+  default     = "F1"
 }
 
 variable "app_stack_dotnet_version" {

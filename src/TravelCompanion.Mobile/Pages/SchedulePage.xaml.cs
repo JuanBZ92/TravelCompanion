@@ -83,11 +83,27 @@ public partial class SchedulePage : ContentPage
         }
     }
 
+    private void OnDayFilterTapped(object? sender, TappedEventArgs e)
+    {
+        if ((sender as BindableObject)?.BindingContext is ScheduleDayFilterViewModel day)
+        {
+            _viewModel.SelectDayCommand.Execute(day);
+        }
+    }
+
     private async void OnScheduleItemTapped(object? sender, TappedEventArgs e)
     {
         if ((sender as BindableObject)?.BindingContext is ScheduleItemDto item)
         {
             await _viewModel.OpenScheduleItemCommand.ExecuteAsync(item);
+        }
+    }
+
+    private async void OnTimelineItemTapped(object? sender, TappedEventArgs e)
+    {
+        if ((sender as BindableObject)?.BindingContext is ScheduleTimelineItemViewModel timelineItem)
+        {
+            await _viewModel.OpenScheduleItemCommand.ExecuteAsync(timelineItem.Item);
         }
     }
 }

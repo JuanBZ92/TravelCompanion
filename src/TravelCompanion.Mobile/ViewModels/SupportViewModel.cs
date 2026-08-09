@@ -6,6 +6,8 @@ namespace TravelCompanion.Mobile.ViewModels;
 public sealed partial class SupportViewModel(
     TravelCompanionApiClient apiClient,
     AuthSessionService sessionService,
+    MobileDiscoverStore discoverStore,
+    MobileBootstrapStore bootstrapStore,
     IEnumerable<ISessionStateResettable> sessionStateResetters) : ViewModelBase
 {
     public string DisplayName => sessionService.CurrentDisplayName ?? "Cuenta";
@@ -38,12 +40,15 @@ public sealed partial class SupportViewModel(
     [RelayCommand]
     private async Task LogoutAsync()
     {
+        var currentUserId = sessionService.CurrentUserId;
         var token = await sessionService.GetTokenAsync();
         if (!string.IsNullOrWhiteSpace(token))
         {
             await apiClient.LogoutAsync(token);
         }
 
+        await discoverStore.ClearUserCacheAsync(currentUserId);
+        await bootstrapStore.ClearUserCacheAsync(currentUserId);
         sessionService.Clear();
         foreach (var resetter in sessionStateResetters)
         {

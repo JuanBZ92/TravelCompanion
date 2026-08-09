@@ -11,6 +11,7 @@ public sealed class MobileDiscoverStore(
     ILogger<MobileDiscoverStore> logger)
 {
     private static readonly TimeSpan DefaultFreshnessWindow = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan DiskCacheMaxAge = TimeSpan.FromHours(6);
     private MobileDiscoverDto? _current;
     private DateTimeOffset? _currentSavedAt;
     private Guid? _currentUserId;
@@ -37,6 +38,7 @@ public sealed class MobileDiscoverStore(
 
         var cached = await offlineCacheService.GetAsync<MobileDiscoverDto>(
             GetCacheKey(currentUserId, cacheScope),
+            DiskCacheMaxAge,
             cancellationToken).ConfigureAwait(false);
         stopwatch.Stop();
 
@@ -123,10 +125,27 @@ public sealed class MobileDiscoverStore(
             && IsScopeMatch(cacheScope, _current.Destination.Slug);
     }
 
+    public async Task ClearUserCacheAsync(Guid? userId, CancellationToken cancellationToken = default)
+    {
+        if (_currentUserId == userId)
+        {
+            _current = null;
+            _currentSavedAt = null;
+            _currentUserId = null;
+        }
+
+        await offlineCacheService.DeleteByPrefixAndSuffixAsync(
+            "mobile-discover-",
+            GetCacheKeySuffix(userId)).ConfigureAwait(false);
+    }
+
     private static string GetCacheKey(Guid? userId, string cacheScope)
     {
-        return $"mobile-discover-{cacheScope}-{userId?.ToString() ?? "anonymous"}";
+        return $"mobile-discover-{cacheScope}{GetCacheKeySuffix(userId)}";
     }
+
+    private static string GetCacheKeySuffix(Guid? userId) =>
+        $"-{userId?.ToString() ?? "anonymous"}";
 
     private static string NormalizeCacheScope(string? destinationSlug)
     {

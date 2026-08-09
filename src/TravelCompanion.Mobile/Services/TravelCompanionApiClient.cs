@@ -277,6 +277,31 @@ public sealed class TravelCompanionApiClient
         return await GetPagedItemsAsync<RecommendationDto>(url, cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task<RecommendationDto?> GetMobileRecommendationDetailAsync(
+        string token,
+        Guid recommendationId,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateAuthorizedRequest(
+            HttpMethod.Get,
+            $"api/mobile/recommendations/{recommendationId}",
+            token);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning(
+                "Mobile recommendation detail request failed with {StatusCode}. RecommendationId={RecommendationId}.",
+                (int)response.StatusCode,
+                recommendationId);
+            return null;
+        }
+
+        return await response.Content
+            .ReadFromJsonAsync<RecommendationDto>(JsonOptions, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
     public async Task<TripScheduleDto?> GetDemoScheduleAsync(CancellationToken cancellationToken = default)
     {
         var schedule = await _httpClient.GetFromJsonAsync<TripScheduleDto>(

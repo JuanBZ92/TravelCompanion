@@ -11,6 +11,7 @@ public sealed class MobileBootstrapStore(
     ILogger<MobileBootstrapStore> logger)
 {
     private static readonly TimeSpan DefaultFreshnessWindow = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan DiskCacheMaxAge = TimeSpan.FromHours(6);
     private MobileBootstrapDto? _current;
     private DateTimeOffset? _currentSavedAt;
     private Guid? _currentUserId;
@@ -41,6 +42,7 @@ public sealed class MobileBootstrapStore(
 
         var cached = await offlineCacheService.GetAsync<MobileBootstrapDto>(
             GetCacheKey(currentUserId, cacheScope),
+            DiskCacheMaxAge,
             cancellationToken).ConfigureAwait(false);
         stopwatch.Stop();
 
@@ -223,10 +225,27 @@ public sealed class MobileBootstrapStore(
         return true;
     }
 
+    public async Task ClearUserCacheAsync(Guid? userId, CancellationToken cancellationToken = default)
+    {
+        if (_currentUserId == userId)
+        {
+            _current = null;
+            _currentSavedAt = null;
+            _currentUserId = null;
+        }
+
+        await offlineCacheService.DeleteByPrefixAndSuffixAsync(
+            "mobile-bootstrap-",
+            GetCacheKeySuffix(userId)).ConfigureAwait(false);
+    }
+
     private static string GetCacheKey(Guid? userId, string cacheScope)
     {
-        return $"mobile-bootstrap-{cacheScope}-{userId?.ToString() ?? "anonymous"}";
+        return $"mobile-bootstrap-{cacheScope}{GetCacheKeySuffix(userId)}";
     }
+
+    private static string GetCacheKeySuffix(Guid? userId) =>
+        $"-{userId?.ToString() ?? "anonymous"}";
 
     private static string NormalizeCacheScope(string? destinationSlug)
     {

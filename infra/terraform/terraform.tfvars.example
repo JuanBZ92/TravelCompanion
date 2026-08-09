@@ -9,7 +9,7 @@ project_name    = "travelcompanion"
 allow_paid_resources = false
 enable_media_storage = false
 
-app_service_sku_name     = "B1"
+app_service_sku_name     = "F1"
 app_stack_dotnet_version = "10.0"
 api_run_from_package_enabled = false
 

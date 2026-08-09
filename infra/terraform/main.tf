@@ -13,11 +13,13 @@ resource "random_string" "resource_suffix" {
 locals {
   # Convenciones de nombres. Mantenerlas centralizadas hace que agregar
   # ambientes dev/staging/prod sea mas predecible.
-  name_prefix          = lower("${var.resource_prefix}-${var.environment}")
-  compact_name_prefix  = replace(local.name_prefix, "-", "")
-  postgres_location    = coalesce(var.postgres_location, var.location)
-  postgres_name_region = replace(lower(local.postgres_location), " ", "")
-  storage_account_name = substr("st${local.compact_name_prefix}${random_string.resource_suffix.result}", 0, 24)
+  name_prefix           = lower("${var.resource_prefix}-${var.environment}")
+  compact_name_prefix   = replace(local.name_prefix, "-", "")
+  workload_location     = coalesce(var.workload_location, var.location)
+  postgres_location     = coalesce(var.postgres_location, var.location)
+  postgres_name_region  = replace(lower(local.postgres_location), " ", "")
+  storage_account_name  = substr("st${local.compact_name_prefix}${random_string.resource_suffix.result}", 0, 24)
+  app_service_always_on = !contains(["F1", "D1"], upper(var.app_service_sku_name))
 
   common_tags = merge(
     {
@@ -51,7 +53,7 @@ resource "azurerm_resource_group" "main" {
 # Workspace central de logs. Application Insights escribe aca la telemetria.
 resource "azurerm_log_analytics_workspace" "main" {
   name                = "log-${local.name_prefix}"
-  location            = azurerm_resource_group.main.location
+  location            = local.workload_location
   resource_group_name = azurerm_resource_group.main.name
   sku                 = "PerGB2018"
   retention_in_days   = var.log_analytics_retention_in_days
@@ -62,7 +64,7 @@ resource "azurerm_log_analytics_workspace" "main" {
 # Observabilidad para la API: errores, requests, tiempos de respuesta, etc.
 resource "azurerm_application_insights" "api" {
   name                 = "appi-${local.name_prefix}"
-  location             = azurerm_resource_group.main.location
+  location             = local.workload_location
   resource_group_name  = azurerm_resource_group.main.name
   workspace_id         = azurerm_log_analytics_workspace.main.id
   application_type     = "web"
@@ -118,7 +120,7 @@ resource "azurerm_service_plan" "api" {
   count = var.allow_paid_resources ? 1 : 0
 
   name                = "plan-${local.name_prefix}"
-  location            = azurerm_resource_group.main.location
+  location            = local.workload_location
   resource_group_name = azurerm_resource_group.main.name
   os_type             = "Linux"
   sku_name            = var.app_service_sku_name
@@ -131,7 +133,7 @@ resource "azurerm_storage_account" "media" {
   count = var.enable_media_storage ? 1 : 0
 
   name                            = local.storage_account_name
-  location                        = azurerm_resource_group.main.location
+  location                        = local.workload_location
   resource_group_name             = azurerm_resource_group.main.name
   account_tier                    = "Standard"
   account_replication_type        = "LRS"
@@ -152,7 +154,7 @@ resource "azurerm_storage_container" "media" {
 # Terraform necesita permisos para escribir secretos durante apply.
 resource "azurerm_key_vault" "main" {
   name                       = "kv-${local.name_prefix}-${random_string.resource_suffix.result}"
-  location                   = azurerm_resource_group.main.location
+  location                   = local.workload_location
   resource_group_name        = azurerm_resource_group.main.name
   tenant_id                  = data.azurerm_client_config.current.tenant_id
   sku_name                   = "standard"
@@ -311,7 +313,7 @@ resource "azurerm_linux_web_app" "api" {
   count = var.allow_paid_resources ? 1 : 0
 
   name                = "app-${local.name_prefix}-${random_string.resource_suffix.result}"
-  location            = azurerm_resource_group.main.location
+  location            = local.workload_location
   resource_group_name = azurerm_resource_group.main.name
   service_plan_id     = azurerm_service_plan.api[0].id
   https_only          = true
@@ -322,7 +324,7 @@ resource "azurerm_linux_web_app" "api" {
   }
 
   site_config {
-    always_on           = true
+    always_on           = local.app_service_always_on
     minimum_tls_version = "1.2"
 
     application_stack {

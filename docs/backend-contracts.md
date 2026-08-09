@@ -7,11 +7,12 @@ These endpoints should be covered by smoke tests and contract regression tests b
 - `GET /health`: public liveness check.
 - `POST /api/auth/login`: mobile session creation.
 - `GET /api/destinations`: public destination catalog.
-- `GET /api/recommendations`: public recommendation catalog.
+- `GET /api/recommendations`: public free recommendation catalog.
 - `GET /api/recommendations/tags`: public canonical recommendation tag catalog.
 - `GET /api/packages`: public/package-aware package catalog.
 - `GET /api/mobile/bootstrap`: authenticated mobile bootstrap payload.
 - `GET /api/mobile/discover`: authenticated discover payload.
+- `GET /api/mobile/recommendations/{id}`: authenticated recommendation detail payload.
 - `GET /api/me/schedule`: authenticated user schedule.
 - `GET /api/me/travel-preference-profile`: authenticated preference profile read.
 - `PATCH /api/me/travel-preference-profile`: authenticated preference profile update.
@@ -19,6 +20,30 @@ These endpoints should be covered by smoke tests and contract regression tests b
 - `POST /api/ai/save-itinerary-item`: authenticated itinerary save action.
 
 Smoke testing is implemented in `scripts/SmokeTest-Api.ps1`.
+
+## Public Recommendations Endpoint
+
+```http
+GET /api/recommendations?destinationSlug=japon&page=1&pageSize=50
+```
+
+Returns only recommendations that are safe for anonymous/public catalog use:
+
+- `accessLevel = Free`
+- no package association
+
+Paid, subscription, package-bound, and admin-only recommendations must be requested through authenticated mobile/API flows that validate user entitlements server-side.
+
+## Mobile Recommendation Detail Endpoint
+
+```http
+GET /api/mobile/recommendations/{id}
+Authorization: Bearer <token>
+```
+
+Returns the full recommendation payload only when the authenticated user is entitled to that recommendation. Locked or missing recommendations return `404` so the API does not reveal whether protected content exists.
+
+`GET /api/mobile/discover` and `GET /api/mobile/bootstrap` return recommendation summaries for list/map rendering. The full editorial description should be loaded from this detail endpoint when the user opens Details.
 
 ## Recommendation Tags Endpoint
 
