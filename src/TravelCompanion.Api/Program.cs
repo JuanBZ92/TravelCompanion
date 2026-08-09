@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.ApplicationInsights.AspNetCore.Extensions;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using System.Text.Json.Serialization;
 using TravelCompanion.Api.Middleware;
 using TravelCompanion.Api.Data;
@@ -83,7 +84,7 @@ builder.Services.AddSingleton<SlowDbCommandLoggingInterceptor>();
 builder.Services.AddDbContext<TravelCompanionDbContext>((serviceProvider, options) =>
 {
     options.UseNpgsql(
-        builder.Configuration.GetConnectionString("TravelCompanionDb"),
+        ResolvePostgresConnectionString(builder.Configuration),
         npgsqlOptions => npgsqlOptions.EnableRetryOnFailure());
     var interceptor = serviceProvider.GetRequiredService<SlowDbCommandLoggingInterceptor>();
     options.AddInterceptors(interceptor);
@@ -144,6 +145,46 @@ static async Task InitializeDatabaseAsync(WebApplication app)
             await Task.Delay(TimeSpan.FromSeconds(2));
         }
     }
+}
+
+static string ResolvePostgresConnectionString(IConfiguration configuration)
+{
+    var databaseUrl = configuration["DATABASE_URL"];
+    if (!string.IsNullOrWhiteSpace(databaseUrl))
+    {
+        return NormalizePostgresConnectionString(databaseUrl);
+    }
+
+    var configuredConnectionString = configuration.GetConnectionString("TravelCompanionDb");
+    if (!string.IsNullOrWhiteSpace(configuredConnectionString))
+    {
+        return configuredConnectionString;
+    }
+
+    throw new InvalidOperationException(
+        "Configure ConnectionStrings:TravelCompanionDb or DATABASE_URL before starting the API.");
+}
+
+static string NormalizePostgresConnectionString(string value)
+{
+    if (!Uri.TryCreate(value, UriKind.Absolute, out var uri)
+        || (uri.Scheme != "postgres" && uri.Scheme != "postgresql"))
+    {
+        return value;
+    }
+
+    var userInfo = uri.UserInfo.Split(':', 2);
+    var builder = new NpgsqlConnectionStringBuilder
+    {
+        Host = uri.Host,
+        Port = uri.Port > 0 ? uri.Port : 5432,
+        Database = Uri.UnescapeDataString(uri.AbsolutePath.TrimStart('/')),
+        Username = userInfo.Length > 0 ? Uri.UnescapeDataString(userInfo[0]) : string.Empty,
+        Password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : string.Empty,
+        SslMode = SslMode.Require
+    };
+
+    return builder.ConnectionString;
 }
 
 public partial class Program;
