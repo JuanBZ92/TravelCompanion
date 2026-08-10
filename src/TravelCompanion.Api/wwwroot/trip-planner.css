@@ -1,0 +1,652 @@
+:root {
+    --planner-bg: #f7f3ed;
+    --planner-paper: #fffdf9;
+    --planner-ink: #1d1a17;
+    --planner-muted: #8b8278;
+    --planner-line: #ddd5ca;
+    --planner-red: #b93225;
+    --planner-red-soft: #f8eae6;
+    --planner-green: #286950;
+}
+
+.planner-notice {
+    margin-left: auto;
+    margin-right: auto;
+    max-width: 1180px;
+}
+
+.planner-notice + .trip-planner {
+    margin-top: 0;
+}
+
+.trip-admin-grid {
+    align-items: start;
+    display: grid;
+    gap: 20px;
+    grid-template-columns: minmax(320px, .75fr) minmax(520px, 1.25fr);
+}
+
+.trip-create-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.trip-search {
+    display: flex;
+    gap: 8px;
+}
+
+.trip-search input {
+    min-width: 240px;
+}
+
+.trip-rows {
+    border-top: 1px solid var(--line);
+    margin-top: 16px;
+}
+
+.trip-row {
+    align-items: center;
+    color: var(--text);
+    display: flex;
+    gap: 18px;
+    justify-content: space-between;
+    padding: 16px 4px;
+    text-decoration: none;
+}
+
+.trip-row + .trip-row {
+    border-top: 1px solid var(--line);
+}
+
+.trip-row:hover strong {
+    color: var(--accent);
+}
+
+.trip-row small,
+.trip-row span {
+    display: block;
+}
+
+.trip-row small {
+    color: var(--muted);
+    margin-top: 4px;
+}
+
+.trip-row-state {
+    flex: 0 0 auto;
+    text-align: right;
+}
+
+.trip-empty {
+    color: var(--muted);
+    padding: 28px 4px;
+}
+
+.trip-planner {
+    background: var(--planner-bg);
+    color: var(--planner-ink);
+    margin: -30px 0 -30px calc(50% - 50vw);
+    min-height: calc(100vh - 65px);
+    width: 100vw;
+}
+
+.planner-form {
+    min-height: calc(100vh - 65px);
+}
+
+.planner-toolbar {
+    align-items: center;
+    background: rgba(255, 253, 249, .97);
+    border-bottom: 1px solid var(--planner-line);
+    display: grid;
+    gap: 20px;
+    grid-template-columns: minmax(250px, 1fr) auto minmax(380px, 1fr);
+    min-height: 62px;
+    padding: 0 18px;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+}
+
+.planner-branding,
+.planner-toolbar-actions,
+.planner-toolbar-state {
+    align-items: center;
+    display: flex;
+    gap: 10px;
+}
+
+.planner-branding strong {
+    display: block;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 20px;
+    font-weight: 500;
+}
+
+.planner-back {
+    border: 1px solid var(--planner-line);
+    color: var(--planner-ink);
+    display: grid;
+    font-size: 20px;
+    height: 34px;
+    place-items: center;
+    text-decoration: none;
+    width: 34px;
+}
+
+.planner-toolbar-state {
+    justify-content: center;
+}
+
+.planner-toolbar-actions {
+    justify-content: flex-end;
+}
+
+.planner-toolbar button {
+    border-radius: 2px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0;
+    text-transform: uppercase;
+}
+
+.planner-publish {
+    background: var(--planner-red);
+}
+
+.planner-status {
+    border: 1px solid var(--planner-line);
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 5px 8px;
+    text-transform: uppercase;
+}
+
+.planner-status.is-draft {
+    background: #f1ede6;
+    color: #766b5e;
+}
+
+.planner-status.is-published {
+    background: #edf6f1;
+    border-color: #b9d4c6;
+    color: var(--planner-green);
+}
+
+.planner-dirty {
+    color: var(--planner-red);
+    font-size: 12px;
+    font-weight: 650;
+}
+
+.planner-metadata {
+    background: var(--planner-paper);
+    border-bottom: 1px solid var(--planner-line);
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(6, minmax(120px, 1fr));
+    padding: 14px 18px;
+}
+
+.planner-metadata[hidden] {
+    display: none;
+}
+
+.planner-metadata label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.planner-metadata input,
+.planner-metadata select {
+    background: white;
+    border-radius: 2px;
+    padding: 7px 8px;
+}
+
+.planner-workspace {
+    display: grid;
+    grid-template-columns: 220px minmax(620px, 1fr) 360px;
+    min-height: calc(100vh - 128px);
+}
+
+.planner-days,
+.planner-inspector {
+    background: rgba(255, 253, 249, .72);
+    position: sticky;
+    top: 62px;
+    height: calc(100vh - 62px);
+    overflow-y: auto;
+}
+
+.planner-days {
+    border-right: 1px solid var(--planner-line);
+}
+
+.planner-days nav {
+    display: block;
+}
+
+.planner-inspector {
+    border-left: 1px solid var(--planner-line);
+}
+
+.planner-days-summary {
+    border-bottom: 1px solid var(--planner-line);
+    color: var(--planner-muted);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 14px 16px;
+    text-transform: uppercase;
+}
+
+.planner-day-link {
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid var(--planner-line);
+    border-left: 3px solid transparent;
+    border-radius: 0;
+    color: var(--planner-ink);
+    display: block;
+    padding: 12px 14px;
+    text-align: left;
+    width: 100%;
+}
+
+.planner-day-link:hover,
+.planner-day-link.is-active {
+    background: white;
+}
+
+.planner-day-link.is-active {
+    border-left-color: var(--planner-red);
+}
+
+.planner-day-line,
+.planner-day-stats {
+    align-items: baseline;
+    display: flex;
+    gap: 6px;
+}
+
+.planner-day-line strong {
+    font-size: 12px;
+}
+
+.planner-day-line span,
+.planner-day-stats {
+    color: var(--planner-muted);
+    font-size: 10px;
+}
+
+.planner-day-city {
+    font-size: 13px;
+    margin: 5px 0;
+}
+
+.planner-day-stats .has-warning {
+    color: #9b6b13;
+}
+
+.planner-day {
+    max-width: 1040px;
+    min-width: 0;
+    padding: 30px 34px 70px;
+}
+
+.planner-day-heading {
+    border-bottom: 1px solid var(--planner-line);
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+}
+
+.planner-day-heading h1 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 32px;
+    font-weight: 500;
+    margin: 5px 0 16px;
+}
+
+.planner-day-fields {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: 1fr 1.3fr 110px 110px;
+}
+
+.planner-day-fields input,
+.planner-day-intro textarea,
+.planner-block textarea {
+    background: rgba(255,255,255,.72);
+    border-radius: 2px;
+}
+
+.planner-day-intro {
+    margin-top: 12px;
+}
+
+.planner-day-intro textarea {
+    min-height: 72px;
+}
+
+.planner-metrics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 22px;
+    margin-top: 16px;
+}
+
+.planner-metric strong,
+.planner-metric span {
+    display: inline;
+}
+
+.planner-metric strong {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 20px;
+    font-weight: 500;
+}
+
+.planner-metric span {
+    color: var(--planner-muted);
+    font-size: 9px;
+    margin-left: 4px;
+    text-transform: uppercase;
+}
+
+.planner-block {
+    background: rgba(255, 253, 249, .76);
+    border: 1px solid var(--planner-line);
+    border-left: 3px solid transparent;
+    margin: 14px 0;
+    padding: 18px;
+}
+
+.planner-block.has-content {
+    border-left-color: var(--planner-red);
+}
+
+.planner-block-header,
+.planner-block-actions,
+.planner-block-title,
+.planner-item-title,
+.planner-candidate-title {
+    align-items: center;
+    display: flex;
+    gap: 8px;
+}
+
+.planner-block-header {
+    justify-content: space-between;
+}
+
+.planner-block-title strong {
+    font-size: 11px;
+    text-transform: uppercase;
+}
+
+.planner-block-title span {
+    color: var(--planner-muted);
+    font-size: 10px;
+}
+
+.planner-autofill {
+    align-items: center;
+    display: inline-flex;
+    font-size: 10px;
+    gap: 5px;
+    margin: 0;
+    text-transform: uppercase;
+}
+
+.planner-autofill input {
+    width: auto;
+}
+
+.planner-block textarea {
+    margin: 14px 0 10px;
+    min-height: 76px;
+}
+
+.planner-block-actions button {
+    background: transparent;
+    border: 1px solid var(--planner-line);
+    border-radius: 2px;
+    color: var(--planner-ink);
+    font-size: 11px;
+    padding: 7px 9px;
+}
+
+.planner-picks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 8px 0 12px;
+}
+
+.planner-pick {
+    align-items: center;
+    background: #f4efe8;
+    border: 1px solid var(--planner-line);
+    display: inline-flex;
+    font-size: 12px;
+    gap: 7px;
+    padding: 7px 9px;
+}
+
+.planner-pick button {
+    background: transparent;
+    color: var(--planner-muted);
+    padding: 0;
+}
+
+.planner-items {
+    border-top: 1px solid var(--planner-line);
+    margin-top: 12px;
+}
+
+.planner-item {
+    align-items: center;
+    display: flex;
+    gap: 12px;
+    justify-content: space-between;
+    padding: 10px 0;
+}
+
+.planner-item + .planner-item {
+    border-top: 1px solid #ebe5dc;
+}
+
+.planner-item-time {
+    color: var(--planner-red);
+    font-family: ui-monospace, monospace;
+    font-size: 11px;
+}
+
+.planner-item small {
+    color: var(--planner-muted);
+    display: block;
+    margin-top: 3px;
+}
+
+.planner-item button {
+    background: transparent;
+    color: var(--planner-ink);
+    padding: 5px;
+}
+
+.planner-inspector-header {
+    border-bottom: 1px solid var(--planner-line);
+    padding: 16px;
+}
+
+.planner-inspector-header strong {
+    display: block;
+    font-size: 11px;
+    text-transform: uppercase;
+}
+
+.planner-inspector-header small {
+    color: var(--planner-muted);
+}
+
+.planner-inspector-empty {
+    color: var(--planner-muted);
+    padding: 80px 28px;
+    text-align: center;
+}
+
+.planner-inspector-filters,
+.planner-item-form {
+    display: grid;
+    gap: 9px;
+    padding: 12px 16px;
+}
+
+.planner-distance-filter {
+    display: flex;
+    gap: 5px;
+}
+
+.planner-distance-filter button {
+    background: transparent;
+    border: 1px solid var(--planner-line);
+    border-radius: 2px;
+    color: var(--planner-ink);
+    font-size: 10px;
+    padding: 6px 9px;
+}
+
+.planner-distance-filter button.is-active {
+    background: var(--planner-ink);
+    color: white;
+}
+
+.planner-candidates {
+    border-top: 1px solid var(--planner-line);
+}
+
+.planner-candidate {
+    border-bottom: 1px solid var(--planner-line);
+    cursor: pointer;
+    display: grid;
+    gap: 8px;
+    grid-template-columns: 18px 1fr;
+    padding: 12px 16px;
+}
+
+.planner-candidate.is-selected {
+    background: var(--planner-red-soft);
+}
+
+.planner-candidate.is-used:not(.is-selected) {
+    opacity: .55;
+}
+
+.planner-candidate input {
+    margin-top: 3px;
+    width: auto;
+}
+
+.planner-candidate-title {
+    justify-content: space-between;
+}
+
+.planner-candidate-title strong {
+    font-size: 13px;
+}
+
+.planner-candidate small,
+.planner-candidate p {
+    color: var(--planner-muted);
+    font-size: 11px;
+}
+
+.planner-candidate p {
+    line-height: 1.45;
+    margin: 5px 0 0;
+}
+
+.planner-tag {
+    border: 1px solid var(--planner-line);
+    display: inline-block;
+    font-size: 9px;
+    margin: 4px 3px 0 0;
+    padding: 3px 5px;
+    text-transform: uppercase;
+}
+
+.planner-item-form {
+    grid-template-columns: 1fr 1fr;
+}
+
+.planner-item-form .is-wide {
+    grid-column: 1 / -1;
+}
+
+.planner-item-form textarea {
+    min-height: 76px;
+}
+
+.planner-item-form-actions {
+    display: flex;
+    gap: 8px;
+    grid-column: 1 / -1;
+    padding-top: 6px;
+}
+
+.planner-discard {
+    bottom: 12px;
+    left: 14px;
+    position: fixed;
+    z-index: 25;
+}
+
+.planner-discard button {
+    border-radius: 2px;
+    font-size: 10px;
+    opacity: .75;
+}
+
+@media (max-width: 1280px) {
+    .planner-workspace {
+        grid-template-columns: 190px minmax(560px, 1fr) 320px;
+    }
+
+    .planner-day {
+        padding-left: 24px;
+        padding-right: 24px;
+    }
+}
+
+@media (max-width: 1050px) {
+    .trip-admin-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .planner-toolbar {
+        grid-template-columns: 1fr auto;
+    }
+
+    .planner-toolbar-state {
+        display: none;
+    }
+
+    .planner-workspace {
+        grid-template-columns: 170px minmax(540px, 1fr);
+    }
+
+    .planner-inspector {
+        box-shadow: -8px 0 24px rgba(29, 26, 23, .12);
+        position: fixed;
+        right: 0;
+        top: 62px;
+        width: 360px;
+        z-index: 15;
+    }
+
+    .planner-inspector:has(.planner-inspector-empty) {
+        display: none;
+    }
+}

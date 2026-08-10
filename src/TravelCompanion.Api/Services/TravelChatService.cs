@@ -242,7 +242,8 @@ public sealed class TravelChatService(
             .Include(trip => trip.Destination)
             .Include(trip => trip.Reservations)
             .Where(trip =>
-                trip.AppUserId == user.Id
+                trip.PublicationStatus == TripPublicationStatus.Published
+                && trip.AppUserId == user.Id
                 && trip.StartsOn <= date
                 && trip.EndsOn >= date)
             .ToListAsync(cancellationToken);
@@ -405,7 +406,8 @@ public sealed class TravelChatService(
             .Include(trip => trip.Destination)
             .Include(trip => trip.Reservations)
             .Where(trip =>
-                trip.AppUserId == user.Id
+                trip.PublicationStatus == TripPublicationStatus.Published
+                && trip.AppUserId == user.Id
                 && trip.StartsOn <= date
                 && trip.EndsOn >= date)
             .ToListAsync(cancellationToken);

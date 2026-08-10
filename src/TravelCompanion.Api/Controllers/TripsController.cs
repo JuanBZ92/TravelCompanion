@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TravelCompanion.Api.Data;
+using TravelCompanion.Api.Models;
 using TravelCompanion.Api.Services;
 using TravelCompanion.Shared.Dtos;
 
@@ -34,7 +35,10 @@ public sealed class TripsController(
             .AsNoTracking()
             .Include(existingTrip => existingTrip.Destination)
             .Include(existingTrip => existingTrip.Reservations)
-            .SingleOrDefaultAsync(existingTrip => existingTrip.Id == id, cancellationToken);
+            .SingleOrDefaultAsync(existingTrip =>
+                existingTrip.Id == id
+                && existingTrip.PublicationStatus == TripPublicationStatus.Published,
+                cancellationToken);
 
         if (trip is null || trip.Destination is null)
         {

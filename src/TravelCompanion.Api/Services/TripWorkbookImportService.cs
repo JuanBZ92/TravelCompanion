@@ -175,6 +175,8 @@ public sealed partial class TripWorkbookImportService(
         var userEmail = CreateTripUserEmail(metadata);
         var trip = await dbContext.Trips
             .Include(existingTrip => existingTrip.Reservations)
+            .Include(existingTrip => existingTrip.DayPlans)
+                .ThenInclude(day => day.Blocks)
             .FirstOrDefaultAsync(existingTrip =>
                 existingTrip.DestinationId == metadata.DestinationId
                 && existingTrip.ExternalId == metadata.TripExternalId,
@@ -232,6 +234,10 @@ public sealed partial class TripWorkbookImportService(
         trip.TimeZoneId = metadata.TimeZoneId;
         trip.AccessPinHash = tripPinHasher.HashPassword(trip, metadata.Pin);
         trip.AccessPinUpdatedAt = DateTimeOffset.UtcNow;
+        trip.PublicationStatus = TripPublicationStatus.Published;
+        trip.PublishedAtUtc = DateTimeOffset.UtcNow;
+        trip.UpdatedAtUtc = trip.PublishedAtUtc.Value;
+        trip.PlanRevision++;
 
         if (!createdTrip)
         {
@@ -242,6 +248,7 @@ public sealed partial class TripWorkbookImportService(
         }
 
         var reservations = CreateReservations(trip, destination, metadata, parseResult.Rows);
+        ApplyDayPlans(trip, metadata, parseResult.Rows, reservations);
         foreach (var reservation in reservations)
         {
             dbContext.Reservations.Add(reservation);
@@ -268,6 +275,69 @@ public sealed partial class TripWorkbookImportService(
             CreatedLodgingReservations = lodgingCount,
             StatusMessage = $"Import completo. Viaje: {(createdTrip ? "creado" : "actualizado")}; reservas creadas: {reservations.Count}; bloques autofill: {result.AutofillRows}; warnings: {result.WarningCount}."
         };
+    }
+
+    private void ApplyDayPlans(
+        Trip trip,
+        TripWorkbookMetadata metadata,
+        IReadOnlyList<TripWorkbookRowDraft> rows,
+        IReadOnlyList<Reservation> reservations)
+    {
+        var existingDays = trip.DayPlans.ToDictionary(day => day.Date);
+        var desiredDates = new HashSet<DateOnly>();
+        var blocksByDateAndPeriod = new Dictionary<(DateOnly Date, string PeriodKey), TripDayBlock>();
+        var dayNumber = 1;
+        for (var date = metadata.StartsOn; date <= metadata.EndsOn; date = date.AddDays(1))
+        {
+            desiredDates.Add(date);
+            var dayRows = rows.Where(row => row.Date == date).ToList();
+            var day = existingDays.GetValueOrDefault(date) ?? new TripDayPlan
+            {
+                Id = Guid.NewGuid(),
+                TripId = trip.Id,
+                Trip = trip,
+                Date = date
+            };
+            if (!existingDays.ContainsKey(date))
+            {
+                dbContext.TripDayPlans.Add(day);
+            }
+
+            day.DayNumber = dayNumber++;
+            day.City = dayRows.Select(row => row.City).FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
+            day.HotelBase = dayRows.Select(row => row.HotelBase).FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
+            day.Introduction = string.Empty;
+            foreach (var period in TripPlanPeriods.All)
+            {
+                var row = dayRows.FirstOrDefault(item => item.Period.Key == period.Key);
+                var block = day.Blocks.FirstOrDefault(item => item.PeriodKey == period.Key) ?? new TripDayBlock
+                {
+                    Id = Guid.NewGuid(),
+                    TripDayPlanId = day.Id,
+                    TripDayPlan = day,
+                    PeriodKey = period.Key
+                };
+                if (!day.Blocks.Contains(block))
+                {
+                    dbContext.TripDayBlocks.Add(block);
+                }
+
+                block.SortOrder = period.SortOrder;
+                block.CuratedDescription = row?.CuratedDescription ?? string.Empty;
+                block.AutofillEnabled = row is null || row.IsAutofill;
+                blocksByDateAndPeriod[(date, period.Key)] = block;
+            }
+        }
+
+        dbContext.TripDayPlans.RemoveRange(trip.DayPlans.Where(day => !desiredDates.Contains(day.Date)).ToList());
+        foreach (var reservation in reservations)
+        {
+            var period = TripPlanPeriods.Resolve(reservation.StartsAt);
+            if (blocksByDateAndPeriod.TryGetValue((reservation.Date, period.Key), out var block))
+            {
+                reservation.TripDayBlockId = block.Id;
+            }
+        }
     }
 
     private async Task<ParsedTripWorkbook> ParseAsync(

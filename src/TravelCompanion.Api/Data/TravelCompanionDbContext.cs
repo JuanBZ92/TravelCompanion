@@ -11,6 +11,9 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
     public DbSet<Recommendation> Recommendations => Set<Recommendation>();
     public DbSet<FreeMapCity> FreeMapCities => Set<FreeMapCity>();
     public DbSet<Trip> Trips => Set<Trip>();
+    public DbSet<TripDayPlan> TripDayPlans => Set<TripDayPlan>();
+    public DbSet<TripDayBlock> TripDayBlocks => Set<TripDayBlock>();
+    public DbSet<TripPlanDraft> TripPlanDrafts => Set<TripPlanDraft>();
     public DbSet<Reservation> Reservations => Set<Reservation>();
     public DbSet<TravelDocument> TravelDocuments => Set<TravelDocument>();
     public DbSet<AppUser> AppUsers => Set<AppUser>();
@@ -96,10 +99,53 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
             entity.Property(trip => trip.AccessPinHash).HasMaxLength(512);
             entity.Property(trip => trip.TravelerName).HasMaxLength(140);
             entity.Property(trip => trip.TimeZoneId).HasMaxLength(120).HasDefaultValue("UTC");
+            entity.Property(trip => trip.PublicationStatus)
+                .HasConversion<string>()
+                .HasMaxLength(32)
+                .HasDefaultValue(TripPublicationStatus.Published)
+                .HasSentinel((TripPublicationStatus)(-1));
+            entity.HasIndex(trip => new { trip.PublicationStatus, trip.StartsOn });
             entity.HasOne(trip => trip.AppUser)
                 .WithMany(user => user.Trips)
                 .HasForeignKey(trip => trip.AppUserId)
                 .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<TripDayPlan>(entity =>
+        {
+            entity.HasIndex(day => new { day.TripId, day.Date }).IsUnique();
+            entity.HasIndex(day => new { day.TripId, day.DayNumber }).IsUnique();
+            entity.Property(day => day.City).HasMaxLength(120);
+            entity.Property(day => day.HotelBase).HasMaxLength(180);
+            entity.Property(day => day.BaseLatitude).HasPrecision(9, 6);
+            entity.Property(day => day.BaseLongitude).HasPrecision(9, 6);
+            entity.Property(day => day.Introduction).HasMaxLength(2000);
+            entity.HasOne(day => day.Trip)
+                .WithMany(trip => trip.DayPlans)
+                .HasForeignKey(day => day.TripId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<TripDayBlock>(entity =>
+        {
+            entity.HasIndex(block => new { block.TripDayPlanId, block.PeriodKey }).IsUnique();
+            entity.Property(block => block.PeriodKey).HasMaxLength(32);
+            entity.Property(block => block.CuratedDescription).HasMaxLength(2000);
+            entity.HasOne(block => block.TripDayPlan)
+                .WithMany(day => day.Blocks)
+                .HasForeignKey(block => block.TripDayPlanId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<TripPlanDraft>(entity =>
+        {
+            entity.HasKey(draft => draft.TripId);
+            entity.Property(draft => draft.PayloadJson).HasColumnType("jsonb");
+            entity.Property(draft => draft.PendingAccessPinHash).HasMaxLength(512);
+            entity.HasOne(draft => draft.Trip)
+                .WithOne(trip => trip.PlanDraft)
+                .HasForeignKey<TripPlanDraft>(draft => draft.TripId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<Reservation>(entity =>
@@ -108,6 +154,7 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
             entity.HasIndex(reservation => new { reservation.TripId, reservation.Date, reservation.StartsAt });
             entity.HasIndex(reservation => new { reservation.TripId, reservation.Type, reservation.Date, reservation.StartsAt });
             entity.HasIndex(reservation => new { reservation.TripId, reservation.RecommendationId });
+            entity.HasIndex(reservation => reservation.TripDayBlockId);
             entity.Property(reservation => reservation.ExternalId).HasMaxLength(160);
             entity.Property(reservation => reservation.Type)
                 .HasConversion<string>()
@@ -130,9 +177,15 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
             entity.Property(reservation => reservation.DestinationAirport).HasMaxLength(80);
             entity.Property(reservation => reservation.SourceName).HasMaxLength(160);
             entity.Property(reservation => reservation.SourceUrl).HasMaxLength(512);
+            entity.Property(reservation => reservation.Latitude).HasPrecision(9, 6);
+            entity.Property(reservation => reservation.Longitude).HasPrecision(9, 6);
             entity.HasOne(reservation => reservation.Recommendation)
                 .WithMany()
                 .HasForeignKey(reservation => reservation.RecommendationId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(reservation => reservation.TripDayBlock)
+                .WithMany(block => block.Reservations)
+                .HasForeignKey(reservation => reservation.TripDayBlockId)
                 .OnDelete(DeleteBehavior.SetNull);
         });
 

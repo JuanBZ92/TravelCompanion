@@ -83,6 +83,20 @@ public sealed class PinLoginEndpointTests
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
+    [Fact]
+    public async Task Pin_login_ignores_unpublished_trip()
+    {
+        await using var factory = new TravelCompanionApiFactory();
+        await factory.SeedDraftTripWithPinAsync("2468");
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync(
+            "/api/auth/pin-login",
+            new PinLoginRequestDto("2468"));
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
     private sealed class TravelCompanionApiFactory : WebApplicationFactory<Program>
     {
         private readonly string databaseName = $"pin-login-tests-{Guid.NewGuid():N}";
@@ -167,6 +181,42 @@ public sealed class PinLoginEndpointTests
             dbContext.Trips.AddRange(defaultTrip, pinTrip);
             await dbContext.SaveChangesAsync();
             return new SeedResult(user.Id, pinTrip.Id);
+        }
+
+        public async Task SeedDraftTripWithPinAsync(string pin)
+        {
+            using var scope = Services.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<TravelCompanionDbContext>();
+            var pinHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher<Trip>>();
+            var user = new AppUser
+            {
+                Id = Guid.NewGuid(),
+                Email = $"draft-{Guid.NewGuid():N}@example.test",
+                DisplayName = "Draft Traveler",
+                PasswordHash = string.Empty
+            };
+            var destination = new Destination
+            {
+                Id = Guid.NewGuid(),
+                Name = "Draft Japan",
+                Slug = $"draft-japan-{Guid.NewGuid():N}",
+                Country = "Japan",
+                HeroImageUrl = string.Empty,
+                ShortDescription = string.Empty
+            };
+            var trip = new Trip
+            {
+                Id = Guid.NewGuid(),
+                AppUserId = user.Id,
+                DestinationId = destination.Id,
+                TravelerName = user.DisplayName,
+                StartsOn = new DateOnly(2026, 12, 1),
+                EndsOn = new DateOnly(2026, 12, 10),
+                PublicationStatus = TripPublicationStatus.Draft
+            };
+            trip.AccessPinHash = pinHasher.HashPassword(trip, pin);
+            dbContext.AddRange(user, destination, trip);
+            await dbContext.SaveChangesAsync();
         }
     }
 

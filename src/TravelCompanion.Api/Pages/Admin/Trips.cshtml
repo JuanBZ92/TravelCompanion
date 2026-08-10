@@ -1,0 +1,209 @@
+@page "/admin/trips"
+@model TravelCompanion.Api.Pages.Admin.TripsModel
+@{
+    ViewData["Title"] = Model.Editor is null ? "Viajes" : $"Viaje · {Model.Editor.Payload.TravelerName}";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/trip-planner.css" />
+}
+
+@if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
+{
+    <section class="notice planner-notice"><strong>@Model.StatusMessage</strong></section>
+}
+@if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+{
+    <section class="validation-summary-errors planner-notice"><strong>@Model.ErrorMessage</strong></section>
+}
+
+@if (Model.Editor is null)
+{
+    <div class="page-heading">
+        <div>
+            <span class="eyebrow">YUKU · OPERACIONES</span>
+            <h1>Viajes</h1>
+            <p class="lede">Crea el itinerario, completá sus bloques y aplicalo cuando esté listo.</p>
+        </div>
+        <span class="badge">@Model.Trips.Count viajes</span>
+    </div>
+
+    <div class="trip-admin-grid">
+        <section class="panel trip-create-panel">
+            <div class="section-header">
+                <div>
+                    <h2>Nuevo viaje</h2>
+                    <p class="form-hint">El cliente entra únicamente con el PIN después de publicar.</p>
+                </div>
+                <span class="badge">Borrador</span>
+            </div>
+            <form method="post" asp-page-handler="Create" data-progress-form>
+                <div asp-validation-summary="All"></div>
+                <div class="form-grid trip-create-fields">
+                    <div>
+                        <label asp-for="CreateInput.TravelerName" class="required">Cliente</label>
+                        <input asp-for="CreateInput.TravelerName" placeholder="Ivana &amp; Manu" />
+                    </div>
+                    <div>
+                        <label asp-for="CreateInput.AccessPin" class="required">PIN</label>
+                        <input asp-for="CreateInput.AccessPin" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="1908" />
+                    </div>
+                    <div>
+                        <label asp-for="CreateInput.DestinationId" class="required">Destino</label>
+                        <select asp-for="CreateInput.DestinationId" asp-items="Model.DestinationOptions">
+                            <option value="">Seleccionar</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label asp-for="CreateInput.TimeZoneId" class="required">Timezone</label>
+                        <input asp-for="CreateInput.TimeZoneId" />
+                    </div>
+                    <div>
+                        <label asp-for="CreateInput.StartsOn" class="required">Inicio</label>
+                        <input asp-for="CreateInput.StartsOn" type="date" />
+                    </div>
+                    <div>
+                        <label asp-for="CreateInput.EndsOn" class="required">Fin</label>
+                        <input asp-for="CreateInput.EndsOn" type="date" />
+                    </div>
+                </div>
+                <div class="actions">
+                    <button type="submit" data-loading-message="Creando el borrador...">Crear viaje</button>
+                </div>
+                <div class="submit-progress" data-submit-progress role="status" aria-live="polite" hidden>
+                    <div class="submit-progress-track"><span class="submit-progress-indicator"></span></div>
+                    <p data-submit-progress-message>Procesando...</p>
+                </div>
+            </form>
+        </section>
+
+        <section class="panel trip-list-panel">
+            <div class="section-header">
+                <div>
+                    <h2>Viajes</h2>
+                    <p class="form-hint">Los borradores no son accesibles desde la app.</p>
+                </div>
+                <form method="get" class="trip-search">
+                    <input name="search" value="@Model.Search" type="search" placeholder="Buscar cliente o destino" />
+                    <button type="submit" class="secondary">Buscar</button>
+                </form>
+            </div>
+            <div class="trip-rows">
+                @if (Model.Trips.Count == 0)
+                {
+                    <div class="trip-empty">Todavía no hay viajes para mostrar.</div>
+                }
+                @foreach (var trip in Model.Trips)
+                {
+                    <a class="trip-row" asp-page="/Admin/Trips" asp-route-tripId="@trip.Id">
+                        <span>
+                            <strong>@trip.TravelerName</strong>
+                            <small>@trip.DestinationName · @trip.StartsOn.ToString("dd/MM/yyyy") — @trip.EndsOn.ToString("dd/MM/yyyy")</small>
+                        </span>
+                        <span class="trip-row-state">
+                            @if (trip.HasDraft)
+                            {
+                                <span class="planner-status is-draft">Borrador</span>
+                            }
+                            else
+                            {
+                                <span class="planner-status is-published">Publicado</span>
+                            }
+                            <small>@trip.UpdatedAtUtc.ToLocalTime().ToString("dd/MM HH:mm")</small>
+                        </span>
+                    </a>
+                }
+            </div>
+        </section>
+    </div>
+}
+else
+{
+    <div class="trip-planner" data-trip-planner>
+        <form method="post" class="planner-form" data-planner-form>
+            <input type="hidden" asp-for="TripId" />
+            <input type="hidden" asp-for="BasePlanRevision" />
+            <textarea asp-for="DraftJson" data-draft-json hidden></textarea>
+
+            <header class="planner-toolbar">
+                <div class="planner-branding">
+                    <a asp-page="/Admin/Trips" class="planner-back" aria-label="Volver a viajes">←</a>
+                    <div>
+                        <span class="eyebrow">YUKU · VIAJE</span>
+                        <strong data-trip-name>@Model.Editor.Payload.TravelerName</strong>
+                    </div>
+                </div>
+                <div class="planner-toolbar-state">
+                    <span class="planner-status @(Model.Editor.HasDraft ? "is-draft" : "is-published")" data-draft-status>
+                        @(Model.Editor.HasDraft ? "Borrador guardado" : "Publicado")
+                    </span>
+                    <span class="planner-dirty" data-dirty-indicator hidden>Cambios sin guardar</span>
+                </div>
+                <div class="planner-toolbar-actions">
+                    <button type="button" class="secondary" data-toggle-metadata>Datos del viaje</button>
+                    <button type="submit" class="secondary" asp-page-handler="SaveDraft" data-save-draft>Guardar borrador</button>
+                    <button type="submit" class="planner-publish" asp-page-handler="Publish" data-publish>Aplicar a la app</button>
+                </div>
+            </header>
+
+            <section class="planner-metadata" data-metadata-panel hidden>
+                <div>
+                    <label>Cliente</label>
+                    <input data-meta="travelerName" maxlength="140" />
+                </div>
+                <div>
+                    <label>Destino</label>
+                    <select data-meta="destinationId">
+                        @foreach (var option in Model.DestinationOptions)
+                        {
+                            <option value="@option.Value">@option.Text</option>
+                        }
+                    </select>
+                </div>
+                <div>
+                    <label>Inicio</label>
+                    <input data-meta="startsOn" type="date" />
+                </div>
+                <div>
+                    <label>Fin</label>
+                    <input data-meta="endsOn" type="date" />
+                </div>
+                <div>
+                    <label>Timezone</label>
+                    <input data-meta="timeZoneId" maxlength="120" />
+                </div>
+                <div>
+                    <label>Nuevo PIN <span class="muted">(opcional)</span></label>
+                    <input asp-for="NewAccessPin" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="Conservar actual" />
+                </div>
+            </section>
+
+            <div class="planner-workspace">
+                <aside class="planner-days">
+                    <div class="planner-days-summary" data-days-summary></div>
+                    <nav data-day-list aria-label="Días del viaje"></nav>
+                </aside>
+                <main class="planner-day" data-day-editor></main>
+                <aside class="planner-inspector" data-inspector>
+                    <div class="planner-inspector-empty">
+                        <strong>Elegí una acción</strong>
+                        <p>Agregá recomendaciones o elementos de agenda desde cualquier bloque.</p>
+                    </div>
+                </aside>
+            </div>
+        </form>
+
+        <form method="post" asp-page-handler="DiscardDraft" asp-route-id="@Model.Editor.TripId" class="planner-discard" data-discard-form>
+            <button type="submit" class="danger">Descartar borrador</button>
+        </form>
+    </div>
+
+    <script id="trip-planner-state" type="application/json">@Html.Raw(Model.EditorStateJson)</script>
+}
+
+@section Scripts {
+    @if (Model.Editor is not null)
+    {
+        <script src="~/trip-planner.js"></script>
+    }
+}

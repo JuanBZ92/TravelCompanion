@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>@ViewData["Title"] - Travel Companion Admin</title>
     <link rel="stylesheet" href="~/admin.css" />
+    @await RenderSectionAsync("Styles", required: false)
 </head>
 <body>
     <header class="topbar">
@@ -17,6 +18,7 @@
             <a asp-page="/Admin/FreeMap">Free Map</a>
             <a asp-page="/Admin/YukuJapanImport">Import YUKU</a>
             <a asp-page="/Admin/TripImport">Import Viaje</a>
+            <a asp-page="/Admin/Trips">Viajes</a>
             <a asp-page="/Admin/Reservations">Schedule</a>
             <a asp-page="/Admin/Docs">Docs</a>
             <a asp-page="/Admin/Users">Users</a>
@@ -30,5 +32,6 @@
         @RenderBody()
     </main>
     <script src="~/admin.js"></script>
+    @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

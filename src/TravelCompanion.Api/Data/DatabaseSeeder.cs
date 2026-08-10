@@ -35,6 +35,7 @@ public static class DatabaseSeeder
         await EnsureFreePreviewAccountAsync(dbContext);
         await EnsureFreeMapCitiesAsync(dbContext, japan.Id);
         await NormalizeImportedYukuRecommendationsAsync(dbContext, japan.Id);
+        await BackfillTripDayPlansAsync(dbContext);
         await dbContext.SaveChangesAsync();
     }
 
@@ -236,6 +237,88 @@ public static class DatabaseSeeder
                     : RecommendationCitySlug.FromCity(recommendation.Neighborhood);
             recommendation.Packages.Clear();
         }
+    }
+
+    private static async Task BackfillTripDayPlansAsync(TravelCompanionDbContext dbContext)
+    {
+        var trips = await dbContext.Trips
+            .Include(trip => trip.DayPlans)
+            .Include(trip => trip.Reservations)
+            .Where(trip => trip.PublicationStatus == TripPublicationStatus.Published
+                && !trip.DayPlans.Any())
+            .ToListAsync();
+        foreach (var trip in trips)
+        {
+            if (dbContext.Entry(trip).State == EntityState.Deleted)
+            {
+                continue;
+            }
+
+            var dayNumber = 1;
+            for (var date = trip.StartsOn; date <= trip.EndsOn; date = date.AddDays(1))
+            {
+                var dayItems = trip.Reservations
+                    .Where(item => item.Date == date)
+                    .OrderBy(item => item.StartsAt)
+                    .ToList();
+                var lodging = trip.Reservations
+                    .Where(item => item.Type == ReservationType.Lodging
+                        && item.Date <= date
+                        && (item.EndsOn ?? item.Date) >= date)
+                    .OrderByDescending(item => item.Date)
+                    .FirstOrDefault();
+                var day = new TripDayPlan
+                {
+                    Id = Guid.NewGuid(),
+                    TripId = trip.Id,
+                    Date = date,
+                    DayNumber = dayNumber++,
+                    City = dayItems.Select(item => item.City).FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))
+                        ?? lodging?.City
+                        ?? string.Empty,
+                    HotelBase = lodging?.LocationName ?? string.Empty,
+                    BaseLatitude = lodging?.Latitude,
+                    BaseLongitude = lodging?.Longitude
+                };
+                dbContext.TripDayPlans.Add(day);
+                foreach (var period in TripPlanPeriods.All)
+                {
+                    var periodItems = dayItems
+                        .Where(item => TripPlanPeriods.Resolve(item.StartsAt).Key == period.Key)
+                        .ToList();
+                    var block = new TripDayBlock
+                    {
+                        Id = Guid.NewGuid(),
+                        TripDayPlanId = day.Id,
+                        PeriodKey = period.Key,
+                        SortOrder = period.SortOrder,
+                        CuratedDescription = periodItems
+                            .Select(item => ExtractLegacyDescription(item.Notes))
+                            .FirstOrDefault(value => value.Length > 0) ?? string.Empty,
+                        AutofillEnabled = periodItems.Count == 0
+                    };
+                    dbContext.TripDayBlocks.Add(block);
+                    foreach (var item in periodItems)
+                    {
+                        item.TripDayBlockId = block.Id;
+                    }
+                }
+            }
+        }
+    }
+
+    private static string ExtractLegacyDescription(string notes)
+    {
+        const string prefix = "Descripcion:";
+        var index = notes.IndexOf(prefix, StringComparison.OrdinalIgnoreCase);
+        if (index < 0)
+        {
+            return string.Empty;
+        }
+
+        var value = notes[(index + prefix.Length)..];
+        var separator = value.IndexOf(" | ", StringComparison.Ordinal);
+        return (separator >= 0 ? value[..separator] : value).Trim();
     }
 
     private sealed record FreeMapCityDefinition(

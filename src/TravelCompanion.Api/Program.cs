@@ -105,6 +105,7 @@ builder.Services.AddScoped<ITravelAssistantFeedbackService, TravelAssistantFeedb
 builder.Services.AddScoped<ITodayRecommendationService, TodayRecommendationService>();
 builder.Services.AddScoped<YukuJapanRecommendationImportService>();
 builder.Services.AddScoped<TripWorkbookImportService>();
+builder.Services.AddScoped<TripPlanEditorService>();
 builder.Services.AddSingleton<TravelAssistantTelemetry>();
 builder.Services.AddSingleton<ITravelChatIntentClassifier, TravelChatIntentClassifier>();
 builder.Services.AddSingleton<ITravelAiModelClient, OpenAiTravelModelClient>();

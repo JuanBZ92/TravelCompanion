@@ -90,7 +90,8 @@ public sealed class AuthController(
             .Include(trip => trip.AppUser)
             .Include(trip => trip.Destination)
             .Where(trip =>
-                trip.AppUserId != null
+                trip.PublicationStatus == TripPublicationStatus.Published
+                && trip.AppUserId != null
                 && trip.AppUser != null
                 && !string.IsNullOrWhiteSpace(trip.AccessPinHash))
             .OrderBy(trip => trip.StartsOn < today)

@@ -14,6 +14,18 @@ public sealed class Trip
     public DateOnly StartsOn { get; set; }
     public DateOnly EndsOn { get; set; }
     public string TimeZoneId { get; set; } = "UTC";
+    public TripPublicationStatus PublicationStatus { get; set; } = TripPublicationStatus.Published;
+    public int PlanRevision { get; set; }
+    public DateTimeOffset? PublishedAtUtc { get; set; }
+    public DateTimeOffset UpdatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
     public List<Reservation> Reservations { get; set; } = [];
+    public List<TripDayPlan> DayPlans { get; set; } = [];
     public List<TravelDocument> Documents { get; set; } = [];
+    public TripPlanDraft? PlanDraft { get; set; }
+}
+
+public enum TripPublicationStatus
+{
+    Draft,
+    Published
 }

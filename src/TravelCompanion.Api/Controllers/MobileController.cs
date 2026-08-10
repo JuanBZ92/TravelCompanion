@@ -233,7 +233,8 @@ public sealed class MobileController(
             .Include(existingTrip => existingTrip.Destination)
             .Include(existingTrip => existingTrip.Reservations)
             .Include(existingTrip => existingTrip.Documents)
-            .Where(existingTrip => existingTrip.AppUserId == user.Id);
+            .Where(existingTrip => existingTrip.PublicationStatus == TripPublicationStatus.Published
+                && existingTrip.AppUserId == user.Id);
 
         if (sessionTripId.HasValue)
         {
@@ -284,7 +285,8 @@ public sealed class MobileController(
             .AsNoTracking()
             .Include(existingTrip => existingTrip.Destination)
             .Include(existingTrip => existingTrip.Reservations)
-            .Where(existingTrip => existingTrip.AppUserId == userId);
+            .Where(existingTrip => existingTrip.PublicationStatus == TripPublicationStatus.Published
+                && existingTrip.AppUserId == userId);
 
         if (sessionTripId.HasValue)
         {
@@ -587,7 +589,9 @@ public sealed class MobileController(
     {
         return await dbContext.Trips
             .AsNoTracking()
-            .Where(trip => trip.Id == tripId && trip.AppUserId == userId)
+            .Where(trip => trip.PublicationStatus == TripPublicationStatus.Published
+                && trip.Id == tripId
+                && trip.AppUserId == userId)
             .Include(trip => trip.Destination)
             .Select(trip => trip.Destination == null
                 ? null

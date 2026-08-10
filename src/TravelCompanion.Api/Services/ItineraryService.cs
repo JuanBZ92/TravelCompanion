@@ -27,8 +27,11 @@ public sealed class ItineraryService(TravelCompanionDbContext dbContext) : IItin
         var trip = await dbContext.Trips
             .Include(existing => existing.Destination)
             .Include(existing => existing.Reservations)
+            .Include(existing => existing.DayPlans)
+                .ThenInclude(day => day.Blocks)
             .Where(existing =>
-                existing.AppUserId == user.Id
+                existing.PublicationStatus == TripPublicationStatus.Published
+                && existing.AppUserId == user.Id
                 && existing.DestinationId == recommendation.DestinationId
                 && existing.StartsOn <= request.Date
                 && existing.EndsOn >= request.Date)
@@ -65,6 +68,9 @@ public sealed class ItineraryService(TravelCompanionDbContext dbContext) : IItin
             Id = Guid.NewGuid(),
             TripId = trip.Id,
             RecommendationId = recommendation.Id,
+            TripDayBlockId = trip.DayPlans
+                .FirstOrDefault(day => day.Date == request.Date)?
+                .Blocks.FirstOrDefault(block => block.PeriodKey == TripPlanPeriods.Resolve(request.StartsAt).Key)?.Id,
             Type = ReservationType.Event,
             PlanningKind = ScheduleItemKind.Recommendation,
             Date = request.Date,
@@ -75,11 +81,16 @@ public sealed class ItineraryService(TravelCompanionDbContext dbContext) : IItin
             LocationName = recommendation.Title,
             Address = recommendation.Neighborhood,
             ConfirmationCode = "AI-PLAN",
-            Notes = "Guardado desde Travel Assistant."
+            Notes = "Guardado desde Travel Assistant.",
+            Latitude = recommendation.Latitude,
+            Longitude = recommendation.Longitude,
+            SourceName = "Travel Assistant"
         };
 
         dbContext.Reservations.Add(reservation);
         dbContext.RecommendationInteractionSignals.Add(CreateSavedSignal(user, trip.Id, recommendation.Id));
+        trip.PlanRevision++;
+        trip.UpdatedAtUtc = DateTimeOffset.UtcNow;
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return new SaveItineraryItemResponse(

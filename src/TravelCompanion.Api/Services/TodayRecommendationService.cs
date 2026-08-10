@@ -100,8 +100,10 @@ public sealed class TodayRecommendationService(
         var selectedMissingSuggestionCount = 0;
         foreach (var period in TodayPeriod.All)
         {
+            var selectedBlock = FindDayBlock(trip, selectedDate, period.Key);
             var selectedPeriodHasPlan = trip.Reservations.Any(reservation =>
-                reservation.Date == selectedDate && period.Contains(reservation.StartsAt));
+                    reservation.Date == selectedDate && period.Contains(reservation.StartsAt))
+                || selectedBlock?.AutofillEnabled == false;
             if (selectedPeriodHasPlan)
             {
                 continue;
@@ -128,12 +130,13 @@ public sealed class TodayRecommendationService(
             var allocationLocation = allocationDate == selectedDate ? currentLocation : null;
             foreach (var period in TodayPeriod.All)
             {
+                var dayBlock = FindDayBlock(trip, allocationDate, period.Key);
                 var periodItems = trip.Reservations
                     .Where(reservation => reservation.Date == allocationDate && period.Contains(reservation.StartsAt))
                     .OrderBy(reservation => reservation.StartsAt)
                     .ToList();
                 var automaticSuggestions = new List<TodayRecommendationDto>();
-                if (periodItems.Count == 0)
+                if (periodItems.Count == 0 && dayBlock?.AutofillEnabled != false)
                 {
                     var assignmentKey = new TodayAssignmentKey(allocationDate, period.Key);
                     var storedForPeriod = persistedAssignments.GetValueOrDefault(assignmentKey) ?? [];
@@ -227,7 +230,7 @@ public sealed class TodayRecommendationService(
                 sections.Add(new TodaySectionDto(
                     period.Key,
                     period.Label,
-                    CreateDescription(period, periodItems, recommendationsForSection),
+                    CreateDescription(period, dayBlock, periodItems, recommendationsForSection),
                     reservations,
                     recommendationsForSection));
             }
@@ -519,7 +522,10 @@ public sealed class TodayRecommendationService(
         var query = dbContext.Trips
             .Include(trip => trip.Destination)
             .Include(trip => trip.Reservations)
-            .Where(trip => trip.AppUserId == userId);
+            .Include(trip => trip.DayPlans)
+                .ThenInclude(day => day.Blocks)
+            .Where(trip => trip.AppUserId == userId
+                && trip.PublicationStatus == TripPublicationStatus.Published);
 
         if (sessionTripId.HasValue)
         {
@@ -545,6 +551,15 @@ public sealed class TodayRecommendationService(
 
     private static string ResolveCityForDate(Trip trip, DateOnly date)
     {
+        var plannedCity = trip.DayPlans
+            .Where(day => day.Date == date)
+            .Select(day => NormalizeCity(day.City))
+            .FirstOrDefault(city => !string.Equals(city, "Unknown City", StringComparison.OrdinalIgnoreCase));
+        if (!string.IsNullOrWhiteSpace(plannedCity))
+        {
+            return plannedCity;
+        }
+
         var sameDayCity = trip.Reservations
             .Where(reservation => reservation.Date == date)
             .Select(reservation => NormalizeCity(reservation.City))
@@ -716,9 +731,15 @@ public sealed class TodayRecommendationService(
 
     private static string CreateDescription(
         TodayPeriod period,
+        TripDayBlock? block,
         IReadOnlyList<Reservation> reservations,
         IReadOnlyList<TodayRecommendationDto> suggestions)
     {
+        if (!string.IsNullOrWhiteSpace(block?.CuratedDescription))
+        {
+            return block.CuratedDescription;
+        }
+
         if (reservations.Count > 0)
         {
             var curatedDescription = reservations
@@ -737,6 +758,11 @@ public sealed class TodayRecommendationService(
             ? $"{period.Label}: hueco libre. Te dejo opciones cortas de nuestra base para completar el dia sin llenarlo de mas."
             : $"{period.Label}: hueco libre, sin recomendaciones suficientemente buenas por ahora.";
     }
+
+    private static TripDayBlock? FindDayBlock(Trip trip, DateOnly date, string periodKey) =>
+        trip.DayPlans
+            .FirstOrDefault(day => day.Date == date)?
+            .Blocks.FirstOrDefault(block => string.Equals(block.PeriodKey, periodKey, StringComparison.OrdinalIgnoreCase));
 
     private static string ExtractCuratedDescription(string notes)
     {

@@ -25,7 +25,7 @@
 		<ApplicationTitle>TravelCompanion.Mobile</ApplicationTitle>
 
 		<!-- App Identifier -->
-		<ApplicationId>com.travelcompanion.app</ApplicationId>
+		<ApplicationId>com.yuku.travelcompanion.app</ApplicationId>
 
 		<!-- Versions -->
 		<ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>

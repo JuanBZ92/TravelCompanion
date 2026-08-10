@@ -137,7 +137,8 @@ public sealed class UsersController(
             .AsNoTracking()
             .Include(existingTrip => existingTrip.Destination)
             .Include(existingTrip => existingTrip.Reservations)
-            .Where(existingTrip => existingTrip.AppUserId == userId);
+            .Where(existingTrip => existingTrip.PublicationStatus == TripPublicationStatus.Published
+                && existingTrip.AppUserId == userId);
 
         if (sessionTripId.HasValue)
         {

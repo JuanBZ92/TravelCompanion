@@ -142,6 +142,7 @@ public sealed class ReservationsModel(
         }
 
         TripInput.ApplyTo(trip, tripPinHasher ?? new PasswordHasher<Trip>(), normalizedPin);
+        MarkPublishedPlanChanged(trip);
         await dbContext.SaveChangesAsync();
         return RedirectToReservations(trip.Id);
     }
@@ -236,6 +237,11 @@ public sealed class ReservationsModel(
         }
 
         Input.ApplyTo(reservation);
+        var reservationTrip = await dbContext.Trips.FindAsync(reservation.TripId);
+        if (reservationTrip is not null)
+        {
+            MarkPublishedPlanChanged(reservationTrip);
+        }
         await dbContext.SaveChangesAsync();
         return RedirectToReservations(reservation.TripId);
     }
@@ -269,6 +275,11 @@ public sealed class ReservationsModel(
         {
             selectedTripId = reservation.TripId;
             dbContext.Reservations.Remove(reservation);
+            var trip = await dbContext.Trips.FindAsync(reservation.TripId);
+            if (trip is not null)
+            {
+                MarkPublishedPlanChanged(trip);
+            }
             await dbContext.SaveChangesAsync();
         }
 
@@ -380,6 +391,15 @@ public sealed class ReservationsModel(
                 reservation.SourceName,
                 reservation.Recommendation != null ? reservation.Recommendation.Title : null))
             .ToListAsync();
+    }
+
+    private static void MarkPublishedPlanChanged(Trip trip)
+    {
+        var now = DateTimeOffset.UtcNow;
+        trip.PublicationStatus = TripPublicationStatus.Published;
+        trip.PublishedAtUtc ??= now;
+        trip.UpdatedAtUtc = now;
+        trip.PlanRevision++;
     }
 
     private void SetDefaultTripFormValues()
