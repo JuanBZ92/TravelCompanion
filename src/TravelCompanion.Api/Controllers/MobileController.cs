@@ -14,6 +14,7 @@ namespace TravelCompanion.Api.Controllers;
 public sealed class MobileController(
     TravelCompanionDbContext dbContext,
     UserSessionService sessionService,
+    ITodayRecommendationService todayRecommendationService,
     ILogger<MobileController> logger) : ControllerBase
 {
     [HttpGet("discover")]
@@ -64,6 +65,56 @@ public sealed class MobileController(
             DateTimeOffset.UtcNow,
             destination,
             recommendations));
+    }
+
+    [HttpGet("today")]
+    public async Task<ActionResult<TodayDto>> GetToday(
+        [FromQuery] DateOnly? date = null,
+        [FromQuery] decimal? latitude = null,
+        [FromQuery] decimal? longitude = null,
+        CancellationToken cancellationToken = default)
+    {
+        var user = await sessionService.GetUserAsync(HttpContext, cancellationToken);
+        if (user is null)
+        {
+            return Unauthorized();
+        }
+
+        var currentLocation = latitude.HasValue && longitude.HasValue
+            ? new GeoPointDto(latitude.Value, longitude.Value)
+            : null;
+        var sessionTripId = await sessionService.GetSessionTripIdAsync(HttpContext, cancellationToken);
+        var today = await todayRecommendationService.GetTodayAsync(
+            user,
+            sessionTripId,
+            date,
+            currentLocation,
+            cancellationToken);
+
+        return today is null ? NotFound() : Ok(today);
+    }
+
+    [HttpPost("recommendations/{id:guid}/signals")]
+    public async Task<ActionResult<RecommendationSignalResponse>> RecordRecommendationSignal(
+        Guid id,
+        [FromBody] RecommendationSignalRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var user = await sessionService.GetUserAsync(HttpContext, cancellationToken);
+        if (user is null)
+        {
+            return Unauthorized();
+        }
+
+        var sessionTripId = await sessionService.GetSessionTripIdAsync(HttpContext, cancellationToken);
+        var response = await todayRecommendationService.RecordSignalAsync(
+            user,
+            id,
+            sessionTripId,
+            request,
+            cancellationToken);
+
+        return response.Accepted ? Ok(response) : BadRequest(response);
     }
 
     [HttpGet("bootstrap")]
@@ -258,6 +309,7 @@ public sealed class MobileController(
                     .ThenBy(reservation => reservation.StartsAt)
                     .Select(reservation => new ScheduleItemDto(
                         reservation.Id,
+                        reservation.RecommendationId,
                         reservation.Type,
                         reservation.Date,
                         reservation.StartsAt,

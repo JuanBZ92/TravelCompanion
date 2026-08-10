@@ -98,7 +98,9 @@ builder.Services.AddSingleton<ITravelPromptTemplateProvider, TravelPromptTemplat
 builder.Services.AddScoped<ITravelChatResponseComposer, TravelChatResponseComposer>();
 builder.Services.AddScoped<ITravelAssistantConversationStateService, TravelAssistantConversationStateService>();
 builder.Services.AddScoped<ITravelAssistantFeedbackService, TravelAssistantFeedbackService>();
+builder.Services.AddScoped<ITodayRecommendationService, TodayRecommendationService>();
 builder.Services.AddScoped<YukuJapanRecommendationImportService>();
+builder.Services.AddScoped<TripWorkbookImportService>();
 builder.Services.AddSingleton<TravelAssistantTelemetry>();
 builder.Services.AddSingleton<ITravelChatIntentClassifier, TravelChatIntentClassifier>();
 builder.Services.AddSingleton<ITravelAiModelClient, OpenAiTravelModelClient>();

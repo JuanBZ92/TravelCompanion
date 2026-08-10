@@ -91,6 +91,31 @@ internal static class MobilePayloadNormalizer
         };
     }
 
+    public static TodayDto? Normalize(TodayDto? today)
+    {
+        if (today is null)
+        {
+            return null;
+        }
+
+        return today with
+        {
+            Sections = today.Sections?.Select(section => section with
+            {
+                PeriodKey = section.PeriodKey ?? string.Empty,
+                Title = section.Title ?? string.Empty,
+                Description = section.Description ?? string.Empty,
+                Reservations = section.Reservations ?? [],
+                Recommendations = section.Recommendations?.Select(recommendation => recommendation with
+                {
+                    Recommendation = Normalize(recommendation.Recommendation),
+                    RankReason = recommendation.RankReason ?? string.Empty,
+                    SuggestedForPeriod = recommendation.SuggestedForPeriod ?? string.Empty
+                }).ToList() ?? []
+            }).ToList() ?? []
+        };
+    }
+
     private static RecommendationDto Normalize(RecommendationDto recommendation)
     {
         return recommendation with

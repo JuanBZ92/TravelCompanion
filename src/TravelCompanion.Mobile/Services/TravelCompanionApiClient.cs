@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Net.Http.Json;
 using System.Net.Http.Headers;
 using System.Text.Json;
@@ -209,6 +210,49 @@ public sealed class TravelCompanionApiClient
         return MobilePayloadNormalizer.Normalize(discover);
     }
 
+    public async Task<TodayDto?> GetMobileTodayAsync(
+        string token,
+        DateOnly? date = null,
+        GeoPointDto? currentLocation = null,
+        CancellationToken cancellationToken = default)
+    {
+        var query = new List<string>();
+        if (date.HasValue)
+        {
+            query.Add($"date={Uri.EscapeDataString(date.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture))}");
+        }
+
+        if (currentLocation is not null)
+        {
+            query.Add($"latitude={currentLocation.Latitude.ToString(CultureInfo.InvariantCulture)}");
+            query.Add($"longitude={currentLocation.Longitude.ToString(CultureInfo.InvariantCulture)}");
+        }
+
+        var url = query.Count == 0
+            ? "api/mobile/today"
+            : $"api/mobile/today?{string.Join('&', query)}";
+
+        using var request = CreateAuthorizedRequest(HttpMethod.Get, url, token);
+        using var response = await _httpClient.SendAsync(
+            request,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken).ConfigureAwait(false);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning(
+                "Mobile today request failed with {StatusCode}.",
+                (int)response.StatusCode);
+            return null;
+        }
+
+        var today = await response.Content
+            .ReadFromJsonAsync<TodayDto>(JsonOptions, cancellationToken)
+            .ConfigureAwait(false);
+
+        return MobilePayloadNormalizer.Normalize(today);
+    }
+
     public async Task<TravelDocsDto?> GetTravelDocsAsync(
         string token,
         CancellationToken cancellationToken = default)
@@ -323,6 +367,34 @@ public sealed class TravelCompanionApiClient
 
         return await response.Content
             .ReadFromJsonAsync<TravelAssistantFeedbackResponse>(JsonOptions, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    public async Task<RecommendationSignalResponse?> SendRecommendationSignalAsync(
+        string token,
+        Guid recommendationId,
+        RecommendationSignalRequest signalRequest,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateAuthorizedRequest(
+            HttpMethod.Post,
+            $"api/mobile/recommendations/{recommendationId}/signals",
+            token);
+        request.Content = JsonContent.Create(signalRequest, options: JsonOptions);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning(
+                "Recommendation signal request failed with {StatusCode}. RecommendationId={RecommendationId}; Signal={Signal}.",
+                (int)response.StatusCode,
+                recommendationId,
+                signalRequest.Signal);
+            return null;
+        }
+
+        return await response.Content
+            .ReadFromJsonAsync<RecommendationSignalResponse>(JsonOptions, cancellationToken)
             .ConfigureAwait(false);
     }
 

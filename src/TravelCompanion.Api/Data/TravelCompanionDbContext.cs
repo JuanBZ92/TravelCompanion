@@ -18,6 +18,7 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
     public DbSet<TravelPreferenceProfile> TravelPreferenceProfiles => Set<TravelPreferenceProfile>();
     public DbSet<TravelChatConversation> TravelChatConversations => Set<TravelChatConversation>();
     public DbSet<TravelAssistantFeedback> TravelAssistantFeedbackItems => Set<TravelAssistantFeedback>();
+    public DbSet<RecommendationInteractionSignal> RecommendationInteractionSignals => Set<RecommendationInteractionSignal>();
     public DbSet<NotificationDeviceRegistration> NotificationDeviceRegistrations => Set<NotificationDeviceRegistration>();
     public DbSet<NotificationOutboxItem> NotificationOutboxItems => Set<NotificationOutboxItem>();
 
@@ -103,6 +104,7 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
             entity.HasIndex(reservation => new { reservation.TripId, reservation.ExternalId }).IsUnique();
             entity.HasIndex(reservation => new { reservation.TripId, reservation.Date, reservation.StartsAt });
             entity.HasIndex(reservation => new { reservation.TripId, reservation.Type, reservation.Date, reservation.StartsAt });
+            entity.HasIndex(reservation => new { reservation.TripId, reservation.RecommendationId });
             entity.Property(reservation => reservation.ExternalId).HasMaxLength(160);
             entity.Property(reservation => reservation.Type)
                 .HasConversion<string>()
@@ -121,6 +123,10 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
             entity.Property(reservation => reservation.DestinationAirport).HasMaxLength(80);
             entity.Property(reservation => reservation.SourceName).HasMaxLength(160);
             entity.Property(reservation => reservation.SourceUrl).HasMaxLength(512);
+            entity.HasOne(reservation => reservation.Recommendation)
+                .WithMany()
+                .HasForeignKey(reservation => reservation.RecommendationId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<TravelDocument>(entity =>
@@ -217,6 +223,34 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
             entity.HasOne(feedback => feedback.Recommendation)
                 .WithMany()
                 .HasForeignKey(feedback => feedback.RecommendationId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<RecommendationInteractionSignal>(entity =>
+        {
+            entity.HasKey(signal => signal.Id);
+            entity.HasIndex(signal => new { signal.UserId, signal.CreatedAtUtc });
+            entity.HasIndex(signal => new { signal.UserId, signal.TripId, signal.RecommendationId, signal.Signal });
+            entity.HasIndex(signal => new { signal.RecommendationId, signal.Signal });
+            entity.Property(signal => signal.Signal)
+                .HasConversion<string>()
+                .HasMaxLength(32);
+            entity.Property(signal => signal.Source).HasMaxLength(80);
+            entity.Property(signal => signal.Latitude).HasPrecision(9, 6);
+            entity.Property(signal => signal.Longitude).HasPrecision(9, 6);
+            entity.Property(signal => signal.DistanceMeters).HasPrecision(10, 2);
+            entity.Property(signal => signal.Confidence).HasPrecision(5, 4);
+            entity.HasOne(signal => signal.User)
+                .WithMany()
+                .HasForeignKey(signal => signal.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(signal => signal.Trip)
+                .WithMany()
+                .HasForeignKey(signal => signal.TripId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(signal => signal.Recommendation)
+                .WithMany()
+                .HasForeignKey(signal => signal.RecommendationId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 

@@ -1,0 +1,207 @@
+@page "/admin/import/trip"
+@model TravelCompanion.Api.Pages.Admin.TripImportModel
+@{
+    ViewData["Title"] = "Import viaje";
+}
+
+<div class="page-heading">
+    <div>
+        <h1>Import viaje</h1>
+        <p class="lede">Crea o actualiza un viaje por PIN con bloques curatoriales y locations vinculadas a recommendations.</p>
+    </div>
+    <span class="eyebrow">Planner</span>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
+{
+    <section class="notice">
+        <strong>@Model.StatusMessage</strong>
+    </section>
+}
+
+<section class="panel">
+    <div class="section-header">
+        <div>
+            <h2>Template simple</h2>
+            <p class="form-hint">Una sola hoja visible: Crear viaje. Las hojas ocultas contienen catalogos y validaciones para dropdowns.</p>
+        </div>
+        <div class="actions" style="margin-top: 0;">
+            <a asp-page-handler="Template" class="button secondary">Descargar template de viaje</a>
+            <a asp-page-handler="Example" class="button secondary">Descargar ejemplo 18 dias</a>
+        </div>
+    </div>
+    <p class="form-hint">
+        Completa PIN, cliente, fechas, ciudad por dia y los bloques que quieras curar. Si un bloque queda vacio/autofill, Today lo completa con 1 a 3 recomendaciones automaticas.
+    </p>
+</section>
+
+<section class="panel" style="margin-top: 18px;">
+    <div class="section-header">
+        <div>
+            <h2>Subir Excel</h2>
+            <p class="form-hint">El preview no guarda datos. Confirmar import reemplaza solo las reservas creadas antes por este import, sin tocar reservas manuales.</p>
+        </div>
+        <span class="badge">Idempotente</span>
+    </div>
+
+    <form method="post" enctype="multipart/form-data">
+        <div asp-validation-summary="All"></div>
+        <input type="hidden" asp-for="PreviewWorkbookBase64" />
+        <div class="form-grid">
+            <div>
+                <label asp-for="Workbook" class="required">Archivo .xlsx</label>
+                <input asp-for="Workbook" type="file" accept=".xlsx" />
+                <span asp-validation-for="Workbook"></span>
+            </div>
+        </div>
+        <div class="actions">
+            <button type="submit" asp-page-handler="Preview">Preview</button>
+            @if (Model.ImportResult?.CanImport == true || !string.IsNullOrWhiteSpace(Model.PreviewWorkbookBase64))
+            {
+                <button type="submit" asp-page-handler="Import" class="secondary">Confirmar import</button>
+            }
+        </div>
+    </form>
+</section>
+
+@if (Model.ImportResult is not null)
+{
+    <section class="panel" style="margin-top: 18px;">
+        <div class="section-header">
+            <div>
+                <h2>Resultado</h2>
+                <p class="form-hint">@Model.ImportResult.StatusMessage</p>
+                @if (!string.IsNullOrWhiteSpace(Model.ImportResult.TripExternalId))
+                {
+                    <p class="form-hint">
+                        <span class="mono">@Model.ImportResult.TripExternalId</span>
+                        @if (!string.IsNullOrWhiteSpace(Model.ImportResult.TravelerName))
+                        {
+                            <span> · @Model.ImportResult.TravelerName</span>
+                        }
+                    </p>
+                }
+            </div>
+            <div class="chip-list">
+                <span class="chip subtle">@Model.ImportResult.TotalRows filas</span>
+                <span class="chip subtle">@Model.ImportResult.ValidRows validas</span>
+                <span class="chip subtle">@Model.ImportResult.AutofillRows autofill</span>
+                <span class="chip subtle">@Model.ImportResult.WarningCount warnings</span>
+            </div>
+        </div>
+
+        @if (Model.ImportResult.Errors.Count > 0)
+        {
+            <div class="validation-summary-errors">
+                <strong>Errores</strong>
+                <ul>
+                    @foreach (var error in Model.ImportResult.Errors.Take(20))
+                    {
+                        <li>@error</li>
+                    }
+                </ul>
+                @if (Model.ImportResult.Errors.Count > 20)
+                {
+                    <p>Hay @(Model.ImportResult.Errors.Count - 20) errores mas.</p>
+                }
+            </div>
+        }
+
+        @if (Model.ImportResult.HasRows)
+        {
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Fila</th>
+                            <th>Dia</th>
+                            <th>Bloque</th>
+                            <th>Locations</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var row in Model.ImportResult.Rows.Take(120))
+                    {
+                        <tr>
+                            <td><span class="mono">@row.RowNumber</span></td>
+                            <td>
+                                <strong>@row.Day</strong><br />
+                                <span class="muted">@row.Date.ToString("yyyy-MM-dd")</span><br />
+                                <span class="muted">@row.City</span>
+                                @if (!string.IsNullOrWhiteSpace(row.HotelBase))
+                                {
+                                    <br />
+                                    <span class="mono">@row.HotelBase</span>
+                                }
+                            </td>
+                            <td>
+                                <span class="badge">@row.Moment</span>
+                                @if (row.IsReservation)
+                                {
+                                    <span class="badge">Reserva</span>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(row.Time))
+                                {
+                                    <br />
+                                    <span class="mono">@row.Time</span>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(row.CuratedDescription))
+                                {
+                                    <p class="form-hint">@row.CuratedDescription</p>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(row.Notes))
+                                {
+                                    <p class="form-hint">@row.Notes</p>
+                                }
+                            </td>
+                            <td>
+                                @if (row.LocationMatches.Count == 0)
+                                {
+                                    <span class="muted">Sin locations</span>
+                                }
+                                else
+                                {
+                                    @foreach (var match in row.LocationMatches)
+                                    {
+                                        <div style="margin-bottom: 8px;">
+                                            <strong>@match.Input</strong><br />
+                                            @if (match.RecommendationId.HasValue)
+                                            {
+                                                <span class="mono">@match.RecommendationId</span><br />
+                                                <span class="muted">@match.Title · @match.City</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="alert" style="display: inline-block; margin: 4px 0 0;">Sin match</span>
+                                            }
+                                        </div>
+                                    }
+                                }
+                            </td>
+                            <td>
+                                @if (row.IsAutofill)
+                                {
+                                    <span class="chip subtle">Autofill</span>
+                                }
+                                else if (row.IsValid)
+                                {
+                                    <span class="chip">OK</span>
+                                }
+                                @foreach (var warning in row.Warnings)
+                                {
+                                    <div class="alert" style="margin: 6px 0 0;">@warning</div>
+                                }
+                                @foreach (var error in row.Errors)
+                                {
+                                    <div class="validation-summary-errors" style="margin: 6px 0 0;">@error</div>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+}

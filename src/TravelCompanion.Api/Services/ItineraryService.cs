@@ -46,9 +46,12 @@ public sealed class ItineraryService(TravelCompanionDbContext dbContext) : IItin
 
         var existingReservation = trip.Reservations.FirstOrDefault(reservation =>
             reservation.Date == request.Date
-            && string.Equals(reservation.Title, recommendation.Title, StringComparison.OrdinalIgnoreCase));
+            && (reservation.RecommendationId == recommendation.Id
+                || string.Equals(reservation.Title, recommendation.Title, StringComparison.OrdinalIgnoreCase)));
         if (existingReservation is not null)
         {
+            dbContext.RecommendationInteractionSignals.Add(CreateSavedSignal(user, trip.Id, recommendation.Id));
+            await dbContext.SaveChangesAsync(cancellationToken);
             return new SaveItineraryItemResponse(
                 true,
                 "Ese plan ya estaba guardado en tu itinerario.",
@@ -61,6 +64,7 @@ public sealed class ItineraryService(TravelCompanionDbContext dbContext) : IItin
         {
             Id = Guid.NewGuid(),
             TripId = trip.Id,
+            RecommendationId = recommendation.Id,
             Type = ReservationType.Event,
             Date = request.Date,
             StartsAt = request.StartsAt,
@@ -74,6 +78,7 @@ public sealed class ItineraryService(TravelCompanionDbContext dbContext) : IItin
         };
 
         dbContext.Reservations.Add(reservation);
+        dbContext.RecommendationInteractionSignals.Add(CreateSavedSignal(user, trip.Id, recommendation.Id));
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return new SaveItineraryItemResponse(
@@ -136,6 +141,7 @@ public sealed class ItineraryService(TravelCompanionDbContext dbContext) : IItin
     {
         return new ScheduleItemDto(
             reservation.Id,
+            reservation.RecommendationId,
             reservation.Type,
             reservation.Date,
             reservation.StartsAt,
@@ -154,4 +160,20 @@ public sealed class ItineraryService(TravelCompanionDbContext dbContext) : IItin
             reservation.OriginAirport,
             reservation.DestinationAirport);
     }
+
+    private static RecommendationInteractionSignal CreateSavedSignal(
+        AppUser user,
+        Guid tripId,
+        Guid recommendationId) =>
+        new()
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            TripId = tripId,
+            RecommendationId = recommendationId,
+            Signal = RecommendationSignal.Saved,
+            Source = "assistant_save_itinerary",
+            OccurredAtUtc = DateTimeOffset.UtcNow,
+            CreatedAtUtc = DateTimeOffset.UtcNow
+        };
 }

@@ -57,6 +57,7 @@ public sealed class TripsController(
                 .ThenBy(reservation => reservation.StartsAt)
                 .Select(reservation => new ScheduleItemDto(
                     reservation.Id,
+                    reservation.RecommendationId,
                     reservation.Type,
                     reservation.Date,
                     reservation.StartsAt,

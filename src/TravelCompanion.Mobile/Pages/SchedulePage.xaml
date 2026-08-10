@@ -224,6 +224,31 @@
                                                                        FontSize="12"
                                                                        TextColor="#6E675F"
                                                                        IsVisible="{Binding HasDistance}" />
+                                                                <Label Text="{Binding RankReason}"
+                                                                       FontSize="12"
+                                                                       TextColor="#6E675F"
+                                                                       IsVisible="{Binding HasRankReason}" />
+                                                                <Label Text="{Binding VisitStatusLabel}"
+                                                                       FontSize="11"
+                                                                       FontAttributes="Bold"
+                                                                       CharacterSpacing="2"
+                                                                       TextColor="#8A6F43"
+                                                                       IsVisible="{Binding HasVisitStatus}" />
+                                                                <HorizontalStackLayout Spacing="8"
+                                                                                       Margin="0,4,0,0">
+                                                                    <Button Text="Ya fui"
+                                                                            Clicked="OnTodayLocationVisitedClicked"
+                                                                            Style="{StaticResource GhostButton}"
+                                                                            FontSize="11"
+                                                                            Padding="10,6"
+                                                                            MinimumHeightRequest="30" />
+                                                                    <Button Text="No mostrar hoy"
+                                                                            Clicked="OnTodayLocationDismissClicked"
+                                                                            Style="{StaticResource GhostButton}"
+                                                                            FontSize="11"
+                                                                            Padding="10,6"
+                                                                            MinimumHeightRequest="30" />
+                                                                </HorizontalStackLayout>
                                                             </VerticalStackLayout>
                                                             <Label Grid.Column="1"
                                                                    Text="MAP"

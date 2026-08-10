@@ -24,6 +24,7 @@ public sealed class TodayLocationViewModel
     public TodayLocationViewModel(RecommendationDto recommendation, decimal? distanceKm)
     {
         Recommendation = recommendation;
+        DistanceKm = distanceKm;
         Title = recommendation.Title;
         Detail = string.IsNullOrWhiteSpace(recommendation.Neighborhood)
             ? recommendation.Category
@@ -31,13 +32,29 @@ public sealed class TodayLocationViewModel
         DistanceLabel = distanceKm.HasValue
             ? $"{distanceKm.Value:0.0} km desde tu ubicacion"
             : string.Empty;
+        RankReason = string.Empty;
+        VisitStatusLabel = string.Empty;
+    }
+
+    public TodayLocationViewModel(TodayRecommendationDto todayRecommendation)
+        : this(todayRecommendation.Recommendation, todayRecommendation.DistanceKm)
+    {
+        RankReason = todayRecommendation.RankReason;
+        VisitStatusLabel = todayRecommendation.VisitStatusLabel ?? string.Empty;
+        IsVisited = todayRecommendation.IsVisited;
     }
 
     public RecommendationDto Recommendation { get; }
+    public decimal? DistanceKm { get; }
     public string Title { get; }
     public string Detail { get; }
     public string DistanceLabel { get; }
+    public string RankReason { get; }
+    public string VisitStatusLabel { get; }
+    public bool IsVisited { get; }
     public bool HasDistance => !string.IsNullOrWhiteSpace(DistanceLabel);
+    public bool HasRankReason => !string.IsNullOrWhiteSpace(RankReason);
+    public bool HasVisitStatus => !string.IsNullOrWhiteSpace(VisitStatusLabel);
 }
 
 public sealed class TodayReservationViewModel

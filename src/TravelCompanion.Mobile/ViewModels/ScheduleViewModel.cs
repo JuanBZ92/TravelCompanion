@@ -15,6 +15,8 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     private const string AllCitiesKey = "All Cities";
     private readonly AuthSessionService _sessionService;
     private readonly MobileBootstrapStore _bootstrapStore;
+    private readonly MobileTodayStore _todayStore;
+    private readonly TravelCompanionApiClient _apiClient;
     private readonly ILocationService _locationService;
     private readonly ILogger<ScheduleViewModel> _logger;
     private readonly List<ScheduleItemDto> _allItems = [];
@@ -31,12 +33,14 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     private string? _stayTitle;
     private ScheduleItemDto? _selectedItem;
     private ScheduleItemDto? _focusItem;
+    private TodayDto? _today;
     private ScheduleTypeSectionViewModel? _activeSection;
     private IReadOnlyList<ScheduleDayViewModel> _activeDays = [];
     private IReadOnlyList<ScheduleTimelineItemViewModel> _selectedTimelineItems = [];
     private IReadOnlyList<ScheduleTodaySectionViewModel> _todaySections = [];
     private GeoPointDto? _currentLocation;
     private bool _hasRequestedLocation;
+    private readonly HashSet<Guid> _nearbyVisitPrompts = [];
 
     public ObservableCollection<ScheduleTypeSectionViewModel> TypeSections { get; } = [];
     public ObservableCollection<ScheduleTypeFilterViewModel> TypeFilters { get; } = [];
@@ -101,11 +105,15 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     public ScheduleViewModel(
         AuthSessionService sessionService,
         MobileBootstrapStore bootstrapStore,
+        MobileTodayStore todayStore,
+        TravelCompanionApiClient apiClient,
         ILocationService locationService,
         ILogger<ScheduleViewModel> logger)
     {
         _sessionService = sessionService;
         _bootstrapStore = bootstrapStore;
+        _todayStore = todayStore;
+        _apiClient = apiClient;
         _locationService = locationService;
         _logger = logger;
         _bootstrapStore.ScheduleUpdated += OnScheduleCacheUpdated;
@@ -151,8 +159,10 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         PreviewMessage = null;
         StayTitle = null;
         _focusItem = null;
+        _today = null;
         _currentLocation = null;
         _hasRequestedLocation = false;
+        _nearbyVisitPrompts.Clear();
         TripTitle = "Your Trip";
         TripDates = null;
         SelectedItem = null;
@@ -296,7 +306,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     }
 
     [RelayCommand]
-    private void SelectDay(ScheduleDayFilterViewModel? day)
+    private async Task SelectDayAsync(ScheduleDayFilterViewModel? day)
     {
         if (day is null || _selectedDate == day.Date)
         {
@@ -313,6 +323,12 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
             stopwatch.Elapsed.TotalMilliseconds,
             day.Date,
             SelectedTimelineItems.Count);
+
+        var token = await _sessionService.GetTokenAsync();
+        if (!string.IsNullOrWhiteSpace(token))
+        {
+            await LoadTodayForSelectedDateAsync(token, forceRefresh: false, cancellationToken: default);
+        }
     }
 
     private async Task LoadScheduleLocalFirstAsync(
@@ -320,11 +336,17 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         bool forceRefresh,
         CancellationToken cancellationToken = default)
     {
+        if (forceRefresh)
+        {
+            _hasRequestedLocation = false;
+        }
+
         var cached = await _bootstrapStore.GetCachedAsync(cancellationToken: cancellationToken);
         if (cached is not null)
         {
             ApplyBootstrapSchedule(cached.Value);
             await UpdateLocationAsync(cancellationToken);
+            await LoadTodayForSelectedDateAsync(token, forceRefresh, cancellationToken);
             MarkLastUpdated(cached.SavedAt);
 
             if (!forceRefresh && _bootstrapStore.HasFreshSnapshot())
@@ -350,6 +372,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
 
             ApplyBootstrapSchedule(bootstrap);
             await UpdateLocationAsync(cancellationToken);
+            await LoadTodayForSelectedDateAsync(token, forceRefresh: true, cancellationToken);
             MarkLastUpdated(DateTimeOffset.UtcNow);
             StatusMessage = null;
         }
@@ -362,6 +385,57 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
 
             StatusMessage = $"Render puede estar despertando. Mostrando itinerario guardado. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
         }
+    }
+
+    private async Task LoadTodayForSelectedDateAsync(
+        string token,
+        bool forceRefresh,
+        CancellationToken cancellationToken)
+    {
+        if (!_selectedDate.HasValue)
+        {
+            return;
+        }
+
+        var selectedDate = _selectedDate.Value;
+        var cached = await _todayStore.GetCachedAsync(selectedDate, cancellationToken);
+        if (cached is not null)
+        {
+            ApplyToday(cached.Value);
+        }
+
+        if (!forceRefresh && _todayStore.HasFreshSnapshot(selectedDate))
+        {
+            await PromptForNearbyVisitAsync(token, cancellationToken);
+            return;
+        }
+
+        try
+        {
+            var today = await _todayStore.RefreshAsync(
+                token,
+                selectedDate,
+                _currentLocation,
+                cancellationToken);
+            if (today is not null)
+            {
+                ApplyToday(today);
+                await PromptForNearbyVisitAsync(token, cancellationToken);
+            }
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
+        {
+            if (cached is not null)
+            {
+                StatusMessage = $"Render puede estar despertando. Mostrando Today guardado. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
+            }
+        }
+    }
+
+    private void ApplyToday(TodayDto today)
+    {
+        _today = today;
+        RebuildSelectedDay();
     }
 
     private void ApplyBootstrapSchedule(MobileBootstrapDto bootstrap)
@@ -483,7 +557,9 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         var dayNumber = _tripStartsOn.HasValue
             ? selectedDate.DayNumber - _tripStartsOn.Value.DayNumber + 1
             : 1;
-        TodaySections = BuildTodaySections(selectedDate, dayNumber, selectedItems);
+        TodaySections = _today is not null && _today.Date == selectedDate
+            ? BuildTodaySections(_today, dayNumber)
+            : BuildTodaySections(selectedDate, dayNumber, selectedItems);
         SelectedTimelineItems = selectedItems
             .Select(item => new ScheduleTimelineItemViewModel(item, dayNumber))
             .ToList();
@@ -509,6 +585,142 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
                 ["Recommendation"] = recommendation,
                 ["IsUnlocked"] = true
             });
+    }
+
+    [RelayCommand]
+    private async Task MarkLocationVisitedAsync(TodayLocationViewModel? location)
+    {
+        if (location is null)
+        {
+            return;
+        }
+
+        var confirmed = await Shell.Current.DisplayAlertAsync(
+            "Marcar visitado",
+            $"Marcamos {location.Title} como visitado para bajarlo de prioridad?",
+            "Si",
+            "No");
+        if (!confirmed)
+        {
+            return;
+        }
+
+        await RecordRecommendationSignalAsync(
+            location,
+            RecommendationSignal.VisitedConfirmed,
+            "today_manual");
+    }
+
+    [RelayCommand]
+    private async Task DismissLocationAsync(TodayLocationViewModel? location)
+    {
+        if (location is null)
+        {
+            return;
+        }
+
+        await RecordRecommendationSignalAsync(
+            location,
+            RecommendationSignal.Dismissed,
+            "today_dismiss");
+    }
+
+    private async Task RecordRecommendationSignalAsync(
+        TodayLocationViewModel location,
+        RecommendationSignal signal,
+        string source)
+    {
+        var token = await _sessionService.GetTokenAsync();
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return;
+        }
+
+        var response = await _apiClient.SendRecommendationSignalAsync(
+            token,
+            location.Recommendation.Id,
+            new RecommendationSignalRequest(
+                signal,
+                source,
+                _currentLocation?.Latitude,
+                _currentLocation?.Longitude,
+                location.DistanceKm.HasValue ? location.DistanceKm.Value * 1000 : null,
+                signal == RecommendationSignal.VisitedConfirmed ? 0.85m : null,
+                DateTimeOffset.UtcNow));
+
+        if (response?.Accepted == true)
+        {
+            StatusMessage = response.Message;
+            await LoadTodayForSelectedDateAsync(token, forceRefresh: true, cancellationToken: default);
+        }
+        else
+        {
+            StatusMessage = "No pude registrar la accion. Probalo de nuevo cuando la API responda.";
+        }
+    }
+
+    private async Task PromptForNearbyVisitAsync(
+        string token,
+        CancellationToken cancellationToken)
+    {
+        if (_today is null || _currentLocation is null)
+        {
+            return;
+        }
+
+        var nearby = _today.Sections
+            .SelectMany(section => section.Recommendations)
+            .Where(recommendation => !recommendation.IsVisited)
+            .Where(recommendation => recommendation.DistanceKm is <= 0.1m)
+            .OrderBy(recommendation => recommendation.DistanceKm)
+            .FirstOrDefault(recommendation => _nearbyVisitPrompts.Add(recommendation.Recommendation.Id));
+        if (nearby is null)
+        {
+            return;
+        }
+
+        var confirmed = await Shell.Current.DisplayAlertAsync(
+            "Estas cerca",
+            $"Parece que estas cerca de {nearby.Recommendation.Title}. Lo marcamos como visitado?",
+            "Si",
+            "No");
+        if (!confirmed)
+        {
+            return;
+        }
+
+        await _apiClient.SendRecommendationSignalAsync(
+            token,
+            nearby.Recommendation.Id,
+            new RecommendationSignalRequest(
+                RecommendationSignal.VisitedConfirmed,
+                "today_nearby_confirmation",
+                _currentLocation.Latitude,
+                _currentLocation.Longitude,
+                nearby.DistanceKm.HasValue ? nearby.DistanceKm.Value * 1000 : null,
+                0.9m,
+                DateTimeOffset.UtcNow),
+            cancellationToken);
+        await LoadTodayForSelectedDateAsync(token, forceRefresh: true, cancellationToken);
+    }
+
+    private static IReadOnlyList<ScheduleTodaySectionViewModel> BuildTodaySections(
+        TodayDto today,
+        int dayNumber)
+    {
+        return today.Sections
+            .Select(section => new ScheduleTodaySectionViewModel(
+                dayNumber,
+                section.Title,
+                section.Description,
+                section.Recommendations
+                    .Select(recommendation => new TodayLocationViewModel(recommendation))
+                    .ToList(),
+                section.Reservations
+                    .OrderBy(reservation => reservation.StartsAt)
+                    .Select(reservation => new TodayReservationViewModel(reservation))
+                    .ToList()))
+            .ToList();
     }
 
     private IReadOnlyList<ScheduleTodaySectionViewModel> BuildTodaySections(
@@ -943,6 +1155,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
 
     private void OnScheduleCacheUpdated(object? sender, ScheduleCacheUpdatedEventArgs e)
     {
+        _today = null;
         ApplySchedule(e.Schedule);
         MarkLastUpdated(e.SavedAt);
         StatusMessage = "Itinerario actualizado.";

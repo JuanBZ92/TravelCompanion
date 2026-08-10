@@ -19,6 +19,7 @@ public sealed class ReservationsModel(
     public List<SelectListItem> TripOptions { get; private set; } = [];
     public List<SelectListItem> UserOptions { get; private set; } = [];
     public List<SelectListItem> DestinationOptions { get; private set; } = [];
+    public List<SelectListItem> RecommendationOptions { get; private set; } = [];
     public List<SelectListItem> TypeOptions { get; } =
     [
         new("Evento", ReservationType.Event.ToString()),
@@ -143,6 +144,8 @@ public sealed class ReservationsModel(
         {
             ModelState.AddModelError($"{nameof(Input)}.{nameof(Input.TripId)}", "Selecciona un viaje.");
         }
+
+        await ApplyRecommendationDefaultsAsync();
 
         if (string.IsNullOrWhiteSpace(Input.Title))
         {
@@ -274,6 +277,17 @@ public sealed class ReservationsModel(
             .Select(destination => new SelectListItem(destination.Name, destination.Id.ToString()))
             .ToListAsync();
 
+        RecommendationOptions = await dbContext.Recommendations
+            .AsNoTracking()
+            .Include(recommendation => recommendation.Destination)
+            .OrderBy(recommendation => recommendation.Destination != null ? recommendation.Destination.Name : string.Empty)
+            .ThenBy(recommendation => recommendation.Title)
+            .Select(recommendation => new SelectListItem(
+                $"{recommendation.Title} - {recommendation.Category} ({(recommendation.Destination != null ? recommendation.Destination.Name : "Unknown")})",
+                recommendation.Id.ToString()))
+            .ToListAsync();
+        RecommendationOptions.Insert(0, new SelectListItem("Sin recomendacion vinculada", string.Empty));
+
         TripOptions = await dbContext.Trips
             .AsNoTracking()
             .Include(trip => trip.Destination)
@@ -305,6 +319,7 @@ public sealed class ReservationsModel(
 
         var reservationsQuery = dbContext.Reservations
             .AsNoTracking()
+            .Include(reservation => reservation.Recommendation)
             .Include(reservation => reservation.Trip)
                 .ThenInclude(trip => trip!.Destination)
             .Include(reservation => reservation.Trip)
@@ -342,7 +357,8 @@ public sealed class ReservationsModel(
                 reservation.DestinationName,
                 reservation.OriginAirport,
                 reservation.DestinationAirport,
-                reservation.SourceName))
+                reservation.SourceName,
+                reservation.Recommendation != null ? reservation.Recommendation.Title : null))
             .ToListAsync();
     }
 
@@ -460,6 +476,74 @@ public sealed class ReservationsModel(
         ModelState.Remove($"{nameof(TripInput)}.{nameof(TripInput.TimeZoneId)}");
     }
 
+    private async Task ApplyRecommendationDefaultsAsync()
+    {
+        if (!Input.RecommendationId.HasValue)
+        {
+            return;
+        }
+
+        var recommendation = await dbContext.Recommendations
+            .AsNoTracking()
+            .Include(existing => existing.Destination)
+            .FirstOrDefaultAsync(existing => existing.Id == Input.RecommendationId.Value);
+        if (recommendation is null)
+        {
+            ModelState.AddModelError($"{nameof(Input)}.{nameof(Input.RecommendationId)}", "Selecciona una recomendacion valida.");
+            return;
+        }
+
+        var tripDestinationId = await dbContext.Trips
+            .AsNoTracking()
+            .Where(trip => trip.Id == Input.TripId)
+            .Select(trip => (Guid?)trip.DestinationId)
+            .FirstOrDefaultAsync();
+        if (tripDestinationId.HasValue && tripDestinationId.Value != recommendation.DestinationId)
+        {
+            ModelState.AddModelError($"{nameof(Input)}.{nameof(Input.RecommendationId)}", "La recomendacion debe pertenecer al destino del viaje.");
+            return;
+        }
+
+        Input.Type = ReservationType.Event;
+        if (string.IsNullOrWhiteSpace(Input.Title))
+        {
+            Input.Title = recommendation.Title;
+            ModelState.Remove($"{nameof(Input)}.{nameof(Input.Title)}");
+        }
+
+        if (string.IsNullOrWhiteSpace(Input.City))
+        {
+            Input.City = ResolveCity(recommendation);
+            ModelState.Remove($"{nameof(Input)}.{nameof(Input.City)}");
+        }
+
+        if (string.IsNullOrWhiteSpace(Input.LocationName))
+        {
+            Input.LocationName = recommendation.Title;
+            ModelState.Remove($"{nameof(Input)}.{nameof(Input.LocationName)}");
+        }
+
+        if (string.IsNullOrWhiteSpace(Input.Address))
+        {
+            Input.Address = recommendation.Neighborhood;
+        }
+
+        if (!Input.EndsAt.HasValue && recommendation.SuggestedDurationMinutes > 0)
+        {
+            Input.EndsAt = Input.StartsAt.AddMinutes(recommendation.SuggestedDurationMinutes);
+        }
+
+        if (string.IsNullOrWhiteSpace(Input.SourceName))
+        {
+            Input.SourceName = recommendation.SourceName;
+        }
+
+        if (string.IsNullOrWhiteSpace(Input.SourceUrl))
+        {
+            Input.SourceUrl = recommendation.SourceUrl;
+        }
+    }
+
     private string GetDisplayNameFromUserOption(Guid userId)
     {
         if (userId == Guid.Empty)
@@ -484,6 +568,15 @@ public sealed class ReservationsModel(
         return string.IsNullOrWhiteSpace(value)
             ? string.Empty
             : value.Trim();
+    }
+
+    private static string ResolveCity(Recommendation recommendation)
+    {
+        var parts = recommendation.Neighborhood
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return parts.FirstOrDefault(part => !string.IsNullOrWhiteSpace(part))
+            ?? recommendation.Destination?.Name
+            ?? "Destino";
     }
 
     public sealed record TripRow(
@@ -519,7 +612,8 @@ public sealed class ReservationsModel(
         string? DestinationName,
         string? OriginAirport,
         string? DestinationAirport,
-        string? SourceName)
+        string? SourceName,
+        string? RecommendationTitle)
     {
         public string TypeLabel => Type switch
         {
@@ -531,6 +625,8 @@ public sealed class ReservationsModel(
         public string PlaceLabel => Type == ReservationType.Flight
             ? $"{OriginName} -> {DestinationName}"
             : LocationName;
+
+        public bool HasRecommendation => !string.IsNullOrWhiteSpace(RecommendationTitle);
     }
 
     public sealed class ReservationInput
@@ -542,6 +638,8 @@ public sealed class ReservationsModel(
 
         [Required(ErrorMessage = "Selecciona un viaje.")]
         public Guid TripId { get; set; }
+
+        public Guid? RecommendationId { get; set; }
 
         [Required(ErrorMessage = "Selecciona un tipo.")]
         public ReservationType Type { get; set; } = ReservationType.Event;
@@ -609,6 +707,7 @@ public sealed class ReservationsModel(
                 Id = reservation.Id,
                 ExternalId = reservation.ExternalId,
                 TripId = reservation.TripId,
+                RecommendationId = reservation.RecommendationId,
                 Type = reservation.Type,
                 Date = reservation.Date,
                 StartsAt = reservation.StartsAt,
@@ -636,6 +735,7 @@ public sealed class ReservationsModel(
         {
             reservation.ExternalId = NormalizeOptional(ExternalId);
             reservation.TripId = TripId;
+            reservation.RecommendationId = RecommendationId;
             reservation.Type = Type;
             reservation.Date = Date;
             reservation.StartsAt = StartsAt;

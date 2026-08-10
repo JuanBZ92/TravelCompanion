@@ -161,6 +161,12 @@
                 <span asp-validation-for="Input.Type"></span>
             </div>
             <div>
+                <label asp-for="Input.RecommendationId">Recomendacion vinculada <span class="muted">(opcional)</span></label>
+                <select asp-for="Input.RecommendationId" asp-items="Model.RecommendationOptions"></select>
+                <p class="form-hint">Usalo para planes curados asignados a un dia/hora. Today no volvera a proponerla en otro hueco.</p>
+                <span asp-validation-for="Input.RecommendationId"></span>
+            </div>
+            <div>
                 <label asp-for="Input.Date" class="required">Fecha</label>
                 <input asp-for="Input.Date" type="date" />
                 <span asp-validation-for="Input.Date"></span>
@@ -321,6 +327,12 @@
                     {
                         <br />
                         <span class="muted">@reservation.SourceName</span>
+                    }
+                    @if (reservation.HasRecommendation)
+                    {
+                        <br />
+                        <span class="badge">Recommendation</span>
+                        <span class="muted">@reservation.RecommendationTitle</span>
                     }
                 </td>
                 <td>@reservation.City</td>

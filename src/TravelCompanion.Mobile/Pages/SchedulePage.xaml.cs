@@ -87,7 +87,7 @@ public partial class SchedulePage : ContentPage
     {
         if ((sender as BindableObject)?.BindingContext is ScheduleDayFilterViewModel day)
         {
-            _viewModel.SelectDayCommand.Execute(day);
+            _viewModel.SelectDayCommand.ExecuteAsync(day);
         }
     }
 
@@ -120,6 +120,22 @@ public partial class SchedulePage : ContentPage
         if ((sender as BindableObject)?.BindingContext is TodayReservationViewModel reservation)
         {
             await _viewModel.OpenScheduleItemCommand.ExecuteAsync(reservation.Item);
+        }
+    }
+
+    private async void OnTodayLocationVisitedClicked(object? sender, EventArgs e)
+    {
+        if ((sender as BindableObject)?.BindingContext is TodayLocationViewModel location)
+        {
+            await _viewModel.MarkLocationVisitedCommand.ExecuteAsync(location);
+        }
+    }
+
+    private async void OnTodayLocationDismissClicked(object? sender, EventArgs e)
+    {
+        if ((sender as BindableObject)?.BindingContext is TodayLocationViewModel location)
+        {
+            await _viewModel.DismissLocationCommand.ExecuteAsync(location);
         }
     }
 }

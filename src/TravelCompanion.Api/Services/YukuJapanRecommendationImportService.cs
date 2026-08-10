@@ -14,7 +14,7 @@ public sealed partial class YukuJapanRecommendationImportService(
     ILogger<YukuJapanRecommendationImportService> logger)
 {
     private const string DestinationSlug = "japon";
-    private const string SourceName = "YUKU Japan verificada v1";
+    public const string SourceName = "YUKU Japan verificada v1";
 
     private static readonly string[] RequiredHeaders =
     [

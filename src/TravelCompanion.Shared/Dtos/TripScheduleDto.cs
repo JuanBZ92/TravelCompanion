@@ -12,6 +12,7 @@ public sealed record TripScheduleDto(
 
 public sealed record ScheduleItemDto(
     Guid Id,
+    Guid? RecommendationId,
     ReservationType Type,
     DateOnly Date,
     TimeOnly StartsAt,

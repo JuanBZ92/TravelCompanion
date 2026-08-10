@@ -8,6 +8,8 @@ public sealed class Reservation
     public string? ExternalId { get; set; }
     public Guid TripId { get; set; }
     public Trip? Trip { get; set; }
+    public Guid? RecommendationId { get; set; }
+    public Recommendation? Recommendation { get; set; }
     public ReservationType Type { get; set; } = ReservationType.Event;
     public DateOnly Date { get; set; }
     public TimeOnly StartsAt { get; set; }
