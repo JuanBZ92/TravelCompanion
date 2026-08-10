@@ -13,7 +13,10 @@ public static class TripPlanPeriods
     ];
 
     public static TripPlanPeriodDefinition Resolve(TimeOnly time) =>
-        All.First(period => time >= period.StartsAt && time <= period.EndsAt);
+        All
+            .OrderByDescending(period => period.StartsAt)
+            .FirstOrDefault(period => time >= period.StartsAt)
+        ?? All[0];
 
     public static TripPlanPeriodDefinition? Find(string key) =>
         All.FirstOrDefault(period => string.Equals(period.Key, key, StringComparison.OrdinalIgnoreCase));

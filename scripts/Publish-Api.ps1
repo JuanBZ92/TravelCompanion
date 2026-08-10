@@ -390,7 +390,29 @@ function Invoke-RenderApiDeploy {
         $deployArgs += "--clear-cache"
     }
 
-    Invoke-External -Command $render -Arguments $deployArgs -WorkingDirectory $RepoRoot
+    try {
+        Invoke-External -Command $render -Arguments $deployArgs -WorkingDirectory $RepoRoot
+    }
+    catch {
+        Write-Host ""
+        Write-Warning "Render deploy failed. Fetching recent service logs for diagnostics..."
+        try {
+            Invoke-External `
+                -Command $render `
+                -Arguments @(
+                    "logs",
+                    "--resources", $ServiceId,
+                    "--limit", "120",
+                    "-o", "text"
+                ) `
+                -WorkingDirectory $RepoRoot
+        }
+        catch {
+            Write-Warning "Could not fetch Render logs automatically: $($_.Exception.Message)"
+        }
+
+        throw
+    }
 
     if (-not $SkipSmokeTest) {
         Invoke-SmokeTest -BaseUrl $BaseUrl -Path $SmokeTestPath -Attempts $SmokeTestAttempts -DelaySeconds $SmokeTestDelaySeconds
