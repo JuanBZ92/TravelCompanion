@@ -132,7 +132,14 @@ public sealed record CreateTripPlanCommand(
     Guid DestinationId,
     DateOnly StartsOn,
     DateOnly EndsOn,
-    string TimeZoneId);
+    string TimeZoneId,
+    IReadOnlyList<CreateTripCitySegment>? CitySegments = null);
+
+public sealed record CreateTripCitySegment(
+    string City,
+    DateOnly StartsOn,
+    DateOnly EndsOn,
+    string? HotelBase = null);
 
 public sealed record TripPlanOperationResult(bool Success, string Message, int? CurrentRevision = null)
 {

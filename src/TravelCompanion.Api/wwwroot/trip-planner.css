@@ -23,11 +23,80 @@
     align-items: start;
     display: grid;
     gap: 20px;
-    grid-template-columns: minmax(320px, .75fr) minmax(520px, 1.25fr);
+    grid-template-columns: minmax(680px, 1.45fr) minmax(380px, .8fr);
 }
 
 .trip-create-fields {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.trip-fixed-destination {
+    background: #f5f1ea;
+    border: 1px solid var(--line);
+    padding: 10px 12px;
+}
+
+.trip-fixed-destination label,
+.trip-fixed-destination small,
+.trip-fixed-destination strong {
+    display: block;
+}
+
+.trip-fixed-destination strong {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 20px;
+    margin-top: 4px;
+}
+
+.trip-fixed-destination small {
+    color: var(--muted);
+    margin-top: 3px;
+}
+
+.trip-city-builder {
+    border-top: 1px solid var(--line);
+    margin-top: 22px;
+    padding-top: 18px;
+}
+
+.trip-city-builder h3 {
+    margin: 0;
+}
+
+.trip-city-labels,
+.trip-city-row {
+    align-items: center;
+    display: grid;
+    gap: 8px;
+    grid-template-columns: minmax(110px, .9fr) 135px 135px minmax(180px, 1.2fr) 38px;
+}
+
+.trip-city-labels {
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 700;
+    margin: 16px 0 6px;
+    text-transform: uppercase;
+}
+
+.trip-city-row + .trip-city-row {
+    margin-top: 8px;
+}
+
+.trip-city-row input {
+    min-width: 0;
+}
+
+.trip-city-row .icon-button {
+    font-size: 20px;
+    height: 38px;
+    padding: 0;
+    width: 38px;
+}
+
+.trip-city-row .icon-button:disabled {
+    cursor: default;
+    opacity: .3;
 }
 
 .trip-search {
@@ -37,6 +106,21 @@
 
 .trip-search input {
     min-width: 240px;
+}
+
+.trip-list-panel .section-header {
+    align-items: stretch;
+    flex-direction: column;
+}
+
+.trip-list-panel .trip-search,
+.trip-list-panel .trip-search input {
+    min-width: 0;
+    width: 100%;
+}
+
+.trip-list-panel .trip-search input {
+    flex: 1;
 }
 
 .trip-rows {
@@ -648,5 +732,11 @@
 
     .planner-inspector:has(.planner-inspector-empty) {
         display: none;
+    }
+}
+
+@media (max-width: 1250px) {
+    .trip-admin-grid {
+        grid-template-columns: 1fr;
     }
 }

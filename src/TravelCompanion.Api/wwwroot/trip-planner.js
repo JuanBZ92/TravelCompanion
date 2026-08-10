@@ -109,6 +109,13 @@
         for (let cursor = new Date(start); cursor <= end; cursor.setUTCDate(cursor.getUTCDate() + 1)) {
             const date = cursor.toISOString().slice(0, 10);
             const day = existing.get(date) ?? createDay(date, days.length + 1);
+            const previousDay = days.at(-1);
+            if (!existing.has(date) && previousDay) {
+                day.city = previousDay.city;
+                day.hotelBase = previousDay.hotelBase;
+                day.baseLatitude = previousDay.baseLatitude;
+                day.baseLongitude = previousDay.baseLongitude;
+            }
             day.dayNumber = days.length + 1;
             day.blocks = periods.map((period) => day.blocks.find((block) => block.periodKey === period.key) ?? createBlock(period));
             days.push(day);
@@ -271,7 +278,7 @@
                 <h1>${escapeHtml(formatDay(day.date))} · ${escapeHtml(day.city || "Sin ciudad")}</h1>
                 <div class="planner-day-fields">
                     <div><label>Ciudad</label><input data-day-field="city" value="${escapeHtml(day.city)}" placeholder="Tokyo" /></div>
-                    <div><label>Hotel / base</label><input data-day-field="hotelBase" value="${escapeHtml(day.hotelBase)}" placeholder="Remm Roppongi" /></div>
+                    <div><label>Hotel / base</label><input data-day-field="hotelBase" value="${escapeHtml(day.hotelBase)}" placeholder="Se hereda del día anterior" title="Se aplicará a los días siguientes hasta encontrar otro hotel" /></div>
                     <div><label>Latitud</label><input data-day-field="baseLatitude" type="number" step="0.000001" value="${day.baseLatitude ?? ""}" /></div>
                     <div><label>Longitud</label><input data-day-field="baseLongitude" type="number" step="0.000001" value="${day.baseLongitude ?? ""}" /></div>
                 </div>
@@ -290,7 +297,17 @@
         dayEditor.querySelectorAll("[data-day-field]").forEach((input) => {
             input.addEventListener("input", () => {
                 const field = input.dataset.dayField;
+                const previousValue = day[field];
                 day[field] = field === "baseLatitude" || field === "baseLongitude" ? toNumber(input.value) : input.value;
+                if (field === "hotelBase") {
+                    for (let index = selectedDayIndex + 1; index < payload.days.length; index++) {
+                        const nextDay = payload.days[index];
+                        if (nextDay.hotelBase && nextDay.hotelBase !== previousValue) {
+                            break;
+                        }
+                        nextDay.hotelBase = input.value;
+                    }
+                }
                 setDirty();
                 if (field === "city") {
                     root.querySelector("[data-trip-name]").textContent = payload.travelerName;

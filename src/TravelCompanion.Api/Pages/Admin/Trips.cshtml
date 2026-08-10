@@ -37,8 +37,9 @@
                 </div>
                 <span class="badge">Borrador</span>
             </div>
-            <form method="post" asp-page-handler="Create" data-progress-form>
+            <form method="post" asp-page-handler="Create" data-progress-form data-create-trip-form>
                 <div asp-validation-summary="All"></div>
+                <input asp-for="CreateInput.DestinationId" type="hidden" />
                 <div class="form-grid trip-create-fields">
                     <div>
                         <label asp-for="CreateInput.TravelerName" class="required">Cliente</label>
@@ -48,25 +49,47 @@
                         <label asp-for="CreateInput.AccessPin" class="required">PIN</label>
                         <input asp-for="CreateInput.AccessPin" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="1908" />
                     </div>
-                    <div>
-                        <label asp-for="CreateInput.DestinationId" class="required">Destino</label>
-                        <select asp-for="CreateInput.DestinationId" asp-items="Model.DestinationOptions">
-                            <option value="">Seleccionar</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label asp-for="CreateInput.TimeZoneId" class="required">Timezone</label>
-                        <input asp-for="CreateInput.TimeZoneId" />
-                    </div>
-                    <div>
-                        <label asp-for="CreateInput.StartsOn" class="required">Inicio</label>
-                        <input asp-for="CreateInput.StartsOn" type="date" />
-                    </div>
-                    <div>
-                        <label asp-for="CreateInput.EndsOn" class="required">Fin</label>
-                        <input asp-for="CreateInput.EndsOn" type="date" />
+                    <div class="trip-fixed-destination">
+                        <label>Destino</label>
+                        <strong>@Model.JapanDestinationName</strong>
+                        <small>Zona horaria: Asia/Tokyo</small>
                     </div>
                 </div>
+
+                <section class="trip-city-builder">
+                    <div class="section-header">
+                        <div>
+                            <h3>Ciudades y fechas</h3>
+                            <p class="form-hint">Los tramos deben cubrir el viaje completo, sin días superpuestos ni huecos.</p>
+                        </div>
+                        <button type="button" class="secondary" data-add-city>Agregar ciudad</button>
+                    </div>
+                    <div class="trip-city-labels" aria-hidden="true">
+                        <span>Ciudad</span><span>Desde</span><span>Hasta</span><span>Hotel / base inicial</span><span></span>
+                    </div>
+                    <div data-city-segments>
+                        @for (var index = 0; index < Model.CreateInput.CitySegments.Count; index++)
+                        {
+                            <div class="trip-city-row" data-city-segment>
+                                <input asp-for="CreateInput.CitySegments[index].City" placeholder="Tokyo" aria-label="Ciudad" />
+                                <input asp-for="CreateInput.CitySegments[index].StartsOn" type="date" aria-label="Desde" />
+                                <input asp-for="CreateInput.CitySegments[index].EndsOn" type="date" aria-label="Hasta" />
+                                <input asp-for="CreateInput.CitySegments[index].HotelBase" placeholder="Opcional; se hereda" aria-label="Hotel o base inicial" />
+                                <button type="button" class="icon-button secondary" data-remove-city aria-label="Quitar ciudad" title="Quitar ciudad">×</button>
+                            </div>
+                        }
+                    </div>
+                    <template data-city-segment-template>
+                        <div class="trip-city-row" data-city-segment>
+                            <input name="CreateInput.CitySegments[__index__].City" placeholder="Kyoto" aria-label="Ciudad" />
+                            <input name="CreateInput.CitySegments[__index__].StartsOn" type="date" aria-label="Desde" />
+                            <input name="CreateInput.CitySegments[__index__].EndsOn" type="date" aria-label="Hasta" />
+                            <input name="CreateInput.CitySegments[__index__].HotelBase" placeholder="Opcional; se hereda" aria-label="Hotel o base inicial" />
+                            <button type="button" class="icon-button secondary" data-remove-city aria-label="Quitar ciudad" title="Quitar ciudad">×</button>
+                        </div>
+                    </template>
+                    <p class="form-hint">Si indicás un hotel, se aplicará hasta el próximo cambio de hotel.</p>
+                </section>
                 <div class="actions">
                     <button type="submit" data-loading-message="Creando el borrador...">Crear viaje</button>
                 </div>
@@ -153,12 +176,7 @@ else
                 </div>
                 <div>
                     <label>Destino</label>
-                    <select data-meta="destinationId">
-                        @foreach (var option in Model.DestinationOptions)
-                        {
-                            <option value="@option.Value">@option.Text</option>
-                        }
-                    </select>
+                    <input value="@Model.JapanDestinationName" readonly />
                 </div>
                 <div>
                     <label>Inicio</label>
@@ -205,5 +223,9 @@ else
     @if (Model.Editor is not null)
     {
         <script src="~/trip-planner.js"></script>
+    }
+    else
+    {
+        <script src="~/trip-create.js"></script>
     }
 }

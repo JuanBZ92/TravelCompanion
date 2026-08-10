@@ -230,10 +230,6 @@
                                                                        FontSize="12"
                                                                        TextColor="#6E675F"
                                                                        IsVisible="{Binding HasDistance}" />
-                                                                <Label Text="{Binding RankReason}"
-                                                                       FontSize="12"
-                                                                       TextColor="#6E675F"
-                                                                       IsVisible="{Binding HasRankReason}" />
                                                                 <Label Text="{Binding VisitStatusLabel}"
                                                                        FontSize="11"
                                                                        FontAttributes="Bold"
@@ -247,7 +243,8 @@
                                                                             Style="{StaticResource GhostButton}"
                                                                             FontSize="11"
                                                                             Padding="10,6"
-                                                                            MinimumHeightRequest="30" />
+                                                                            MinimumHeightRequest="30"
+                                                                            IsVisible="{Binding CanMarkVisited}" />
                                                                     <Button Text="No mostrar hoy"
                                                                             Clicked="OnTodayLocationDismissClicked"
                                                                             Style="{StaticResource GhostButton}"
@@ -257,14 +254,14 @@
                                                                             IsVisible="{Binding CanDismiss}" />
                                                                 </HorizontalStackLayout>
                                                             </VerticalStackLayout>
-                                                            <Label Grid.Column="1"
-                                                                   Text="MAP"
-                                                                   FontSize="11"
-                                                                   CharacterSpacing="2"
-                                                                   FontAttributes="Bold"
-                                                                   TextColor="#3D3329"
-                                                                   TextDecorations="Underline"
-                                                                   VerticalOptions="Center" />
+                                                            <Image Grid.Column="1"
+                                                                   Source="tab_map.svg"
+                                                                   WidthRequest="24"
+                                                                   HeightRequest="24"
+                                                                   Opacity="0.78"
+                                                                   VerticalOptions="Center"
+                                                                   InputTransparent="True"
+                                                                   SemanticProperties.Description="Abrir en el mapa" />
                                                             <Grid.GestureRecognizers>
                                                                 <TapGestureRecognizer Tapped="OnTodayLocationTapped" />
                                                             </Grid.GestureRecognizers>

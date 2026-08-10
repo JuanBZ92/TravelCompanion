@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Identity;
@@ -15,6 +16,53 @@ public sealed class TripPlanEditorServiceTests
     {
         Converters = { new JsonStringEnumConverter() }
     };
+
+    [Fact]
+    public async Task Create_prefills_city_segments_and_inherits_hotel_base()
+    {
+        await using var dbContext = CreateDbContext();
+        var destination = await SeedDestinationAsync(dbContext);
+        var service = CreateService(dbContext);
+
+        var tripId = await service.CreateTripAsync(new CreateTripPlanCommand(
+            "Cliente multicity",
+            "8642",
+            destination.Id,
+            new DateOnly(2026, 10, 1),
+            new DateOnly(2026, 10, 5),
+            "Asia/Tokyo",
+            [
+                new CreateTripCitySegment("Tokyo", new DateOnly(2026, 10, 1), new DateOnly(2026, 10, 3), "Hotel Tokyo"),
+                new CreateTripCitySegment("Kyoto", new DateOnly(2026, 10, 4), new DateOnly(2026, 10, 5))
+            ]));
+
+        var editor = (await service.GetEditorAsync(tripId))!;
+
+        Assert.Equal(["Tokyo", "Tokyo", "Tokyo", "Kyoto", "Kyoto"], editor.Payload.Days.Select(day => day.City));
+        Assert.All(editor.Payload.Days, day => Assert.Equal("Hotel Tokyo", day.HotelBase));
+    }
+
+    [Fact]
+    public async Task Create_rejects_city_segments_with_date_gaps()
+    {
+        await using var dbContext = CreateDbContext();
+        var destination = await SeedDestinationAsync(dbContext);
+        var service = CreateService(dbContext);
+
+        var exception = await Assert.ThrowsAsync<ValidationException>(() => service.CreateTripAsync(new CreateTripPlanCommand(
+            "Cliente multicity",
+            "9753",
+            destination.Id,
+            new DateOnly(2026, 10, 1),
+            new DateOnly(2026, 10, 5),
+            "Asia/Tokyo",
+            [
+                new CreateTripCitySegment("Tokyo", new DateOnly(2026, 10, 1), new DateOnly(2026, 10, 2)),
+                new CreateTripCitySegment("Kyoto", new DateOnly(2026, 10, 4), new DateOnly(2026, 10, 5))
+            ])));
+
+        Assert.Contains("sin huecos", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
 
     [Fact]
     public async Task Draft_is_not_materialized_until_publish()

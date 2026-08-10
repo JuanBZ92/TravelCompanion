@@ -66,6 +66,7 @@ public sealed class TripPlanEditorService(
         }
 
         ValidateDateRange(command.StartsOn, command.EndsOn);
+        var citySegments = NormalizeCitySegments(command.CitySegments, command.StartsOn, command.EndsOn);
         ValidatePinFormat(pin);
         if (!await IsPinAvailableAsync(pin, null, cancellationToken))
         {
@@ -100,6 +101,7 @@ public sealed class TripPlanEditorService(
             UpdatedAtUtc = DateTimeOffset.UtcNow
         };
         var payload = CreatePayload(trip);
+        ApplyCitySegments(payload, citySegments);
         var draft = new TripPlanDraft
         {
             TripId = trip.Id,
@@ -750,10 +752,92 @@ public sealed class TripPlanEditorService(
             normalizedDays.Add(day);
         }
 
+        var inheritedHotelBase = string.Empty;
+        foreach (var day in normalizedDays)
+        {
+            if (!string.IsNullOrWhiteSpace(day.HotelBase))
+            {
+                inheritedHotelBase = day.HotelBase;
+            }
+            else if (inheritedHotelBase.Length > 0)
+            {
+                day.HotelBase = inheritedHotelBase;
+            }
+        }
+
         payload.TravelerName = (payload.TravelerName ?? string.Empty).Trim();
         payload.TimeZoneId = (payload.TimeZoneId ?? string.Empty).Trim();
         payload.Days = normalizedDays;
         return payload;
+    }
+
+    private static IReadOnlyList<CreateTripCitySegment> NormalizeCitySegments(
+        IReadOnlyList<CreateTripCitySegment>? segments,
+        DateOnly startsOn,
+        DateOnly endsOn)
+    {
+        if (segments is null || segments.Count == 0)
+        {
+            return [];
+        }
+
+        var normalized = segments
+            .Select(segment => new CreateTripCitySegment(
+                (segment.City ?? string.Empty).Trim(),
+                segment.StartsOn,
+                segment.EndsOn,
+                string.IsNullOrWhiteSpace(segment.HotelBase) ? null : segment.HotelBase.Trim()))
+            .OrderBy(segment => segment.StartsOn)
+            .ToList();
+
+        for (var index = 0; index < normalized.Count; index++)
+        {
+            var segment = normalized[index];
+            if (segment.City.Length == 0)
+            {
+                throw new ValidationException($"Completá la ciudad del tramo {index + 1}.");
+            }
+
+            if (segment.StartsOn > segment.EndsOn)
+            {
+                throw new ValidationException($"Las fechas de {segment.City} no son válidas.");
+            }
+
+            if (segment.StartsOn < startsOn || segment.EndsOn > endsOn)
+            {
+                throw new ValidationException($"El tramo de {segment.City} queda fuera de las fechas del viaje.");
+            }
+
+            var expectedStart = index == 0 ? startsOn : normalized[index - 1].EndsOn.AddDays(1);
+            if (segment.StartsOn != expectedStart)
+            {
+                throw new ValidationException("Los tramos de ciudad deben cubrir todos los días, sin huecos ni fechas superpuestas.");
+            }
+        }
+
+        if (normalized[^1].EndsOn != endsOn)
+        {
+            throw new ValidationException("Los tramos de ciudad deben llegar hasta el último día del viaje.");
+        }
+
+        return normalized;
+    }
+
+    private static void ApplyCitySegments(
+        TripPlanEditorPayload payload,
+        IReadOnlyList<CreateTripCitySegment> segments)
+    {
+        foreach (var day in payload.Days)
+        {
+            var segment = segments.FirstOrDefault(item => day.Date >= item.StartsOn && day.Date <= item.EndsOn);
+            if (segment is null)
+            {
+                continue;
+            }
+
+            day.City = segment.City;
+            day.HotelBase = segment.HotelBase ?? string.Empty;
+        }
     }
 
     private async Task ValidatePayloadAsync(
