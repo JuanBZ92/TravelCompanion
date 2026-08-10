@@ -44,7 +44,7 @@
         <span class="badge">Idempotente</span>
     </div>
 
-    <form method="post" enctype="multipart/form-data">
+    <form method="post" enctype="multipart/form-data" data-progress-form>
         <div asp-validation-summary="All"></div>
         <input type="hidden" asp-for="PreviewWorkbookBase64" />
         <div class="form-grid">
@@ -55,11 +55,18 @@
             </div>
         </div>
         <div class="actions">
-            <button type="submit" asp-page-handler="Preview">Preview</button>
+            <button type="submit" asp-page-handler="Preview" data-loading-message="Analizando el viaje...">Preview</button>
             @if (Model.ImportResult?.CanImport == true || !string.IsNullOrWhiteSpace(Model.PreviewWorkbookBase64))
             {
-                <button type="submit" asp-page-handler="Import" class="secondary">Confirmar import</button>
+                <button type="submit" asp-page-handler="Import" class="secondary" data-loading-message="Creando el viaje y sus bloques...">Confirmar import</button>
             }
+        </div>
+        <div class="submit-progress" data-submit-progress role="status" aria-live="polite" hidden>
+            <div class="submit-progress-track" aria-hidden="true">
+                <span class="submit-progress-indicator"></span>
+            </div>
+            <p data-submit-progress-message>Procesando...</p>
+            <span class="form-hint">Puede tardar unos segundos si el servicio estaba en reposo.</span>
         </div>
     </form>
 </section>

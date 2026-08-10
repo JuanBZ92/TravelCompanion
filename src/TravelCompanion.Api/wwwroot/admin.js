@@ -57,3 +57,29 @@ if (tripUserSelect && tripTravelerNameInput) {
     tripUserSelect.addEventListener("change", inferTravelerNameFromSelectedUser);
     inferTravelerNameFromSelectedUser();
 }
+
+document.querySelectorAll("[data-progress-form]").forEach((form) => {
+    const progress = form.querySelector("[data-submit-progress]");
+    const message = form.querySelector("[data-submit-progress-message]");
+
+    form.addEventListener("submit", (event) => {
+        if (!progress) {
+            return;
+        }
+
+        const submitter = event.submitter;
+        const loadingMessage = submitter?.dataset.loadingMessage ?? "Procesando...";
+
+        progress.hidden = false;
+        form.setAttribute("aria-busy", "true");
+        if (message) {
+            message.textContent = loadingMessage;
+        }
+
+        requestAnimationFrame(() => {
+            form.querySelectorAll("button[type='submit']").forEach((button) => {
+                button.disabled = true;
+            });
+        });
+    });
+});

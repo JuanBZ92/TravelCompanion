@@ -211,6 +211,59 @@ textarea {
     margin-top: 14px;
 }
 
+.submit-progress {
+    border-top: 1px solid var(--line);
+    margin-top: 18px;
+    padding-top: 14px;
+}
+
+.submit-progress[hidden] {
+    display: none;
+}
+
+.submit-progress-track {
+    background: var(--accent-soft);
+    height: 6px;
+    overflow: hidden;
+    position: relative;
+}
+
+.submit-progress-indicator {
+    animation: submit-progress 1.15s ease-in-out infinite;
+    background: var(--accent);
+    display: block;
+    height: 100%;
+    width: 38%;
+}
+
+.submit-progress p {
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 650;
+    margin: 10px 0 2px;
+}
+
+button:disabled {
+    cursor: wait;
+    opacity: .58;
+}
+
+@keyframes submit-progress {
+    from {
+        transform: translateX(-105%);
+    }
+
+    to {
+        transform: translateX(270%);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .submit-progress-indicator {
+        animation-duration: 2.4s;
+    }
+}
+
 button,
 .button {
     background: var(--accent);
