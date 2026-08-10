@@ -32,7 +32,7 @@ public sealed class YukuJapanImportModel(
             return Page();
         }
 
-        PreviewWorkbookBase64 = Convert.ToBase64String(workbookBytes);
+        SetPreviewWorkbook(workbookBytes);
         await using var stream = new MemoryStream(workbookBytes);
         ImportResult = await importService.PreviewAsync(stream, HttpContext.RequestAborted);
         return Page();
@@ -54,8 +54,17 @@ public sealed class YukuJapanImportModel(
             return RedirectToPage();
         }
 
-        PreviewWorkbookBase64 = Convert.ToBase64String(workbookBytes);
+        SetPreviewWorkbook(workbookBytes);
         return Page();
+    }
+
+    private void SetPreviewWorkbook(byte[] workbookBytes)
+    {
+        PreviewWorkbookBase64 = Convert.ToBase64String(workbookBytes);
+
+        // Tag Helpers prefer the attempted ModelState value over the updated property.
+        // Remove the initially posted empty value so the preview payload is rendered.
+        ModelState.Remove(nameof(PreviewWorkbookBase64));
     }
 
     private async Task<byte[]?> ReadWorkbookBytesAsync(bool allowPreviewPayload = false)
