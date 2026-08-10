@@ -16,8 +16,10 @@ public sealed partial class TravelChatViewModel(
     MobileBootstrapStore bootstrapStore,
     OfflineMutationQueueService mutationQueueService) : ViewModelBase, ISessionStateResettable
 {
+    private static readonly TimeSpan TravelChatNetworkTimeout = TimeSpan.FromSeconds(20);
     private string? _conversationId;
     private string? _lastIntent;
+    private string? _lastFailedMessage;
     private bool _isLocalizationSubscribed;
     private string _messageText = Resource("AssistantDefaultPrompt");
     private DateTime _planningDate = DateTime.Today;
@@ -108,22 +110,51 @@ public sealed partial class TravelChatViewModel(
             }
 
             await ReplayPendingMutationsAsync(token, ct);
-            var schedule = await apiClient.GetScheduleAsync(token, ct);
-            var firstUsefulDay = (schedule?.Items ?? [])
-                .GroupBy(item => item.Date)
-                .OrderByDescending(group => group.Count())
-                .ThenBy(group => group.Key)
-                .FirstOrDefault();
-
-            if (firstUsefulDay is not null)
+            var cached = await bootstrapStore.GetCachedAsync(cancellationToken: ct);
+            if (cached is not null)
             {
-                PlanningDate = firstUsefulDay.Key.ToDateTime(TimeOnly.MinValue);
-                City = firstUsefulDay
-                    .Select(item => item.City)
-                    .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+                ApplyPlanningContext(cached.Value.Schedule);
+                MarkLastUpdated(cached.SavedAt);
+
+                if (bootstrapStore.HasFreshSnapshot())
+                {
+                    StatusMessage = null;
+                    _hasLoadedContext = true;
+                    return;
+                }
+
+                StatusMessage = $"Mostrando agenda guardada mientras la API responde. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
             }
 
-            _hasLoadedContext = true;
+            try
+            {
+                var bootstrap = await bootstrapStore.RefreshAsync(token, cancellationToken: ct);
+                if (bootstrap is null)
+                {
+                    StatusMessage = cached is null
+                        ? Resource("AssistantOfflineStatusNoCache")
+                        : $"Render puede estar despertando. Usando agenda guardada para contextualizar el assistant. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
+                    _hasLoadedContext = true;
+                    return;
+                }
+
+                ApplyPlanningContext(bootstrap.Schedule);
+                MarkLastUpdated(DateTimeOffset.UtcNow);
+                StatusMessage = null;
+                _hasLoadedContext = true;
+            }
+            catch (Exception ex) when (cached is not null || IsTransientNetworkException(ex))
+            {
+                if (cached is null)
+                {
+                    StatusMessage = Resource("AssistantOfflineStatusNoCache");
+                    _hasLoadedContext = true;
+                    return;
+                }
+
+                StatusMessage = $"Render puede estar despertando. Usando agenda guardada para contextualizar el assistant. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
+                _hasLoadedContext = true;
+            }
         });
     }
 
@@ -132,6 +163,7 @@ public sealed partial class TravelChatViewModel(
         ResetLoadState();
         _conversationId = null;
         _lastIntent = null;
+        _lastFailedMessage = null;
         _hasLoadedContext = false;
         MessageText = Resource("AssistantDefaultPrompt");
         PlanningDate = DateTime.Today;
@@ -178,6 +210,7 @@ public sealed partial class TravelChatViewModel(
                 ? await locationService.GetCurrentLocationAsync()
                 : null;
 
+            using var timeout = new CancellationTokenSource(TravelChatNetworkTimeout);
             var response = await apiClient.SendTravelChatAsync(
                 token,
                 new TravelChatRequest(
@@ -186,14 +219,16 @@ public sealed partial class TravelChatViewModel(
                     City,
                     DateOnly.FromDateTime(PlanningDate),
                     currentLocation,
-                    CultureInfo.CurrentUICulture.Name));
+                    CultureInfo.CurrentUICulture.Name),
+                timeout.Token);
 
             if (response is null)
             {
-                ErrorMessage = Resource("AssistantSendError");
+                await ApplyChatOfflineFallbackAsync(message);
                 return;
             }
 
+            _lastFailedMessage = null;
             _conversationId = response.ConversationId;
             _lastIntent = response.Intent;
             var cards = (response.Cards ?? [])
@@ -208,6 +243,10 @@ public sealed partial class TravelChatViewModel(
 
             ApplyMissingContext(response.MissingContext);
             OnMessagesChanged();
+        }
+        catch (Exception ex) when (IsTransientNetworkException(ex))
+        {
+            await ApplyChatOfflineFallbackAsync(message);
         }
         catch (Exception ex)
         {
@@ -230,6 +269,20 @@ public sealed partial class TravelChatViewModel(
         if (IsSaveReply(reply))
         {
             await SaveItineraryItemAsync(FindLatestSaveableCard());
+            return;
+        }
+
+        if (IsRetryReply(reply))
+        {
+            MessageText = string.IsNullOrWhiteSpace(_lastFailedMessage)
+                ? MessageText
+                : _lastFailedMessage;
+            await SendMessageAsync();
+            return;
+        }
+
+        if (await TryHandleLocalOfflineActionAsync(reply))
+        {
             return;
         }
 
@@ -440,6 +493,71 @@ public sealed partial class TravelChatViewModel(
         await SendMessageAsync();
     }
 
+    private async Task ApplyChatOfflineFallbackAsync(string message)
+    {
+        _lastFailedMessage = message;
+        MessageText = message;
+        ErrorMessage = null;
+        ClearMissingContext();
+
+        var cached = await bootstrapStore.GetCachedAsync();
+        var offlineMessage = cached is null
+            ? Resource("AssistantOfflineFallbackNoCache")
+            : string.Format(
+                CultureInfo.CurrentCulture,
+                Resource("AssistantOfflineFallbackWithCache"),
+                OfflineCacheService.FormatSavedAt(cached.SavedAt));
+
+        StatusMessage = cached is null
+            ? Resource("AssistantOfflineStatusNoCache")
+            : string.Format(
+                CultureInfo.CurrentCulture,
+                Resource("AssistantOfflineStatusWithCache"),
+                OfflineCacheService.FormatSavedAt(cached.SavedAt));
+
+        Messages.Add(new TravelChatMessageViewModel(offlineMessage, isFromUser: false));
+        SuggestedReplies.Clear();
+        SuggestedReplies.Add(Resource("AssistantRetry"));
+        SuggestedReplies.Add(Resource("AssistantOpenToday"));
+        SuggestedReplies.Add(Resource("AssistantOpenDiscover"));
+        SuggestedReplies.Add(Resource("AssistantOpenDocs"));
+        OnMessagesChanged();
+    }
+
+    private static bool IsTransientNetworkException(Exception ex)
+    {
+        return ex is HttpRequestException or TaskCanceledException or IOException;
+    }
+
+    private static bool IsRetryReply(string reply)
+    {
+        return string.Equals(reply.Trim(), Resource("AssistantRetry"), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static async Task<bool> TryHandleLocalOfflineActionAsync(string reply)
+    {
+        var normalized = NormalizeCommandText(reply);
+        if (normalized == NormalizeCommandText(Resource("AssistantOpenToday")))
+        {
+            await Shell.Current.GoToAsync("//main/schedule");
+            return true;
+        }
+
+        if (normalized == NormalizeCommandText(Resource("AssistantOpenDiscover")))
+        {
+            await Shell.Current.GoToAsync("//main/recommendations");
+            return true;
+        }
+
+        if (normalized == NormalizeCommandText(Resource("AssistantOpenDocs")))
+        {
+            await Shell.Current.GoToAsync("//main/docs");
+            return true;
+        }
+
+        return false;
+    }
+
     private async Task QueueSaveItineraryItemAsync(TravelChatCardViewModel card, string reason)
     {
         if (!card.RecommendationId.HasValue || !card.StartsAt.HasValue)
@@ -625,6 +743,25 @@ public sealed partial class TravelChatViewModel(
             MessageText = Resource("AssistantDefaultPrompt");
             ResetDefaultSuggestedReplies();
         }
+    }
+
+    private void ApplyPlanningContext(TripScheduleDto? schedule)
+    {
+        var firstUsefulDay = (schedule?.Items ?? [])
+            .GroupBy(item => item.Date)
+            .OrderByDescending(group => group.Count())
+            .ThenBy(group => group.Key)
+            .FirstOrDefault();
+
+        if (firstUsefulDay is null)
+        {
+            return;
+        }
+
+        PlanningDate = firstUsefulDay.Key.ToDateTime(TimeOnly.MinValue);
+        City = firstUsefulDay
+            .Select(item => item.City)
+            .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
     }
 
     private void ResetDefaultSuggestedReplies()

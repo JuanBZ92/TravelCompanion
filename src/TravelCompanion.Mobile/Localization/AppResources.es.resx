@@ -68,6 +68,14 @@
   <data name="AssistantCancel" xml:space="preserve"><value>Cancelar</value></data>
   <data name="AssistantSendError" xml:space="preserve"><value>No pude enviar el mensaje. Intenta nuevamente.</value></data>
   <data name="AssistantPrepareError" xml:space="preserve"><value>No pude preparar el plan: {0}</value></data>
+  <data name="AssistantRetry" xml:space="preserve"><value>Reintentar</value></data>
+  <data name="AssistantOpenToday" xml:space="preserve"><value>Abrir Today</value></data>
+  <data name="AssistantOpenDiscover" xml:space="preserve"><value>Abrir Discover</value></data>
+  <data name="AssistantOpenDocs" xml:space="preserve"><value>Abrir Docs</value></data>
+  <data name="AssistantOfflineStatusWithCache" xml:space="preserve"><value>Render puede estar despertando. Mostrando datos guardados. {0}</value></data>
+  <data name="AssistantOfflineStatusNoCache" xml:space="preserve"><value>Render puede estar despertando. Intenta de nuevo en unos segundos.</value></data>
+  <data name="AssistantOfflineFallbackWithCache" xml:space="preserve"><value>Render puede estar despertando, asi que deje tu pedido listo para reintentar. Mientras tanto podes seguir usando las vistas guardadas del viaje. {0}</value></data>
+  <data name="AssistantOfflineFallbackNoCache" xml:space="preserve"><value>Render puede estar despertando, asi que deje tu pedido listo para reintentar. Intenta de nuevo en unos segundos.</value></data>
   <data name="AssistantSaveError" xml:space="preserve"><value>No pude guardar el plan. Intenta nuevamente.</value></data>
   <data name="AssistantSaveErrorWithReason" xml:space="preserve"><value>No pude guardar el plan: {0}</value></data>
   <data name="AssistantDetailNotFound" xml:space="preserve"><value>No encontre el detalle de esa recomendacion.</value></data>

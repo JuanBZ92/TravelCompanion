@@ -181,6 +181,18 @@ public sealed class TravelRecommendationPlanningService(
             TravelChatResponseModes.FoodBrunch => SelectTopicMatches(
                 ranked,
                 recommendation => IsFoodMealRecommendation(recommendation, FoodMeal.Brunch)),
+            TravelChatResponseModes.FoodSushi => SelectTopicMatches(
+                ranked,
+                recommendation => IsFoodFacetRecommendation(recommendation, FoodFacet.Sushi),
+                IsFoodRecommendation),
+            TravelChatResponseModes.FoodRamen => SelectTopicMatches(
+                ranked,
+                recommendation => IsFoodFacetRecommendation(recommendation, FoodFacet.Ramen),
+                IsFoodRecommendation),
+            TravelChatResponseModes.FoodCafe => SelectTopicMatches(
+                ranked,
+                recommendation => IsFoodFacetRecommendation(recommendation, FoodFacet.Cafe),
+                IsFoodRecommendation),
             TravelChatResponseModes.Culture => SelectTopicMatches(
                 ranked,
                 IsCultureRecommendation),
@@ -264,6 +276,10 @@ public sealed class TravelRecommendationPlanningService(
                 .OrderByDescending(scored => PriceRank(scored.Recommendation.PriceLevel))
                 .ThenByDescending(scored => scored.Score)
                 .ThenBy(scored => scored.Recommendation.Title),
+            TravelChatResponseModes.WalkIn => ranked
+                .OrderBy(scored => IsWalkInRecommendation(scored.Recommendation) ? 0 : 1)
+                .ThenByDescending(scored => scored.Score)
+                .ThenBy(scored => scored.Recommendation.Title),
             _ => ranked
         };
     }
@@ -339,6 +355,23 @@ public sealed class TravelRecommendationPlanningService(
             FoodMeal.Dinner => ContainsAny(text, "dinner", "cena", "cenar", "izakaya", "night food", "first night", "okonomiyaki", "omakase")
                 || IsOpenDuring(recommendation.OpeningHours, new TimeOnly(19, 0), new TimeOnly(21, 0)),
             FoodMeal.Brunch => ContainsAny(text, "brunch"),
+            _ => false
+        };
+    }
+
+    private static bool IsFoodFacetRecommendation(Recommendation recommendation, FoodFacet facet)
+    {
+        if (!IsFoodRecommendation(recommendation))
+        {
+            return false;
+        }
+
+        var text = CreateRecommendationSearchableText(recommendation);
+        return facet switch
+        {
+            FoodFacet.Sushi => ContainsAny(text, "sushi", "omakase", "edomae", "kaiten"),
+            FoodFacet.Ramen => ContainsAny(text, "ramen"),
+            FoodFacet.Cafe => ContainsAny(text, "cafe", "café", "coffee", "cafeteria", "specialty coffee"),
             _ => false
         };
     }
@@ -574,6 +607,11 @@ public sealed class TravelRecommendationPlanningService(
             "paseo");
     }
 
+    private static bool IsWalkInRecommendation(Recommendation recommendation)
+    {
+        return ContainsAny(CreateRecommendationSearchableText(recommendation), "walk in", "walk-in");
+    }
+
     private static List<ScoredRecommendation> RemoveDislikedCandidates(
         IReadOnlyList<ScoredRecommendation> candidates,
         IReadOnlyList<string> dislikes)
@@ -682,6 +720,13 @@ public sealed class TravelRecommendationPlanningService(
         Lunch,
         Dinner,
         Brunch
+    }
+
+    private enum FoodFacet
+    {
+        Sushi,
+        Ramen,
+        Cafe
     }
 
     private enum CultureFacet

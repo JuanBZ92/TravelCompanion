@@ -335,7 +335,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
 
             StatusMessage = forceRefresh
                 ? "Actualizando itinerario..."
-                : OfflineCacheService.FormatSavedAt(cached.SavedAt);
+                : $"Mostrando itinerario guardado mientras la API responde. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
         }
 
         try
@@ -360,7 +360,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
                 throw;
             }
 
-            StatusMessage = $"Offline mode. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
+            StatusMessage = $"Render puede estar despertando. Mostrando itinerario guardado. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
         }
     }
 

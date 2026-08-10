@@ -39,6 +39,9 @@ public static class TravelChatResponseModes
     public const string FoodLunch = "food_lunch";
     public const string FoodDinner = "food_dinner";
     public const string FoodBrunch = "food_brunch";
+    public const string FoodSushi = "food_sushi";
+    public const string FoodRamen = "food_ramen";
+    public const string FoodCafe = "food_cafe";
     public const string Culture = "culture";
     public const string CultureMuseum = "culture_museum";
     public const string CultureTemple = "culture_temple";
@@ -65,6 +68,7 @@ public static class TravelChatResponseModes
     public const string Cheaper = "cheaper";
     public const string MediumCost = "medium_cost";
     public const string HighCost = "high_cost";
+    public const string WalkIn = "walk_in";
     public const string Balanced = "balanced";
 }
 
@@ -226,6 +230,15 @@ public sealed partial class TravelChatIntentClassifier : ITravelChatIntentClassi
             "cenar",
             "dinner",
             "food",
+            "sushi",
+            "omakase",
+            "edomae",
+            "kaiten",
+            "ramen",
+            "cafe",
+            "cafeteria",
+            "cafetería",
+            "coffee",
             "cultura",
             "culture",
             "museo",
@@ -294,6 +307,10 @@ public sealed partial class TravelChatIntentClassifier : ITravelChatIntentClassi
             "musica",
             "relax",
             "relaxing",
+            "sin reserva",
+            "sin reservar",
+            "walk in",
+            "walk-in",
             "couple",
             "date",
             "night",
@@ -336,6 +353,11 @@ public sealed partial class TravelChatIntentClassifier : ITravelChatIntentClassi
 
     private static string ResolveResponseMode(string normalized)
     {
+        if (ContainsAny(normalized, "sin reserva", "sin reservar", "walk in", "walk-in", "walkin"))
+        {
+            return TravelChatResponseModes.WalkIn;
+        }
+
         if (ContainsAny(normalized, "coste bajo", "costo bajo", "presupuesto bajo", "bajo coste", "bajo costo", "barato", "gratis", "economico", "free", "low cost", "cheap", "budget"))
         {
             return TravelChatResponseModes.Cheaper;
@@ -372,6 +394,21 @@ public sealed partial class TravelChatIntentClassifier : ITravelChatIntentClassi
 
     private static string ResolveSemanticResponseMode(string normalized)
     {
+        if (ContainsAny(normalized, "sushi", "omakase", "edomae", "kaiten"))
+        {
+            return TravelChatResponseModes.FoodSushi;
+        }
+
+        if (ContainsAny(normalized, "ramen"))
+        {
+            return TravelChatResponseModes.FoodRamen;
+        }
+
+        if (ContainsAny(normalized, "cafe", "cafeteria", "cafetería", "coffee", "specialty coffee"))
+        {
+            return TravelChatResponseModes.FoodCafe;
+        }
+
         if (ContainsAny(normalized, "brunch"))
         {
             return TravelChatResponseModes.FoodBrunch;

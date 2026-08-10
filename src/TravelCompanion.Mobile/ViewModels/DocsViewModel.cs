@@ -11,8 +11,11 @@ namespace TravelCompanion.Mobile.ViewModels;
 
 public sealed partial class DocsViewModel(
     TravelCompanionApiClient apiClient,
-    AuthSessionService sessionService) : ViewModelBase, ISessionStateResettable
+    AuthSessionService sessionService,
+    OfflineCacheService offlineCacheService) : ViewModelBase, ISessionStateResettable
 {
+    private static readonly TimeSpan DocsCacheMaxAge = TimeSpan.FromDays(14);
+
     [ObservableProperty]
     private string title = "Documentos";
 
@@ -68,15 +71,34 @@ public sealed partial class DocsViewModel(
         {
             IsBusy = true;
             ErrorMessage = null;
+            StatusMessage = null;
+            var cacheKey = GetCacheKey(sessionService.CurrentUserId, sessionService.CurrentTripId);
+            var cached = await offlineCacheService.GetAsync<TravelDocsDto>(cacheKey, DocsCacheMaxAge);
+            if (cached is not null)
+            {
+                ApplyDocs(cached.Value);
+                MarkLastUpdated(cached.SavedAt);
+                StatusMessage = $"Mostrando documentos guardados mientras la API responde. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
+            }
+
             var docs = await apiClient.GetTravelDocsAsync(token);
             if (docs is null)
             {
-                ApplyPreviewDocs();
-                StatusMessage = "Vista previa con documentos dummy. Carga los documentos reales desde el admin cuando esten disponibles.";
+                if (cached is null)
+                {
+                    ApplyPreviewDocs();
+                    StatusMessage = "Vista previa con documentos dummy. Carga los documentos reales desde el admin cuando esten disponibles.";
+                }
+                else
+                {
+                    StatusMessage = $"Render puede estar despertando. Mostrando documentos guardados. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
+                }
             }
             else
             {
                 ApplyDocs(docs);
+                await offlineCacheService.SaveAsync(cacheKey, docs);
+                MarkLastUpdated(DateTimeOffset.UtcNow);
                 StatusMessage = null;
             }
 
@@ -84,9 +106,21 @@ public sealed partial class DocsViewModel(
         }
         catch
         {
-            ApplyPreviewDocs();
+            var cacheKey = GetCacheKey(sessionService.CurrentUserId, sessionService.CurrentTripId);
+            var cached = await offlineCacheService.GetAsync<TravelDocsDto>(cacheKey, DocsCacheMaxAge);
+            if (cached is not null)
+            {
+                ApplyDocs(cached.Value);
+                MarkLastUpdated(cached.SavedAt);
+                StatusMessage = $"Render puede estar despertando. Mostrando documentos guardados. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
+            }
+            else
+            {
+                ApplyPreviewDocs();
+                StatusMessage = "No pudimos cargar documentos reales. Mostrando una vista previa dummy.";
+            }
+
             ErrorMessage = null;
-            StatusMessage = "No pudimos cargar documentos reales. Mostrando una vista previa dummy.";
             HasLoaded = true;
         }
         finally
@@ -266,6 +300,11 @@ public sealed partial class DocsViewModel(
         OnPropertyChanged(nameof(HasHotelDocuments));
         OnPropertyChanged(nameof(HasOtherDocuments));
         OnPropertyChanged(nameof(HasHotels));
+    }
+
+    private static string GetCacheKey(Guid? userId, Guid? tripId)
+    {
+        return $"mobile-docs-{tripId?.ToString() ?? "trip-auto"}-{userId?.ToString() ?? "anonymous"}";
     }
 }
 

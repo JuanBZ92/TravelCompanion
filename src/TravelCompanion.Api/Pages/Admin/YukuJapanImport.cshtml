@@ -1,0 +1,153 @@
+@page "/admin/import/yuku-japan"
+@model TravelCompanion.Api.Pages.Admin.YukuJapanImportModel
+@{
+    ViewData["Title"] = "Import YUKU Japan";
+}
+
+<div class="page-heading">
+    <div>
+        <h1>Import YUKU Japan</h1>
+        <p class="lede">Carga el Excel verificado y converti cada fila en una recomendacion Free para Japon.</p>
+    </div>
+    <span class="eyebrow">Contenido</span>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
+{
+    <section class="notice">
+        <strong>@Model.StatusMessage</strong>
+    </section>
+}
+
+<section class="panel">
+    <div class="section-header">
+        <div>
+            <h2>Excel verificado</h2>
+            <p class="form-hint">Columnas esperadas: Ciudad, Lugar, Comentario, Tipo de comida, Google Maps Link, Coordenadas Value, Tabelog Score, Reserva y Precio Aprox.</p>
+        </div>
+        <span class="badge">AccessLevel Free</span>
+    </div>
+
+    <form method="post" enctype="multipart/form-data">
+        <div asp-validation-summary="All"></div>
+        <input type="hidden" asp-for="PreviewWorkbookBase64" />
+        <div class="form-grid">
+            <div>
+                <label asp-for="Workbook" class="required">Archivo .xlsx</label>
+                <input asp-for="Workbook" type="file" accept=".xlsx" />
+                <span asp-validation-for="Workbook"></span>
+                <p class="form-hint">El preview no guarda datos. Confirmar import crea o actualiza por external_id.</p>
+            </div>
+        </div>
+        <div class="actions">
+            <button type="submit" asp-page-handler="Preview">Preview</button>
+            @if (Model.ImportResult?.CanImport == true || !string.IsNullOrWhiteSpace(Model.PreviewWorkbookBase64))
+            {
+                <button type="submit" asp-page-handler="Import" class="secondary">Confirmar import</button>
+            }
+        </div>
+    </form>
+</section>
+
+@if (Model.ImportResult is not null)
+{
+    <section class="panel" style="margin-top: 18px;">
+        <div class="section-header">
+            <div>
+                <h2>Resultado</h2>
+                <p class="form-hint">@Model.ImportResult.StatusMessage</p>
+            </div>
+            <div class="chip-list">
+                <span class="chip subtle">@Model.ImportResult.TotalRows filas</span>
+                <span class="chip subtle">@Model.ImportResult.ValidRows validas</span>
+                <span class="chip subtle">@Model.ImportResult.ErrorRows con error</span>
+                <span class="chip subtle">@Model.ImportResult.WarningCount warnings</span>
+            </div>
+        </div>
+
+        @if (Model.ImportResult.Errors.Count > 0)
+        {
+            <div class="validation-summary-errors">
+                <strong>Errores</strong>
+                <ul>
+                    @foreach (var error in Model.ImportResult.Errors.Take(20))
+                    {
+                        <li>@error</li>
+                    }
+                </ul>
+                @if (Model.ImportResult.Errors.Count > 20)
+                {
+                    <p>Hay @(Model.ImportResult.Errors.Count - 20) errores mas.</p>
+                }
+            </div>
+        }
+
+        @if (Model.ImportResult.HasRows)
+        {
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Fila</th>
+                            <th>Lugar</th>
+                            <th>Categoria</th>
+                            <th>Senales</th>
+                            <th>Tags</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var row in Model.ImportResult.Rows.Take(80))
+                    {
+                        <tr>
+                            <td><span class="mono">@row.RowNumber</span></td>
+                            <td>
+                                <strong>@row.Title</strong><br />
+                                <span class="muted">@row.City</span><br />
+                                <span class="mono">@row.ExternalId</span>
+                            </td>
+                            <td><span class="badge">@row.Category</span></td>
+                            <td>
+                                <span class="mono">@row.PriceLevel</span><br />
+                                <span class="muted">@row.SuggestedDurationMinutes min</span><br />
+                                <span class="mono">@row.Latitude, @row.Longitude</span>
+                                @if (row.Rating.HasValue)
+                                {
+                                    <br />
+                                    <span class="muted">@row.Rating.Value.ToString("0.0") rating</span>
+                                }
+                            </td>
+                            <td>
+                                <div class="chip-list">
+                                    @foreach (var tag in row.Tags)
+                                    {
+                                        <span class="chip subtle">@tag</span>
+                                    }
+                                </div>
+                            </td>
+                            <td>
+                                @if (row.IsValid)
+                                {
+                                    <span class="chip">OK</span>
+                                }
+                                @foreach (var warning in row.Warnings)
+                                {
+                                    <div class="alert" style="margin: 6px 0 0;">@warning</div>
+                                }
+                                @foreach (var error in row.Errors)
+                                {
+                                    <div class="validation-summary-errors" style="margin: 6px 0 0;">@error</div>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+            @if (Model.ImportResult.Rows.Count > 80)
+            {
+                <p class="form-hint">Mostrando 80 de @Model.ImportResult.Rows.Count filas.</p>
+            }
+        }
+    </section>
+}
