@@ -9,6 +9,7 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
     public DbSet<Destination> Destinations => Set<Destination>();
     public DbSet<TravelPackage> TravelPackages => Set<TravelPackage>();
     public DbSet<Recommendation> Recommendations => Set<Recommendation>();
+    public DbSet<FreeMapCity> FreeMapCities => Set<FreeMapCity>();
     public DbSet<Trip> Trips => Set<Trip>();
     public DbSet<Reservation> Reservations => Set<Reservation>();
     public DbSet<TravelDocument> TravelDocuments => Set<TravelDocument>();
@@ -48,10 +49,12 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
             entity.HasIndex(recommendation => new { recommendation.DestinationId, recommendation.ExternalId }).IsUnique();
             entity.HasIndex(recommendation => new { recommendation.DestinationId, recommendation.Title });
             entity.HasIndex(recommendation => new { recommendation.DestinationId, recommendation.Category, recommendation.Title });
+            entity.HasIndex(recommendation => new { recommendation.DestinationId, recommendation.CitySlug });
             entity.Property(recommendation => recommendation.ExternalId).HasMaxLength(160);
             entity.Property(recommendation => recommendation.Title).HasMaxLength(160);
             entity.Property(recommendation => recommendation.Category).HasMaxLength(80);
             entity.Property(recommendation => recommendation.Neighborhood).HasMaxLength(120);
+            entity.Property(recommendation => recommendation.CitySlug).HasMaxLength(80);
             entity.Property(recommendation => recommendation.PriceLevel).HasMaxLength(32);
             entity.Property(recommendation => recommendation.OpeningHours).HasMaxLength(256);
             entity.Property(recommendation => recommendation.SourceName).HasMaxLength(160);
@@ -133,6 +136,23 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
                 .OnDelete(DeleteBehavior.SetNull);
         });
 
+        modelBuilder.Entity<FreeMapCity>(entity =>
+        {
+            entity.HasIndex(city => new { city.DestinationId, city.CitySlug }).IsUnique();
+            entity.HasIndex(city => new { city.IsEnabled, city.SortOrder });
+            entity.Property(city => city.CitySlug).HasMaxLength(80);
+            entity.Property(city => city.DisplayName).HasMaxLength(120);
+            entity.Property(city => city.CenterLatitude).HasPrecision(9, 6);
+            entity.Property(city => city.CenterLongitude).HasPrecision(9, 6);
+            entity.Property(city => city.FreeRadiusKm).HasPrecision(6, 2);
+            entity.Property(city => city.CoverageRadiusKm).HasPrecision(6, 2);
+            entity.Property(city => city.ContactUrl).HasMaxLength(512);
+            entity.HasOne(city => city.Destination)
+                .WithMany()
+                .HasForeignKey(city => city.DestinationId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
         modelBuilder.Entity<TravelDocument>(entity =>
         {
             entity.HasIndex(document => new { document.TripId, document.Category, document.SortOrder });
@@ -164,6 +184,10 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
             entity.HasIndex(session => new { session.UserId, session.RevokedAt });
             entity.HasIndex(session => new { session.TripId, session.RevokedAt });
             entity.Property(session => session.TokenHash).HasMaxLength(128);
+            entity.Property(session => session.AccessMode)
+                .HasConversion<string>()
+                .HasMaxLength(32)
+                .HasDefaultValue(TravelCompanion.Shared.SessionAccessMode.Trip);
             entity.HasOne(session => session.User)
                 .WithMany(user => user.Sessions)
                 .HasForeignKey(session => session.UserId)

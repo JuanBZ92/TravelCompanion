@@ -124,6 +124,7 @@ public sealed class YukuJapanRecommendationImportServiceTests
         Assert.Contains("ramen", recommendation.Tags);
         Assert.Contains("walk-in", recommendation.Tags);
         Assert.Equal("YUKU Japan verificada v1", recommendation.SourceName);
+        Assert.Equal("tokyo", recommendation.CitySlug);
     }
 
     private static YukuJapanRecommendationImportService CreateService(TravelCompanionDbContext dbContext)

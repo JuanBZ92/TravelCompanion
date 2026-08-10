@@ -57,6 +57,12 @@
                 <span asp-validation-for="Input.Neighborhood"></span>
             </div>
             <div>
+                <label asp-for="Input.CitySlug">Ciudad para mapa <span class="muted">(slug)</span></label>
+                <input asp-for="Input.CitySlug" placeholder="tokyo" />
+                <span asp-validation-for="Input.CitySlug"></span>
+                <p class="form-hint">Debe coincidir con una ciudad configurada en Free Map.</p>
+            </div>
+            <div>
                 <label asp-for="Input.Latitude" class="required">Latitud</label>
                 <input asp-for="Input.Latitude" type="number" step="0.000001" />
                 <span asp-validation-for="Input.Latitude"></span>

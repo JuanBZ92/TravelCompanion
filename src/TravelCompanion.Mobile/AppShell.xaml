@@ -28,6 +28,12 @@
         ContentTemplate="{DataTemplate pages:ChangePasswordPage}"
         Route="change-password" />
 
+    <ShellContent
+        x:Name="FreeMapTab"
+        Title="Map"
+        ContentTemplate="{DataTemplate pages:FreeMapPage}"
+        Route="free-map" />
+
     <TabBar Route="main">
         <ShellContent
             x:Name="RecommendationsTab"

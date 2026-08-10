@@ -242,6 +242,7 @@ public sealed partial class YukuJapanRecommendationImportService(
                     title.Trim(),
                     category,
                     $"{city.Trim()}, Japan",
+                    RecommendationCitySlug.FromCity(city),
                     comment.Trim(),
                     tags,
                     priceLevel,
@@ -319,6 +320,7 @@ public sealed partial class YukuJapanRecommendationImportService(
         recommendation.Title = row.Title;
         recommendation.Category = row.Category;
         recommendation.Neighborhood = row.Neighborhood;
+        recommendation.CitySlug = row.CitySlug;
         recommendation.Description = row.Description;
         recommendation.Tags = row.Tags.ToList();
         recommendation.PriceLevel = row.PriceLevel;
@@ -612,6 +614,7 @@ public sealed partial class YukuJapanRecommendationImportService(
         string Title,
         string Category,
         string Neighborhood,
+        string CitySlug,
         string Description,
         IReadOnlyList<string> Tags,
         string PriceLevel,

@@ -1,5 +1,7 @@
 namespace TravelCompanion.Api.Models;
 
+using TravelCompanion.Shared;
+
 public sealed class AppUserSession
 {
     public Guid Id { get; set; }
@@ -7,6 +9,7 @@ public sealed class AppUserSession
     public AppUser? User { get; set; }
     public Guid? TripId { get; set; }
     public Trip? Trip { get; set; }
+    public SessionAccessMode AccessMode { get; set; } = SessionAccessMode.Trip;
     public required string TokenHash { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset ExpiresAt { get; set; }

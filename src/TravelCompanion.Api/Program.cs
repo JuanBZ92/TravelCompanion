@@ -69,6 +69,8 @@ builder.Services.Configure<ObservabilityOptions>(
     builder.Configuration.GetSection(ObservabilityOptions.SectionName));
 builder.Services.Configure<OpenAiTravelOptions>(
     builder.Configuration.GetSection(OpenAiTravelOptions.SectionName));
+builder.Services.Configure<FreePreviewOptions>(
+    builder.Configuration.GetSection(FreePreviewOptions.SectionName));
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
@@ -85,6 +87,8 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddScoped<IPasswordHasher<AppUser>, PasswordHasher<AppUser>>();
 builder.Services.AddScoped<IPasswordHasher<Trip>, PasswordHasher<Trip>>();
 builder.Services.AddScoped<UserSessionService>();
+builder.Services.AddScoped<FreePreviewAccountService>();
+builder.Services.AddScoped<FreeMapPreviewService>();
 builder.Services.AddScoped<IUserInvitationSender, LoggingUserInvitationSender>();
 builder.Services.AddScoped<IUserProfileService, UserProfileService>();
 builder.Services.AddScoped<IItineraryService, ItineraryService>();
@@ -132,6 +136,7 @@ app.UseResponseCompression();
 app.UseRateLimiter();
 app.UseStaticFiles();
 app.UseMiddleware<RequestObservabilityMiddleware>();
+app.UseMiddleware<FreePreviewSessionGuardMiddleware>();
 
 app.UseAuthentication();
 app.UseAuthorization();

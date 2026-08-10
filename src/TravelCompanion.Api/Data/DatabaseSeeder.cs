@@ -32,8 +32,64 @@ public static class DatabaseSeeder
 
         var japan = await EnsureJapanDestinationAsync(dbContext);
         await RemoveLegacySeedDataAsync(dbContext, japan.Id);
+        await EnsureFreePreviewAccountAsync(dbContext);
+        await EnsureFreeMapCitiesAsync(dbContext, japan.Id);
         await NormalizeImportedYukuRecommendationsAsync(dbContext, japan.Id);
         await dbContext.SaveChangesAsync();
+    }
+
+    private static async Task EnsureFreePreviewAccountAsync(TravelCompanionDbContext dbContext)
+    {
+        if (await dbContext.AppUsers.AnyAsync(user => user.Email == FreePreviewAccountService.AccountEmail))
+        {
+            return;
+        }
+
+        dbContext.AppUsers.Add(new AppUser
+        {
+            Id = Guid.Parse("00000000-0000-0000-0000-000000000001"),
+            Email = FreePreviewAccountService.AccountEmail,
+            DisplayName = "YUKU Preview",
+            PasswordHash = string.Empty,
+            MustChangePassword = false
+        });
+    }
+
+    private static async Task EnsureFreeMapCitiesAsync(
+        TravelCompanionDbContext dbContext,
+        Guid destinationId)
+    {
+        var definitions = new[]
+        {
+            new FreeMapCityDefinition("tokyo", "Tokyo", 35.681236m, 139.767125m, 1, 30m),
+            new FreeMapCityDefinition("kyoto", "Kyoto", 35.003700m, 135.768800m, 2, 18m),
+            new FreeMapCityDefinition("osaka", "Osaka", 34.668700m, 135.501300m, 3, 20m)
+        };
+
+        var existing = await dbContext.FreeMapCities
+            .Where(city => city.DestinationId == destinationId)
+            .ToListAsync();
+        foreach (var definition in definitions)
+        {
+            if (existing.Any(city => city.CitySlug == definition.Slug))
+            {
+                continue;
+            }
+
+            dbContext.FreeMapCities.Add(new FreeMapCity
+            {
+                Id = Guid.NewGuid(),
+                DestinationId = destinationId,
+                CitySlug = definition.Slug,
+                DisplayName = definition.Name,
+                CenterLatitude = definition.Latitude,
+                CenterLongitude = definition.Longitude,
+                FreeRadiusKm = 2m,
+                CoverageRadiusKm = definition.CoverageRadiusKm,
+                SortOrder = definition.SortOrder,
+                IsEnabled = true
+            });
+        }
     }
 
     private static async Task<Destination> EnsureJapanDestinationAsync(TravelCompanionDbContext dbContext)
@@ -174,7 +230,19 @@ public static class DatabaseSeeder
         foreach (var recommendation in importedRecommendations)
         {
             recommendation.AccessLevel = ContentAccessLevel.Free;
+            recommendation.CitySlug = RecommendationCitySlug.FromCity(recommendation.CitySlug)
+                is { Length: > 0 } citySlug
+                    ? citySlug
+                    : RecommendationCitySlug.FromCity(recommendation.Neighborhood);
             recommendation.Packages.Clear();
         }
     }
+
+    private sealed record FreeMapCityDefinition(
+        string Slug,
+        string Name,
+        decimal Latitude,
+        decimal Longitude,
+        int SortOrder,
+        decimal CoverageRadiusKm);
 }

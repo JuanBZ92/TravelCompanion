@@ -31,4 +31,5 @@ public sealed record AuthSessionDto(
     bool MustChangePassword,
     string Token,
     Guid? TripId = null,
-    string? DestinationName = null);
+    string? DestinationName = null,
+    SessionAccessMode AccessMode = SessionAccessMode.Trip);

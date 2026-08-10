@@ -70,6 +70,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<AuthSessionService>();
         builder.Services.AddSingleton<BiometricUnlockService>();
         builder.Services.AddSingleton<OfflineCacheService>();
+        builder.Services.AddSingleton<FreeMapStore>();
         builder.Services.AddSingleton<MobileBootstrapStore>();
         builder.Services.AddSingleton<MobileDiscoverStore>();
         builder.Services.AddSingleton<MobileTodayStore>();
@@ -85,6 +86,8 @@ public static class MauiProgram
         builder.Services.AddSingleton<ISessionStateResettable>(sp => sp.GetRequiredService<RecommendationsViewModel>());
         builder.Services.AddSingleton<MapViewModel>();
         builder.Services.AddSingleton<ISessionStateResettable>(sp => sp.GetRequiredService<MapViewModel>());
+        builder.Services.AddSingleton<FreeMapViewModel>();
+        builder.Services.AddSingleton<ISessionStateResettable>(sp => sp.GetRequiredService<FreeMapViewModel>());
         builder.Services.AddSingleton<ScheduleViewModel>();
         builder.Services.AddSingleton<ISessionStateResettable>(sp => sp.GetRequiredService<ScheduleViewModel>());
         builder.Services.AddSingleton<TravelChatViewModel>();
@@ -101,6 +104,7 @@ public static class MauiProgram
         builder.Services.AddTransient<ChangePasswordPage>();
         builder.Services.AddSingleton<RecommendationsPage>();
         builder.Services.AddSingleton<MapPage>();
+        builder.Services.AddSingleton<FreeMapPage>();
         builder.Services.AddSingleton<SchedulePage>();
         builder.Services.AddSingleton<TravelChatPage>();
         builder.Services.AddTransient<ScheduleItemDetailPage>();

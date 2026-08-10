@@ -7,8 +7,10 @@ These endpoints should be covered by smoke tests and contract regression tests b
 - `GET /health`: public liveness check.
 - `POST /api/auth/login`: mobile session creation.
 - `GET /api/destinations`: public destination catalog.
-- `GET /api/recommendations`: public free recommendation catalog.
-- `GET /api/recommendations/tags`: public canonical recommendation tag catalog.
+- `GET /api/recommendations`: authenticated trip-session recommendation catalog.
+- `GET /api/recommendations/tags`: authenticated trip-session canonical tag catalog.
+- `GET /api/mobile/free-map/cities`: cities enabled for a `FreeMapPreview` session.
+- `GET /api/mobile/free-map/{citySlug}`: full markers inside the configured radius and redacted markers outside it.
 - `GET /api/packages`: public/package-aware package catalog.
 - `GET /api/mobile/bootstrap`: authenticated mobile bootstrap payload.
 - `GET /api/mobile/discover`: authenticated discover payload.

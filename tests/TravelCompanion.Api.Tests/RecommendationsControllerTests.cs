@@ -13,7 +13,7 @@ namespace TravelCompanion.Api.Tests;
 public sealed class RecommendationsControllerTests
 {
     [Fact]
-    public async Task GetRecommendations_public_catalog_excludes_paid_subscription_and_packaged_content()
+    public async Task GetRecommendations_authenticated_catalog_excludes_paid_subscription_and_packaged_content()
     {
         await using var dbContext = CreateDbContext();
         var destination = new Destination
@@ -37,6 +37,14 @@ public sealed class RecommendationsControllerTests
         };
 
         dbContext.Destinations.Add(destination);
+        var user = new AppUser
+        {
+            Id = Guid.NewGuid(),
+            Email = "recommendations@example.test",
+            DisplayName = "Recommendations user",
+            PasswordHash = string.Empty
+        };
+        dbContext.AppUsers.Add(user);
         dbContext.TravelPackages.Add(package);
         dbContext.Recommendations.Add(CreateRecommendation(
             destination.Id,
@@ -54,13 +62,18 @@ public sealed class RecommendationsControllerTests
 
         await dbContext.SaveChangesAsync();
 
+        var sessionService = new UserSessionService(dbContext);
+        var (_, token) = await sessionService.CreateSessionAsync(user);
+        var httpContext = new DefaultHttpContext();
+        httpContext.Request.Headers.Authorization = $"Bearer {token}";
         var controller = new RecommendationsController(
             dbContext,
-            new RecommendationTagCatalogService(dbContext))
+            new RecommendationTagCatalogService(dbContext),
+            sessionService)
         {
             ControllerContext = new ControllerContext
             {
-                HttpContext = new DefaultHttpContext()
+                HttpContext = httpContext
             }
         };
 

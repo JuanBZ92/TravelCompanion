@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dtos="clr-namespace:TravelCompanion.Shared.Dtos;assembly=TravelCompanion.Shared"
+             xmlns:viewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
+             x:Class="TravelCompanion.Mobile.Pages.FreeMapPage"
+             x:DataType="viewModels:FreeMapViewModel"
+             Title="Map"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="#F8F3ED">
+    <Grid>
+        <Grid x:Name="MapContainer" BackgroundColor="#E8E2DA">
+            <VerticalStackLayout x:Name="MapFallback"
+                                 Padding="28"
+                                 Spacing="8"
+                                 HorizontalOptions="Center"
+                                 VerticalOptions="Center">
+                <Label Text="YUKU MAP"
+                       CharacterSpacing="5"
+                       FontSize="11"
+                       FontAttributes="Bold"
+                       TextColor="#8E867D"
+                       HorizontalTextAlignment="Center" />
+                <Label Text="Mapa disponible en Android y iPhone"
+                       FontFamily="serif"
+                       FontSize="22"
+                       TextColor="#1A1714"
+                       HorizontalTextAlignment="Center" />
+            </VerticalStackLayout>
+        </Grid>
+
+        <Grid Padding="20,18" RowDefinitions="Auto,Auto,*" InputTransparent="False">
+            <Border Grid.Row="0" BackgroundColor="#F2F8F3ED" Stroke="#D8CFC4" StrokeThickness="1" Padding="16,12">
+                <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="8">
+                    <VerticalStackLayout Spacing="2">
+                        <Label Text="EXPLORE · YUKU JAPAN" CharacterSpacing="4" FontSize="10" FontAttributes="Bold" TextColor="#8E867D" />
+                        <Label Text="Mapa curado" FontFamily="serif" FontSize="25" TextColor="#1A1714" />
+                    </VerticalStackLayout>
+                    <Button Grid.Column="1"
+                            Text="Cambiar PIN"
+                            Command="{Binding LogoutCommand}"
+                            Style="{StaticResource GhostButton}"
+                            FontSize="12"
+                            Padding="10,6"
+                            MinimumHeightRequest="36" />
+                    <CollectionView Grid.Row="1" Grid.ColumnSpan="2"
+                                    ItemsSource="{Binding Cities}"
+                                    SelectedItem="{Binding SelectedCity, Mode=TwoWay}"
+                                    SelectionMode="Single"
+                                    HeightRequest="42"
+                                    HorizontalScrollBarVisibility="Never">
+                        <CollectionView.ItemsLayout>
+                            <LinearItemsLayout Orientation="Horizontal" ItemSpacing="8" />
+                        </CollectionView.ItemsLayout>
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="dtos:FreeMapCityDto">
+                                <Border Padding="16,9" BackgroundColor="#F8F3ED" Stroke="#D8CFC4" StrokeThickness="1">
+                                    <VisualStateManager.VisualStateGroups>
+                                        <VisualStateGroup Name="CommonStates">
+                                            <VisualState Name="Normal" />
+                                            <VisualState Name="Selected">
+                                                <VisualState.Setters>
+                                                    <Setter Property="BackgroundColor" Value="#3D3329" />
+                                                    <Setter Property="Stroke" Value="#3D3329" />
+                                                    <Setter TargetName="CityLabel" Property="Label.TextColor" Value="#FFFFFF" />
+                                                </VisualState.Setters>
+                                            </VisualState>
+                                        </VisualStateGroup>
+                                    </VisualStateManager.VisualStateGroups>
+                                    <Label x:Name="CityLabel" Text="{Binding Name}" FontSize="13" TextColor="#1A1714" />
+                                </Border>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </Grid>
+            </Border>
+
+            <Border Grid.Row="1" Margin="0,10,0,0" Padding="12,8" BackgroundColor="#F2F8F3ED" Stroke="#D8CFC4" StrokeThickness="1" IsVisible="{Binding HasStatus}">
+                <Label Text="{Binding StatusMessage}" FontSize="12" TextColor="#6E675F" />
+            </Border>
+
+            <Border Grid.Row="2" Margin="0,0,0,8" Padding="18" VerticalOptions="End" BackgroundColor="#F8F3ED" Stroke="#D8CFC4" StrokeThickness="1" IsVisible="{Binding HasPreview}">
+                <Grid>
+                    <VerticalStackLayout Spacing="8" IsVisible="{Binding IsUnlockedSelection}">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label Text="{Binding SelectedRecommendation.Category}" CharacterSpacing="3" FontSize="10" FontAttributes="Bold" TextColor="#9B9288" />
+                            <Button Grid.Column="1" Text="×" Command="{Binding CloseSelectionCommand}" Style="{StaticResource GhostButton}" WidthRequest="34" HeightRequest="34" Padding="0" />
+                        </Grid>
+                        <Label Text="{Binding SelectedRecommendation.Title}" FontFamily="serif" FontSize="25" TextColor="#1A1714" LineBreakMode="WordWrap" MaxLines="2" />
+                        <Label Text="{Binding SelectedRecommendation.Description}" FontSize="14" TextColor="#4D4741" LineHeight="1.35" MaxLines="3" LineBreakMode="TailTruncation" />
+                        <Label Text="{Binding SelectedLocationText}" FontSize="12" TextColor="#6E675F" />
+                        <Label Text="{Binding SelectedTagsText}" FontSize="12" TextColor="#8A6F3D" LineBreakMode="TailTruncation" MaxLines="2" />
+                        <Label Text="{Binding SelectedMetadataText}" FontSize="12" TextColor="#6E675F" />
+                        <Button Text="Abrir en el mapa" Command="{Binding OpenSelectedMapCommand}" BackgroundColor="#3D3329" TextColor="White" CornerRadius="0" HeightRequest="48" />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="10" IsVisible="{Binding IsLockedSelection}">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label Text="CONTENIDO CURADO" CharacterSpacing="3" FontSize="10" FontAttributes="Bold" TextColor="#9B9288" />
+                            <Button Grid.Column="1" Text="×" Command="{Binding CloseSelectionCommand}" Style="{StaticResource GhostButton}" WidthRequest="34" HeightRequest="34" Padding="0" />
+                        </Grid>
+                        <Label Text="Hay una recomendación YUKU en esta zona" FontFamily="serif" FontSize="24" TextColor="#1A1714" />
+                        <Label Text="Accede a un viaje curado para descubrir el lugar, sus tags y todos los detalles." FontSize="14" TextColor="#6E675F" LineHeight="1.35" />
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="8" IsVisible="{Binding HasContactUrl}">
+                            <Button Text="Solicitar acceso" Command="{Binding ContactCommand}" IsVisible="{Binding HasContactUrl}" BackgroundColor="#3D3329" TextColor="White" CornerRadius="0" />
+                            <Button Grid.Column="1" Text="Ya tengo PIN" Command="{Binding UseAnotherPinCommand}" Style="{StaticResource GhostButton}" CornerRadius="0" />
+                        </Grid>
+                        <Button Text="Ya tengo PIN" Command="{Binding UseAnotherPinCommand}" Style="{StaticResource GhostButton}" CornerRadius="0" IsVisible="{Binding ShowPinOnlyAction}" />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="4" IsVisible="{Binding ShowMapSummary}">
+                        <Label Text="RADIO GRATUITO" CharacterSpacing="3" FontSize="10" FontAttributes="Bold" TextColor="#9B9288" />
+                        <Label Text="{Binding MapSummary}" FontFamily="serif" FontSize="20" TextColor="#1A1714" />
+                        <Label Text="Toca un pin para explorar." FontSize="13" TextColor="#6E675F" />
+                    </VerticalStackLayout>
+                </Grid>
+            </Border>
+
+            <Border Grid.Row="2" Margin="0,0,0,8" Padding="16" VerticalOptions="End" BackgroundColor="#F8F3ED" Stroke="#B42318" StrokeThickness="1" IsVisible="{Binding HasError}">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                    <Label Text="{Binding ErrorMessage}" FontSize="13" TextColor="#B42318" VerticalOptions="Center" />
+                    <Button Grid.Column="1" Text="Reintentar" Command="{Binding LoadCommand}" Style="{StaticResource GhostButton}" />
+                </Grid>
+            </Border>
+        </Grid>
+
+        <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" Color="#3D3329" HorizontalOptions="Center" VerticalOptions="Center" />
+    </Grid>
+</ContentPage>

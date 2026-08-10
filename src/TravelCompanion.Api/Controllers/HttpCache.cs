@@ -7,7 +7,8 @@ namespace TravelCompanion.Api.Controllers;
 
 internal static class HttpCache
 {
-    private const string CacheControlValue = "public, max-age=300, must-revalidate";
+    private const string PublicCacheControlValue = "public, max-age=300, must-revalidate";
+    private const string PrivateCacheControlValue = "private, max-age=300, must-revalidate";
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
         Converters = { new JsonStringEnumConverter() }
@@ -15,11 +16,14 @@ internal static class HttpCache
 
     public static IActionResult OkOrNotModified<T>(
         ControllerBase controller,
-        T response)
+        T response,
+        bool isPublic = true)
     {
         var etag = CreateWeakETag(response);
         controller.Response.Headers["ETag"] = etag;
-        controller.Response.Headers["Cache-Control"] = CacheControlValue;
+        controller.Response.Headers["Cache-Control"] = isPublic
+            ? PublicCacheControlValue
+            : PrivateCacheControlValue;
 
         return RequestMatches(controller.Request, etag)
             ? controller.StatusCode(StatusCodes.Status304NotModified)

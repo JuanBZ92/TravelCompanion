@@ -89,6 +89,42 @@ public sealed class TravelCompanionApiClient
         return await response.Content.ReadFromJsonAsync<AuthSessionDto>(JsonOptions, cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task<IReadOnlyList<FreeMapCityDto>?> GetFreeMapCitiesAsync(
+        string token,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Get, "api/mobile/free-map/cities", token);
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+        {
+            return null;
+        }
+
+        return await response.Content
+            .ReadFromJsonAsync<IReadOnlyList<FreeMapCityDto>>(JsonOptions, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    public async Task<FreeMapPreviewDto?> GetFreeMapCityAsync(
+        string token,
+        string citySlug,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateAuthorizedRequest(
+            HttpMethod.Get,
+            $"api/mobile/free-map/{Uri.EscapeDataString(citySlug)}",
+            token);
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+        {
+            return null;
+        }
+
+        return await response.Content
+            .ReadFromJsonAsync<FreeMapPreviewDto>(JsonOptions, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
     public async Task ChangePasswordAsync(
         string token,
         string currentPassword,
@@ -399,6 +435,7 @@ public sealed class TravelCompanionApiClient
     }
 
     public async Task<IReadOnlyList<RecommendationDto>> GetRecommendationsAsync(
+        string token,
         string? destinationSlug = null,
         decimal? latitude = null,
         decimal? longitude = null,
@@ -410,7 +447,11 @@ public sealed class TravelCompanionApiClient
             url += $"&latitude={latitude.Value}&longitude={longitude.Value}";
         }
 
-        return await GetPagedItemsAsync<RecommendationDto>(url, cancellationToken).ConfigureAwait(false);
+        using var request = CreateAuthorizedRequest(HttpMethod.Get, url, token);
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        return response.IsSuccessStatusCode
+            ? await ReadPagedItemsAsync<RecommendationDto>(response.Content, cancellationToken).ConfigureAwait(false)
+            : [];
     }
 
     public async Task<RecommendationDto?> GetMobileRecommendationDetailAsync(

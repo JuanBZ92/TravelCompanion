@@ -25,6 +25,8 @@ services:
         sync: false
       - key: AdminAuth__Password
         sync: false
+      - key: FreePreview__MarkerObfuscationKey
+        generateValue: true
 
 databases:
   - name: travelcompanion-db

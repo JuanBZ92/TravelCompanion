@@ -12,13 +12,19 @@ namespace TravelCompanion.Api.Controllers;
 [Route("api/[controller]")]
 public sealed class RecommendationsController(
     TravelCompanionDbContext dbContext,
-    IRecommendationTagCatalogService tagCatalogService) : ControllerBase
+    IRecommendationTagCatalogService tagCatalogService,
+    UserSessionService sessionService) : ControllerBase
 {
     [HttpGet("tags")]
     public async Task<ActionResult<IReadOnlyList<RecommendationTagDto>>> GetTags(
         [FromQuery] string? destinationSlug = null,
         CancellationToken cancellationToken = default)
     {
+        if (await sessionService.GetUserAsync(HttpContext, cancellationToken) is null)
+        {
+            return Unauthorized();
+        }
+
         return Ok(await tagCatalogService.GetCatalogAsync(destinationSlug, cancellationToken));
     }
 
@@ -32,6 +38,11 @@ public sealed class RecommendationsController(
         [FromQuery] int pageSize = PaginationRequest.DefaultPageSize,
         CancellationToken cancellationToken = default)
     {
+        if (await sessionService.GetUserAsync(HttpContext, cancellationToken) is null)
+        {
+            return Unauthorized();
+        }
+
         if (!PaginationRequest.TryCreate(page, pageSize, out var pagination, out var error))
         {
             return this.ValidationError("pagination", error!);
@@ -67,7 +78,7 @@ public sealed class RecommendationsController(
             .ToList();
 
         var pagedResponse = response.ToPagedResult(pagination, totalItems);
-        return HttpCache.OkOrNotModified(this, pagedResponse);
+        return HttpCache.OkOrNotModified(this, pagedResponse, isPublic: false);
     }
 
     private static IQueryable<Recommendation> ApplyOrdering(

@@ -243,7 +243,7 @@ page=1&pageSize=50
 
 `GET /api/recommendations` pagina y ordena en base de datos (no en memoria). Cuando recibe `latitude`/`longitude`, ordena por cercania aproximada en SQL y luego calcula la distancia km final solo para los items de la pagina solicitada.
 
-`GET /api/destinations` y `GET /api/recommendations` usan HTTP caching con `ETag`, `If-None-Match` y `Cache-Control: public, max-age=300, must-revalidate`. El ETag se calcula sobre la respuesta final paginada, incluyendo filtros y distancia cuando aplica. Si el cliente reenvia el mismo ETag en `If-None-Match` y la respuesta no cambio, la API responde `304 Not Modified` sin body.
+`GET /api/destinations` y `GET /api/recommendations` usan HTTP caching con `ETag` e `If-None-Match`. Destinations permite cache publico; Recommendations usa `Cache-Control: private`, requiere sesion de viaje y el modo promocional consume exclusivamente `/api/mobile/free-map/*`.
 
 `POST /api/auth/login` recibe:
 

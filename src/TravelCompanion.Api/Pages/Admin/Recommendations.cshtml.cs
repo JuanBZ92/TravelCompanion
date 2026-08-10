@@ -272,6 +272,7 @@ public sealed class RecommendationsModel(
         public string Title { get; set; } = string.Empty;
         public string Category { get; set; } = string.Empty;
         public string? Neighborhood { get; set; }
+        public string? CitySlug { get; set; }
         public string Description { get; set; } = string.Empty;
         public string? TagsText { get; set; }
         public string PriceLevel { get; set; } = "medium";
@@ -296,6 +297,7 @@ public sealed class RecommendationsModel(
                 Title = recommendation.Title,
                 Category = recommendation.Category,
                 Neighborhood = recommendation.Neighborhood,
+                CitySlug = recommendation.CitySlug,
                 Description = recommendation.Description,
                 TagsText = string.Join(", ", recommendation.Tags),
                 PriceLevel = recommendation.PriceLevel,
@@ -319,6 +321,8 @@ public sealed class RecommendationsModel(
             recommendation.Title = Title.Trim();
             recommendation.Category = Category.Trim();
             recommendation.Neighborhood = (Neighborhood ?? string.Empty).Trim();
+            recommendation.CitySlug = RecommendationCitySlug.FromCity(
+                string.IsNullOrWhiteSpace(CitySlug) ? recommendation.Neighborhood : CitySlug);
             recommendation.Description = Description.Trim();
             recommendation.Tags = ParseTags(TagsText);
             recommendation.PriceLevel = PriceLevel.Trim();

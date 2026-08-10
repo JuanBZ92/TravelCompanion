@@ -24,6 +24,10 @@
                        FontSize="16"
                        LineHeight="1.45"
                        TextColor="#6E675F" />
+                <Label Text="Explora el mapa curado gratis con el PIN 0000."
+                       FontSize="13"
+                       FontAttributes="Bold"
+                       TextColor="#8A6F3D" />
             </VerticalStackLayout>
 
             <Border BackgroundColor="#F6F1EA"

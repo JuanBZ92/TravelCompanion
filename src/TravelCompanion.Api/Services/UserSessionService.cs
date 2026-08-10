@@ -3,6 +3,7 @@ using System.Text;
 using Microsoft.EntityFrameworkCore;
 using TravelCompanion.Api.Data;
 using TravelCompanion.Api.Models;
+using TravelCompanion.Shared;
 
 namespace TravelCompanion.Api.Services;
 
@@ -10,11 +11,14 @@ public sealed class UserSessionService(TravelCompanionDbContext dbContext)
 {
     private static readonly TimeSpan SessionLifetime = TimeSpan.FromDays(90);
     private static readonly TimeSpan LastSeenUpdateInterval = TimeSpan.FromMinutes(15);
+    private static readonly object SessionContextItemKey = new();
 
     public async Task<(AppUserSession Session, string Token)> CreateSessionAsync(
         AppUser user,
         CancellationToken cancellationToken = default,
-        Guid? tripId = null)
+        Guid? tripId = null,
+        SessionAccessMode accessMode = SessionAccessMode.Trip,
+        TimeSpan? lifetime = null)
     {
         var token = CreateToken();
         var now = DateTimeOffset.UtcNow;
@@ -23,9 +27,10 @@ public sealed class UserSessionService(TravelCompanionDbContext dbContext)
             Id = Guid.NewGuid(),
             UserId = user.Id,
             TripId = tripId,
+            AccessMode = accessMode,
             TokenHash = HashToken(token),
             CreatedAt = now,
-            ExpiresAt = now.Add(SessionLifetime),
+            ExpiresAt = now.Add(lifetime ?? SessionLifetime),
             LastSeenAt = now
         };
 
@@ -36,6 +41,35 @@ public sealed class UserSessionService(TravelCompanionDbContext dbContext)
 
     public async Task<AppUser?> GetUserAsync(HttpContext httpContext, CancellationToken cancellationToken = default)
     {
+        var context = await GetSessionContextAsync(httpContext, cancellationToken);
+        return context?.User;
+    }
+
+    public async Task<Guid?> GetSessionTripIdAsync(
+        HttpContext httpContext,
+        CancellationToken cancellationToken = default)
+    {
+        var context = await GetSessionContextAsync(httpContext, cancellationToken);
+        return context?.TripId;
+    }
+
+    public async Task<SessionAccessMode?> GetSessionAccessModeAsync(
+        HttpContext httpContext,
+        CancellationToken cancellationToken = default)
+    {
+        var context = await GetSessionContextAsync(httpContext, cancellationToken);
+        return context?.AccessMode;
+    }
+
+    public async Task<UserSessionContext?> GetSessionContextAsync(
+        HttpContext httpContext,
+        CancellationToken cancellationToken = default)
+    {
+        if (httpContext.Items.TryGetValue(SessionContextItemKey, out var cached))
+        {
+            return cached as UserSessionContext;
+        }
+
         var token = GetBearerToken(httpContext);
         if (string.IsNullOrWhiteSpace(token))
         {
@@ -71,29 +105,14 @@ public sealed class UserSessionService(TravelCompanionDbContext dbContext)
                     cancellationToken);
         }
 
-        return session.User;
-    }
-
-    public async Task<Guid?> GetSessionTripIdAsync(
-        HttpContext httpContext,
-        CancellationToken cancellationToken = default)
-    {
-        var token = GetBearerToken(httpContext);
-        if (string.IsNullOrWhiteSpace(token))
-        {
-            return null;
-        }
-
-        var tokenHash = HashToken(token);
-        var now = DateTimeOffset.UtcNow;
-        return await dbContext.AppUserSessions
-            .AsNoTracking()
-            .Where(existingSession =>
-                existingSession.TokenHash == tokenHash
-                && existingSession.RevokedAt == null
-                && existingSession.ExpiresAt > now)
-            .Select(existingSession => existingSession.TripId)
-            .FirstOrDefaultAsync(cancellationToken);
+        var context = new UserSessionContext(
+            session.Id,
+            session.User,
+            session.TripId,
+            session.AccessMode,
+            session.ExpiresAt);
+        httpContext.Items[SessionContextItemKey] = context;
+        return context;
     }
 
     public async Task RevokeCurrentSessionAsync(HttpContext httpContext, CancellationToken cancellationToken = default)
@@ -159,3 +178,10 @@ public sealed class UserSessionService(TravelCompanionDbContext dbContext)
         return Convert.ToHexString(hash);
     }
 }
+
+public sealed record UserSessionContext(
+    Guid SessionId,
+    AppUser User,
+    Guid? TripId,
+    SessionAccessMode AccessMode,
+    DateTimeOffset ExpiresAt);

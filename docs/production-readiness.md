@@ -166,7 +166,7 @@ Observed production-aware pieces:
 - Visible recommendation tags can drive preference changes.
 - Recommendations are filtered against disliked tags when alternatives exist.
 - Save itinerary cannot be claimed as saved unless backend save confirms.
-- Public `/api/recommendations` exposes only free, unpackaged recommendations; paid/package content stays behind authenticated entitlement checks.
+- `/api/recommendations` requires a trip session. Free preview sessions use the redacted `/api/mobile/free-map/*` contract and cannot access trip content.
 - Mobile discover/bootstrap send recommendation summaries; full recommendation descriptions are loaded through an authenticated, entitlement-checked detail endpoint.
 - Encrypted mobile Discover/Bootstrap disk snapshots expire after 6 hours and are deleted for the current user on logout.
 

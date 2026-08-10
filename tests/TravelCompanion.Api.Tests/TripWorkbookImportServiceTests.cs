@@ -53,6 +53,29 @@ public sealed class TripWorkbookImportServiceTests
     }
 
     [Fact]
+    public async Task Preview_rejects_pin_reserved_for_free_map()
+    {
+        await using var dbContext = CreateDbContext();
+        var destinationId = await SeedJapanDestinationAsync(dbContext);
+        dbContext.Recommendations.Add(CreateRecommendation(destinationId, "Ramen One", "Tokyo", ["food", "ramen"]));
+        await dbContext.SaveChangesAsync();
+        var service = CreateService(dbContext);
+        var workbookBytes = await CreateImportWorkbookAsync(
+            service,
+            pin: "0000",
+            travelerName: "Cliente Test",
+            rows:
+            [
+                new WorkbookRow(1, "Tokyo", "Hotel Tokyo", "Tarde", "autofill", "-", "-", "-", "No", "-", "-")
+            ]);
+
+        var preview = await service.PreviewAsync(new MemoryStream(workbookBytes));
+
+        Assert.True(preview.HasErrors);
+        Assert.Contains(preview.Errors, error => error.Contains("reservado", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public async Task Import_creates_trip_user_pin_lodging_and_recommendation_reservations_idempotently()
     {
         await using var dbContext = CreateDbContext();

@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.Input;
 using TravelCompanion.Mobile.Services;
+using TravelCompanion.Shared;
 
 namespace TravelCompanion.Mobile.ViewModels;
 
@@ -39,9 +40,12 @@ public sealed partial class LoginViewModel(
             await sessionService.SaveAsync(session);
             Pin = string.Empty;
 
-            await Shell.Current.GoToAsync(session.MustChangePassword
-                ? "//change-password"
-                : "//main/schedule");
+            var route = session.AccessMode == SessionAccessMode.FreeMapPreview
+                ? "//free-map"
+                : session.MustChangePassword
+                    ? "//change-password"
+                    : "//main/schedule";
+            await Shell.Current.GoToAsync(route);
         });
     }
 

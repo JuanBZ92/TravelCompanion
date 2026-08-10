@@ -2,9 +2,12 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using TravelCompanion.Api.Data;
 using TravelCompanion.Api.Models;
+using TravelCompanion.Api.Options;
 using TravelCompanion.Api.Services;
+using TravelCompanion.Shared;
 using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Api.Controllers;
@@ -15,7 +18,9 @@ public sealed class AuthController(
     TravelCompanionDbContext dbContext,
     IPasswordHasher<AppUser> passwordHasher,
     IPasswordHasher<Trip> tripPinHasher,
-    UserSessionService sessionService) : ControllerBase
+    UserSessionService sessionService,
+    FreePreviewAccountService freePreviewAccountService,
+    IOptions<FreePreviewOptions> freePreviewOptions) : ControllerBase
 {
     [HttpPost("login")]
     public async Task<ActionResult<AuthSessionDto>> Login(LoginRequestDto request, CancellationToken cancellationToken)
@@ -61,6 +66,23 @@ public sealed class AuthController(
         if (pin.Length != 4 || pin.Any(character => !char.IsDigit(character)))
         {
             return this.ValidationError(nameof(request.Pin), "PIN must contain exactly 4 digits.");
+        }
+
+        if (freePreviewOptions.Value.Enabled
+            && string.Equals(pin, freePreviewOptions.Value.Pin, StringComparison.Ordinal))
+        {
+            var previewAccount = await freePreviewAccountService.GetOrCreateAsync(cancellationToken);
+            var lifetimeDays = Math.Clamp(freePreviewOptions.Value.SessionLifetimeDays, 1, 30);
+            var (_, previewToken) = await sessionService.CreateSessionAsync(
+                previewAccount,
+                cancellationToken,
+                accessMode: SessionAccessMode.FreeMapPreview,
+                lifetime: TimeSpan.FromDays(lifetimeDays));
+            return Ok(ToSessionDto(
+                previewAccount,
+                previewToken,
+                mustChangePassword: false,
+                accessMode: SessionAccessMode.FreeMapPreview));
         }
 
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
@@ -156,7 +178,8 @@ public sealed class AuthController(
         string token,
         bool? mustChangePassword = null,
         Guid? tripId = null,
-        string? destinationName = null)
+        string? destinationName = null,
+        SessionAccessMode accessMode = SessionAccessMode.Trip)
     {
         return new AuthSessionDto(
             user.Id,
@@ -165,6 +188,7 @@ public sealed class AuthController(
             mustChangePassword ?? user.MustChangePassword,
             token,
             tripId,
-            destinationName);
+            destinationName,
+            accessMode);
     }
 }

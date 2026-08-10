@@ -1,4 +1,5 @@
 using TravelCompanion.Shared.Dtos;
+using TravelCompanion.Shared;
 
 namespace TravelCompanion.Mobile.Services;
 
@@ -11,10 +12,21 @@ public sealed class AuthSessionService
     private const string DestinationNameKey = "auth_destination_name";
     private const string MustChangePasswordKey = "auth_must_change_password";
     private const string BiometricEnabledKey = "auth_biometric_enabled";
+    private const string AccessModeKey = "auth_access_mode";
     private const string TokenKey = "auth_token";
 
     public bool HasSession => CurrentUserId.HasValue;
     public bool MustChangePassword => Preferences.Default.Get(MustChangePasswordKey, false);
+    public SessionAccessMode AccessMode
+    {
+        get
+        {
+            var value = Preferences.Default.Get(AccessModeKey, SessionAccessMode.Trip.ToString());
+            return Enum.TryParse<SessionAccessMode>(value, out var mode) ? mode : SessionAccessMode.Trip;
+        }
+    }
+
+    public bool IsFreeMapPreview => AccessMode == SessionAccessMode.FreeMapPreview;
     public bool IsBiometricEnabled
     {
         get => Preferences.Default.Get(BiometricEnabledKey, false);
@@ -90,7 +102,10 @@ public sealed class AuthSessionService
         }
 
         Preferences.Default.Set(MustChangePasswordKey, session.MustChangePassword);
-        Preferences.Default.Set(BiometricEnabledKey, !session.MustChangePassword);
+        Preferences.Default.Set(AccessModeKey, session.AccessMode.ToString());
+        Preferences.Default.Set(
+            BiometricEnabledKey,
+            session.AccessMode == SessionAccessMode.Trip && !session.MustChangePassword);
         await SecureStorage.Default.SetAsync(TokenKey, session.Token).ConfigureAwait(false);
     }
 
@@ -121,6 +136,7 @@ public sealed class AuthSessionService
         Preferences.Default.Remove(DestinationNameKey);
         Preferences.Default.Remove(MustChangePasswordKey);
         Preferences.Default.Remove(BiometricEnabledKey);
+        Preferences.Default.Remove(AccessModeKey);
         SecureStorage.Default.Remove(TokenKey);
     }
 }

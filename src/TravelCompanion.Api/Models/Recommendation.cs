@@ -11,6 +11,7 @@ public sealed class Recommendation
     public required string Title { get; set; }
     public required string Category { get; set; }
     public required string Neighborhood { get; set; }
+    public string? CitySlug { get; set; }
     public required string Description { get; set; }
     public List<string> Tags { get; set; } = [];
     public string PriceLevel { get; set; } = "medium";

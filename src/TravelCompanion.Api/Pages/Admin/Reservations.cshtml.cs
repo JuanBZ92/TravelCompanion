@@ -109,6 +109,10 @@ public sealed class ReservationsModel(
         {
             ModelState.AddModelError($"{nameof(TripInput)}.{nameof(TripInput.AccessPin)}", "El PIN debe tener exactamente 4 numeros.");
         }
+        else if (normalizedPin == TravelCompanion.Api.Options.FreePreviewOptions.ReservedPin)
+        {
+            ModelState.AddModelError($"{nameof(TripInput)}.{nameof(TripInput.AccessPin)}", "El PIN 0000 esta reservado para el mapa gratuito.");
+        }
 
         await ApplyTripTimeZoneDefaultAsync();
 

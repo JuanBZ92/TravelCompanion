@@ -109,6 +109,30 @@ public sealed class OfflineCacheService
         return Task.CompletedTask;
     }
 
+    public Task DeleteByPrefixAsync(params string[] keyPrefixes)
+    {
+        var directory = Path.Combine(FileSystem.AppDataDirectory, "offline-cache");
+        if (!Directory.Exists(directory))
+        {
+            return Task.CompletedTask;
+        }
+
+        var safePrefixes = keyPrefixes
+            .Where(prefix => !string.IsNullOrWhiteSpace(prefix))
+            .Select(SanitizeKey)
+            .ToList();
+        foreach (var path in Directory.EnumerateFiles(directory, "*.json"))
+        {
+            var name = Path.GetFileNameWithoutExtension(path);
+            if (safePrefixes.Any(prefix => name.StartsWith(prefix, StringComparison.Ordinal)))
+            {
+                File.Delete(path);
+            }
+        }
+
+        return Task.CompletedTask;
+    }
+
     public static string FormatSavedAt(DateTimeOffset savedAt)
     {
         var local = savedAt.ToLocalTime();

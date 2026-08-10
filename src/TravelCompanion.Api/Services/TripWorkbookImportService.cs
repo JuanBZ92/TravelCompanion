@@ -470,6 +470,10 @@ public sealed partial class TripWorkbookImportService(
         {
             errors.Add("PIN debe tener exactamente 4 numeros.");
         }
+        else if (pin == TravelCompanion.Api.Options.FreePreviewOptions.ReservedPin)
+        {
+            errors.Add("El PIN 0000 esta reservado para el mapa gratuito.");
+        }
 
         if (string.IsNullOrWhiteSpace(travelerName))
         {
