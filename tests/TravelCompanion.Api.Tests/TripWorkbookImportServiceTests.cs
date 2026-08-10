@@ -32,6 +32,23 @@ public sealed class TripWorkbookImportServiceTests
     }
 
     [Fact]
+    public async Task Generated_example_does_not_warn_for_autofill_notes()
+    {
+        await using var dbContext = CreateDbContext();
+        var destinationId = await SeedJapanDestinationAsync(dbContext);
+        dbContext.Recommendations.Add(CreateRecommendation(destinationId, "Ramen One", "Tokyo", ["food", "ramen"]));
+        await dbContext.SaveChangesAsync();
+        var service = CreateService(dbContext);
+
+        var bytes = await service.CreateExampleWorkbookAsync();
+        var preview = await service.PreviewAsync(new MemoryStream(bytes));
+
+        Assert.DoesNotContain(
+            preview.Rows.SelectMany(row => row.Warnings),
+            warning => warning.Contains("autofill", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public async Task Import_creates_trip_user_pin_lodging_and_recommendation_reservations_idempotently()
     {
         await using var dbContext = CreateDbContext();
@@ -56,6 +73,9 @@ public sealed class TripWorkbookImportServiceTests
         Assert.Equal(2, preview.ValidRows);
         Assert.Equal(1, preview.AutofillRows);
         Assert.Equal(1, Assert.Single(preview.Rows, row => row.Day == 1).MatchedLocationCount);
+        var autofillRow = Assert.Single(preview.Rows, row => row.Day == 2);
+        Assert.True(autofillRow.IsAutofill);
+        Assert.Empty(autofillRow.Warnings);
 
         var import = await service.ImportAsync(new MemoryStream(workbookBytes));
         Assert.True(import.Imported);
@@ -99,6 +119,30 @@ public sealed class TripWorkbookImportServiceTests
             CancellationToken.None);
         var afternoon = Assert.Single(today!.Sections, section => section.PeriodKey == "afternoon");
         Assert.Equal("Tarde curada de ramen y paseo corto.", afternoon.Description);
+    }
+
+    [Fact]
+    public async Task Preview_warns_when_autofill_contains_scheduled_content()
+    {
+        await using var dbContext = CreateDbContext();
+        var destinationId = await SeedJapanDestinationAsync(dbContext);
+        dbContext.Recommendations.Add(CreateRecommendation(destinationId, "Ramen One", "Tokyo", ["food", "ramen"]));
+        await dbContext.SaveChangesAsync();
+        var service = CreateService(dbContext);
+        var workbookBytes = await CreateImportWorkbookAsync(
+            service,
+            pin: "2468",
+            travelerName: "Cliente Test",
+            rows:
+            [
+                new WorkbookRow(1, "Tokyo", "Hotel Test Tokyo", "Tarde", "autofill", "Ramen One - Tokyo - Food", "-", "-", "No", "16:00", "Nota operativa."),
+            ]);
+
+        var preview = await service.PreviewAsync(new MemoryStream(workbookBytes));
+
+        var row = Assert.Single(preview.Rows);
+        Assert.True(row.IsAutofill);
+        Assert.Contains(row.Warnings, warning => warning.Contains("locations, reserva u horario", StringComparison.Ordinal));
     }
 
     [Fact]

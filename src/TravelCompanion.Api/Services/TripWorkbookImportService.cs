@@ -377,15 +377,14 @@ public sealed partial class TripWorkbookImportService(
                     rowWarnings))
                 .ToList();
 
-            var hasMeaningfulBlock = !string.IsNullOrWhiteSpace(curatedDescription)
+            var hasScheduledContent = !string.IsNullOrWhiteSpace(curatedDescription)
                 || locationInputs.Count > 0
                 || isReservation
-                || startTime.HasValue
-                || !string.IsNullOrWhiteSpace(notes);
-            var isAutofill = !hasMeaningfulBlock || IsExplicitFreeBlock(curatedDescription);
-            if (isAutofill && (locationInputs.Count > 0 || isReservation || startTime.HasValue || !string.IsNullOrWhiteSpace(notes)))
+                || startTime.HasValue;
+            var isAutofill = !hasScheduledContent || IsExplicitFreeBlock(curatedDescription);
+            if (isAutofill && (locationInputs.Count > 0 || isReservation || startTime.HasValue))
             {
-                rowWarnings.Add("El bloque parece libre/autofill pero tiene datos adicionales; no se crearan reservas para esa fila.");
+                rowWarnings.Add("El bloque esta marcado como autofill pero incluye locations, reserva u horario; esos datos no se importaran.");
             }
 
             if (!isAutofill && locationInputs.Count == 0 && string.IsNullOrWhiteSpace(curatedDescription))
