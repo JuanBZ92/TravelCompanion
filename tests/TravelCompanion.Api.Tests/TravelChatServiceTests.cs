@@ -358,10 +358,12 @@ public sealed class TravelChatServiceTests
 
         Assert.True(response.Saved);
         Assert.NotNull(response.Item);
+        Assert.Equal(ScheduleItemKind.Recommendation, response.Item.PlanningKind);
         Assert.Equal("Plan guardado en tu itinerario.", response.Message);
         Assert.True(await dbContext.Reservations.AnyAsync(reservation =>
             reservation.Trip!.AppUserId == user.Id
-            && reservation.Title == "Tsukiji Snack Walk"));
+            && reservation.Title == "Tsukiji Snack Walk"
+            && reservation.PlanningKind == ScheduleItemKind.Recommendation));
     }
 
     [Fact]

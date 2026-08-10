@@ -41,7 +41,7 @@ public sealed partial class TripWorkbookImportService(
         "Location 2",
         "Location 3",
         "Reserva",
-        "Hora",
+        "Hora reserva",
         "Notas"
     ];
 
@@ -112,7 +112,7 @@ public sealed partial class TripWorkbookImportService(
             sheet.Cell(excelRow, 8).Value = OptionalExampleText(row.Location2);
             sheet.Cell(excelRow, 9).Value = OptionalExampleText(row.Location3);
             sheet.Cell(excelRow, 10).Value = row.IsReservation ? "Si" : "No";
-            sheet.Cell(excelRow, 11).Value = OptionalExampleText(row.Time);
+            sheet.Cell(excelRow, 11).Value = row.Time ?? string.Empty;
             sheet.Cell(excelRow, 12).Value = OptionalExampleText(row.Notes);
         }
 
@@ -289,6 +289,7 @@ public sealed partial class TripWorkbookImportService(
 
         var metadata = await ReadMetadataAsync(sheet, errors, cancellationToken).ConfigureAwait(false);
         var headerMap = CreateHeaderMap(sheet.Row(HeaderRowNumber));
+        AddLegacyHeaderAlias(headerMap, "Hora reserva", "Hora");
         foreach (var header in Headers)
         {
             if (!headerMap.ContainsKey(NormalizeHeader(header)))
@@ -365,7 +366,18 @@ public sealed partial class TripWorkbookImportService(
             }
 
             var isReservation = ParseReservationFlag(reservationText, rowWarnings);
-            var startTime = ParseTime(excelRow, headerMap, "Hora", rowWarnings);
+            var parsedStartTime = ParseTime(excelRow, headerMap, "Hora reserva", rowWarnings);
+            if (isReservation && !parsedStartTime.HasValue)
+            {
+                rowErrors.Add($"Fila {rowNumber}: Hora reserva es obligatoria cuando Reserva es Si.");
+            }
+
+            if (!isReservation && parsedStartTime.HasValue)
+            {
+                rowWarnings.Add("La hora se ignoro porque Reserva es No; Momento define la franja de la recomendacion.");
+            }
+
+            var startTime = isReservation ? parsedStartTime : null;
             var locationMatches = locationInputs
                 .Select(input => MatchLocation(
                     input,
@@ -553,6 +565,9 @@ public sealed partial class TripWorkbookImportService(
                         160),
                     RecommendationId = recommendation?.Id,
                     Type = ReservationType.Event,
+                    PlanningKind = row.IsReservation
+                        ? ScheduleItemKind.ConfirmedReservation
+                        : ScheduleItemKind.Recommendation,
                     Date = row.Date,
                     StartsAt = startsAt,
                     EndsAt = endsAt,
@@ -639,6 +654,7 @@ public sealed partial class TripWorkbookImportService(
             TripId = tripId,
             ExternalId = TrimToMax($"{SourceSlug(metadata)}-lodging-{startsOn:yyyyMMdd}-{Slugify(hotel)}", 160),
             Type = ReservationType.Lodging,
+            PlanningKind = ScheduleItemKind.ConfirmedReservation,
             Date = startsOn,
             StartsAt = new TimeOnly(15, 0),
             EndsOn = endsOn,
@@ -727,7 +743,7 @@ public sealed partial class TripWorkbookImportService(
                 usedRecommendationIds,
                 ["breakfast", "cafe", "market"],
                 false,
-                "09:00",
+                null,
                 string.Empty),
             CreateExampleRow(
                 3,
@@ -739,7 +755,7 @@ public sealed partial class TripWorkbookImportService(
                 usedRecommendationIds,
                 ["bar", "nightlife", "dinner", "food"],
                 false,
-                "20:00",
+                null,
                 string.Empty),
             CreateExampleRow(
                 5,
@@ -775,7 +791,7 @@ public sealed partial class TripWorkbookImportService(
                 usedRecommendationIds,
                 ["breakfast", "temple", "market", "cafe"],
                 false,
-                "09:30",
+                null,
                 string.Empty),
             CreateExampleRow(
                 9,
@@ -823,7 +839,7 @@ public sealed partial class TripWorkbookImportService(
                 usedRecommendationIds,
                 ["bar", "nightlife", "dinner", "food"],
                 false,
-                "20:30",
+                null,
                 string.Empty),
             CreateExampleRow(
                 16,
@@ -835,7 +851,7 @@ public sealed partial class TripWorkbookImportService(
                 usedRecommendationIds,
                 ["breakfast", "market", "cafe", "food"],
                 false,
-                "09:30",
+                null,
                 string.Empty)
         };
 
@@ -1198,6 +1214,19 @@ public sealed partial class TripWorkbookImportService(
             .Where(cell => !string.IsNullOrWhiteSpace(cell.Header))
             .GroupBy(cell => cell.Header, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(group => group.Key, group => group.First().Column, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static void AddLegacyHeaderAlias(
+        IDictionary<string, int> headerMap,
+        string currentHeader,
+        string legacyHeader)
+    {
+        var currentKey = NormalizeHeader(currentHeader);
+        var legacyKey = NormalizeHeader(legacyHeader);
+        if (!headerMap.ContainsKey(currentKey) && headerMap.TryGetValue(legacyKey, out var column))
+        {
+            headerMap[currentKey] = column;
+        }
     }
 
     private static bool IsBlankRow(IXLRow row, IReadOnlyDictionary<string, int> headerMap)

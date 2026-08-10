@@ -66,6 +66,7 @@ public sealed class ItineraryService(TravelCompanionDbContext dbContext) : IItin
             TripId = trip.Id,
             RecommendationId = recommendation.Id,
             Type = ReservationType.Event,
+            PlanningKind = ScheduleItemKind.Recommendation,
             Date = request.Date,
             StartsAt = request.StartsAt,
             EndsAt = endsAt,
@@ -158,7 +159,8 @@ public sealed class ItineraryService(TravelCompanionDbContext dbContext) : IItin
             reservation.OriginName,
             reservation.DestinationName,
             reservation.OriginAirport,
-            reservation.DestinationAirport);
+            reservation.DestinationAirport,
+            reservation.PlanningKind);
     }
 
     private static RecommendationInteractionSignal CreateSavedSignal(

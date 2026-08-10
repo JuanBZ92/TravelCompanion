@@ -728,25 +728,56 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         int dayNumber,
         IReadOnlyList<ScheduleItemDto> selectedReservations)
     {
-        var usedRecommendationIds = new HashSet<Guid>();
+        var usedRecommendationIds = CreateAllocatedRecommendationIdsBefore(selectedDate);
         return TodayPeriod.All
             .Select(period =>
             {
-                var reservations = selectedReservations
+                var periodItems = selectedReservations
                     .Where(item => period.Contains(item.StartsAt))
                     .OrderBy(item => item.StartsAt)
+                    .ToList();
+                var reservations = periodItems
+                    .Where(item => item.PlanningKind != ScheduleItemKind.Recommendation)
                     .Select(item => new TodayReservationViewModel(item))
                     .ToList();
-                var locations = SelectRecommendationsForPeriod(period, selectedDate, usedRecommendationIds)
+                var assignedLocations = periodItems
+                    .Where(item => item.PlanningKind == ScheduleItemKind.Recommendation && item.RecommendationId.HasValue)
+                    .Select(item => _recommendations.FirstOrDefault(recommendation => recommendation.Id == item.RecommendationId))
+                    .Where(recommendation => recommendation is not null)
                     .Select(recommendation => new TodayLocationViewModel(
-                        recommendation,
-                        CalculateDistanceKm(_currentLocation, recommendation)))
+                        recommendation!,
+                        CalculateDistanceKm(_currentLocation, recommendation!),
+                        isAssigned: true))
                     .ToList();
+                foreach (var assignedLocation in assignedLocations)
+                {
+                    usedRecommendationIds.Add(assignedLocation.Recommendation.Id);
+                }
+
+                var locations = assignedLocations.Count > 0
+                    ? assignedLocations
+                    : periodItems.Count == 0
+                        ? SelectRecommendationsForPeriod(
+                            period,
+                            selectedDate,
+                            usedRecommendationIds,
+                            _currentLocation)
+                            .Select(recommendation => new TodayLocationViewModel(
+                                recommendation,
+                                CalculateDistanceKm(_currentLocation, recommendation)))
+                            .ToList()
+                        : [];
+                var curatedDescription = periodItems
+                    .Where(item => item.PlanningKind == ScheduleItemKind.Recommendation)
+                    .Select(item => ExtractCuratedDescription(item.Notes))
+                    .FirstOrDefault(description => !string.IsNullOrWhiteSpace(description));
 
                 return new ScheduleTodaySectionViewModel(
                     dayNumber,
                     period.Label,
-                    CreateSectionDescription(period, reservations, locations),
+                    string.IsNullOrWhiteSpace(curatedDescription)
+                        ? CreateSectionDescription(period, reservations, locations)
+                        : curatedDescription,
                     locations,
                     reservations);
             })
@@ -756,7 +787,9 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     private IReadOnlyList<RecommendationDto> SelectRecommendationsForPeriod(
         TodayPeriod period,
         DateOnly selectedDate,
-        ISet<Guid> usedRecommendationIds)
+        ISet<Guid> usedRecommendationIds,
+        GeoPointDto? rankingLocation = null,
+        int maxSuggestions = 2)
     {
         var selectedCity = GetCityForDate(selectedDate, string.Empty);
         var candidates = _recommendations
@@ -767,9 +800,9 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
                 Score = ScoreRecommendationForPeriod(recommendation, period, selectedCity)
             })
             .OrderByDescending(candidate => candidate.Score)
-            .ThenBy(candidate => CalculateDistanceKm(_currentLocation, candidate.Recommendation) ?? decimal.MaxValue)
+            .ThenBy(candidate => CalculateDistanceKm(rankingLocation, candidate.Recommendation) ?? decimal.MaxValue)
             .ThenBy(candidate => candidate.Recommendation.Title)
-            .Take(2)
+            .Take(Math.Clamp(maxSuggestions, 0, 3))
             .Select(candidate => candidate.Recommendation)
             .ToList();
 
@@ -779,6 +812,58 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         }
 
         return candidates;
+    }
+
+    private HashSet<Guid> CreateAllocatedRecommendationIdsBefore(DateOnly selectedDate)
+    {
+        var allocatedRecommendationIds = _allItems
+            .Where(item => item.RecommendationId.HasValue)
+            .Select(item => item.RecommendationId!.Value)
+            .ToHashSet();
+        if (!_tripStartsOn.HasValue || selectedDate <= _tripStartsOn.Value)
+        {
+            return allocatedRecommendationIds;
+        }
+
+        var selectedFreePeriodCount = TodayPeriod.All.Count(period => !_allItems.Any(item =>
+            item.Date == selectedDate && period.Contains(item.StartsAt)));
+        var availableRecommendationCount = _recommendations.Count(recommendation =>
+            !allocatedRecommendationIds.Contains(recommendation.Id));
+        var reservedForSelectedDate = Math.Min(
+            selectedFreePeriodCount * 2,
+            availableRecommendationCount);
+
+        for (var allocationDate = _tripStartsOn.Value;
+             allocationDate < selectedDate;
+             allocationDate = allocationDate.AddDays(1))
+        {
+            foreach (var period in TodayPeriod.All)
+            {
+                var hasPlannedItem = _allItems.Any(item =>
+                    item.Date == allocationDate && period.Contains(item.StartsAt));
+                if (!hasPlannedItem)
+                {
+                    var availableForHistoricalAllocation = _recommendations.Count(recommendation =>
+                        !allocatedRecommendationIds.Contains(recommendation.Id));
+                    var maxSuggestions = Math.Min(
+                        2,
+                        Math.Max(0, availableForHistoricalAllocation - reservedForSelectedDate));
+                    if (maxSuggestions == 0)
+                    {
+                        continue;
+                    }
+
+                    SelectRecommendationsForPeriod(
+                        period,
+                        allocationDate,
+                        allocatedRecommendationIds,
+                        rankingLocation: null,
+                        maxSuggestions: maxSuggestions);
+                }
+            }
+        }
+
+        return allocatedRecommendationIds;
     }
 
     private static int ScoreRecommendationForPeriod(
@@ -832,6 +917,25 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         }
 
         return $"{period.Label}: sin reservas cargadas ni locations sugeridas por ahora.";
+    }
+
+    private static string ExtractCuratedDescription(string notes)
+    {
+        if (string.IsNullOrWhiteSpace(notes))
+        {
+            return string.Empty;
+        }
+
+        const string prefix = "Descripcion:";
+        var start = notes.IndexOf(prefix, StringComparison.OrdinalIgnoreCase);
+        if (start < 0)
+        {
+            return string.Empty;
+        }
+
+        start += prefix.Length;
+        var end = notes.IndexOf(Environment.NewLine, start, StringComparison.Ordinal);
+        return (end < 0 ? notes[start..] : notes[start..end]).Trim();
     }
 
     private async Task UpdateLocationAsync(CancellationToken cancellationToken)

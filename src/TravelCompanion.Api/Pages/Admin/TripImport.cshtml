@@ -32,6 +32,7 @@
     </div>
     <p class="form-hint">
         Completa PIN, cliente, fechas, ciudad por dia y los bloques que quieras curar. Si un bloque queda vacio/autofill, Today lo completa con 1 a 3 recomendaciones automaticas.
+        La columna Hora reserva se completa solo cuando Reserva es Si; para recomendaciones alcanza con elegir Momento.
     </p>
 </section>
 
@@ -39,7 +40,7 @@
     <div class="section-header">
         <div>
             <h2>Subir Excel</h2>
-            <p class="form-hint">El preview no guarda datos. Confirmar import reemplaza solo las reservas creadas antes por este import, sin tocar reservas manuales.</p>
+            <p class="form-hint">El preview no guarda datos. Confirmar import reemplaza solo los items de plan creados antes por este import, sin tocar reservas o eventos manuales.</p>
         </div>
         <span class="badge">Idempotente</span>
     </div>
@@ -146,7 +147,11 @@
                                 <span class="badge">@row.Moment</span>
                                 @if (row.IsReservation)
                                 {
-                                    <span class="badge">Reserva</span>
+                                    <span class="badge">Reserva confirmada</span>
+                                }
+                                else if (!row.IsAutofill)
+                                {
+                                    <span class="badge">Recomendacion curada</span>
                                 }
                                 @if (!string.IsNullOrWhiteSpace(row.Time))
                                 {

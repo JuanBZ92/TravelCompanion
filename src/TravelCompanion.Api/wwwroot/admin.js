@@ -20,6 +20,30 @@ if (reservationTypeSelect) {
     updateReservationSections();
 }
 
+const planningKindSelect = document.querySelector("[data-planning-kind]");
+const linkedRecommendationSelect = document.querySelector("[data-recommendation-select]");
+
+function updatePlanningKind() {
+    if (!reservationTypeSelect || !planningKindSelect) {
+        return;
+    }
+
+    if (reservationTypeSelect.value === "Flight" || reservationTypeSelect.value === "Lodging") {
+        planningKindSelect.value = "ConfirmedReservation";
+        return;
+    }
+
+    if (linkedRecommendationSelect?.value && planningKindSelect.value === "ManualEvent") {
+        planningKindSelect.value = "Recommendation";
+    }
+}
+
+if (planningKindSelect) {
+    reservationTypeSelect?.addEventListener("change", updatePlanningKind);
+    linkedRecommendationSelect?.addEventListener("change", updatePlanningKind);
+    updatePlanningKind();
+}
+
 const recommendationAccessSelect = document.querySelector("[data-recommendation-access]");
 const recommendationPackageField = document.querySelector("[data-recommendation-package-field]");
 

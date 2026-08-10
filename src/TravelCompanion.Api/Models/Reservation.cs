@@ -11,6 +11,7 @@ public sealed class Reservation
     public Guid? RecommendationId { get; set; }
     public Recommendation? Recommendation { get; set; }
     public ReservationType Type { get; set; } = ReservationType.Event;
+    public ScheduleItemKind PlanningKind { get; set; } = ScheduleItemKind.ManualEvent;
     public DateOnly Date { get; set; }
     public TimeOnly StartsAt { get; set; }
     public DateOnly? EndsOn { get; set; }

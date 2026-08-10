@@ -209,6 +209,12 @@
                                                               ColumnSpacing="12"
                                                               Padding="0,2">
                                                             <VerticalStackLayout Spacing="3">
+                                                                <Label Text="{Binding AssignmentLabel}"
+                                                                       FontSize="10"
+                                                                       FontAttributes="Bold"
+                                                                       CharacterSpacing="2"
+                                                                       TextColor="#8A6F43"
+                                                                       IsVisible="{Binding HasAssignmentLabel}" />
                                                                 <Label Text="{Binding Title}"
                                                                        FontFamily="serif"
                                                                        FontSize="21"
@@ -247,7 +253,8 @@
                                                                             Style="{StaticResource GhostButton}"
                                                                             FontSize="11"
                                                                             Padding="10,6"
-                                                                            MinimumHeightRequest="30" />
+                                                                            MinimumHeightRequest="30"
+                                                                            IsVisible="{Binding CanDismiss}" />
                                                                 </HorizontalStackLayout>
                                                             </VerticalStackLayout>
                                                             <Label Grid.Column="1"

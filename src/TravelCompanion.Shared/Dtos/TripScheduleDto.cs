@@ -29,14 +29,23 @@ public sealed record ScheduleItemDto(
     string? OriginName,
     string? DestinationName,
     string? OriginAirport,
-    string? DestinationAirport)
+    string? DestinationAirport,
+    ScheduleItemKind PlanningKind = ScheduleItemKind.ManualEvent)
 {
     public string TypeLabel => Type switch
     {
         ReservationType.Flight => "Vuelo",
         ReservationType.Lodging => "Hospedaje",
-        _ => "Evento"
+        _ => PlanningKind switch
+        {
+            ScheduleItemKind.ConfirmedReservation => "Reserva",
+            ScheduleItemKind.Recommendation => "Recomendacion",
+            _ => "Evento"
+        }
     };
+
+    public bool IsConfirmedReservation => PlanningKind == ScheduleItemKind.ConfirmedReservation;
+    public bool IsRecommendation => PlanningKind == ScheduleItemKind.Recommendation;
 
     public string MainDetail => Type switch
     {

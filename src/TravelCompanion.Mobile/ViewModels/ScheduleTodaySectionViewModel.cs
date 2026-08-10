@@ -21,10 +21,11 @@ public sealed class ScheduleTodaySectionViewModel(
 
 public sealed class TodayLocationViewModel
 {
-    public TodayLocationViewModel(RecommendationDto recommendation, decimal? distanceKm)
+    public TodayLocationViewModel(RecommendationDto recommendation, decimal? distanceKm, bool isAssigned = false)
     {
         Recommendation = recommendation;
         DistanceKm = distanceKm;
+        IsAssigned = isAssigned;
         Title = recommendation.Title;
         Detail = string.IsNullOrWhiteSpace(recommendation.Neighborhood)
             ? recommendation.Category
@@ -34,10 +35,11 @@ public sealed class TodayLocationViewModel
             : string.Empty;
         RankReason = string.Empty;
         VisitStatusLabel = string.Empty;
+        AssignmentLabel = isAssigned ? "RECOMENDACION CURADA" : string.Empty;
     }
 
     public TodayLocationViewModel(TodayRecommendationDto todayRecommendation)
-        : this(todayRecommendation.Recommendation, todayRecommendation.DistanceKm)
+        : this(todayRecommendation.Recommendation, todayRecommendation.DistanceKm, todayRecommendation.IsAssigned)
     {
         RankReason = todayRecommendation.RankReason;
         VisitStatusLabel = todayRecommendation.VisitStatusLabel ?? string.Empty;
@@ -51,10 +53,14 @@ public sealed class TodayLocationViewModel
     public string DistanceLabel { get; }
     public string RankReason { get; }
     public string VisitStatusLabel { get; }
+    public string AssignmentLabel { get; }
     public bool IsVisited { get; }
+    public bool IsAssigned { get; }
+    public bool CanDismiss => !IsAssigned;
     public bool HasDistance => !string.IsNullOrWhiteSpace(DistanceLabel);
     public bool HasRankReason => !string.IsNullOrWhiteSpace(RankReason);
     public bool HasVisitStatus => !string.IsNullOrWhiteSpace(VisitStatusLabel);
+    public bool HasAssignmentLabel => !string.IsNullOrWhiteSpace(AssignmentLabel);
 }
 
 public sealed class TodayReservationViewModel

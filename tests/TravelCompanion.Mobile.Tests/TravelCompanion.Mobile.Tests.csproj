@@ -27,6 +27,7 @@
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\MobilePayloadNormalizer.cs" Link="MobilePayloadNormalizer.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\LocalizationResourceManager.cs" Link="LocalizationResourceManager.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\ViewModels\TravelChatCardViewModel.cs" Link="TravelChatCardViewModel.cs" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\ViewModels\ScheduleTodaySectionViewModel.cs" Link="ScheduleTodaySectionViewModel.cs" />
   </ItemGroup>
 
 </Project>

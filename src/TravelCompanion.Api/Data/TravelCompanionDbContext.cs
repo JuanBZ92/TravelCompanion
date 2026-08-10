@@ -110,6 +110,10 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
                 .HasConversion<string>()
                 .HasMaxLength(32)
                 .HasDefaultValue(TravelCompanion.Shared.ReservationType.Event);
+            entity.Property(reservation => reservation.PlanningKind)
+                .HasConversion<string>()
+                .HasMaxLength(32)
+                .HasDefaultValue(TravelCompanion.Shared.ScheduleItemKind.ManualEvent);
             entity.Property(reservation => reservation.Title).HasMaxLength(160);
             entity.Property(reservation => reservation.TimeZoneId).HasMaxLength(120);
             entity.Property(reservation => reservation.City).HasMaxLength(120);

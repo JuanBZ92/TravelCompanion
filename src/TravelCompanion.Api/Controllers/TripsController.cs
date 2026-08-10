@@ -74,7 +74,8 @@ public sealed class TripsController(
                     reservation.OriginName,
                     reservation.DestinationName,
                     reservation.OriginAirport,
-                    reservation.DestinationAirport))
+                    reservation.DestinationAirport,
+                    reservation.PlanningKind))
                 .ToList());
 
         return Ok(response);

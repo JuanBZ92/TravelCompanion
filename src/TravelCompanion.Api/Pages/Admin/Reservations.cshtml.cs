@@ -26,6 +26,12 @@ public sealed class ReservationsModel(
         new("Vuelo", ReservationType.Flight.ToString()),
         new("Hospedaje", ReservationType.Lodging.ToString())
     ];
+    public List<SelectListItem> PlanningKindOptions { get; } =
+    [
+        new("Evento manual", ScheduleItemKind.ManualEvent.ToString()),
+        new("Reserva confirmada", ScheduleItemKind.ConfirmedReservation.ToString()),
+        new("Recomendacion asignada", ScheduleItemKind.Recommendation.ToString())
+    ];
     [TempData]
     public string? StatusMessage { get; set; }
 
@@ -146,6 +152,14 @@ public sealed class ReservationsModel(
         }
 
         await ApplyRecommendationDefaultsAsync();
+        ApplyPlanningKindDefaults();
+
+        if (Input.PlanningKind == ScheduleItemKind.Recommendation && !Input.RecommendationId.HasValue)
+        {
+            ModelState.AddModelError(
+                $"{nameof(Input)}.{nameof(Input.RecommendationId)}",
+                "Una recomendacion asignada debe estar vinculada a una recomendacion existente.");
+        }
 
         if (string.IsNullOrWhiteSpace(Input.Title))
         {
@@ -206,6 +220,7 @@ public sealed class ReservationsModel(
                 Id = Guid.NewGuid(),
                 TripId = Input.TripId,
                 Type = Input.Type,
+                PlanningKind = Input.PlanningKind,
                 Title = string.Empty,
                 City = string.Empty,
                 LocationName = string.Empty,
@@ -234,7 +249,7 @@ public sealed class ReservationsModel(
 
         if (trip.Reservations.Count > 0)
         {
-            StatusMessage = "No se puede borrar un viaje con reservas. Borra sus reservas primero.";
+            StatusMessage = "No se puede borrar un viaje con elementos de agenda. Borralos primero.";
             return RedirectToPage(new { selectedTripId = id });
         }
 
@@ -346,6 +361,7 @@ public sealed class ReservationsModel(
                 reservation.EndsAt,
                 reservation.TimeZoneId,
                 reservation.Type,
+                reservation.PlanningKind,
                 reservation.Title,
                 reservation.City,
                 reservation.LocationName,
@@ -544,6 +560,22 @@ public sealed class ReservationsModel(
         }
     }
 
+    private void ApplyPlanningKindDefaults()
+    {
+        if (Input.Type is ReservationType.Flight or ReservationType.Lodging)
+        {
+            Input.PlanningKind = ScheduleItemKind.ConfirmedReservation;
+            ModelState.Remove($"{nameof(Input)}.{nameof(Input.PlanningKind)}");
+            return;
+        }
+
+        if (Input.RecommendationId.HasValue && Input.PlanningKind == ScheduleItemKind.ManualEvent)
+        {
+            Input.PlanningKind = ScheduleItemKind.Recommendation;
+            ModelState.Remove($"{nameof(Input)}.{nameof(Input.PlanningKind)}");
+        }
+    }
+
     private string GetDisplayNameFromUserOption(Guid userId)
     {
         if (userId == Guid.Empty)
@@ -601,6 +633,7 @@ public sealed class ReservationsModel(
         TimeOnly? EndsAt,
         string? TimeZoneId,
         ReservationType Type,
+        ScheduleItemKind PlanningKind,
         string Title,
         string City,
         string LocationName,
@@ -620,6 +653,13 @@ public sealed class ReservationsModel(
             ReservationType.Flight => "Vuelo",
             ReservationType.Lodging => "Hospedaje",
             _ => "Evento"
+        };
+
+        public string PlanningKindLabel => PlanningKind switch
+        {
+            ScheduleItemKind.ConfirmedReservation => "Reserva confirmada",
+            ScheduleItemKind.Recommendation => "Recomendacion",
+            _ => "Evento manual"
         };
 
         public string PlaceLabel => Type == ReservationType.Flight
@@ -643,6 +683,9 @@ public sealed class ReservationsModel(
 
         [Required(ErrorMessage = "Selecciona un tipo.")]
         public ReservationType Type { get; set; } = ReservationType.Event;
+
+        [Required(ErrorMessage = "Selecciona la naturaleza del elemento.")]
+        public ScheduleItemKind PlanningKind { get; set; } = ScheduleItemKind.ManualEvent;
 
         [Required(ErrorMessage = "La fecha es obligatoria.")]
         public DateOnly Date { get; set; }
@@ -709,6 +752,7 @@ public sealed class ReservationsModel(
                 TripId = reservation.TripId,
                 RecommendationId = reservation.RecommendationId,
                 Type = reservation.Type,
+                PlanningKind = reservation.PlanningKind,
                 Date = reservation.Date,
                 StartsAt = reservation.StartsAt,
                 EndsOn = reservation.EndsOn,
@@ -737,6 +781,7 @@ public sealed class ReservationsModel(
             reservation.TripId = TripId;
             reservation.RecommendationId = RecommendationId;
             reservation.Type = Type;
+            reservation.PlanningKind = PlanningKind;
             reservation.Date = Date;
             reservation.StartsAt = StartsAt;
             reservation.EndsOn = EndsOn;

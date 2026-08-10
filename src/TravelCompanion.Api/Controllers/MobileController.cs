@@ -326,7 +326,8 @@ public sealed class MobileController(
                         reservation.OriginName,
                         reservation.DestinationName,
                         reservation.OriginAirport,
-                        reservation.DestinationAirport))
+                        reservation.DestinationAirport,
+                        reservation.PlanningKind))
                     .ToList());
     }
 

@@ -19,7 +19,8 @@ public sealed record TodayRecommendationDto(
     string RankReason,
     bool IsVisited,
     string? VisitStatusLabel,
-    string SuggestedForPeriod);
+    string SuggestedForPeriod,
+    bool IsAssigned = false);
 
 public enum RecommendationSignal
 {

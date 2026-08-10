@@ -27,6 +27,7 @@ public sealed class TodayRecommendationService(
     TravelCompanionDbContext dbContext,
     ILogger<TodayRecommendationService> logger) : ITodayRecommendationService
 {
+    private const string AutomaticSuggestionSourcePrefix = "today_auto:";
     private const int DefaultSuggestionsPerFreePeriod = 2;
     private const int MaxSuggestionsPerFreePeriod = 3;
     private static readonly int SuggestionsPerFreePeriod = Math.Clamp(
@@ -83,41 +84,159 @@ public sealed class TodayRecommendationService(
             user.Id,
             trip.Id,
             cancellationToken);
-        var selectedCity = ResolveCityForDate(trip, selectedDate);
-        var usedInResponse = new HashSet<Guid>();
-
-        var sections = TodayPeriod.All
-            .Select(period =>
+        var persistedAssignments = await LoadAutomaticAssignmentsAsync(
+            user.Id,
+            trip.Id,
+            cancellationToken);
+        var allocatedRecommendationIds = new HashSet<Guid>();
+        var blockedForNewAssignments = tripRecommendationIds
+            .Concat(persistedAssignments.Values.SelectMany(assignments => assignments).Select(assignment => assignment.RecommendationId))
+            .ToHashSet();
+        var recommendationsById = recommendations.ToDictionary(recommendation => recommendation.Id);
+        var unlockedById = unlocked.ToDictionary(recommendation => recommendation.Id);
+        var sections = new List<TodaySectionDto>();
+        var assignmentsAdded = 0;
+        var selectedStoredIds = new HashSet<Guid>();
+        var selectedMissingSuggestionCount = 0;
+        foreach (var period in TodayPeriod.All)
+        {
+            var selectedPeriodHasPlan = trip.Reservations.Any(reservation =>
+                reservation.Date == selectedDate && period.Contains(reservation.StartsAt));
+            if (selectedPeriodHasPlan)
             {
-                var periodReservations = trip.Reservations
-                    .Where(reservation => reservation.Date == selectedDate && period.Contains(reservation.StartsAt))
+                continue;
+            }
+
+            var selectedKey = new TodayAssignmentKey(selectedDate, period.Key);
+            var validStoredCount = (persistedAssignments.GetValueOrDefault(selectedKey) ?? [])
+                .OrderBy(assignment => assignment.Rank)
+                .Count(assignment => selectedStoredIds.Add(assignment.RecommendationId)
+                    && !tripRecommendationIds.Contains(assignment.RecommendationId)
+                    && unlockedById.ContainsKey(assignment.RecommendationId));
+            selectedMissingSuggestionCount += Math.Max(0, SuggestionsPerFreePeriod - validStoredCount);
+        }
+
+        var availableNewSuggestionCount = unlocked.Count(recommendation =>
+            !blockedForNewAssignments.Contains(recommendation.Id));
+        var reservedNewSuggestionsForSelectedDate = Math.Min(
+            selectedMissingSuggestionCount,
+            availableNewSuggestionCount);
+
+        for (var allocationDate = trip.StartsOn; allocationDate <= selectedDate; allocationDate = allocationDate.AddDays(1))
+        {
+            var allocationCity = ResolveCityForDate(trip, allocationDate);
+            var allocationLocation = allocationDate == selectedDate ? currentLocation : null;
+            foreach (var period in TodayPeriod.All)
+            {
+                var periodItems = trip.Reservations
+                    .Where(reservation => reservation.Date == allocationDate && period.Contains(reservation.StartsAt))
                     .OrderBy(reservation => reservation.StartsAt)
                     .ToList();
-                var reservations = periodReservations
+                var automaticSuggestions = new List<TodayRecommendationDto>();
+                if (periodItems.Count == 0)
+                {
+                    var assignmentKey = new TodayAssignmentKey(allocationDate, period.Key);
+                    var storedForPeriod = persistedAssignments.GetValueOrDefault(assignmentKey) ?? [];
+                    foreach (var stored in storedForPeriod.OrderBy(assignment => assignment.Rank))
+                    {
+                        if (automaticSuggestions.Count >= SuggestionsPerFreePeriod
+                            || tripRecommendationIds.Contains(stored.RecommendationId)
+                            || allocatedRecommendationIds.Contains(stored.RecommendationId)
+                            || !unlockedById.TryGetValue(stored.RecommendationId, out var storedRecommendation))
+                        {
+                            continue;
+                        }
+
+                        automaticSuggestions.Add(CreateAutomaticSuggestion(
+                            storedRecommendation,
+                            period,
+                            allocationCity,
+                            profile,
+                            allocationLocation,
+                            visitedRecommendationIds,
+                            dismissedRecommendationIds));
+                        allocatedRecommendationIds.Add(stored.RecommendationId);
+                    }
+
+                    var missingCount = SuggestionsPerFreePeriod - automaticSuggestions.Count;
+                    if (allocationDate != selectedDate && missingCount > 0)
+                    {
+                        var availableForHistoricalAllocation = unlocked.Count(recommendation =>
+                            !blockedForNewAssignments.Contains(recommendation.Id)
+                            && !allocatedRecommendationIds.Contains(recommendation.Id));
+                        missingCount = Math.Min(
+                            missingCount,
+                            Math.Max(0, availableForHistoricalAllocation - reservedNewSuggestionsForSelectedDate));
+                    }
+
+                    if (missingCount > 0)
+                    {
+                        var newSuggestions = SelectSuggestions(
+                            period,
+                            allocationCity,
+                            unlocked,
+                            profile,
+                            allocationLocation,
+                            blockedForNewAssignments,
+                            visitedRecommendationIds,
+                            dismissedRecommendationIds,
+                            allocatedRecommendationIds,
+                            missingCount);
+                        var nextRank = storedForPeriod.Count == 0
+                            ? 1
+                            : storedForPeriod.Max(assignment => assignment.Rank) + 1;
+                        foreach (var suggestion in newSuggestions)
+                        {
+                            dbContext.RecommendationInteractionSignals.Add(CreateAutomaticAssignmentSignal(
+                                user.Id,
+                                trip.Id,
+                                suggestion.Recommendation.Id,
+                                allocationDate,
+                                period.Key,
+                                nextRank++));
+                            assignmentsAdded++;
+                        }
+
+                        automaticSuggestions.AddRange(newSuggestions);
+                    }
+                }
+
+                if (allocationDate != selectedDate)
+                {
+                    continue;
+                }
+
+                var reservations = periodItems
+                    .Where(item => item.PlanningKind != ScheduleItemKind.Recommendation)
                     .Select(ToScheduleItemDto)
                     .ToList();
-                var isFreePeriod = reservations.Count == 0;
-                var suggestions = isFreePeriod
-                    ? SelectSuggestions(
+                var assignedRecommendations = periodItems
+                    .Where(item => item.PlanningKind == ScheduleItemKind.Recommendation && item.RecommendationId.HasValue)
+                    .Select(item => recommendationsById.GetValueOrDefault(item.RecommendationId!.Value))
+                    .Where(recommendation => recommendation is not null)
+                    .Select(recommendation => CreateAssignedRecommendation(
+                        recommendation!,
                         period,
-                        selectedCity,
-                        unlocked,
-                        profile,
                         currentLocation,
-                        tripRecommendationIds,
-                        visitedRecommendationIds,
-                        dismissedRecommendationIds,
-                        usedInResponse)
-                    : [];
+                        visitedRecommendationIds))
+                    .ToList();
+                var recommendationsForSection = assignedRecommendations
+                    .Concat(automaticSuggestions)
+                    .ToList();
 
-                return new TodaySectionDto(
+                sections.Add(new TodaySectionDto(
                     period.Key,
                     period.Label,
-                    CreateDescription(period, periodReservations, suggestions),
+                    CreateDescription(period, periodItems, recommendationsForSection),
                     reservations,
-                    suggestions);
-            })
-            .ToList();
+                    recommendationsForSection));
+            }
+        }
+
+        if (assignmentsAdded > 0)
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
 
         logger.LogInformation(
             "Today recommendations loaded. UserId={UserId}; TripId={TripId}; Date={Date}; Sections={SectionCount}; Suggestions={SuggestionCount}; HasLocation={HasLocation}.",
@@ -191,11 +310,12 @@ public sealed class TodayRecommendationService(
         ISet<Guid> tripRecommendationIds,
         ISet<Guid> visitedRecommendationIds,
         ISet<Guid> dismissedRecommendationIds,
-        ISet<Guid> usedInResponse)
+        ISet<Guid> allocatedRecommendationIds,
+        int maxSuggestions = DefaultSuggestionsPerFreePeriod)
     {
         var scored = recommendations
             .Where(recommendation => !tripRecommendationIds.Contains(recommendation.Id))
-            .Where(recommendation => !usedInResponse.Contains(recommendation.Id))
+            .Where(recommendation => !allocatedRecommendationIds.Contains(recommendation.Id))
             .Select(recommendation => ScoreRecommendation(
                 recommendation,
                 period,
@@ -209,12 +329,12 @@ public sealed class TodayRecommendationService(
             .ThenByDescending(candidate => candidate.Score)
             .ThenBy(candidate => candidate.DistanceKm ?? decimal.MaxValue)
             .ThenBy(candidate => candidate.Recommendation.Title)
-            .Take(SuggestionsPerFreePeriod)
+            .Take(Math.Clamp(maxSuggestions, 0, MaxSuggestionsPerFreePeriod))
             .ToList();
 
         foreach (var candidate in scored)
         {
-            usedInResponse.Add(candidate.Recommendation.Id);
+            allocatedRecommendationIds.Add(candidate.Recommendation.Id);
         }
 
         return scored
@@ -226,6 +346,50 @@ public sealed class TodayRecommendationService(
                 candidate.IsVisited ? "Ya visitado" : null,
                 period.Label))
             .ToList();
+    }
+
+    private static TodayRecommendationDto CreateAutomaticSuggestion(
+        Recommendation recommendation,
+        TodayPeriod period,
+        string selectedCity,
+        TravelPreferenceProfile? profile,
+        GeoPointDto? currentLocation,
+        ISet<Guid> visitedRecommendationIds,
+        ISet<Guid> dismissedRecommendationIds)
+    {
+        var candidate = ScoreRecommendation(
+            recommendation,
+            period,
+            selectedCity,
+            profile,
+            currentLocation,
+            visitedRecommendationIds.Contains(recommendation.Id),
+            dismissedRecommendationIds.Contains(recommendation.Id));
+        return new TodayRecommendationDto(
+            ToRecommendationDto(recommendation, candidate.DistanceKm),
+            candidate.DistanceKm,
+            candidate.Reason,
+            candidate.IsVisited,
+            candidate.IsVisited ? "Ya visitado" : null,
+            period.Label);
+    }
+
+    private static TodayRecommendationDto CreateAssignedRecommendation(
+        Recommendation recommendation,
+        TodayPeriod period,
+        GeoPointDto? currentLocation,
+        ISet<Guid> visitedRecommendationIds)
+    {
+        var distanceKm = CalculateDistanceKm(currentLocation, recommendation);
+        var isVisited = visitedRecommendationIds.Contains(recommendation.Id);
+        return new TodayRecommendationDto(
+            ToRecommendationDto(recommendation, distanceKm),
+            distanceKm,
+            "Seleccionada para este bloque",
+            isVisited,
+            isVisited ? "Ya visitado" : null,
+            period.Label,
+            IsAssigned: true);
     }
 
     private static ScoredTodayRecommendation ScoreRecommendation(
@@ -436,6 +600,78 @@ public sealed class TodayRecommendationService(
             .ToHashSet();
     }
 
+    private async Task<Dictionary<TodayAssignmentKey, List<PersistedTodayAssignment>>> LoadAutomaticAssignmentsAsync(
+        Guid userId,
+        Guid tripId,
+        CancellationToken cancellationToken)
+    {
+        var storedSignals = await dbContext.RecommendationInteractionSignals
+            .AsNoTracking()
+            .Where(signal => signal.UserId == userId
+                && signal.TripId == tripId
+                && signal.Signal == RecommendationSignal.Suggested
+                && signal.Source.StartsWith(AutomaticSuggestionSourcePrefix))
+            .Select(signal => new { signal.RecommendationId, signal.Source, signal.CreatedAtUtc })
+            .ToListAsync(cancellationToken);
+
+        return storedSignals
+            .Select(signal => TryParseAutomaticAssignment(
+                signal.RecommendationId,
+                signal.Source,
+                signal.CreatedAtUtc))
+            .Where(assignment => assignment is not null)
+            .Select(assignment => assignment!)
+            .GroupBy(assignment => new { assignment.Date, assignment.PeriodKey, assignment.Rank })
+            .Select(group => group.OrderByDescending(assignment => assignment.CreatedAtUtc).First())
+            .GroupBy(assignment => new TodayAssignmentKey(assignment.Date, assignment.PeriodKey))
+            .ToDictionary(group => group.Key, group => group.OrderBy(assignment => assignment.Rank).ToList());
+    }
+
+    private static RecommendationInteractionSignal CreateAutomaticAssignmentSignal(
+        Guid userId,
+        Guid tripId,
+        Guid recommendationId,
+        DateOnly date,
+        string periodKey,
+        int rank)
+    {
+        var now = DateTimeOffset.UtcNow;
+        return new RecommendationInteractionSignal
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            TripId = tripId,
+            RecommendationId = recommendationId,
+            Signal = RecommendationSignal.Suggested,
+            Source = $"{AutomaticSuggestionSourcePrefix}{date:yyyyMMdd}:{periodKey}:{rank}",
+            OccurredAtUtc = now,
+            CreatedAtUtc = now
+        };
+    }
+
+    private static PersistedTodayAssignment? TryParseAutomaticAssignment(
+        Guid recommendationId,
+        string source,
+        DateTimeOffset createdAtUtc)
+    {
+        if (!source.StartsWith(AutomaticSuggestionSourcePrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var parts = source[AutomaticSuggestionSourcePrefix.Length..].Split(':', StringSplitOptions.TrimEntries);
+        if (parts.Length != 3
+            || !DateOnly.TryParseExact(parts[0], "yyyyMMdd", out var date)
+            || string.IsNullOrWhiteSpace(parts[1])
+            || !int.TryParse(parts[2], out var rank)
+            || rank <= 0)
+        {
+            return null;
+        }
+
+        return new PersistedTodayAssignment(date, parts[1], rank, recommendationId, createdAtUtc);
+    }
+
     private static ScheduleItemDto ToScheduleItemDto(Reservation reservation) =>
         new(
             reservation.Id,
@@ -456,7 +692,8 @@ public sealed class TodayRecommendationService(
             reservation.OriginName,
             reservation.DestinationName,
             reservation.OriginAirport,
-            reservation.DestinationAirport);
+            reservation.DestinationAirport,
+            reservation.PlanningKind);
 
     private static RecommendationDto ToRecommendationDto(Recommendation recommendation, decimal? distanceKm) =>
         new(
@@ -618,6 +855,15 @@ public sealed class TodayRecommendationService(
         decimal? DistanceKm,
         string Reason,
         bool IsVisited);
+
+    private sealed record TodayAssignmentKey(DateOnly Date, string PeriodKey);
+
+    private sealed record PersistedTodayAssignment(
+        DateOnly Date,
+        string PeriodKey,
+        int Rank,
+        Guid RecommendationId,
+        DateTimeOffset CreatedAtUtc);
 
     private sealed record TodayPeriod(
         string Key,

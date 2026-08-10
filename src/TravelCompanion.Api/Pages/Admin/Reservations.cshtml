@@ -5,7 +5,7 @@
 }
 
 <h1>Schedule</h1>
-<p class="lede">Viajes por usuario y reservas que aparecen en el itinerary del viajero.</p>
+<p class="lede">Viajes y elementos de agenda que aparecen en el itinerary del viajero.</p>
 
 @if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
 {
@@ -18,7 +18,7 @@
     <div class="section-header">
         <div>
             <h2>@(Model.TripInput.Id.HasValue ? "Editar viaje" : "Nuevo viaje")</h2>
-            <p class="muted">Un viaje pertenece a un usuario y agrupa todas sus reservas por destino.</p>
+            <p class="muted">Un viaje pertenece a un usuario y agrupa reservas, recomendaciones y eventos por destino.</p>
         </div>
         <span class="badge">Itinerario</span>
     </div>
@@ -88,7 +88,7 @@
                 <th>Usuario</th>
                 <th>Fechas</th>
                 <th>PIN</th>
-                <th>Reservas</th>
+                <th>Agenda</th>
                 <th></th>
             </tr>
         </thead>
@@ -118,7 +118,7 @@
                 <td>@trip.ReservationCount</td>
                 <td>
                     <div class="row-actions">
-                        <a class="button secondary" asp-page="/Admin/Reservations" asp-route-selectedTripId="@trip.Id" asp-fragment="reservations-list">Ver reservas</a>
+                        <a class="button secondary" asp-page="/Admin/Reservations" asp-route-selectedTripId="@trip.Id" asp-fragment="reservations-list">Ver agenda</a>
                         <a class="button secondary" asp-page="/Admin/Reservations" asp-route-editTripId="@trip.Id">Editar</a>
                         <form method="post" asp-page-handler="DeleteTrip" asp-route-id="@trip.Id">
                             <button class="danger" type="submit">Borrar</button>
@@ -134,8 +134,8 @@
 <section class="panel" style="margin-top: 18px;">
     <div class="section-header">
         <div>
-            <h2>@(Model.Input.Id.HasValue ? "Editar reserva" : "Nueva reserva")</h2>
-            <p class="muted">Completa los datos comunes y luego solo los campos especificos del tipo de reserva.</p>
+            <h2>@(Model.Input.Id.HasValue ? "Editar elemento de agenda" : "Nuevo elemento de agenda")</h2>
+            <p class="muted">Define si es una reserva confirmada, una recomendacion asignada o un evento manual.</p>
         </div>
         <span class="badge">Evento / vuelo / hospedaje</span>
     </div>
@@ -161,8 +161,14 @@
                 <span asp-validation-for="Input.Type"></span>
             </div>
             <div>
+                <label asp-for="Input.PlanningKind" class="required">Naturaleza</label>
+                <select asp-for="Input.PlanningKind" asp-items="Model.PlanningKindOptions" data-planning-kind></select>
+                <p class="form-hint">Distingue una reserva confirmada de una recomendacion asignada o un evento manual.</p>
+                <span asp-validation-for="Input.PlanningKind"></span>
+            </div>
+            <div>
                 <label asp-for="Input.RecommendationId">Recomendacion vinculada <span class="muted">(opcional)</span></label>
-                <select asp-for="Input.RecommendationId" asp-items="Model.RecommendationOptions"></select>
+                <select asp-for="Input.RecommendationId" asp-items="Model.RecommendationOptions" data-recommendation-select></select>
                 <p class="form-hint">Usalo para planes curados asignados a un dia/hora. Today no volvera a proponerla en otro hueco.</p>
                 <span asp-validation-for="Input.RecommendationId"></span>
             </div>
@@ -288,13 +294,14 @@
 </section>
 
 <section id="reservations-list" class="panel" style="margin-top: 18px;">
-    <h2>Reservas @(Model.SelectedTripId.HasValue ? "del viaje seleccionado" : "")</h2>
+    <h2>Agenda @(Model.SelectedTripId.HasValue ? "del viaje seleccionado" : "")</h2>
     <table>
         <thead>
             <tr>
                 <th>Fecha</th>
                 <th>Tipo</th>
-                <th>Reserva</th>
+                <th>Naturaleza</th>
+                <th>Elemento</th>
                 <th>Ciudad</th>
                 <th>Lugar</th>
                 <th>Codigo</th>
@@ -315,6 +322,7 @@
                     }
                 </td>
                 <td>@reservation.TypeLabel</td>
+                <td><span class="badge">@reservation.PlanningKindLabel</span></td>
                 <td>
                     <strong>@reservation.Title</strong><br />
                     <span class="muted">@reservation.TripName</span>
