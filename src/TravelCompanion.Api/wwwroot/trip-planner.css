@@ -740,3 +740,520 @@
         grid-template-columns: 1fr;
     }
 }
+
+/* Full-screen operator workspace, aligned with the YUKU editorial console. */
+.trip-planner-page {
+    background: #f3f0ea;
+    color: #231f1b;
+    overflow: hidden;
+}
+
+.trip-planner-page .topbar {
+    display: none;
+}
+
+.trip-planner-page .shell {
+    margin: 0;
+    max-width: none;
+    padding: 0;
+}
+
+.trip-planner-page .planner-notice {
+    bottom: 18px;
+    box-shadow: 0 8px 28px rgba(35, 31, 27, .12);
+    left: 50%;
+    margin: 0;
+    max-width: min(620px, calc(100vw - 40px));
+    position: fixed;
+    top: auto;
+    transform: translateX(-50%);
+    width: max-content;
+    z-index: 60;
+}
+
+.trip-planner-page .trip-planner {
+    background: #f3f0ea;
+    height: 100dvh;
+    margin: 0;
+    min-height: 0;
+    overflow: hidden;
+    width: 100vw;
+}
+
+.trip-planner-page .planner-form {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    min-height: 0;
+}
+
+.trip-planner-page .planner-toolbar {
+    background: #fffdfa;
+    border-bottom-color: #ded8cf;
+    flex: 0 0 55px;
+    gap: 18px;
+    grid-template-columns: auto 1fr auto;
+    min-height: 55px;
+    padding: 0 20px;
+    position: relative;
+    top: auto;
+}
+
+.trip-planner-page .planner-branding {
+    gap: 11px;
+}
+
+.trip-planner-page .planner-branding > div {
+    align-items: baseline;
+    display: flex;
+    gap: 5px;
+    white-space: nowrap;
+}
+
+.trip-planner-page .planner-branding .eyebrow {
+    color: #8e6a25;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 16px;
+    font-weight: 500;
+    text-transform: none;
+}
+
+.trip-planner-page .planner-branding strong {
+    font-size: 18px;
+}
+
+.trip-planner-page .planner-back {
+    border-color: #ded8cf;
+    font-size: 16px;
+    height: 30px;
+    width: 30px;
+}
+
+.trip-planner-page .planner-toolbar-state {
+    justify-content: flex-end;
+}
+
+.trip-planner-page .planner-toolbar-actions {
+    gap: 8px;
+}
+
+.trip-planner-page .planner-toolbar button {
+    min-height: 31px;
+    padding: 7px 14px;
+}
+
+.trip-planner-page .planner-toolbar .secondary {
+    background: #fffdfa;
+    border-color: #d8d1c7;
+}
+
+.trip-planner-page .planner-publish {
+    background: #bd3024;
+    order: 2;
+}
+
+.trip-planner-page .planner-icon-action {
+    background: #fffdfa;
+    border: 1px solid #d8d1c7;
+    color: #655d55;
+    font-size: 14px;
+    order: 3;
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+.trip-planner-page .planner-status {
+    background: transparent;
+    border: 0;
+    color: #887f75;
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    font-size: 10px;
+    font-weight: 500;
+    padding: 0;
+    text-transform: lowercase;
+}
+
+.trip-planner-page .planner-dirty {
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    font-size: 10px;
+}
+
+.trip-planner-page .planner-metadata {
+    flex: 0 0 auto;
+    grid-template-columns: 1.2fr .8fr .8fr .8fr 1fr 1fr;
+    padding: 10px 20px;
+}
+
+.trip-planner-page .planner-workspace {
+    flex: 1 1 auto;
+    grid-template-columns: 232px minmax(0, 1fr) 392px;
+    height: auto;
+    min-height: 0;
+}
+
+.trip-planner-page .planner-days,
+.trip-planner-page .planner-day,
+.trip-planner-page .planner-inspector {
+    height: auto;
+    min-height: 0;
+    overflow-y: auto;
+    position: relative;
+    scrollbar-color: #b7afa5 transparent;
+    scrollbar-width: thin;
+    top: auto;
+}
+
+.trip-planner-page .planner-days,
+.trip-planner-page .planner-inspector {
+    background: rgba(255, 253, 249, .62);
+}
+
+.trip-planner-page .planner-days-summary {
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    letter-spacing: .12em;
+    padding: 13px 16px 10px;
+}
+
+.trip-planner-page .planner-day-link {
+    min-height: 76px;
+    padding: 10px 14px 9px;
+}
+
+.trip-planner-page .planner-day-link:hover {
+    background: rgba(255, 253, 249, .8);
+}
+
+.trip-planner-page .planner-day-link.is-active {
+    background: #fffdfa;
+    border-left-color: #bd3024;
+}
+
+.trip-planner-page .planner-day-line strong,
+.trip-planner-page .planner-day-stats {
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+}
+
+.trip-planner-page .planner-day-city {
+    margin: 4px 0 6px;
+}
+
+.planner-day-dots {
+    align-items: center;
+    display: inline-flex;
+    gap: 3px;
+}
+
+.planner-day-dots > span {
+    border: 1px solid #cfc8be;
+    border-radius: 50%;
+    box-sizing: border-box;
+    display: block;
+    height: 6px;
+    width: 6px;
+}
+
+.planner-day-dots > span.is-filled {
+    background: #bd3024;
+    border-color: #bd3024;
+}
+
+.trip-planner-page .planner-day {
+    background: #f5f2ec;
+    max-width: none;
+    padding: 26px 36px 72px;
+}
+
+.trip-planner-page .planner-day-heading {
+    margin: 0 0 18px;
+    padding: 0 0 17px;
+}
+
+.trip-planner-page .planner-day-heading h1 {
+    font-size: 31px;
+    margin: 4px 0 14px;
+}
+
+.trip-planner-page .planner-day-fields {
+    gap: 9px;
+    grid-template-columns: 1fr 1.35fr 100px 100px;
+}
+
+.trip-planner-page .planner-day-fields label,
+.trip-planner-page .planner-day-intro label {
+    font-size: 10px;
+    margin-bottom: 3px;
+}
+
+.trip-planner-page .planner-day-fields input {
+    background: rgba(255, 253, 249, .55);
+    border-color: transparent;
+    border-radius: 0;
+    border-bottom-color: #d9d2c8;
+    padding: 6px 8px;
+}
+
+.trip-planner-page .planner-day-fields input:focus {
+    background: #fffdfa;
+    border-color: #b9afa3;
+    outline: 0;
+}
+
+.trip-planner-page .planner-day-intro {
+    margin-top: 10px;
+}
+
+.trip-planner-page .planner-day-intro textarea {
+    background: #efede8;
+    border-color: #d2ccc3;
+    border-radius: 0;
+    font-size: 12px;
+    line-height: 1.5;
+    min-height: 62px;
+    padding: 10px 12px;
+}
+
+.trip-planner-page .planner-metrics {
+    gap: 18px;
+    margin-top: 14px;
+}
+
+.trip-planner-page .planner-metric strong {
+    font-size: 18px;
+}
+
+.trip-planner-page .planner-metric span {
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    letter-spacing: .05em;
+}
+
+.trip-planner-page .planner-blocks {
+    padding-left: 28px;
+    position: relative;
+}
+
+.trip-planner-page .planner-blocks::before {
+    background: #d8d1c7;
+    bottom: 34px;
+    content: "";
+    left: 7px;
+    position: absolute;
+    top: 27px;
+    width: 1px;
+}
+
+.trip-planner-page .planner-block {
+    background: rgba(255, 253, 249, .86);
+    border: 1px solid #ded8cf;
+    border-left-width: 1px;
+    margin: 0 0 18px;
+    padding: 16px 20px;
+    position: relative;
+}
+
+.trip-planner-page .planner-block::before {
+    background: #f3f0ea;
+    border: 1px solid #cfc7bd;
+    border-radius: 50%;
+    box-sizing: border-box;
+    content: "";
+    height: 10px;
+    left: -27px;
+    position: absolute;
+    top: 20px;
+    width: 10px;
+}
+
+.trip-planner-page .planner-block.has-content::before {
+    background: #bd3024;
+    border-color: #bd3024;
+}
+
+.trip-planner-page .planner-block:not(.has-content) {
+    background: rgba(255, 253, 249, .25);
+    border-style: dashed;
+    padding-bottom: 13px;
+    padding-top: 13px;
+}
+
+.trip-planner-page .planner-block:not(.has-content) textarea {
+    min-height: 44px;
+}
+
+.trip-planner-page .planner-block.is-active {
+    border-color: #bcae9e;
+    box-shadow: 0 0 0 1px rgba(188, 174, 158, .18);
+}
+
+.trip-planner-page .planner-block-title strong {
+    letter-spacing: .12em;
+}
+
+.trip-planner-page .planner-block-title span,
+.trip-planner-page .planner-autofill {
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    letter-spacing: .04em;
+}
+
+.trip-planner-page .planner-autofill {
+    color: #887f75;
+}
+
+.trip-planner-page input[type="checkbox"] {
+    accent-color: #bd3024;
+}
+
+.trip-planner-page .planner-picks {
+    margin: 10px 0 8px;
+}
+
+.trip-planner-page .planner-pick {
+    background: #f7f3ed;
+    font-size: 11px;
+    padding: 6px 8px;
+}
+
+.trip-planner-page .planner-block textarea {
+    background: transparent;
+    border-color: transparent;
+    border-radius: 0;
+    border-top-color: #e2dcd3;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 15px;
+    line-height: 1.45;
+    margin: 8px 0 6px;
+    min-height: 72px;
+    padding: 11px 0;
+}
+
+.trip-planner-page .planner-block textarea:focus {
+    background: #fffdfa;
+    border-color: #cfc6bb;
+    outline: 0;
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+.trip-planner-page .planner-block-actions {
+    gap: 7px;
+}
+
+.trip-planner-page .planner-block-actions button {
+    background: #fffdfa;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .07em;
+    padding: 6px 8px;
+    text-transform: uppercase;
+}
+
+.trip-planner-page .planner-item {
+    padding: 8px 0;
+}
+
+.trip-planner-page .planner-inspector-header {
+    padding: 15px 16px 12px;
+}
+
+.trip-planner-page .planner-inspector-header strong,
+.trip-planner-page .planner-inspector-header small {
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+}
+
+.trip-planner-page .planner-inspector-header strong {
+    letter-spacing: .08em;
+}
+
+.trip-planner-page .planner-inspector-filters,
+.trip-planner-page .planner-item-form {
+    gap: 7px;
+    padding: 10px 16px 12px;
+}
+
+.trip-planner-page .planner-inspector-filters input,
+.trip-planner-page .planner-inspector-filters select,
+.trip-planner-page .planner-item-form input,
+.trip-planner-page .planner-item-form select,
+.trip-planner-page .planner-item-form textarea {
+    border-radius: 0;
+    font-size: 12px;
+    padding: 7px 8px;
+}
+
+.trip-planner-page .planner-candidate {
+    gap: 7px;
+    padding: 10px 16px;
+}
+
+.trip-planner-page .planner-candidate-title strong {
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.trip-planner-page .planner-candidate small,
+.trip-planner-page .planner-candidate p {
+    font-size: 10px;
+}
+
+.trip-planner-page .planner-candidate p {
+    line-height: 1.35;
+    margin-top: 3px;
+}
+
+.trip-planner-page .planner-tag {
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    font-size: 8px;
+    padding: 2px 4px;
+}
+
+.trip-planner-page .planner-discard {
+    bottom: 10px;
+    left: 12px;
+}
+
+.trip-planner-page .planner-discard button {
+    background: #fffdfa;
+    border: 1px solid #d8d1c7;
+    color: #7c736a;
+    opacity: 1;
+}
+
+.trip-admin-grid .panel {
+    background: #fffdfa;
+    border-radius: 2px;
+    box-shadow: none;
+}
+
+@media (max-width: 1320px) {
+    .trip-planner-page .planner-workspace {
+        grid-template-columns: 210px minmax(0, 1fr) 340px;
+    }
+
+    .trip-planner-page .planner-day {
+        padding-left: 28px;
+        padding-right: 28px;
+    }
+}
+
+@media (max-width: 1080px) {
+    .trip-planner-page .planner-toolbar-state {
+        display: none;
+    }
+
+    .trip-planner-page .planner-workspace {
+        grid-template-columns: 190px minmax(560px, 1fr);
+    }
+
+    .trip-planner-page .planner-inspector {
+        box-shadow: -8px 0 24px rgba(29, 26, 23, .12);
+        height: calc(100dvh - 55px);
+        position: fixed;
+        right: 0;
+        top: 55px;
+        width: 360px;
+        z-index: 15;
+    }
+
+    .trip-planner-page .planner-inspector:has(.planner-inspector-empty) {
+        display: none;
+    }
+}

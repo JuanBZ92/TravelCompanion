@@ -244,12 +244,17 @@
         daySummary.textContent = `${payload.days.length} días · ${cityCount} ciudades`;
         dayList.innerHTML = payload.days.map((day, index) => {
             const metrics = dayMetrics(day);
+            const blockDots = day.blocks.map((block) => {
+                const hasContent = block.recommendations.length > 0 || block.items.length > 0 || block.curatedDescription.trim();
+                return `<span class="${hasContent ? "is-filled" : ""}" title="${hasContent ? "Con contenido" : "Vacío"}"></span>`;
+            }).join("");
             return `
                 <button type="button" class="planner-day-link ${index === selectedDayIndex ? "is-active" : ""}" data-day-index="${index}">
                     <span class="planner-day-line"><strong>D${day.dayNumber}</strong><span>${escapeHtml(shortDay(day.date))}</span></span>
                     <span class="planner-day-city">${escapeHtml(day.city || "Ciudad pendiente")}</span>
                     <span class="planner-day-stats">
-                        <span>${metrics.completedBlocks}/4 bloques</span>
+                        <span class="planner-day-dots">${blockDots}</span>
+                        <span>${metrics.planned} paradas</span>
                         <span>${metrics.totalDistance > 0 ? `${metrics.totalDistance.toFixed(1)} km` : ""}</span>
                         ${metrics.longJumps > 0 ? `<span class="has-warning">${metrics.longJumps} salto${metrics.longJumps > 1 ? "s" : ""}</span>` : ""}
                     </span>
@@ -309,9 +314,6 @@
                     }
                 }
                 setDirty();
-                if (field === "city") {
-                    root.querySelector("[data-trip-name]").textContent = payload.travelerName;
-                }
             });
             input.addEventListener("change", () => renderDayList());
         });
@@ -394,7 +396,7 @@
                 </span>
             </div>`).join("");
         return `
-            <section class="planner-block ${hasContent ? "has-content" : ""}">
+            <section class="planner-block ${hasContent ? "has-content" : ""} ${activeBlockKey === block.periodKey ? "is-active" : ""}">
                 <div class="planner-block-header">
                     <div class="planner-block-title"><strong>${period.label}</strong><span>${period.hint}</span></div>
                     <label class="planner-autofill"><input type="checkbox" data-autofill="${block.periodKey}" ${block.autofillEnabled ? "checked" : ""} /> Autofill</label>
@@ -635,7 +637,7 @@
                 payload[field] = input.value;
                 setDirty();
                 if (field === "travelerName") {
-                    root.querySelector("[data-trip-name]").textContent = input.value;
+                    root.querySelector("[data-trip-name]").textContent = `· ${input.value}`;
                 }
             });
             input.addEventListener("change", () => {

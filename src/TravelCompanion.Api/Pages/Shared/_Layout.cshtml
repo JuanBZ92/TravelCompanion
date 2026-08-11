@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="~/admin.css" />
     @await RenderSectionAsync("Styles", required: false)
 </head>
-<body>
+<body class="@(ViewData["BodyClass"] as string)">
     <header class="topbar">
         <a class="brand" asp-page="/Admin/Index">Travel Companion</a>
         <nav>

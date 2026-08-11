@@ -2,6 +2,10 @@
 @model TravelCompanion.Api.Pages.Admin.TripsModel
 @{
     ViewData["Title"] = Model.Editor is null ? "Viajes" : $"Viaje · {Model.Editor.Payload.TravelerName}";
+    if (Model.Editor is not null)
+    {
+        ViewData["BodyClass"] = "trip-planner-page";
+    }
 }
 
 @section Styles {
@@ -152,8 +156,8 @@ else
                 <div class="planner-branding">
                     <a asp-page="/Admin/Trips" class="planner-back" aria-label="Volver a viajes">←</a>
                     <div>
-                        <span class="eyebrow">YUKU · VIAJE</span>
-                        <strong data-trip-name>@Model.Editor.Payload.TravelerName</strong>
+                        <span class="eyebrow">YUKU</span>
+                        <strong data-trip-name>· @Model.Editor.Payload.TravelerName</strong>
                     </div>
                 </div>
                 <div class="planner-toolbar-state">
@@ -163,7 +167,7 @@ else
                     <span class="planner-dirty" data-dirty-indicator hidden>Cambios sin guardar</span>
                 </div>
                 <div class="planner-toolbar-actions">
-                    <button type="button" class="secondary" data-toggle-metadata>Datos del viaje</button>
+                    <button type="button" class="planner-icon-action" data-toggle-metadata title="Editar datos del viaje" aria-label="Editar datos del viaje">···</button>
                     <button type="submit" class="secondary" asp-page-handler="SaveDraft" data-save-draft>Guardar borrador</button>
                     <button type="submit" class="planner-publish" asp-page-handler="Publish" data-publish>Aplicar a la app</button>
                 </div>
