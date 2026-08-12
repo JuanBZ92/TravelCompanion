@@ -29,7 +29,10 @@
             </VerticalStackLayout>
         </Grid>
 
-        <Grid Padding="20,18" RowDefinitions="Auto,Auto,*" InputTransparent="False">
+        <Grid Padding="20,18"
+              RowDefinitions="Auto,Auto,*"
+              InputTransparent="True"
+              CascadeInputTransparent="False">
             <Border Grid.Row="0" BackgroundColor="#F2F8F3ED" Stroke="#D8CFC4" StrokeThickness="1" Padding="16,12">
                 <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="8">
                     <VerticalStackLayout Spacing="2">
