@@ -30,7 +30,12 @@ public sealed record ScheduleItemDto(
     string? DestinationName,
     string? OriginAirport,
     string? DestinationAirport,
-    ScheduleItemKind PlanningKind = ScheduleItemKind.ManualEvent)
+    ScheduleItemKind PlanningKind = ScheduleItemKind.ManualEvent,
+    ItineraryItemOwner Owner = ItineraryItemOwner.Yuku,
+    ItineraryItemSource ItemSource = ItineraryItemSource.Manual,
+    ItineraryTimePrecision TimePrecision = ItineraryTimePrecision.Exact,
+    int SortOrder = 0,
+    string? ProviderPlaceId = null)
 {
     public string TypeLabel => Type switch
     {
@@ -46,6 +51,8 @@ public sealed record ScheduleItemDto(
 
     public bool IsConfirmedReservation => PlanningKind == ScheduleItemKind.ConfirmedReservation;
     public bool IsRecommendation => PlanningKind == ScheduleItemKind.Recommendation;
+    public bool IsTravelerOwned => Owner == ItineraryItemOwner.Traveler;
+    public bool HasExactTime => TimePrecision == ItineraryTimePrecision.Exact;
 
     public string MainDetail => Type switch
     {

@@ -13,8 +13,22 @@ public sealed record LoginRequestDto(
 
 public sealed record PinLoginRequestDto(
     [param: Required]
-    [param: RegularExpression(@"^\d{4}$")]
+    [param: RegularExpression(@"^(\d{4}|\d{6})$")]
     string Pin);
+
+public enum ExperienceMode
+{
+    FreePreview,
+    SelfServiceBuilder,
+    CuratedPremium
+}
+
+public sealed record TravelerCapabilitiesDto(
+    bool CanViewFullMap,
+    bool CanSearchGooglePlaces,
+    bool CanEditItinerary,
+    bool HasCuratedDocs,
+    bool RequiresTripSetup);
 
 public sealed record ChangePasswordRequestDto(
     [property: MaxLength(256)]
@@ -32,4 +46,6 @@ public sealed record AuthSessionDto(
     string Token,
     Guid? TripId = null,
     string? DestinationName = null,
-    SessionAccessMode AccessMode = SessionAccessMode.Trip);
+    SessionAccessMode AccessMode = SessionAccessMode.Trip,
+    ExperienceMode ExperienceMode = ExperienceMode.CuratedPremium,
+    TravelerCapabilitiesDto? Capabilities = null);

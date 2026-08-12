@@ -18,7 +18,18 @@ public sealed record RecommendationDto(
     string? OpeningHours,
     ContentAccessLevel AccessLevel,
     IReadOnlyList<Guid> PackageIds,
-    decimal? DistanceKm);
+    decimal? DistanceKm)
+{
+    public string Provider { get; init; } = "YUKU";
+    public string? ProviderPlaceId { get; init; }
+    public string? Attribution { get; init; }
+}
+
+public sealed record PlaceSearchRequest(
+    string Query,
+    decimal? Latitude = null,
+    decimal? Longitude = null,
+    string? City = null);
 
 public sealed record RecommendationTagDto(
     string Tag,

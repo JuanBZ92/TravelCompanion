@@ -37,6 +37,7 @@ public sealed partial class TravelChatViewModel(
         Resource("AssistantViewPreferences")
     ];
     public ObservableCollection<string> MissingContextSuggestions { get; } = [];
+    public bool CanEditItinerary => sessionService.CanEditItinerary;
     public ObservableCollection<TravelChatGuideSectionViewModel> GuideSections { get; } = new(CreateGuideSections());
     public string AssistantEyebrow => Resource("AssistantEyebrow");
     public string AssistantTitle => Resource("AssistantTitle");
@@ -272,6 +273,13 @@ public sealed partial class TravelChatViewModel(
             return;
         }
 
+        if (sessionService.IsBuilder
+            && string.Equals(reply.Trim(), "Configurar mi viaje", StringComparison.OrdinalIgnoreCase))
+        {
+            await Shell.Current.GoToAsync(nameof(BuilderSetupPage));
+            return;
+        }
+
         if (IsRetryReply(reply))
         {
             MessageText = string.IsNullOrWhiteSpace(_lastFailedMessage)
@@ -293,6 +301,20 @@ public sealed partial class TravelChatViewModel(
     [RelayCommand]
     private async Task SaveItineraryItemAsync(TravelChatCardViewModel? card)
     {
+        if (!sessionService.CanEditItinerary)
+        {
+            StatusMessage = "Este viaje curado no se puede modificar desde la app.";
+            return;
+        }
+
+        if (sessionService.RequiresTripSetup)
+        {
+            MissingContextMessage = "Configura las fechas y ciudades de tu viaje para guardar planes.";
+            MissingContextField = "tripSetup";
+            MissingContextSuggestions.Clear();
+            MissingContextSuggestions.Add("Configurar mi viaje");
+            return;
+        }
         if (card is null || !card.CanSave || !card.RecommendationId.HasValue || !card.StartsAt.HasValue)
         {
             StatusMessage = Resource("AssistantNoReadyPlan");
@@ -545,7 +567,7 @@ public sealed partial class TravelChatViewModel(
 
         if (normalized == NormalizeCommandText(Resource("AssistantOpenDiscover")))
         {
-            await Shell.Current.GoToAsync("//main/recommendations");
+            await Shell.Current.GoToAsync("//main/map");
             return true;
         }
 

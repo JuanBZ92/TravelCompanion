@@ -40,6 +40,13 @@ public partial class SchedulePage : ContentPage
         var stopwatch = Stopwatch.StartNew();
         base.OnAppearing();
 
+        var sessionService = MauiProgram.Services.GetRequiredService<TravelCompanion.Mobile.Services.AuthSessionService>();
+        if (sessionService.IsBuilder && sessionService.RequiresTripSetup)
+        {
+            await Shell.Current.GoToAsync(nameof(BuilderSetupPage));
+            return;
+        }
+
         if (_viewModel.HasLoaded)
         {
             stopwatch.Stop();
@@ -121,6 +128,18 @@ public partial class SchedulePage : ContentPage
         {
             await _viewModel.OpenScheduleItemCommand.ExecuteAsync(reservation.Item);
         }
+    }
+
+    private async void OnEditPersonalItemClicked(object? sender, EventArgs e)
+    {
+        if ((sender as BindableObject)?.BindingContext is TodayReservationViewModel reservation)
+            await _viewModel.EditPersonalItemCommand.ExecuteAsync(reservation);
+    }
+
+    private async void OnDeletePersonalItemClicked(object? sender, EventArgs e)
+    {
+        if ((sender as BindableObject)?.BindingContext is TodayReservationViewModel reservation)
+            await _viewModel.DeletePersonalItemCommand.ExecuteAsync(reservation);
     }
 
     private async void OnTodayLocationVisitedClicked(object? sender, EventArgs e)

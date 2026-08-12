@@ -220,6 +220,12 @@ public sealed class MobileController(
     [HttpGet("docs")]
     public async Task<ActionResult<TravelDocsDto>> GetDocs(CancellationToken cancellationToken = default)
     {
+        var accessMode = await sessionService.GetSessionAccessModeAsync(HttpContext, cancellationToken);
+        if (accessMode == SessionAccessMode.Builder)
+        {
+            return Forbid();
+        }
+
         var user = await sessionService.GetUserAsync(HttpContext, cancellationToken);
         if (user is null)
         {
@@ -329,7 +335,12 @@ public sealed class MobileController(
                         reservation.DestinationName,
                         reservation.OriginAirport,
                         reservation.DestinationAirport,
-                        reservation.PlanningKind))
+                        reservation.PlanningKind,
+                        reservation.Owner,
+                        reservation.ItemSource,
+                        reservation.TimePrecision,
+                        reservation.SortOrder,
+                        reservation.ProviderPlaceId))
                     .ToList());
     }
 
@@ -645,6 +656,9 @@ public sealed class MobileController(
             recommendation.AccessLevel,
             recommendation.Packages.Select(package => package.Id).ToList(),
             null);
+
+    internal static RecommendationDto ToRecommendationDtoForInternalUse(Recommendation recommendation) =>
+        ToRecommendationDto(recommendation, useSummaryDescription: true);
 
     private static string CreateSummaryDescription(string description)
     {

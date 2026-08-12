@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:viewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
+             x:Class="TravelCompanion.Mobile.Pages.BuilderSetupPage"
+             x:Name="PageRoot"
+             x:DataType="viewModels:BuilderSetupViewModel"
+             Title="Tu viaje"
+             BackgroundColor="#F8F3ED">
+    <Grid RowDefinitions="*,Auto">
+        <ScrollView>
+            <VerticalStackLayout Padding="24,20" Spacing="22">
+                <VerticalStackLayout Spacing="6">
+                    <Label Text="CREAR ITINERARIO · JAPÓN" CharacterSpacing="3" FontSize="11" TextColor="#8E867D" />
+                    <Label Text="Primero, las bases" FontFamily="serif" FontSize="34" TextColor="#1A1714" />
+                    <Label Text="Define cuándo y en qué ciudades estarás. El itinerario comienza vacío." FontSize="15" TextColor="#6E675F" />
+                </VerticalStackLayout>
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                    <VerticalStackLayout><Label Text="Llegada" Style="{StaticResource EyebrowLabel}"/><DatePicker Date="{Binding ArrivalDate}" /></VerticalStackLayout>
+                    <VerticalStackLayout Grid.Column="1"><Label Text="Salida" Style="{StaticResource EyebrowLabel}"/><DatePicker Date="{Binding DepartureDate}" /></VerticalStackLayout>
+                </Grid>
+                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Segments}" Spacing="14">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="viewModels:BuilderSegmentViewModel">
+                            <Border Padding="16" BackgroundColor="#FFFDF9" Stroke="#D8CFC4" StrokeThickness="1">
+                                <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="12">
+                                    <Entry Placeholder="Ciudad" Text="{Binding City}" FontSize="18" />
+                                    <Button Grid.Column="1" Text="×" Command="{Binding Source={x:Reference PageRoot}, Path=BindingContext.RemoveSegmentCommand}" CommandParameter="{Binding .}" Style="{StaticResource GhostButton}" />
+                                    <Grid Grid.Row="1" Grid.ColumnSpan="2" ColumnDefinitions="*,*" ColumnSpacing="10"><DatePicker Date="{Binding StartsOn}"/><DatePicker Grid.Column="1" Date="{Binding EndsOn}"/></Grid>
+                                    <Entry Grid.Row="2" Grid.ColumnSpan="2" Placeholder="Hotel o base (opcional)" Text="{Binding HotelName}" />
+                                    <Entry Grid.Row="3" Grid.ColumnSpan="2" Placeholder="Dirección del hotel (opcional)" Text="{Binding HotelAddress}" />
+                                    <Button Grid.Row="4" Grid.ColumnSpan="2" Text="Buscar hotel" Style="{StaticResource GhostButton}"
+                                            Command="{Binding Source={x:Reference PageRoot}, Path=BindingContext.SearchHotelCommand}"
+                                            CommandParameter="{Binding .}" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+                <Button Text="+ Agregar otra ciudad" Command="{Binding AddSegmentCommand}" Style="{StaticResource GhostButton}" />
+                <Border IsVisible="{Binding HasError}" Style="{StaticResource ErrorPanel}"><Label Text="{Binding ErrorMessage}" /></Border>
+                <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
+            </VerticalStackLayout>
+        </ScrollView>
+        <Grid Grid.Row="1" Padding="20,12" ColumnDefinitions="*,*" ColumnSpacing="12" BackgroundColor="#FFFDF9">
+            <Button Text="Cancelar" Command="{Binding CancelCommand}" Style="{StaticResource GhostButton}" />
+            <Button Grid.Column="1" Text="Crear itinerario" Command="{Binding SaveSetupCommand}" IsEnabled="{Binding IsNotBusy}" />
+        </Grid>
+    </Grid>
+</ContentPage>

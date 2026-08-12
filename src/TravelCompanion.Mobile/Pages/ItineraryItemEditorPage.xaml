@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:viewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
+             x:Class="TravelCompanion.Mobile.Pages.ItineraryItemEditorPage"
+             x:DataType="viewModels:ItineraryItemEditorViewModel"
+             Title="Agregar al itinerario"
+             BackgroundColor="#F8F3ED">
+    <Grid RowDefinitions="*,Auto">
+        <ScrollView>
+            <VerticalStackLayout Padding="24" Spacing="20">
+                <Label Text="AGREGAR AL ITINERARIO" CharacterSpacing="3" FontSize="11" TextColor="#8E867D" />
+                <Label Text="{Binding HeaderTitle}" FontFamily="serif" FontSize="32" TextColor="#1A1714" />
+                <Label Text="{Binding Subtitle}" FontSize="14" TextColor="#6E675F" />
+                <Entry Placeholder="Nombre del plan" Text="{Binding TitleText}" />
+                <Entry Placeholder="Lugar (opcional)" Text="{Binding LocationName}" />
+                <Entry Placeholder="Dirección (opcional)" Text="{Binding Address}" />
+                <VerticalStackLayout Spacing="6"><Label Text="DÍA" Style="{StaticResource EyebrowLabel}"/><DatePicker Date="{Binding Date}" /></VerticalStackLayout>
+                <VerticalStackLayout Spacing="6"><Label Text="MOMENTO" Style="{StaticResource EyebrowLabel}"/><Picker ItemsSource="{Binding Periods}" SelectedItem="{Binding SelectedPeriod}" /></VerticalStackLayout>
+                <Grid ColumnDefinitions="*,Auto" Padding="0,6"><Label Text="Definir hora exacta" VerticalOptions="Center"/><Switch Grid.Column="1" IsToggled="{Binding UseExactTime}" /></Grid>
+                <TimePicker Time="{Binding Time}" IsVisible="{Binding UseExactTime}" />
+                <Editor Placeholder="Notas personales (opcional)" Text="{Binding Notes}" AutoSize="TextChanges" MinimumHeightRequest="100" />
+                <Border IsVisible="{Binding HasError}" Style="{StaticResource ErrorPanel}"><Label Text="{Binding ErrorMessage}" /></Border>
+                <ActivityIndicator IsVisible="{Binding IsBusy}" IsRunning="{Binding IsBusy}" />
+            </VerticalStackLayout>
+        </ScrollView>
+        <Grid Grid.Row="1" Padding="20,12" ColumnDefinitions="*,*" ColumnSpacing="12" BackgroundColor="#FFFDF9">
+            <Button Text="Cancelar" Command="{Binding CancelCommand}" Style="{StaticResource GhostButton}" />
+            <Button Grid.Column="1" Text="Agregar" Command="{Binding SaveCommand}" IsEnabled="{Binding IsNotBusy}" />
+        </Grid>
+    </Grid>
+</ContentPage>

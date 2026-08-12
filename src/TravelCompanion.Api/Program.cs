@@ -71,6 +71,8 @@ builder.Services.Configure<OpenAiTravelOptions>(
     builder.Configuration.GetSection(OpenAiTravelOptions.SectionName));
 builder.Services.Configure<FreePreviewOptions>(
     builder.Configuration.GetSection(FreePreviewOptions.SectionName));
+builder.Services.Configure<GooglePlacesOptions>(builder.Configuration.GetSection(GooglePlacesOptions.SectionName));
+builder.Services.Configure<BuilderDemoOptions>(builder.Configuration.GetSection(BuilderDemoOptions.SectionName));
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
@@ -86,7 +88,13 @@ builder.Services.AddAuthorization(options =>
 });
 builder.Services.AddScoped<IPasswordHasher<AppUser>, PasswordHasher<AppUser>>();
 builder.Services.AddScoped<IPasswordHasher<Trip>, PasswordHasher<Trip>>();
+builder.Services.AddScoped<IPasswordHasher<BuilderAccessGrant>, PasswordHasher<BuilderAccessGrant>>();
 builder.Services.AddScoped<UserSessionService>();
+builder.Services.AddScoped<TravelerAccessService>();
+builder.Services.AddScoped<BuilderTripService>();
+builder.Services.AddScoped<TravelerItineraryService>();
+builder.Services.AddHttpClient();
+builder.Services.AddSingleton<IGooglePlacesService, GooglePlacesService>();
 builder.Services.AddScoped<FreePreviewAccountService>();
 builder.Services.AddScoped<FreeMapPreviewService>();
 builder.Services.AddScoped<IUserInvitationSender, LoggingUserInvitationSender>();
@@ -168,8 +176,15 @@ static async Task InitializeDatabaseAsync(WebApplication app)
             using var scope = app.Services.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<TravelCompanionDbContext>();
             var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher<AppUser>>();
+            var builderPinHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher<BuilderAccessGrant>>();
+            var builderDemo = app.Configuration.GetSection(BuilderDemoOptions.SectionName).Get<BuilderDemoOptions>();
             await dbContext.Database.MigrateAsync();
-            await DatabaseSeeder.SeedAsync(dbContext, passwordHasher);
+            await DatabaseSeeder.SeedAsync(
+                dbContext,
+                passwordHasher,
+                builderDemo?.Enabled == true ? builderPinHasher : null,
+                builderDemo?.Enabled == true ? builderDemo.Pin : null,
+                builderDemo?.CustomerName);
             return;
         }
         catch (Exception) when (app.Environment.IsDevelopment() && attempt < maxAttempts)

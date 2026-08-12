@@ -20,7 +20,7 @@
                        FontSize="34"
                        FontFamily="serif"
                        TextColor="#1A1714" />
-                <Label Text="Usa el codigo de 4 numeros de tu viaje para cargar agenda, vuelos, documentos y recomendaciones."
+                <Label Text="Usa el codigo de 4 numeros de tu viaje curado o el de 6 numeros para crear tu propio itinerario."
                        FontSize="16"
                        LineHeight="1.45"
                        TextColor="#6E675F" />
@@ -40,13 +40,13 @@
                 <VerticalStackLayout Spacing="18">
                     <Entry Text="{Binding Pin}"
                            Keyboard="Numeric"
-                           MaxLength="4"
+                           MaxLength="6"
                            IsPassword="True"
                            ReturnType="Go"
                            HorizontalTextAlignment="Center"
                            FontSize="32"
                            CharacterSpacing="12"
-                           Placeholder="0000"
+                           Placeholder="PIN"
                            ClearButtonVisibility="WhileEditing" />
 
                     <Border Padding="12"

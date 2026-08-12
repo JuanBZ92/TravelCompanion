@@ -4,13 +4,19 @@ namespace TravelCompanion.Mobile.ViewModels;
 
 public sealed class ScheduleTodaySectionViewModel(
     int dayNumber,
+    DateOnly date,
+    string periodKey,
     string periodLabel,
     string description,
     IReadOnlyList<TodayLocationViewModel> locations,
-    IReadOnlyList<TodayReservationViewModel> reservations)
+    IReadOnlyList<TodayReservationViewModel> reservations,
+    bool canAddItem = false)
 {
     public string Title => $"Dia {dayNumber}";
     public string PeriodLabel { get; } = periodLabel;
+    public DateOnly Date { get; } = date;
+    public string PeriodKey { get; } = periodKey;
+    public bool CanAddItem { get; } = canAddItem;
     public string Description { get; } = description;
     public IReadOnlyList<TodayLocationViewModel> Locations { get; } = locations;
     public IReadOnlyList<TodayReservationViewModel> Reservations { get; } = reservations;
@@ -160,6 +166,7 @@ public sealed class TodayReservationViewModel
     public string Place { get; }
     public string Confirmation { get; }
     public bool HasConfirmation => !string.IsNullOrWhiteSpace(Confirmation);
+    public bool CanEdit => Item.IsTravelerOwned;
 }
 
 internal sealed record TodayPeriod(

@@ -17,4 +17,5 @@ public sealed class AppUser
     public TravelPreferenceProfile? TravelPreferenceProfile { get; set; }
     public List<TravelChatConversation> TravelChatConversations { get; set; } = [];
     public List<TravelAssistantFeedback> TravelAssistantFeedbackItems { get; set; } = [];
+    public List<BuilderAccessGrant> BuilderAccessGrants { get; set; } = [];
 }

@@ -454,6 +454,19 @@ public sealed class TravelCompanionApiClient
             : [];
     }
 
+    public async Task<IReadOnlyList<RecommendationDto>> SearchPlacesAsync(
+        string token,
+        PlaceSearchRequest search,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Post, "api/mobile/places/search", token);
+        request.Content = JsonContent.Create(search, options: JsonOptions);
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<IReadOnlyList<RecommendationDto>>(JsonOptions, cancellationToken).ConfigureAwait(false) ?? []
+            : [];
+    }
+
     public async Task<RecommendationDto?> GetMobileRecommendationDetailAsync(
         string token,
         Guid recommendationId,
@@ -503,6 +516,51 @@ public sealed class TravelCompanionApiClient
             .ConfigureAwait(false);
 
         return MobilePayloadNormalizer.Normalize(schedule);
+    }
+
+    public async Task<BuilderTripSetupDto?> GetBuilderTripSetupAsync(string token, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Get, "api/mobile/builder/setup", token);
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<BuilderTripSetupDto>(JsonOptions, cancellationToken).ConfigureAwait(false)
+            : null;
+    }
+
+    public async Task<BuilderTripSetupDto?> SaveBuilderTripSetupAsync(string token, SaveBuilderTripSetupRequest setup, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Put, "api/mobile/builder/setup", token);
+        request.Content = JsonContent.Create(setup, options: JsonOptions);
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning("Builder setup failed with {StatusCode}.", (int)response.StatusCode);
+            return null;
+        }
+        return await response.Content.ReadFromJsonAsync<BuilderTripSetupDto>(JsonOptions, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<ItineraryItemMutationResponse?> CreateItineraryItemAsync(string token, ItineraryItemMutationRequest mutation, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Post, "api/mobile/itinerary", token);
+        request.Content = JsonContent.Create(mutation, options: JsonOptions);
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        return await response.Content.ReadFromJsonAsync<ItineraryItemMutationResponse>(JsonOptions, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<ItineraryItemMutationResponse?> UpdateItineraryItemAsync(string token, Guid id, ItineraryItemMutationRequest mutation, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Patch, $"api/mobile/itinerary/{id}", token);
+        request.Content = JsonContent.Create(mutation, options: JsonOptions);
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        return await response.Content.ReadFromJsonAsync<ItineraryItemMutationResponse>(JsonOptions, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<ItineraryItemMutationResponse?> DeleteItineraryItemAsync(string token, Guid id, int expectedRevision, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Delete, $"api/mobile/itinerary/{id}?expectedRevision={expectedRevision}", token);
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        return await response.Content.ReadFromJsonAsync<ItineraryItemMutationResponse>(JsonOptions, cancellationToken).ConfigureAwait(false);
     }
 
     private static HttpRequestMessage CreateAuthorizedRequest(HttpMethod method, string url, string token)

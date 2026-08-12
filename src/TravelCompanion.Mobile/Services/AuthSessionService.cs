@@ -13,6 +13,10 @@ public sealed class AuthSessionService
     private const string MustChangePasswordKey = "auth_must_change_password";
     private const string BiometricEnabledKey = "auth_biometric_enabled";
     private const string AccessModeKey = "auth_access_mode";
+    private const string ExperienceModeKey = "auth_experience_mode";
+    private const string CanEditItineraryKey = "auth_can_edit_itinerary";
+    private const string HasCuratedDocsKey = "auth_has_curated_docs";
+    private const string RequiresTripSetupKey = "auth_requires_trip_setup";
     private const string TokenKey = "auth_token";
 
     public bool HasSession => CurrentUserId.HasValue;
@@ -27,6 +31,18 @@ public sealed class AuthSessionService
     }
 
     public bool IsFreeMapPreview => AccessMode == SessionAccessMode.FreeMapPreview;
+    public ExperienceMode ExperienceMode
+    {
+        get
+        {
+            var value = Preferences.Default.Get(ExperienceModeKey, TravelCompanion.Shared.Dtos.ExperienceMode.CuratedPremium.ToString());
+            return Enum.TryParse<ExperienceMode>(value, out var mode) ? mode : TravelCompanion.Shared.Dtos.ExperienceMode.CuratedPremium;
+        }
+    }
+    public bool IsBuilder => ExperienceMode == TravelCompanion.Shared.Dtos.ExperienceMode.SelfServiceBuilder;
+    public bool CanEditItinerary => Preferences.Default.Get(CanEditItineraryKey, IsBuilder);
+    public bool HasCuratedDocs => Preferences.Default.Get(HasCuratedDocsKey, !IsBuilder && !IsFreeMapPreview);
+    public bool RequiresTripSetup => Preferences.Default.Get(RequiresTripSetupKey, IsBuilder && !CurrentTripId.HasValue);
     public bool IsBiometricEnabled
     {
         get => Preferences.Default.Get(BiometricEnabledKey, false);
@@ -103,9 +119,13 @@ public sealed class AuthSessionService
 
         Preferences.Default.Set(MustChangePasswordKey, session.MustChangePassword);
         Preferences.Default.Set(AccessModeKey, session.AccessMode.ToString());
+        Preferences.Default.Set(ExperienceModeKey, session.ExperienceMode.ToString());
+        Preferences.Default.Set(CanEditItineraryKey, session.Capabilities?.CanEditItinerary ?? session.AccessMode == SessionAccessMode.Builder);
+        Preferences.Default.Set(HasCuratedDocsKey, session.Capabilities?.HasCuratedDocs ?? session.AccessMode == SessionAccessMode.Trip);
+        Preferences.Default.Set(RequiresTripSetupKey, session.Capabilities?.RequiresTripSetup ?? false);
         Preferences.Default.Set(
             BiometricEnabledKey,
-            session.AccessMode == SessionAccessMode.Trip && !session.MustChangePassword);
+            session.AccessMode != SessionAccessMode.FreeMapPreview && !session.MustChangePassword);
         await SecureStorage.Default.SetAsync(TokenKey, session.Token).ConfigureAwait(false);
     }
 
@@ -127,6 +147,16 @@ public sealed class AuthSessionService
         Preferences.Default.Set(BiometricEnabledKey, true);
     }
 
+    public void MarkTripConfigured(Guid tripId, string? destinationName = null)
+    {
+        Preferences.Default.Set(TripIdKey, tripId.ToString());
+        Preferences.Default.Set(RequiresTripSetupKey, false);
+        if (!string.IsNullOrWhiteSpace(destinationName))
+        {
+            Preferences.Default.Set(DestinationNameKey, destinationName);
+        }
+    }
+
     public void Clear()
     {
         Preferences.Default.Remove(UserIdKey);
@@ -137,6 +167,10 @@ public sealed class AuthSessionService
         Preferences.Default.Remove(MustChangePasswordKey);
         Preferences.Default.Remove(BiometricEnabledKey);
         Preferences.Default.Remove(AccessModeKey);
+        Preferences.Default.Remove(ExperienceModeKey);
+        Preferences.Default.Remove(CanEditItineraryKey);
+        Preferences.Default.Remove(HasCuratedDocsKey);
+        Preferences.Default.Remove(RequiresTripSetupKey);
         SecureStorage.Default.Remove(TokenKey);
     }
 }

@@ -156,6 +156,7 @@ public sealed class TodayRecommendationEndpointTests
                 Id = tripId,
                 AppUserId = user.Id,
                 DestinationId = destinationId,
+                ExperienceMode = ExperienceMode.SelfServiceBuilder,
                 TravelerName = "Today Traveler",
                 StartsOn = new DateOnly(2026, 10, 20),
                 EndsOn = new DateOnly(2026, 10, 30),
@@ -173,7 +174,10 @@ public sealed class TodayRecommendationEndpointTests
                 CreateRecommendation(destinationId, visitedRecommendationId, "Visited garden tea", ["tea", "walk", "culture"]));
             await dbContext.SaveChangesAsync();
 
-            var (_, token) = await sessionService.CreateSessionAsync(user, tripId: tripId);
+            var (_, token) = await sessionService.CreateSessionAsync(
+                user,
+                tripId: tripId,
+                accessMode: SessionAccessMode.Builder);
             return new SeedResult(
                 token,
                 freeDate,

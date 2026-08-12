@@ -139,6 +139,21 @@ public sealed class UserSessionService(TravelCompanionDbContext dbContext)
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task BindCurrentSessionToTripAsync(
+        HttpContext httpContext,
+        Guid tripId,
+        CancellationToken cancellationToken = default)
+    {
+        var context = await GetSessionContextAsync(httpContext, cancellationToken)
+            ?? throw new InvalidOperationException("An authenticated session is required.");
+        var session = await dbContext.AppUserSessions
+            .FirstOrDefaultAsync(item => item.Id == context.SessionId && item.RevokedAt == null, cancellationToken)
+            ?? throw new InvalidOperationException("The session is no longer active.");
+        session.TripId = tripId;
+        await dbContext.SaveChangesAsync(cancellationToken);
+        httpContext.Items.Remove(SessionContextItemKey);
+    }
+
     public async Task RevokeUserSessionsAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         var sessions = await dbContext.AppUserSessions

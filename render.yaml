@@ -29,6 +29,10 @@ services:
         sync: false
       - key: FreePreview__MarkerObfuscationKey
         generateValue: true
+      - key: GooglePlaces__Enabled
+        value: "false"
+      - key: GooglePlaces__ApiKey
+        sync: false
 
 databases:
   - name: travelcompanion-db

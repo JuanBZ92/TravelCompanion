@@ -306,6 +306,49 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     }
 
     [RelayCommand]
+    private async Task AddPersonalItemAsync(ScheduleTodaySectionViewModel? section)
+    {
+        if (section is null || !_sessionService.CanEditItinerary) return;
+        if (_sessionService.RequiresTripSetup)
+        {
+            await Shell.Current.GoToAsync(nameof(BuilderSetupPage));
+            return;
+        }
+        await Shell.Current.GoToAsync(nameof(ItineraryItemEditorPage), new Dictionary<string, object>
+        {
+            ["Date"] = section.Date,
+            ["PeriodKey"] = section.PeriodKey
+        });
+    }
+
+    [RelayCommand]
+    private Task EditPersonalItemAsync(TodayReservationViewModel? reservation)
+    {
+        if (reservation is null || !reservation.Item.IsTravelerOwned) return Task.CompletedTask;
+        return Shell.Current.GoToAsync(nameof(ItineraryItemEditorPage), new Dictionary<string, object> { ["ScheduleItem"] = reservation.Item });
+    }
+
+    [RelayCommand]
+    private async Task DeletePersonalItemAsync(TodayReservationViewModel? reservation)
+    {
+        if (reservation is null || !reservation.Item.IsTravelerOwned) return;
+        var confirmed = await Shell.Current.DisplayAlertAsync("Eliminar plan", $"¿Eliminar {reservation.Title}?", "Eliminar", "Cancelar");
+        if (!confirmed) return;
+        var token = await _sessionService.GetTokenAsync();
+        if (string.IsNullOrWhiteSpace(token)) return;
+        var setup = await _apiClient.GetBuilderTripSetupAsync(token);
+        if (setup is null) return;
+        var result = await _apiClient.DeleteItineraryItemAsync(token, reservation.Item.Id, setup.Revision);
+        if (result?.Success != true)
+        {
+            ErrorMessage = result?.Message ?? "No se pudo eliminar el plan.";
+            return;
+        }
+        await _todayStore.ClearUserCacheAsync(_sessionService.CurrentUserId);
+        await LoadScheduleLocalFirstAsync(token, forceRefresh: true, CancellationToken.None);
+    }
+
+    [RelayCommand]
     private async Task SelectDayAsync(ScheduleDayFilterViewModel? day)
     {
         if (day is null || _selectedDate == day.Date)
@@ -704,13 +747,15 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         await LoadTodayForSelectedDateAsync(token, forceRefresh: true, cancellationToken);
     }
 
-    private static IReadOnlyList<ScheduleTodaySectionViewModel> BuildTodaySections(
+    private IReadOnlyList<ScheduleTodaySectionViewModel> BuildTodaySections(
         TodayDto today,
         int dayNumber)
     {
         return today.Sections
             .Select(section => new ScheduleTodaySectionViewModel(
                 dayNumber,
+                today.Date,
+                section.PeriodKey,
                 section.Title,
                 section.Description,
                 section.Recommendations
@@ -719,7 +764,8 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
                 section.Reservations
                     .OrderBy(reservation => reservation.StartsAt)
                     .Select(reservation => new TodayReservationViewModel(reservation))
-                    .ToList()))
+                    .ToList(),
+                _sessionService.CanEditItinerary))
             .ToList();
     }
 
@@ -774,15 +820,26 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
 
                 return new ScheduleTodaySectionViewModel(
                     dayNumber,
+                    selectedDate,
+                    PeriodKey(period.Label),
                     period.Label,
                     string.IsNullOrWhiteSpace(curatedDescription)
                         ? CreateSectionDescription(period, reservations, locations)
                         : curatedDescription,
                     locations,
-                    reservations);
+                    reservations,
+                    _sessionService.CanEditItinerary);
             })
             .ToList();
     }
+
+    private static string PeriodKey(string label) => label switch
+    {
+        "Mañana" => "morning",
+        "Medio dia" or "Medio día" => "midday",
+        "Noche" => "night",
+        _ => "afternoon"
+    };
 
     private IReadOnlyList<RecommendationDto> SelectRecommendationsForPeriod(
         TodayPeriod period,

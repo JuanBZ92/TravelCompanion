@@ -14,6 +14,11 @@ public sealed class Reservation
     public Recommendation? Recommendation { get; set; }
     public ReservationType Type { get; set; } = ReservationType.Event;
     public ScheduleItemKind PlanningKind { get; set; } = ScheduleItemKind.ManualEvent;
+    public ItineraryItemOwner Owner { get; set; } = ItineraryItemOwner.Yuku;
+    public ItineraryItemSource ItemSource { get; set; } = ItineraryItemSource.Manual;
+    public ItineraryTimePrecision TimePrecision { get; set; } = ItineraryTimePrecision.Exact;
+    public int SortOrder { get; set; }
+    public string? ProviderPlaceId { get; set; }
     public DateOnly Date { get; set; }
     public TimeOnly StartsAt { get; set; }
     public DateOnly? EndsOn { get; set; }

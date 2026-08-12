@@ -244,7 +244,7 @@
                                                         <Button Text="{Binding SaveButtonText}"
                                                                 Clicked="OnSaveItineraryItemClicked"
                                                                 IsEnabled="{Binding CanSave}"
-                                                                IsVisible="{Binding HasRecommendationId}"
+                                                                IsVisible="{Binding Source={x:Reference PageRoot}, Path=BindingContext.CanEditItinerary}"
                                                                 FontSize="12"
                                                                 Padding="10,7"
                                                                 MinimumHeightRequest="34"

@@ -1,3 +1,5 @@
+using TravelCompanion.Shared.Dtos;
+
 namespace TravelCompanion.Api.Models;
 
 public sealed class Trip
@@ -14,6 +16,7 @@ public sealed class Trip
     public DateOnly StartsOn { get; set; }
     public DateOnly EndsOn { get; set; }
     public string TimeZoneId { get; set; } = "UTC";
+    public ExperienceMode ExperienceMode { get; set; } = ExperienceMode.CuratedPremium;
     public TripPublicationStatus PublicationStatus { get; set; } = TripPublicationStatus.Published;
     public int PlanRevision { get; set; }
     public DateTimeOffset? PublishedAtUtc { get; set; }

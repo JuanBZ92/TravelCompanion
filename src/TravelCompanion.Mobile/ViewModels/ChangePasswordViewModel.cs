@@ -52,7 +52,7 @@ public sealed partial class ChangePasswordViewModel(
             NewPassword = string.Empty;
             ConfirmPassword = string.Empty;
 
-            await Shell.Current.GoToAsync("//main/recommendations");
+            await Shell.Current.GoToAsync("//main/map");
         });
     }
 }

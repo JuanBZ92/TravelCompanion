@@ -18,6 +18,7 @@ public sealed class AuthController(
     TravelCompanionDbContext dbContext,
     IPasswordHasher<AppUser> passwordHasher,
     IPasswordHasher<Trip> tripPinHasher,
+    IPasswordHasher<BuilderAccessGrant> builderPinHasher,
     UserSessionService sessionService,
     FreePreviewAccountService freePreviewAccountService,
     IOptions<FreePreviewOptions> freePreviewOptions) : ControllerBase
@@ -63,9 +64,9 @@ public sealed class AuthController(
         CancellationToken cancellationToken)
     {
         var pin = request.Pin.Trim();
-        if (pin.Length != 4 || pin.Any(character => !char.IsDigit(character)))
+        if ((pin.Length != 4 && pin.Length != 6) || pin.Any(character => !char.IsDigit(character)))
         {
-            return this.ValidationError(nameof(request.Pin), "PIN must contain exactly 4 digits.");
+            return this.ValidationError(nameof(request.Pin), "PIN must contain exactly 4 or 6 digits.");
         }
 
         if (freePreviewOptions.Value.Enabled
@@ -82,7 +83,54 @@ public sealed class AuthController(
                 previewAccount,
                 previewToken,
                 mustChangePassword: false,
-                accessMode: SessionAccessMode.FreeMapPreview));
+                accessMode: SessionAccessMode.FreeMapPreview,
+                experienceMode: ExperienceMode.FreePreview,
+                capabilities: TravelerAccessService.CreateCapabilities(ExperienceMode.FreePreview, false)));
+        }
+
+        if (pin.Length == 6)
+        {
+            var now = DateTimeOffset.UtcNow;
+            var grants = await dbContext.BuilderAccessGrants
+                .Include(grant => grant.AppUser)
+                .Include(grant => grant.Destination)
+                .Where(grant => grant.Status == BuilderAccessStatus.Active
+                    && grant.RevokedAtUtc == null
+                    && (!grant.ExpiresAtUtc.HasValue || grant.ExpiresAtUtc > now))
+                .ToListAsync(cancellationToken);
+
+            foreach (var grant in grants)
+            {
+                var verification = builderPinHasher.VerifyHashedPassword(grant, grant.PinHash, pin);
+                if (verification == PasswordVerificationResult.Failed || grant.AppUser is null)
+                {
+                    continue;
+                }
+
+                if (verification == PasswordVerificationResult.SuccessRehashNeeded)
+                {
+                    grant.PinHash = builderPinHasher.HashPassword(grant, pin);
+                }
+
+                grant.RedeemedAtUtc ??= now;
+                await dbContext.SaveChangesAsync(cancellationToken);
+                var (_, builderToken) = await sessionService.CreateSessionAsync(
+                    grant.AppUser,
+                    cancellationToken,
+                    grant.TripId,
+                    SessionAccessMode.Builder);
+                return Ok(ToSessionDto(
+                    grant.AppUser,
+                    builderToken,
+                    mustChangePassword: false,
+                    grant.TripId,
+                    grant.Destination?.Name,
+                    SessionAccessMode.Builder,
+                    ExperienceMode.SelfServiceBuilder,
+                    TravelerAccessService.CreateCapabilities(ExperienceMode.SelfServiceBuilder, !grant.TripId.HasValue)));
+            }
+
+            return Unauthorized();
         }
 
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
@@ -180,7 +228,9 @@ public sealed class AuthController(
         bool? mustChangePassword = null,
         Guid? tripId = null,
         string? destinationName = null,
-        SessionAccessMode accessMode = SessionAccessMode.Trip)
+        SessionAccessMode accessMode = SessionAccessMode.Trip,
+        ExperienceMode experienceMode = ExperienceMode.CuratedPremium,
+        TravelerCapabilitiesDto? capabilities = null)
     {
         return new AuthSessionDto(
             user.Id,
@@ -190,6 +240,8 @@ public sealed class AuthController(
             token,
             tripId,
             destinationName,
-            accessMode);
+            accessMode,
+            experienceMode,
+            capabilities ?? TravelerAccessService.CreateCapabilities(experienceMode, false));
     }
 }

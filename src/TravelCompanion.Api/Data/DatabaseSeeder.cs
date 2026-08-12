@@ -26,7 +26,10 @@ public static class DatabaseSeeder
 
     public static async Task SeedAsync(
         TravelCompanionDbContext dbContext,
-        IPasswordHasher<AppUser> passwordHasher)
+        IPasswordHasher<AppUser> passwordHasher,
+        IPasswordHasher<BuilderAccessGrant>? builderPinHasher = null,
+        string? builderDemoPin = null,
+        string? builderDemoCustomerName = null)
     {
         _ = passwordHasher;
 
@@ -34,9 +37,61 @@ public static class DatabaseSeeder
         await RemoveLegacySeedDataAsync(dbContext, japan.Id);
         await EnsureFreePreviewAccountAsync(dbContext);
         await EnsureFreeMapCitiesAsync(dbContext, japan.Id);
+        await EnsureBuilderDemoAccessAsync(
+            dbContext,
+            japan.Id,
+            builderPinHasher,
+            builderDemoPin,
+            builderDemoCustomerName);
         await NormalizeImportedYukuRecommendationsAsync(dbContext, japan.Id);
         await BackfillTripDayPlansAsync(dbContext);
         await dbContext.SaveChangesAsync();
+    }
+
+    private static async Task EnsureBuilderDemoAccessAsync(
+        TravelCompanionDbContext dbContext,
+        Guid destinationId,
+        IPasswordHasher<BuilderAccessGrant>? pinHasher,
+        string? pin,
+        string? customerName)
+    {
+        const string demoEmail = "builder-demo@travelcompanion.local";
+        if (pinHasher is null || string.IsNullOrWhiteSpace(pin))
+        {
+            return;
+        }
+
+        pin = pin.Trim();
+        if (pin.Length != 6 || pin.Any(character => !char.IsDigit(character)))
+        {
+            throw new InvalidOperationException("BuilderDemo:Pin must contain exactly 6 digits.");
+        }
+
+        if (await dbContext.AppUsers.AnyAsync(user => user.Email == demoEmail))
+        {
+            return;
+        }
+
+        var user = new AppUser
+        {
+            Id = Guid.NewGuid(),
+            Email = demoEmail,
+            DisplayName = string.IsNullOrWhiteSpace(customerName) ? "Builder Demo" : customerName.Trim(),
+            PasswordHash = string.Empty,
+            MustChangePassword = false
+        };
+        var grant = new BuilderAccessGrant
+        {
+            Id = Guid.NewGuid(),
+            AppUserId = user.Id,
+            AppUser = user,
+            DestinationId = destinationId,
+            PinHash = string.Empty,
+            OrderReference = "initial-test-access"
+        };
+        grant.PinHash = pinHasher.HashPassword(grant, pin);
+        dbContext.AppUsers.Add(user);
+        dbContext.BuilderAccessGrants.Add(grant);
     }
 
     private static async Task EnsureFreePreviewAccountAsync(TravelCompanionDbContext dbContext)

@@ -708,7 +708,12 @@ public sealed class TodayRecommendationService(
             reservation.DestinationName,
             reservation.OriginAirport,
             reservation.DestinationAirport,
-            reservation.PlanningKind);
+            reservation.PlanningKind,
+            reservation.Owner,
+            reservation.ItemSource,
+            reservation.TimePrecision,
+            reservation.SortOrder,
+            reservation.ProviderPlaceId);
 
     private static RecommendationDto ToRecommendationDto(Recommendation recommendation, decimal? distanceKm) =>
         new(

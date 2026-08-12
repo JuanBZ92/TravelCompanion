@@ -19,6 +19,7 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
     public DbSet<AppUser> AppUsers => Set<AppUser>();
     public DbSet<UserEntitlement> UserEntitlements => Set<UserEntitlement>();
     public DbSet<AppUserSession> AppUserSessions => Set<AppUserSession>();
+    public DbSet<BuilderAccessGrant> BuilderAccessGrants => Set<BuilderAccessGrant>();
     public DbSet<TravelPreferenceProfile> TravelPreferenceProfiles => Set<TravelPreferenceProfile>();
     public DbSet<TravelChatConversation> TravelChatConversations => Set<TravelChatConversation>();
     public DbSet<TravelAssistantFeedback> TravelAssistantFeedbackItems => Set<TravelAssistantFeedback>();
@@ -99,6 +100,11 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
             entity.Property(trip => trip.AccessPinHash).HasMaxLength(512);
             entity.Property(trip => trip.TravelerName).HasMaxLength(140);
             entity.Property(trip => trip.TimeZoneId).HasMaxLength(120).HasDefaultValue("UTC");
+            entity.Property(trip => trip.ExperienceMode)
+                .HasConversion<string>()
+                .HasMaxLength(32)
+                .HasDefaultValue(TravelCompanion.Shared.Dtos.ExperienceMode.CuratedPremium)
+                .HasSentinel((TravelCompanion.Shared.Dtos.ExperienceMode)(-1));
             entity.Property(trip => trip.PublicationStatus)
                 .HasConversion<string>()
                 .HasMaxLength(32)
@@ -117,6 +123,8 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
             entity.HasIndex(day => new { day.TripId, day.DayNumber }).IsUnique();
             entity.Property(day => day.City).HasMaxLength(120);
             entity.Property(day => day.HotelBase).HasMaxLength(180);
+            entity.Property(day => day.BaseAddress).HasMaxLength(300);
+            entity.Property(day => day.BaseProviderPlaceId).HasMaxLength(160);
             entity.Property(day => day.BaseLatitude).HasPrecision(9, 6);
             entity.Property(day => day.BaseLongitude).HasPrecision(9, 6);
             entity.Property(day => day.Introduction).HasMaxLength(2000);
@@ -164,6 +172,22 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
                 .HasConversion<string>()
                 .HasMaxLength(32)
                 .HasDefaultValue(TravelCompanion.Shared.ScheduleItemKind.ManualEvent);
+            entity.Property(reservation => reservation.Owner)
+                .HasConversion<string>()
+                .HasMaxLength(24)
+                .HasDefaultValue(TravelCompanion.Shared.ItineraryItemOwner.Yuku);
+            entity.Property(reservation => reservation.ItemSource)
+                .HasConversion<string>()
+                .HasMaxLength(32)
+                .HasDefaultValue(TravelCompanion.Shared.ItineraryItemSource.Manual);
+            entity.Property(reservation => reservation.TimePrecision)
+                .HasConversion<string>()
+                .HasMaxLength(24)
+                .HasDefaultValue(TravelCompanion.Shared.ItineraryTimePrecision.Exact)
+                .HasSentinel((TravelCompanion.Shared.ItineraryTimePrecision)(-1));
+            entity.Property(reservation => reservation.ProviderPlaceId).HasMaxLength(160);
+            entity.HasIndex(reservation => new { reservation.TripId, reservation.Owner, reservation.Date });
+            entity.HasIndex(reservation => new { reservation.TripId, reservation.ProviderPlaceId });
             entity.Property(reservation => reservation.Title).HasMaxLength(160);
             entity.Property(reservation => reservation.TimeZoneId).HasMaxLength(120);
             entity.Property(reservation => reservation.City).HasMaxLength(120);
@@ -248,6 +272,29 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
             entity.HasOne(session => session.Trip)
                 .WithMany()
                 .HasForeignKey(session => session.TripId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<BuilderAccessGrant>(entity =>
+        {
+            entity.HasIndex(grant => new { grant.Status, grant.ExpiresAtUtc });
+            entity.HasIndex(grant => grant.TripId).IsUnique();
+            entity.Property(grant => grant.PinHash).HasMaxLength(512);
+            entity.Property(grant => grant.OrderReference).HasMaxLength(120);
+            entity.Property(grant => grant.Status)
+                .HasConversion<string>()
+                .HasMaxLength(24);
+            entity.HasOne(grant => grant.AppUser)
+                .WithMany(user => user.BuilderAccessGrants)
+                .HasForeignKey(grant => grant.AppUserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(grant => grant.Destination)
+                .WithMany()
+                .HasForeignKey(grant => grant.DestinationId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(grant => grant.Trip)
+                .WithMany()
+                .HasForeignKey(grant => grant.TripId)
                 .OnDelete(DeleteBehavior.SetNull);
         });
 

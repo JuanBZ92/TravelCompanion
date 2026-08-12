@@ -8,6 +8,8 @@ namespace TravelCompanion.Api.Controllers;
 [Route("api/ai")]
 public sealed class AiController(
     UserSessionService sessionService,
+    TravelerAccessService accessService,
+    ITravelChatIntentClassifier intentClassifier,
     ITravelChatService travelChatService,
     IItineraryService itineraryService,
     ITravelAssistantFeedbackService feedbackService) : ControllerBase
@@ -26,6 +28,21 @@ public sealed class AiController(
         if (user is null)
         {
             return Unauthorized();
+        }
+
+        var access = await accessService.GetAsync(HttpContext, cancellationToken);
+        var intent = intentClassifier.Classify(request.Message);
+        if (access?.ExperienceMode == ExperienceMode.SelfServiceBuilder
+            && access.Capabilities.RequiresTripSetup
+            && (intent.IsPlanning || intent.Intent == TravelChatIntents.SaveItinerary))
+        {
+            return Ok(new TravelChatResponse(
+                request.ConversationId ?? Guid.NewGuid().ToString("N"),
+                "Primero necesito las fechas y ciudades de tu viaje para ubicar el plan.",
+                intent.Intent,
+                [],
+                ["Configurar mi viaje"],
+                new MissingContextDto("tripSetup", "Configura las fechas y ciudades de tu viaje para continuar.", ["Configurar mi viaje"])));
         }
 
         var response = await travelChatService.CreatePlanAsync(user, request, cancellationToken);
@@ -47,6 +64,12 @@ public sealed class AiController(
         if (user is null)
         {
             return Unauthorized();
+        }
+
+        var access = await accessService.GetAsync(HttpContext, cancellationToken);
+        if (access is null || !access.Capabilities.CanEditItinerary || access.Capabilities.RequiresTripSetup)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new SaveItineraryItemResponse(false, "Este tipo de viaje no permite editar el itinerario desde la app.", null));
         }
 
         var response = await itineraryService.SaveItineraryItemAsync(user, request, cancellationToken);

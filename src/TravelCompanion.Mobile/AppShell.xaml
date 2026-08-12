@@ -36,11 +36,11 @@
 
     <TabBar Route="main">
         <ShellContent
-            x:Name="RecommendationsTab"
-            Title="Discover"
+            x:Name="MapTab"
+            Title="Map"
             Icon="tab_ideas.svg"
-            ContentTemplate="{DataTemplate pages:RecommendationsPage}"
-            Route="recommendations" />
+            ContentTemplate="{DataTemplate pages:MapPage}"
+            Route="map" />
 
         <ShellContent
             x:Name="ScheduleTab"

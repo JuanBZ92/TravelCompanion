@@ -1,0 +1,55 @@
+@page "/admin/builder-access"
+@model TravelCompanion.Api.Pages.Admin.BuilderAccessModel
+@{
+    ViewData["Title"] = "Builder access";
+}
+
+<h1>Builder access</h1>
+<p class="lede">Códigos de 6 dígitos para clientes que arman su propio itinerario.</p>
+
+@if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
+{
+    <section class="notice"><strong>@Model.StatusMessage</strong></section>
+}
+
+<section class="grid">
+    <div class="panel">
+        <h2>Nuevo acceso</h2>
+        <form method="post" asp-page-handler="Create">
+            <div asp-validation-summary="All"></div>
+            <div class="form-grid">
+                <div><label asp-for="Input.CustomerName" class="required">Cliente</label><input asp-for="Input.CustomerName" /></div>
+                <div><label>Destino</label><input value="Japón" disabled /></div>
+                <div><label asp-for="Input.OrderReference">Referencia de compra</label><input asp-for="Input.OrderReference" /></div>
+                <div><label asp-for="Input.ExpiresOn">Expira (opcional)</label><input asp-for="Input.ExpiresOn" type="date" /></div>
+            </div>
+            <div class="actions"><button type="submit">Generar PIN de 6 dígitos</button></div>
+        </form>
+    </div>
+</section>
+
+<section class="panel" style="margin-top:18px">
+    <h2>Accesos emitidos</h2>
+    <table>
+        <thead><tr><th>Cliente</th><th>Estado</th><th>Itinerario</th><th>Creado</th><th>Referencia</th><th></th></tr></thead>
+        <tbody>
+        @foreach (var grant in Model.Grants)
+        {
+            <tr>
+                <td><strong>@grant.CustomerName</strong></td>
+                <td><span class="badge">@grant.Status</span></td>
+                <td>@(grant.HasTrip ? "Configurado" : "Pendiente")</td>
+                <td>@grant.CreatedAtUtc.ToLocalTime().ToString("g")</td>
+                <td>@grant.OrderReference</td>
+                <td class="actions">
+                    @if (grant.Status == "Active")
+                    {
+                        <form method="post" asp-page-handler="Regenerate"><input type="hidden" name="id" value="@grant.Id" /><button class="secondary" type="submit">Regenerar</button></form>
+                        <form method="post" asp-page-handler="Revoke"><input type="hidden" name="id" value="@grant.Id" /><button class="danger" type="submit">Revocar</button></form>
+                    }
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</section>

@@ -23,10 +23,10 @@ public sealed partial class LoginViewModel(
     {
         return LoadAsync(async () =>
         {
-            var pin = new string(Pin.Where(char.IsDigit).Take(4).ToArray());
-            if (pin.Length != 4)
+            var pin = new string(Pin.Where(char.IsDigit).Take(6).ToArray());
+            if (pin.Length is not (4 or 6))
             {
-                ErrorMessage = "Ingresa el PIN de 4 numeros de tu viaje.";
+                ErrorMessage = "Ingresa tu PIN de 4 o 6 numeros.";
                 return;
             }
 
@@ -38,13 +38,19 @@ public sealed partial class LoginViewModel(
             }
 
             await sessionService.SaveAsync(session);
+            if (Shell.Current is AppShell appShell)
+            {
+                appShell.ApplySessionTabs(sessionService);
+            }
             Pin = string.Empty;
 
             var route = session.AccessMode == SessionAccessMode.FreeMapPreview
                 ? "//free-map"
+                : session.AccessMode == SessionAccessMode.Builder
+                    ? "//main/map"
                 : session.MustChangePassword
                     ? "//change-password"
-                    : "//main/schedule";
+                    : "//main/map";
             await Shell.Current.GoToAsync(route);
         });
     }

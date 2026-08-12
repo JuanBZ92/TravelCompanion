@@ -12,6 +12,8 @@ public partial class AppShell : Shell
         LocalizationResourceManager.Instance.CultureChanged += OnCultureChanged;
         Routing.RegisterRoute(nameof(RecommendationDetailPage), typeof(RecommendationDetailPage));
         Routing.RegisterRoute(nameof(ScheduleItemDetailPage), typeof(ScheduleItemDetailPage));
+        Routing.RegisterRoute(nameof(BuilderSetupPage), typeof(BuilderSetupPage));
+        Routing.RegisterRoute(nameof(ItineraryItemEditorPage), typeof(ItineraryItemEditorPage));
 
         var sessionService = MauiProgram.Services.GetRequiredService<AuthSessionService>();
         if (sessionService.IsFreeMapPreview)
@@ -21,6 +23,7 @@ public partial class AppShell : Shell
         else
         {
             WarmMainTabPages();
+            ApplySessionTabs(sessionService);
         }
 
         if (sessionService.HasSession)
@@ -31,7 +34,7 @@ public partial class AppShell : Shell
                 ? "//change-password"
                 : sessionService.IsBiometricEnabled
                     ? "//biometric-unlock"
-                    : "//main/recommendations";
+                    : "//main/map";
 
             Dispatcher.Dispatch(async () => await GoToAsync(route));
         }
@@ -39,10 +42,18 @@ public partial class AppShell : Shell
 
     private void WarmMainTabPages()
     {
-        RecommendationsTab.Content ??= MauiProgram.Services.GetRequiredService<RecommendationsPage>();
+        MapTab.Content ??= MauiProgram.Services.GetRequiredService<MapPage>();
         ScheduleTab.Content ??= MauiProgram.Services.GetRequiredService<SchedulePage>();
         AssistantTab.Content ??= MauiProgram.Services.GetRequiredService<TravelChatPage>();
         DocsTab.Content ??= MauiProgram.Services.GetRequiredService<DocsPage>();
+    }
+
+    public void ApplySessionTabs(AuthSessionService sessionService)
+    {
+        MapTab.IsVisible = !sessionService.IsFreeMapPreview;
+        ScheduleTab.IsVisible = !sessionService.IsFreeMapPreview;
+        AssistantTab.IsVisible = !sessionService.IsFreeMapPreview;
+        DocsTab.IsVisible = sessionService.HasCuratedDocs;
     }
 
     private void OnCultureChanged(object? sender, EventArgs e)
@@ -57,7 +68,7 @@ public partial class AppShell : Shell
         BiometricUnlockTab.Title = resources["TabBiometricUnlock"];
         ChangePasswordTab.Title = resources["TabChangePassword"];
         FreeMapTab.Title = "Map";
-        RecommendationsTab.Title = resources["TabDiscover"];
+        MapTab.Title = "Map";
         ScheduleTab.Title = resources["TabToday"];
         AssistantTab.Title = resources["TabAssistant"];
         DocsTab.Title = resources["TabDocs"];

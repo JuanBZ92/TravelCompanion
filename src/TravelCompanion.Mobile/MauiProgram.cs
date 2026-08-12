@@ -76,6 +76,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<MobileTodayStore>();
         builder.Services.AddSingleton<OfflineMutationQueueService>();
         builder.Services.AddSingleton<FavoritesService>();
+        builder.Services.AddSingleton<PendingItineraryActionStore>();
         builder.Services.AddSingleton<ILocationService, LocationService>();
         builder.Services.AddSingleton(LocalizationResourceManager.Instance);
 
@@ -96,6 +97,8 @@ public static class MauiProgram
         builder.Services.AddSingleton<PackagesViewModel>();
         builder.Services.AddSingleton<ISessionStateResettable>(sp => sp.GetRequiredService<PackagesViewModel>());
         builder.Services.AddTransient<RecommendationDetailViewModel>();
+        builder.Services.AddTransient<BuilderSetupViewModel>();
+        builder.Services.AddTransient<ItineraryItemEditorViewModel>();
         builder.Services.AddSingleton<DocsViewModel>();
         builder.Services.AddSingleton<ISessionStateResettable>(sp => sp.GetRequiredService<DocsViewModel>());
 
@@ -111,6 +114,8 @@ public static class MauiProgram
         builder.Services.AddSingleton<PackagesPage>();
         builder.Services.AddSingleton<DocsPage>();
         builder.Services.AddTransient<RecommendationDetailPage>();
+        builder.Services.AddTransient<BuilderSetupPage>();
+        builder.Services.AddTransient<ItineraryItemEditorPage>();
 
         var app = builder.Build();
         Services = app.Services;

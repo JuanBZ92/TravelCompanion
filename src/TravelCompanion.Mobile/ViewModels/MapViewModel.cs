@@ -9,7 +9,9 @@ namespace TravelCompanion.Mobile.ViewModels;
 
 public sealed partial class MapViewModel(
     AuthSessionService sessionService,
-    MobileBootstrapStore bootstrapStore) : ViewModelBase, ISessionStateResettable
+    MobileBootstrapStore bootstrapStore,
+    PendingItineraryActionStore pendingStore,
+    TravelCompanionApiClient apiClient) : ViewModelBase, ISessionStateResettable
 {
     private const decimal TokyoStationLatitude = 35.681236m;
     private const decimal TokyoStationLongitude = 139.767125m;
@@ -21,8 +23,10 @@ public sealed partial class MapViewModel(
     private int _totalPages = 1;
     private int _totalItems;
     private IReadOnlyList<RecommendationDto> _visibleNearbyRecommendations = [];
+    private string _searchText = string.Empty;
 
     public ObservableCollection<int> PageSizeOptions { get; } = [10, 20, 50];
+    public string SearchText { get => _searchText; set => SetProperty(ref _searchText, value); }
 
     public IReadOnlyList<RecommendationDto> VisibleNearbyRecommendations
     {
@@ -98,6 +102,7 @@ public sealed partial class MapViewModel(
     public bool HasNearbyRecommendations => TotalItems > 0;
     public bool ShowInitialLoading => IsBusy && !HasNearbyRecommendations;
     public bool ShowEmptyState => HasLoaded && !IsBusy && !HasNearbyRecommendations;
+    public bool CanAddToItinerary => sessionService.CanEditItinerary;
     public string PageSummary => TotalItems == 0
         ? "0 lugares"
         : $"Pagina {CurrentPage} de {TotalPages} · {TotalItems} lugares";
@@ -140,6 +145,52 @@ public sealed partial class MapViewModel(
                 ["IsUnlocked"] = IsUnlocked(recommendation)
             });
     }
+
+    [RelayCommand]
+    private async Task AddToItineraryAsync(RecommendationDto? recommendation)
+    {
+        if (recommendation is null || !sessionService.CanEditItinerary)
+        {
+            return;
+        }
+
+        if (recommendation.Id == Guid.Empty)
+        {
+            StatusMessage = recommendation.Attribution is null
+                ? "Detalle externo no disponible."
+                : $"Información provista por {recommendation.Attribution}. Puedes agregarla a tu itinerario.";
+            return;
+        }
+
+        if (sessionService.RequiresTripSetup)
+        {
+            pendingStore.Set(recommendation);
+            await Shell.Current.GoToAsync(nameof(BuilderSetupPage));
+            return;
+        }
+
+        await Shell.Current.GoToAsync(
+            nameof(ItineraryItemEditorPage),
+            new Dictionary<string, object> { ["Recommendation"] = recommendation });
+    }
+
+    [RelayCommand]
+    private Task SearchAsync() => LoadAsync(async ct =>
+    {
+        if (string.IsNullOrWhiteSpace(SearchText))
+        {
+            await LoadNearbyRecommendationsLocalFirstAsync(ct);
+            return;
+        }
+        var token = await sessionService.GetTokenAsync();
+        if (string.IsNullOrWhiteSpace(token)) return;
+        var results = await apiClient.SearchPlacesAsync(token, new PlaceSearchRequest(SearchText.Trim()), ct);
+        ApplyRecommendations(results.Select(item => item with
+        {
+            DistanceKm = item.DistanceKm ?? CalculateDistanceKm(TokyoStationLatitude, TokyoStationLongitude, item.Latitude, item.Longitude)
+        }).OrderBy(item => item.DistanceKm).ToList(), true);
+    });
+
 
     [RelayCommand]
     private void PreviousPage()
