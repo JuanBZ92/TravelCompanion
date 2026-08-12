@@ -29,7 +29,7 @@
 
 		<!-- Versions -->
 		<ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
-		<ApplicationVersion>1</ApplicationVersion>
+		<ApplicationVersion>2</ApplicationVersion>
 
 		<!-- To develop, package, and publish an app to the Microsoft Store, see: https://aka.ms/MauiTemplateUnpackaged -->
 		<WindowsPackageType>None</WindowsPackageType>
@@ -51,6 +51,10 @@
 	  <ProvisioningType>manual</ProvisioningType>
 	  <CodesignKey>Apple Distribution: Juan Zardini (AG5JMK42KA)</CodesignKey>
 	  <CodesignProvision>TravelCompanionProfile</CodesignProvision>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)' == 'Release' and '$(TargetFramework)'=='net10.0-ios'">
+	  <TravelCompanionApiBaseUrl Condition="'$(TravelCompanionApiBaseUrl)' == ''">https://travelcompanion-api-57dw.onrender.com</TravelCompanionApiBaseUrl>
 	</PropertyGroup>
 
 	<ItemGroup Condition="'$(TravelCompanionApiBaseUrl)' != ''">
