@@ -1,4 +1,3 @@
-using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.Input;
 using TravelCompanion.Mobile.Pages;
 using TravelCompanion.Mobile.Services;
@@ -13,19 +12,18 @@ public sealed partial class MapViewModel(
     PendingItineraryActionStore pendingStore,
     TravelCompanionApiClient apiClient) : ViewModelBase, ISessionStateResettable
 {
+    private const int PageSize = 10;
     private const decimal TokyoStationLatitude = 35.681236m;
     private const decimal TokyoStationLongitude = 139.767125m;
     private readonly List<RecommendationDto> _allNearbyRecommendations = [];
     private UserEntitlementsDto? _entitlements;
     private RecommendationDto? _selectedRecommendation;
-    private int _selectedPageSize = 10;
     private int _currentPage = 1;
     private int _totalPages = 1;
     private int _totalItems;
     private IReadOnlyList<RecommendationDto> _visibleNearbyRecommendations = [];
     private string _searchText = string.Empty;
 
-    public ObservableCollection<int> PageSizeOptions { get; } = [10, 20, 50];
     public string SearchText { get => _searchText; set => SetProperty(ref _searchText, value); }
 
     public IReadOnlyList<RecommendationDto> VisibleNearbyRecommendations
@@ -38,24 +36,6 @@ public sealed partial class MapViewModel(
     {
         get => _selectedRecommendation;
         set => SetProperty(ref _selectedRecommendation, value);
-    }
-
-    public int SelectedPageSize
-    {
-        get => _selectedPageSize;
-        set
-        {
-            if (value <= 0)
-            {
-                return;
-            }
-
-            if (SetProperty(ref _selectedPageSize, value))
-            {
-                CurrentPage = 1;
-                ApplyCurrentPage();
-            }
-        }
     }
 
     public int CurrentPage
@@ -298,22 +278,22 @@ public sealed partial class MapViewModel(
         }
 
         TotalItems = _allNearbyRecommendations.Count;
-        TotalPages = Math.Max(1, (int)Math.Ceiling(TotalItems / (double)SelectedPageSize));
+        TotalPages = Math.Max(1, (int)Math.Ceiling(TotalItems / (double)PageSize));
         ApplyCurrentPage();
     }
 
     private void ApplyCurrentPage()
     {
         TotalItems = _allNearbyRecommendations.Count;
-        TotalPages = Math.Max(1, (int)Math.Ceiling(TotalItems / (double)SelectedPageSize));
+        TotalPages = Math.Max(1, (int)Math.Ceiling(TotalItems / (double)PageSize));
         if (CurrentPage > TotalPages)
         {
             CurrentPage = TotalPages;
         }
 
         VisibleNearbyRecommendations = _allNearbyRecommendations
-            .Skip((CurrentPage - 1) * SelectedPageSize)
-            .Take(SelectedPageSize)
+            .Skip((CurrentPage - 1) * PageSize)
+            .Take(PageSize)
             .ToList();
     }
 

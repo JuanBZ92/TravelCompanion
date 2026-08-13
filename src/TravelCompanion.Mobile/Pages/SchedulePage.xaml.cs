@@ -10,6 +10,7 @@ public partial class SchedulePage : ContentPage
 {
     private readonly ScheduleViewModel _viewModel;
     private readonly ILogger<SchedulePage> _logger;
+    private bool _isHandlingAppearance;
 
     public SchedulePage()
         : this(
@@ -37,35 +38,53 @@ public partial class SchedulePage : ContentPage
 
     protected override async void OnAppearing()
     {
-        var stopwatch = Stopwatch.StartNew();
         base.OnAppearing();
 
+        if (_isHandlingAppearance)
+        {
+            return;
+        }
+
+        _isHandlingAppearance = true;
+        await Dispatcher.DispatchAsync(HandleAppearingAsync);
+    }
+
+    private async Task HandleAppearingAsync()
+    {
+        var stopwatch = Stopwatch.StartNew();
+
         var sessionService = MauiProgram.Services.GetRequiredService<TravelCompanion.Mobile.Services.AuthSessionService>();
-        if (sessionService.IsBuilder && sessionService.RequiresTripSetup)
-        {
-            await Shell.Current.GoToAsync(nameof(BuilderSetupPage));
-            return;
-        }
-
-        if (_viewModel.HasLoaded)
-        {
-            stopwatch.Stop();
-            _logger.LogInformation(
-                "Schedule page appeared from warm state in {ElapsedMs}ms.",
-                stopwatch.Elapsed.TotalMilliseconds);
-            return;
-        }
-
         try
         {
+            if (sessionService.IsBuilder && sessionService.RequiresTripSetup)
+            {
+                // Let Shell finish selecting the tab before opening the setup route.
+                await Task.Yield();
+                await Shell.Current.GoToAsync(nameof(BuilderSetupPage));
+                return;
+            }
+
+            if (_viewModel.HasLoaded)
+            {
+                stopwatch.Stop();
+                _logger.LogInformation(
+                    "Schedule page appeared from warm state in {ElapsedMs}ms.",
+                    stopwatch.Elapsed.TotalMilliseconds);
+                return;
+            }
+
             await _viewModel.LoadScheduleCommand.ExecuteAsync(null);
         }
         catch (Exception ex)
         {
-            _viewModel.ErrorMessage = $"Error loading schedule: {ex.Message}";
+            _logger.LogError(ex, "Schedule appearance flow failed.");
+            _viewModel.ErrorMessage = sessionService.RequiresTripSetup
+                ? "No pudimos abrir la configuración del viaje. Intenta nuevamente."
+                : "No pudimos cargar Today. Intenta nuevamente.";
         }
         finally
         {
+            _isHandlingAppearance = false;
             stopwatch.Stop();
             _logger.LogInformation(
                 "Schedule page appeared after initial load in {ElapsedMs}ms. HasLoaded={HasLoaded}.",

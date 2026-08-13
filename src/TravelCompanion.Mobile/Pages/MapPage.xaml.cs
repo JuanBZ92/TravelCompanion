@@ -118,14 +118,22 @@ public partial class MapPage : ContentPage
 #endif
     }
 
-    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    private async void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-#if !WINDOWS
         if (e.PropertyName == nameof(MapViewModel.VisibleNearbyRecommendations))
         {
+#if !WINDOWS
             RefreshMapPins();
-        }
 #endif
+            try
+            {
+                await ResultsScroll.ScrollToAsync(0, 0, false);
+            }
+            catch (Exception exception)
+            {
+                _logger.LogDebug(exception, "Could not reset the map results scroll position.");
+            }
+        }
     }
 
 #if !WINDOWS

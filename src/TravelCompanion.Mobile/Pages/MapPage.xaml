@@ -10,7 +10,7 @@
              Shell.NavBarIsVisible="False"
              BackgroundColor="#F8F3ED">
 
-    <Grid RowDefinitions="0.45*,0.55*" RowSpacing="0">
+    <Grid RowDefinitions="0.58*,0.42*" RowSpacing="0">
         <!-- Map Section -->
         <Grid Grid.Row="0">
             <Border x:Name="MapHost"
@@ -68,48 +68,18 @@
         </Grid>
 
         <!-- Nearby Places List -->
-            <Grid Grid.Row="1" Padding="24,18,24,0" RowDefinitions="Auto,Auto,Auto,*" RowSpacing="12">
-            <VerticalStackLayout Spacing="4">
-                <Label Text="Explore"
-                       FontSize="34"
-                       FontFamily="serif"
-                       TextColor="#1A1714"/>
-                <Label Text="Lugares curados cerca de tu recorrido"
+        <Grid Grid.Row="1" Padding="20,12,20,0" RowDefinitions="Auto,*" RowSpacing="10">
+            <SearchBar Grid.Row="0"
+                       Placeholder="Buscar restaurante, café o lugar"
+                       Text="{Binding SearchText}"
+                       SearchCommand="{Binding SearchCommand}"
+                       HeightRequest="42"
                        FontSize="14"
-                       TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
-            </VerticalStackLayout>
+                       BackgroundColor="#FFFDF9"
+                       CancelButtonColor="#8E867D" />
 
-            <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                <SearchBar Placeholder="Buscar restaurante, café o lugar" Text="{Binding SearchText}" SearchCommand="{Binding SearchCommand}" />
-                <Button Grid.Column="1" Text="Buscar" Command="{Binding SearchCommand}" />
-            </Grid>
-
-            <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto,76" ColumnSpacing="8" HeightRequest="40">
-                <Button Text="‹ "
-                        Command="{Binding PreviousPageCommand}"
-                        IsEnabled="{Binding CanGoPrevious}"
-                        Style="{StaticResource PagerButton}" />
-                <Label Grid.Column="1"
-                       Text="{Binding PageSummary}"
-                       FontSize="12"
-                       TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
-                       HorizontalTextAlignment="Center"
-                       LineBreakMode="TailTruncation"
-                       VerticalOptions="Center" />
-                <Button Grid.Column="2" 
-                        Text=" ›"
-                        Command="{Binding NextPageCommand}"
-                        IsEnabled="{Binding CanGoNext}"
-                        Style="{StaticResource PagerButton}" />
-                <Picker Grid.Column="3"
-                        ItemsSource="{Binding PageSizeOptions}"
-                        SelectedItem="{Binding SelectedPageSize}"
-                        FontSize="12"
-                        HeightRequest="36"
-                        TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
-            </Grid>
-
-            <ScrollView Grid.Row="3"
+            <ScrollView x:Name="ResultsScroll"
+                        Grid.Row="1"
                         VerticalScrollBarVisibility="Never">
                 <VerticalStackLayout Spacing="0">
                     <VerticalStackLayout HorizontalOptions="Center"
@@ -191,11 +161,33 @@
                             </DataTemplate>
                         </BindableLayout.ItemTemplate>
                     </VerticalStackLayout>
+
+                    <Grid ColumnDefinitions="Auto,*,Auto"
+                          ColumnSpacing="12"
+                          HeightRequest="48"
+                          Margin="0,4,0,12">
+                        <Button Text="‹"
+                                Command="{Binding PreviousPageCommand}"
+                                IsEnabled="{Binding CanGoPrevious}"
+                                Style="{StaticResource PagerButton}" />
+                        <Label Grid.Column="1"
+                               Text="{Binding PageSummary}"
+                               FontSize="12"
+                               TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                               HorizontalTextAlignment="Center"
+                               VerticalTextAlignment="Center"
+                               LineBreakMode="TailTruncation" />
+                        <Button Grid.Column="2"
+                                Text="›"
+                                Command="{Binding NextPageCommand}"
+                                IsEnabled="{Binding CanGoNext}"
+                                Style="{StaticResource PagerButton}" />
+                    </Grid>
                     <BoxView HeightRequest="28" Opacity="0" />
                 </VerticalStackLayout>
             </ScrollView>
 
-            <VerticalStackLayout Grid.Row="3"
+            <VerticalStackLayout Grid.Row="1"
                                  Spacing="12"
                                  HorizontalOptions="Center"
                                  VerticalOptions="Center"
