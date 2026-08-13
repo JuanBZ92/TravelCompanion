@@ -116,9 +116,7 @@ public sealed partial class FreeMapViewModel(
             return;
         }
 
-        await GoogleMapsLauncher.OpenAsync(
-            SelectedRecommendation.Latitude,
-            SelectedRecommendation.Longitude);
+        await GoogleMapsLauncher.OpenAsync(SelectedRecommendation);
     }
 
     [RelayCommand]

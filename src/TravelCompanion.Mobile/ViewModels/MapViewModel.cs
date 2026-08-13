@@ -238,9 +238,7 @@ public sealed partial class MapViewModel(
             return;
         }
 
-        var opened = await GoogleMapsLauncher.OpenAsync(
-            recommendation.Latitude,
-            recommendation.Longitude);
+        var opened = await GoogleMapsLauncher.OpenAsync(recommendation);
         if (!opened)
         {
             StatusMessage = "No se pudo abrir Google Maps.";

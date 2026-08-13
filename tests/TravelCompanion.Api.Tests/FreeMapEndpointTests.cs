@@ -79,6 +79,8 @@ public sealed class FreeMapEndpointTests
         Assert.NotNull(unlocked.Recommendation);
         Assert.Equal(seed.InsideRecommendationId, unlocked.Recommendation.Id);
         Assert.Equal("Inside ramen", unlocked.Recommendation.Title);
+        Assert.Equal(unlocked.Recommendation.Latitude, unlocked.Latitude);
+        Assert.Equal(unlocked.Recommendation.Longitude, unlocked.Longitude);
 
         var locked = Assert.Single(first.Markers, marker => marker.Access == FreeMapMarkerAccess.Locked);
         var lockedAgain = Assert.Single(second.Markers, marker => marker.Access == FreeMapMarkerAccess.Locked);

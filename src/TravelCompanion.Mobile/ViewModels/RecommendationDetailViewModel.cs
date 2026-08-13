@@ -140,7 +140,7 @@ public sealed partial class RecommendationDetailViewModel(
             return;
         }
 
-        await GoogleMapsLauncher.OpenAsync(Recommendation.Latitude, Recommendation.Longitude);
+        await GoogleMapsLauncher.OpenAsync(Recommendation);
     }
 
     private static string GetAccessLevelText(ContentAccessLevel accessLevel) =>
