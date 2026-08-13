@@ -10,7 +10,7 @@
              Shell.NavBarIsVisible="False"
              BackgroundColor="#F8F3ED">
 
-    <Grid RowDefinitions="0.64*,0.36*" RowSpacing="0">
+    <Grid RowDefinitions="0.58*,0.42*" RowSpacing="0">
         <!-- Map Section -->
         <Grid Grid.Row="0">
             <Border x:Name="MapHost"

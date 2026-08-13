@@ -539,9 +539,36 @@ public sealed class TravelCompanionApiClient
         if (!response.IsSuccessStatusCode)
         {
             _logger.LogWarning("Builder setup failed with {StatusCode}.", (int)response.StatusCode);
-            return null;
+            var error = await ReadApiErrorMessageAsync(response, cancellationToken).ConfigureAwait(false);
+            throw new InvalidOperationException(error ?? "No pudimos crear el itinerario. Intenta nuevamente.");
         }
         return await response.Content.ReadFromJsonAsync<BuilderTripSetupDto>(JsonOptions, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task<string?> ReadApiErrorMessageAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var payload = await response.Content.ReadFromJsonAsync<JsonElement>(JsonOptions, cancellationToken).ConfigureAwait(false);
+            if (payload.ValueKind == JsonValueKind.Object)
+            {
+                if (payload.TryGetProperty("message", out var message) && message.ValueKind == JsonValueKind.String)
+                {
+                    return message.GetString();
+                }
+
+                if (payload.TryGetProperty("detail", out var detail) && detail.ValueKind == JsonValueKind.String)
+                {
+                    return detail.GetString();
+                }
+            }
+        }
+        catch (JsonException)
+        {
+            // The fallback below is intentionally user-safe when the server returns non-JSON content.
+        }
+
+        return null;
     }
 
     public async Task<ItineraryItemMutationResponse?> CreateItineraryItemAsync(string token, ItineraryItemMutationRequest mutation, CancellationToken cancellationToken = default)

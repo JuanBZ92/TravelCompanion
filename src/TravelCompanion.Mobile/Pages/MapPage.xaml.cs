@@ -21,6 +21,7 @@ public partial class MapPage : ContentPage
 #if !WINDOWS
     private readonly MauiMap _map;
     private readonly Dictionary<Pin, EventHandler<PinClickedEventArgs>> _pinHandlers = new();
+    private Circle? _selectionIndicator;
     private bool _isSubscribedToRecommendations;
     private bool _hasRenderedPins;
 #endif
@@ -135,12 +136,11 @@ public partial class MapPage : ContentPage
             }
         }
 #if !WINDOWS
-        else if (e.PropertyName == nameof(MapViewModel.SelectedRecommendation)
-                 && _viewModel.SelectedRecommendation is { } selectedRecommendation)
+        else if (e.PropertyName == nameof(MapViewModel.SelectedRecommendation))
         {
             try
             {
-                FocusRecommendation(selectedRecommendation);
+                FocusRecommendation(_viewModel.SelectedRecommendation);
             }
             catch (Exception exception)
             {
@@ -183,6 +183,7 @@ public partial class MapPage : ContentPage
         }
         _pinHandlers.Clear();
         _map.Pins.Clear();
+        ClearSelectionIndicator();
 
         foreach (var recommendation in _viewModel.VisibleNearbyRecommendations)
         {
@@ -242,11 +243,38 @@ public partial class MapPage : ContentPage
             Distance.FromKilometers(radiusKm)));
     }
 
-    private void FocusRecommendation(RecommendationDto recommendation)
+    private void FocusRecommendation(RecommendationDto? recommendation)
     {
+        ClearSelectionIndicator();
+        if (recommendation is null)
+        {
+            return;
+        }
+
+        var location = new Location((double)recommendation.Latitude, (double)recommendation.Longitude);
+        _selectionIndicator = new Circle
+        {
+            Center = location,
+            Radius = Distance.FromMeters(130),
+            StrokeColor = Color.FromArgb("#8C6841"),
+            StrokeWidth = 4,
+            FillColor = Color.FromArgb("#338C6841")
+        };
+        _map.MapElements.Add(_selectionIndicator);
         _map.MoveToRegion(MapSpan.FromCenterAndRadius(
-            new Location((double)recommendation.Latitude, (double)recommendation.Longitude),
+            location,
             Distance.FromKilometers(1.2)));
+    }
+
+    private void ClearSelectionIndicator()
+    {
+        if (_selectionIndicator is null)
+        {
+            return;
+        }
+
+        _map.MapElements.Remove(_selectionIndicator);
+        _selectionIndicator = null;
     }
 #endif
 
