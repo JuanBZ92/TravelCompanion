@@ -160,24 +160,6 @@ public sealed partial class MapViewModel(
     }
 
     [RelayCommand]
-    private async Task OpenRecommendationAsync(RecommendationDto? recommendation)
-    {
-        if (recommendation is null)
-        {
-            return;
-        }
-
-        SelectedRecommendation = null;
-        await Shell.Current.GoToAsync(
-            nameof(RecommendationDetailPage),
-            new Dictionary<string, object>
-            {
-                ["Recommendation"] = recommendation,
-                ["IsUnlocked"] = IsUnlocked(recommendation)
-            });
-    }
-
-    [RelayCommand]
     private void SelectRecommendation(RecommendationDto? recommendation)
     {
         if (recommendation is null || !VisibleNearbyRecommendations.Contains(recommendation))

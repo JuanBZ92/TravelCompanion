@@ -278,11 +278,11 @@ public partial class MapPage : ContentPage
     }
 #endif
 
-    private async void OnRecommendationTapped(object? sender, TappedEventArgs e)
+    private void OnRecommendationTapped(object? sender, TappedEventArgs e)
     {
         if ((sender as BindableObject)?.BindingContext is RecommendationDto recommendation)
         {
-            await _viewModel.OpenRecommendationCommand.ExecuteAsync(recommendation);
+            _viewModel.SelectRecommendationCommand.Execute(recommendation);
         }
     }
 }

@@ -4,7 +4,6 @@
              xmlns:dtos="clr-namespace:TravelCompanion.Shared.Dtos;assembly=TravelCompanion.Shared"
              xmlns:viewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
              x:Class="TravelCompanion.Mobile.Pages.MapPage"
-             x:Name="PageRoot"
              x:DataType="viewModels:MapViewModel"
              Title="Map"
              Shell.NavBarIsVisible="False"
@@ -125,7 +124,7 @@
                                         <TapGestureRecognizer Tapped="OnRecommendationTapped" />
                                     </Border.GestureRecognizers>
                                     <Grid RowDefinitions="Auto,Auto,1"
-                                          ColumnDefinitions="*,Auto,Auto"
+                                          ColumnDefinitions="*,Auto"
                                           ColumnSpacing="8">
                                         <Label Text="{Binding Title, Mode=OneTime}"
                                                FontSize="15"
@@ -140,19 +139,6 @@
                                                TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
                                                LineBreakMode="TailTruncation"
                                                MaxLines="1" />
-                                        <Button Grid.Column="2"
-                                                Grid.RowSpan="2"
-                                                Text="+"
-                                                Command="{Binding Source={x:Reference PageRoot}, Path=BindingContext.AddToItineraryCommand}"
-                                                CommandParameter="{Binding .}"
-                                                IsVisible="{Binding Source={x:Reference PageRoot}, Path=BindingContext.CanAddToItinerary}"
-                                                Style="{StaticResource PagerButton}"
-                                                FontSize="16"
-                                                WidthRequest="34"
-                                                HeightRequest="34"
-                                                Padding="0"
-                                                VerticalOptions="Center"
-                                                SemanticProperties.Description="Agregar al itinerario" />
                                         <Label Grid.Column="1"
                                                Text="{Binding DistanceKm, StringFormat='{0:F1} km', Mode=OneTime}"
                                                FontSize="12"
@@ -168,7 +154,7 @@
                                                LineBreakMode="TailTruncation"
                                                MaxLines="1" />
                                         <BoxView Grid.Row="2"
-                                                 Grid.ColumnSpan="3"
+                                                 Grid.ColumnSpan="2"
                                                  HeightRequest="1"
                                                  BackgroundColor="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
                                                  Opacity="0.55" />
@@ -217,99 +203,76 @@
             </VerticalStackLayout>
         </Grid>
 
-        <!-- Pin preview replaces search/results so the map remains unobstructed. -->
-        <ScrollView Grid.Row="1"
-                    Padding="18,10,18,14"
-                    BackgroundColor="#F8F3ED"
-                    VerticalScrollBarVisibility="Never"
-                    IsVisible="{Binding HasSelectedRecommendation}">
-            <Border Padding="6"
-                    BackgroundColor="Transparent"
-                    Stroke="Transparent"
-                    StrokeThickness="0">
-                <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="0" />
-                </Border.StrokeShape>
-                <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto"
-                      ColumnDefinitions="Auto,Auto,*,Auto"
-                      RowSpacing="5"
-                      ColumnSpacing="6">
-                    <Button Text="‹"
-                            Command="{Binding SelectPreviousRecommendationCommand}"
-                            IsEnabled="{Binding CanBrowseSelectedRecommendations}"
-                            Style="{StaticResource PagerButton}"
-                            MinimumWidthRequest="34"
-                            HeightRequest="34"
-                            Padding="4"
-                            SemanticProperties.Description="Pin anterior" />
-                    <Button Grid.Column="1"
-                            Text="›"
-                            Command="{Binding SelectNextRecommendationCommand}"
-                            IsEnabled="{Binding CanBrowseSelectedRecommendations}"
-                            Style="{StaticResource PagerButton}"
-                            MinimumWidthRequest="34"
-                            HeightRequest="34"
-                            Padding="4"
-                            SemanticProperties.Description="Pin siguiente" />
-                    <Label Grid.Column="2"
-                           Text="{Binding SelectedRecommendationPosition}"
-                           FontSize="12"
-                           TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
-                           VerticalTextAlignment="Center" />
-                    <Button Grid.Column="3"
-                            Text="×"
-                            Command="{Binding ClearRecommendationSelectionCommand}"
-                            Style="{StaticResource PagerButton}"
-                            MinimumWidthRequest="34"
-                            HeightRequest="34"
-                            Padding="4"
-                            SemanticProperties.Description="Cerrar preview" />
+        <!-- Recommendation preview replaces search/results so the map remains unobstructed. -->
+        <Grid Grid.Row="1"
+              Padding="8,10,8,14"
+              ColumnDefinitions="Auto,*,Auto"
+              ColumnSpacing="8"
+              BackgroundColor="#F8F3ED"
+              IsVisible="{Binding HasSelectedRecommendation}">
+            <Button Text="‹"
+                    Command="{Binding SelectPreviousRecommendationCommand}"
+                    IsEnabled="{Binding CanBrowseSelectedRecommendations}"
+                    Style="{StaticResource PagerButton}"
+                    WidthRequest="36"
+                    HeightRequest="44"
+                    Padding="0"
+                    VerticalOptions="Center"
+                    SemanticProperties.Description="Lugar anterior" />
 
-                    <Label Grid.Row="1"
-                           Grid.ColumnSpan="4"
-                           Text="{Binding SelectedRecommendation.Title}"
+            <ScrollView Grid.Column="1" VerticalScrollBarVisibility="Never">
+                <VerticalStackLayout Spacing="5" Padding="2,0">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Text="{Binding SelectedRecommendationPosition}"
+                               FontSize="11"
+                               TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                               VerticalTextAlignment="Center" />
+                        <Button Grid.Column="1"
+                                Text="×"
+                                Command="{Binding ClearRecommendationSelectionCommand}"
+                                Style="{StaticResource PagerButton}"
+                                WidthRequest="32"
+                                HeightRequest="32"
+                                Padding="0"
+                                SemanticProperties.Description="Cerrar preview" />
+                    </Grid>
+                    <Label Text="{Binding SelectedRecommendation.Title}"
                            FontFamily="serif"
                            FontSize="20"
                            MaxLines="1"
                            LineBreakMode="TailTruncation" />
-                    <Label Grid.Row="2"
-                           Grid.ColumnSpan="4"
-                           Text="{Binding SelectedRecommendationMeta}"
+                    <Label Text="{Binding SelectedRecommendationMeta}"
                            FontSize="12"
                            MaxLines="1"
                            LineBreakMode="TailTruncation"
                            TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
-                    <Label Grid.Row="3"
-                           Grid.ColumnSpan="4"
-                           Text="{Binding SelectedRecommendation.Description}"
+                    <Label Text="{Binding SelectedRecommendation.Description}"
                            FontSize="12"
                            MaxLines="2"
                            LineBreakMode="TailTruncation"
                            TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}" />
-                    <Grid Grid.Row="4"
-                          Grid.ColumnSpan="4"
-                          ColumnDefinitions="*,*"
-                          ColumnSpacing="8"
-                          Margin="0,4,0,0">
-                        <Button Text="Ver detalle"
-                                Command="{Binding OpenRecommendationCommand}"
-                                CommandParameter="{Binding SelectedRecommendation}"
-                                Style="{StaticResource GhostButton}"
-                                FontSize="12"
-                                Padding="8,6"
-                                MinimumHeightRequest="36" />
-                        <Button Grid.Column="1"
-                                Text="+ Itinerario"
-                                Command="{Binding AddToItineraryCommand}"
-                                CommandParameter="{Binding SelectedRecommendation}"
-                                IsVisible="{Binding CanAddToItinerary}"
-                                Style="{StaticResource GhostButton}"
-                                FontSize="12"
-                                Padding="8,6"
-                                MinimumHeightRequest="36" />
-                    </Grid>
-                </Grid>
-            </Border>
-        </ScrollView>
+                    <Button Text="+ Agregar al itinerario"
+                            Command="{Binding AddToItineraryCommand}"
+                            CommandParameter="{Binding SelectedRecommendation}"
+                            IsVisible="{Binding CanAddToItinerary}"
+                            Style="{StaticResource GhostButton}"
+                            FontSize="12"
+                            Padding="8,6"
+                            MinimumHeightRequest="36"
+                            Margin="0,4,0,0" />
+                </VerticalStackLayout>
+            </ScrollView>
+
+            <Button Grid.Column="2"
+                    Text="›"
+                    Command="{Binding SelectNextRecommendationCommand}"
+                    IsEnabled="{Binding CanBrowseSelectedRecommendations}"
+                    Style="{StaticResource PagerButton}"
+                    WidthRequest="36"
+                    HeightRequest="44"
+                    Padding="0"
+                    VerticalOptions="Center"
+                    SemanticProperties.Description="Lugar siguiente" />
+        </Grid>
     </Grid>
 </ContentPage>
