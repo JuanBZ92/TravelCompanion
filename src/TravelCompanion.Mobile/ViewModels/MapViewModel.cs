@@ -21,6 +21,7 @@ public sealed partial class MapViewModel(
     private int _currentPage = 1;
     private int _totalPages = 1;
     private int _totalItems;
+    private bool _isSelectedRecommendationLoading;
     private IReadOnlyList<RecommendationDto> _visibleNearbyRecommendations = [];
     private string _searchText = string.Empty;
 
@@ -41,6 +42,7 @@ public sealed partial class MapViewModel(
             {
                 OnPropertyChanged(nameof(HasSelectedRecommendation));
                 OnPropertyChanged(nameof(ShowRecommendationBrowser));
+                OnPropertyChanged(nameof(ShowSelectedRecommendationDescription));
                 OnPropertyChanged(nameof(SelectedRecommendationPosition));
                 OnPropertyChanged(nameof(SelectedRecommendationMeta));
                 OnPropertyChanged(nameof(CanBrowseSelectedRecommendations));
@@ -50,6 +52,20 @@ public sealed partial class MapViewModel(
 
     public bool HasSelectedRecommendation => SelectedRecommendation is not null;
     public bool ShowRecommendationBrowser => !HasSelectedRecommendation;
+    public bool IsSelectedRecommendationLoading
+    {
+        get => _isSelectedRecommendationLoading;
+        private set
+        {
+            if (SetProperty(ref _isSelectedRecommendationLoading, value))
+            {
+                OnPropertyChanged(nameof(ShowSelectedRecommendationDescription));
+            }
+        }
+    }
+
+    public bool ShowSelectedRecommendationDescription =>
+        HasSelectedRecommendation && !IsSelectedRecommendationLoading;
     public bool CanBrowseSelectedRecommendations => HasSelectedRecommendation && VisibleNearbyRecommendations.Count > 1;
     public string SelectedRecommendationMeta
     {
@@ -145,6 +161,7 @@ public sealed partial class MapViewModel(
         VisibleNearbyRecommendations = [];
         _entitlements = null;
         SelectedRecommendation = null;
+        IsSelectedRecommendationLoading = false;
         CurrentPage = 1;
         TotalPages = 1;
         TotalItems = 0;
@@ -167,12 +184,17 @@ public sealed partial class MapViewModel(
             return;
         }
 
+        IsSelectedRecommendationLoading = recommendation.Id != Guid.Empty;
         SelectedRecommendation = recommendation;
         await LoadSelectedRecommendationDetailAsync(recommendation);
     }
 
     [RelayCommand]
-    private void ClearRecommendationSelection() => SelectedRecommendation = null;
+    private void ClearRecommendationSelection()
+    {
+        SelectedRecommendation = null;
+        IsSelectedRecommendationLoading = false;
+    }
 
     [RelayCommand]
     private Task SelectPreviousRecommendationAsync() => SelectAdjacentRecommendationAsync(-1);
@@ -396,6 +418,7 @@ public sealed partial class MapViewModel(
     {
         if (recommendation.Id == Guid.Empty)
         {
+            IsSelectedRecommendationLoading = false;
             return;
         }
 
@@ -418,6 +441,13 @@ public sealed partial class MapViewModel(
         catch
         {
             // Keep the cached summary available when the detail endpoint is offline.
+        }
+        finally
+        {
+            if (SelectedRecommendation?.Id == recommendation.Id)
+            {
+                IsSelectedRecommendationLoading = false;
+            }
         }
     }
 

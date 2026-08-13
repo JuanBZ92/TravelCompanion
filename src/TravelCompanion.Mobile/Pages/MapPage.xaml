@@ -206,11 +206,11 @@
 
         <!-- Recommendation preview replaces search/results so the map remains unobstructed. -->
         <Grid Grid.Row="1"
-              Padding="8,6,8,12"
+              Padding="0,6,0,10"
               RowDefinitions="Auto,Auto"
               ColumnDefinitions="Auto,*,Auto"
-              ColumnSpacing="8"
-              MaximumHeightRequest="340"
+              ColumnSpacing="0"
+              MaximumHeightRequest="410"
               BackgroundColor="#FFFDF9"
               IsVisible="{Binding HasSelectedRecommendation}">
             <BoxView Grid.ColumnSpan="3"
@@ -225,13 +225,13 @@
                     Command="{Binding SelectPreviousRecommendationCommand}"
                     IsEnabled="{Binding CanBrowseSelectedRecommendations}"
                     Style="{StaticResource PagerButton}"
-                    WidthRequest="36"
+                    WidthRequest="28"
                     HeightRequest="44"
                     Padding="0"
                     VerticalOptions="Center"
                     SemanticProperties.Description="Lugar anterior" />
 
-            <Grid Grid.Row="1" Grid.Column="1" RowDefinitions="Auto,*" Padding="2,0">
+            <Grid Grid.Row="1" Grid.Column="1" RowDefinitions="Auto,*" Padding="8,0">
                 <Grid ColumnDefinitions="*,Auto">
                     <Label Text="{Binding SelectedRecommendationPosition}"
                            FontSize="11"
@@ -256,36 +256,45 @@
                            FontSize="12"
                            LineBreakMode="WordWrap"
                            TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
+                    <ActivityIndicator IsVisible="{Binding IsSelectedRecommendationLoading}"
+                                       IsRunning="{Binding IsSelectedRecommendationLoading}"
+                                       WidthRequest="20"
+                                       HeightRequest="20"
+                                       HorizontalOptions="Start"
+                                       Margin="0,4" />
                     <Label Text="{Binding SelectedRecommendation.Description}"
+                           IsVisible="{Binding ShowSelectedRecommendationDescription}"
                            FontSize="12"
                            LineBreakMode="WordWrap"
                            TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}" />
-                    <Grid ColumnDefinitions="*,Auto"
+                    <Grid ColumnDefinitions="44,44"
                           ColumnSpacing="8"
-                          Margin="0,6,0,0">
-                        <Button Text="Agregar al itinerario"
+                          HorizontalOptions="Center"
+                          Margin="0,8,0,0">
+                        <Button Text="+"
                                 Command="{Binding AddToItineraryCommand}"
                                 CommandParameter="{Binding SelectedRecommendation}"
                                 IsVisible="{Binding CanAddToItinerary}"
-                                BackgroundColor="#3D3329"
-                                TextColor="#FFFFFF"
+                                BackgroundColor="Transparent"
+                                TextColor="#3D3329"
                                 BorderWidth="0"
                                 CornerRadius="0"
                                 FontFamily="OpenSansSemibold"
-                                FontSize="12"
-                                Padding="10,8"
-                                MinimumHeightRequest="40" />
-                        <Button Grid.Column="1"
-                                Text="Google Maps"
-                                ImageSource="tab_map.svg"
-                                ContentLayout="Left,6"
-                                Command="{Binding OpenInGoogleMapsCommand}"
-                                CommandParameter="{Binding SelectedRecommendation}"
-                                Style="{StaticResource GhostButton}"
-                                FontSize="11"
-                                Padding="10,8"
-                                MinimumHeightRequest="40"
-                                SemanticProperties.Description="Abrir ubicación en Google Maps" />
+                                FontSize="24"
+                                Padding="0"
+                                WidthRequest="44"
+                                HeightRequest="44"
+                                SemanticProperties.Description="Agregar al itinerario" />
+                        <ImageButton Grid.Column="1"
+                                     Source="tab_map.svg"
+                                     Command="{Binding OpenInGoogleMapsCommand}"
+                                     CommandParameter="{Binding SelectedRecommendation}"
+                                     BackgroundColor="Transparent"
+                                     BorderWidth="0"
+                                     Padding="10"
+                                     WidthRequest="44"
+                                     HeightRequest="44"
+                                     SemanticProperties.Description="Abrir ubicación en Google Maps" />
                     </Grid>
                     </VerticalStackLayout>
                 </ScrollView>
@@ -297,7 +306,7 @@
                     Command="{Binding SelectNextRecommendationCommand}"
                     IsEnabled="{Binding CanBrowseSelectedRecommendations}"
                     Style="{StaticResource PagerButton}"
-                    WidthRequest="36"
+                    WidthRequest="28"
                     HeightRequest="44"
                     Padding="0"
                     VerticalOptions="Center"
