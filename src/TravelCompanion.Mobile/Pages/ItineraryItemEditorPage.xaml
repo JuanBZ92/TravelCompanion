@@ -15,8 +15,8 @@
                 <Entry Placeholder="Nombre del plan" Text="{Binding TitleText}" />
                 <Entry Placeholder="Lugar (opcional)" Text="{Binding LocationName}" />
                 <Entry Placeholder="Dirección (opcional)" Text="{Binding Address}" />
-                <VerticalStackLayout Spacing="6"><Label Text="DÍA" Style="{StaticResource EyebrowLabel}"/><DatePicker Date="{Binding Date}" /></VerticalStackLayout>
-                <VerticalStackLayout Spacing="6"><Label Text="MOMENTO" Style="{StaticResource EyebrowLabel}"/><Picker ItemsSource="{Binding Periods}" SelectedItem="{Binding SelectedPeriod}" /></VerticalStackLayout>
+                <VerticalStackLayout Spacing="6"><Label Text="DÍA" Style="{StaticResource Eyebrow}"/><DatePicker Date="{Binding Date}" /></VerticalStackLayout>
+                <VerticalStackLayout Spacing="6"><Label Text="MOMENTO" Style="{StaticResource Eyebrow}"/><Picker ItemsSource="{Binding Periods}" SelectedItem="{Binding SelectedPeriod}" /></VerticalStackLayout>
                 <Grid ColumnDefinitions="*,Auto" Padding="0,6"><Label Text="Definir hora exacta" VerticalOptions="Center"/><Switch Grid.Column="1" IsToggled="{Binding UseExactTime}" /></Grid>
                 <TimePicker Time="{Binding Time}" IsVisible="{Binding UseExactTime}" />
                 <Editor Placeholder="Notas personales (opcional)" Text="{Binding Notes}" AutoSize="TextChanges" MinimumHeightRequest="100" />

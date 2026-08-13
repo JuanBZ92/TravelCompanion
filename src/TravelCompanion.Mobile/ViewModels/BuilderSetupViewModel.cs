@@ -17,20 +17,65 @@ public sealed partial class BuilderSetupViewModel(
     private int _revision;
 
     public ObservableCollection<BuilderSegmentViewModel> Segments { get; } = [];
-    public DateTime ArrivalDate { get => _arrivalDate; set => SetProperty(ref _arrivalDate, value); }
-    public DateTime DepartureDate { get => _departureDate; set => SetProperty(ref _departureDate, value); }
+    public DateTime ArrivalDate
+    {
+        get => _arrivalDate;
+        set
+        {
+            var normalized = value.Date;
+            if (!SetProperty(ref _arrivalDate, normalized))
+            {
+                return;
+            }
+
+            if (_departureDate < normalized)
+            {
+                _departureDate = normalized;
+                OnPropertyChanged(nameof(DepartureDate));
+            }
+
+            AlignOuterSegmentDates();
+        }
+    }
+
+    public DateTime DepartureDate
+    {
+        get => _departureDate;
+        set
+        {
+            var normalized = value.Date < ArrivalDate.Date ? ArrivalDate.Date : value.Date;
+            if (SetProperty(ref _departureDate, normalized))
+            {
+                AlignOuterSegmentDates();
+            }
+        }
+    }
 
     [RelayCommand]
     private Task LoadSetupAsync() => LoadAsync(async ct =>
     {
         var token = await sessionService.GetTokenAsync();
-        if (string.IsNullOrWhiteSpace(token)) return;
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            ErrorMessage = "Tu sesión venció. Vuelve a ingresar con tu PIN.";
+            return;
+        }
+
         var setup = await apiClient.GetBuilderTripSetupAsync(token, ct);
-        if (setup is null) return;
+        if (setup is null)
+        {
+            if (Segments.Count == 0)
+            {
+                AddDefaultSegment();
+            }
+
+            ErrorMessage = "No pudimos cargar la configuración del viaje. Reintenta en unos segundos.";
+            return;
+        }
+        Segments.Clear();
         _revision = setup.Revision;
         ArrivalDate = setup.ArrivalDate?.ToDateTime(TimeOnly.MinValue) ?? DateTime.Today;
         DepartureDate = setup.DepartureDate?.ToDateTime(TimeOnly.MinValue) ?? DateTime.Today.AddDays(6);
-        Segments.Clear();
         foreach (var segment in setup.Segments)
         {
             Segments.Add(BuilderSegmentViewModel.FromDto(segment));
@@ -41,19 +86,54 @@ public sealed partial class BuilderSetupViewModel(
     [RelayCommand]
     private void AddSegment()
     {
-        var starts = Segments.Count == 0 ? ArrivalDate : Segments[^1].EndsOn.AddDays(1);
+        ErrorMessage = null;
+        if (Segments.Count == 0)
+        {
+            AddDefaultSegment();
+            return;
+        }
+
+        var tripDayCount = (DepartureDate.Date - ArrivalDate.Date).Days + 1;
+        if (Segments.Count >= tripDayCount)
+        {
+            ErrorMessage = "No puedes agregar más ciudades que días de viaje.";
+            return;
+        }
+
+        var previous = Segments[^1];
         Segments.Add(new BuilderSegmentViewModel
         {
-            City = Segments.LastOrDefault()?.City ?? "Tokyo",
-            StartsOn = starts,
-            EndsOn = DepartureDate
+            City = previous.City,
+            StartsOn = DepartureDate.Date,
+            EndsOn = DepartureDate.Date
         });
+        RedistributeSegmentDates();
     }
 
     [RelayCommand]
     private void RemoveSegment(BuilderSegmentViewModel? segment)
     {
-        if (segment is not null && Segments.Count > 1) Segments.Remove(segment);
+        if (segment is null || Segments.Count <= 1)
+        {
+            return;
+        }
+
+        var index = Segments.IndexOf(segment);
+        if (index < 0)
+        {
+            return;
+        }
+
+        if (index > 0)
+        {
+            Segments[index - 1].EndsOn = segment.EndsOn;
+        }
+        else
+        {
+            Segments[1].StartsOn = segment.StartsOn;
+        }
+
+        Segments.RemoveAt(index);
     }
 
     [RelayCommand]
@@ -88,6 +168,13 @@ public sealed partial class BuilderSetupViewModel(
             ErrorMessage = "Agrega al menos una ciudad.";
             return;
         }
+
+        if (!TryValidateTripDates(out var validationError))
+        {
+            ErrorMessage = validationError;
+            return;
+        }
+
         var request = new SaveBuilderTripSetupRequest(
             DateOnly.FromDateTime(ArrivalDate),
             DateOnly.FromDateTime(DepartureDate),
@@ -129,6 +216,75 @@ public sealed partial class BuilderSetupViewModel(
         StartsOn = ArrivalDate,
         EndsOn = DepartureDate
     });
+
+    private void AlignOuterSegmentDates()
+    {
+        if (Segments.Count == 0)
+        {
+            return;
+        }
+
+        Segments[0].StartsOn = ArrivalDate.Date;
+        Segments[^1].EndsOn = DepartureDate.Date;
+    }
+
+    private void RedistributeSegmentDates()
+    {
+        var totalDays = (DepartureDate.Date - ArrivalDate.Date).Days + 1;
+        var baseDays = totalDays / Segments.Count;
+        var extraDays = totalDays % Segments.Count;
+        var cursor = ArrivalDate.Date;
+
+        for (var index = 0; index < Segments.Count; index++)
+        {
+            var segmentDays = baseDays + (index < extraDays ? 1 : 0);
+            Segments[index].StartsOn = cursor;
+            Segments[index].EndsOn = cursor.AddDays(segmentDays - 1);
+            cursor = Segments[index].EndsOn.AddDays(1);
+        }
+    }
+
+    private bool TryValidateTripDates(out string error)
+    {
+        if (DepartureDate.Date < ArrivalDate.Date)
+        {
+            error = "La fecha de salida no puede ser anterior a la llegada.";
+            return false;
+        }
+
+        if ((DepartureDate.Date - ArrivalDate.Date).TotalDays >= 91)
+        {
+            error = "El viaje puede tener como máximo 91 días.";
+            return false;
+        }
+
+        var expectedStart = ArrivalDate.Date;
+        foreach (var segment in Segments)
+        {
+            if (string.IsNullOrWhiteSpace(segment.City))
+            {
+                error = "Completa el nombre de todas las ciudades.";
+                return false;
+            }
+
+            if (segment.StartsOn.Date != expectedStart || segment.EndsOn.Date < segment.StartsOn.Date)
+            {
+                error = $"Revisa las fechas de {segment.City}: las ciudades deben cubrir el viaje sin huecos ni días repetidos.";
+                return false;
+            }
+
+            expectedStart = segment.EndsOn.Date.AddDays(1);
+        }
+
+        if (expectedStart != DepartureDate.Date.AddDays(1))
+        {
+            error = "Las ciudades deben cubrir todos los días entre llegada y salida.";
+            return false;
+        }
+
+        error = string.Empty;
+        return true;
+    }
 }
 
 public sealed partial class BuilderSegmentViewModel : ObservableObject

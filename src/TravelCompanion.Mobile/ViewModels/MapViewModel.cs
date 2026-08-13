@@ -35,7 +35,58 @@ public sealed partial class MapViewModel(
     public RecommendationDto? SelectedRecommendation
     {
         get => _selectedRecommendation;
-        set => SetProperty(ref _selectedRecommendation, value);
+        private set
+        {
+            if (SetProperty(ref _selectedRecommendation, value))
+            {
+                OnPropertyChanged(nameof(HasSelectedRecommendation));
+                OnPropertyChanged(nameof(ShowRecommendationBrowser));
+                OnPropertyChanged(nameof(SelectedRecommendationPosition));
+                OnPropertyChanged(nameof(SelectedRecommendationMeta));
+                OnPropertyChanged(nameof(CanBrowseSelectedRecommendations));
+            }
+        }
+    }
+
+    public bool HasSelectedRecommendation => SelectedRecommendation is not null;
+    public bool ShowRecommendationBrowser => !HasSelectedRecommendation;
+    public bool CanBrowseSelectedRecommendations => HasSelectedRecommendation && VisibleNearbyRecommendations.Count > 1;
+    public string SelectedRecommendationMeta
+    {
+        get
+        {
+            if (SelectedRecommendation is null)
+            {
+                return string.Empty;
+            }
+
+            var values = new List<string> { SelectedRecommendation.Category };
+            if (!string.IsNullOrWhiteSpace(SelectedRecommendation.Neighborhood))
+            {
+                values.Add(SelectedRecommendation.Neighborhood);
+            }
+
+            if (SelectedRecommendation.DistanceKm.HasValue)
+            {
+                values.Add($"{SelectedRecommendation.DistanceKm.Value:F1} km");
+            }
+
+            return string.Join(" · ", values);
+        }
+    }
+
+    public string SelectedRecommendationPosition
+    {
+        get
+        {
+            if (SelectedRecommendation is null)
+            {
+                return string.Empty;
+            }
+
+            var index = FindSelectedRecommendationIndex();
+            return index < 0 ? string.Empty : $"{index + 1} / {VisibleNearbyRecommendations.Count}";
+        }
     }
 
     public int CurrentPage
@@ -127,6 +178,26 @@ public sealed partial class MapViewModel(
     }
 
     [RelayCommand]
+    private void SelectRecommendation(RecommendationDto? recommendation)
+    {
+        if (recommendation is null || !VisibleNearbyRecommendations.Contains(recommendation))
+        {
+            return;
+        }
+
+        SelectedRecommendation = recommendation;
+    }
+
+    [RelayCommand]
+    private void ClearRecommendationSelection() => SelectedRecommendation = null;
+
+    [RelayCommand]
+    private void SelectPreviousRecommendation() => SelectAdjacentRecommendation(-1);
+
+    [RelayCommand]
+    private void SelectNextRecommendation() => SelectAdjacentRecommendation(1);
+
+    [RelayCommand]
     private async Task AddToItineraryAsync(RecommendationDto? recommendation)
     {
         if (recommendation is null || !sessionService.CanEditItinerary)
@@ -180,6 +251,7 @@ public sealed partial class MapViewModel(
             return;
         }
 
+        SelectedRecommendation = null;
         CurrentPage--;
         ApplyCurrentPage();
     }
@@ -192,6 +264,7 @@ public sealed partial class MapViewModel(
             return;
         }
 
+        SelectedRecommendation = null;
         CurrentPage++;
         ApplyCurrentPage();
     }
@@ -270,6 +343,7 @@ public sealed partial class MapViewModel(
 
     private void ApplyRecommendations(IReadOnlyList<RecommendationDto> recommendations, bool resetPage)
     {
+        SelectedRecommendation = null;
         _allNearbyRecommendations.Clear();
         _allNearbyRecommendations.AddRange(recommendations);
         if (resetPage)
@@ -295,6 +369,45 @@ public sealed partial class MapViewModel(
             .Skip((CurrentPage - 1) * PageSize)
             .Take(PageSize)
             .ToList();
+        OnPropertyChanged(nameof(CanBrowseSelectedRecommendations));
+        OnPropertyChanged(nameof(SelectedRecommendationPosition));
+    }
+
+    private void SelectAdjacentRecommendation(int offset)
+    {
+        if (SelectedRecommendation is null || VisibleNearbyRecommendations.Count < 2)
+        {
+            return;
+        }
+
+        var currentIndex = FindSelectedRecommendationIndex();
+        if (currentIndex < 0)
+        {
+            SelectedRecommendation = VisibleNearbyRecommendations[0];
+            return;
+        }
+
+        var nextIndex = (currentIndex + offset + VisibleNearbyRecommendations.Count)
+            % VisibleNearbyRecommendations.Count;
+        SelectedRecommendation = VisibleNearbyRecommendations[nextIndex];
+    }
+
+    private int FindSelectedRecommendationIndex()
+    {
+        if (SelectedRecommendation is null)
+        {
+            return -1;
+        }
+
+        for (var index = 0; index < VisibleNearbyRecommendations.Count; index++)
+        {
+            if (VisibleNearbyRecommendations[index] == SelectedRecommendation)
+            {
+                return index;
+            }
+        }
+
+        return -1;
     }
 
     private bool IsUnlocked(RecommendationDto recommendation)

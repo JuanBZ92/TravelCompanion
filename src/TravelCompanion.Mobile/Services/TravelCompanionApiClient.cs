@@ -522,9 +522,13 @@ public sealed class TravelCompanionApiClient
     {
         using var request = CreateAuthorizedRequest(HttpMethod.Get, "api/mobile/builder/setup", token);
         using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
-        return response.IsSuccessStatusCode
-            ? await response.Content.ReadFromJsonAsync<BuilderTripSetupDto>(JsonOptions, cancellationToken).ConfigureAwait(false)
-            : null;
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning("Builder setup load failed with {StatusCode}.", (int)response.StatusCode);
+            return null;
+        }
+
+        return await response.Content.ReadFromJsonAsync<BuilderTripSetupDto>(JsonOptions, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<BuilderTripSetupDto?> SaveBuilderTripSetupAsync(string token, SaveBuilderTripSetupRequest setup, CancellationToken cancellationToken = default)

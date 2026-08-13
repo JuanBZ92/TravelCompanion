@@ -134,6 +134,20 @@ public partial class MapPage : ContentPage
                 _logger.LogDebug(exception, "Could not reset the map results scroll position.");
             }
         }
+#if !WINDOWS
+        else if (e.PropertyName == nameof(MapViewModel.SelectedRecommendation)
+                 && _viewModel.SelectedRecommendation is { } selectedRecommendation)
+        {
+            try
+            {
+                FocusRecommendation(selectedRecommendation);
+            }
+            catch (Exception exception)
+            {
+                _logger.LogDebug(exception, "Could not focus the selected map recommendation.");
+            }
+        }
+#endif
     }
 
 #if !WINDOWS
@@ -181,10 +195,18 @@ public partial class MapPage : ContentPage
             };
 
             // Store handler reference to enable proper cleanup
-            EventHandler<PinClickedEventArgs> handler = async (_, args) =>
+            EventHandler<PinClickedEventArgs> handler = (_, args) =>
             {
-                args.HideInfoWindow = false;
-                await OpenRecommendationAsync(recommendation);
+                args.HideInfoWindow = true;
+                void SelectPin() => _viewModel.SelectRecommendationCommand.Execute(recommendation);
+                if (Dispatcher.IsDispatchRequired)
+                {
+                    Dispatcher.Dispatch(SelectPin);
+                }
+                else
+                {
+                    SelectPin();
+                }
             };
 
             _pinHandlers[pin] = handler;
@@ -220,9 +242,11 @@ public partial class MapPage : ContentPage
             Distance.FromKilometers(radiusKm)));
     }
 
-    private Task OpenRecommendationAsync(RecommendationDto recommendation)
+    private void FocusRecommendation(RecommendationDto recommendation)
     {
-        return _viewModel.OpenRecommendationCommand.ExecuteAsync(recommendation);
+        _map.MoveToRegion(MapSpan.FromCenterAndRadius(
+            new Location((double)recommendation.Latitude, (double)recommendation.Longitude),
+            Distance.FromKilometers(1.2)));
     }
 #endif
 

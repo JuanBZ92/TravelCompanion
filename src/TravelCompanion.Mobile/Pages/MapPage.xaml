@@ -10,7 +10,7 @@
              Shell.NavBarIsVisible="False"
              BackgroundColor="#F8F3ED">
 
-    <Grid RowDefinitions="0.58*,0.42*" RowSpacing="0">
+    <Grid RowDefinitions="0.64*,0.36*" RowSpacing="0">
         <!-- Map Section -->
         <Grid Grid.Row="0">
             <Border x:Name="MapHost"
@@ -65,17 +65,22 @@
                     </Grid>
                 </Border>
             </VerticalStackLayout>
+
         </Grid>
 
         <!-- Nearby Places List -->
-        <Grid Grid.Row="1" Padding="20,12,20,0" RowDefinitions="Auto,*" RowSpacing="10">
+        <Grid Grid.Row="1"
+              Padding="18,10,18,0"
+              RowDefinitions="Auto,*"
+              RowSpacing="6"
+              IsVisible="{Binding ShowRecommendationBrowser}">
             <SearchBar Grid.Row="0"
                        Placeholder="Buscar restaurante, café o lugar"
                        Text="{Binding SearchText}"
                        SearchCommand="{Binding SearchCommand}"
-                       HeightRequest="42"
-                       FontSize="14"
-                       BackgroundColor="#FFFDF9"
+                       HeightRequest="38"
+                       FontSize="13"
+                       BackgroundColor="#F8F3ED"
                        CancelButtonColor="#8E867D" />
 
             <ScrollView x:Name="ResultsScroll"
@@ -107,55 +112,66 @@
                                          BindableLayout.ItemsSource="{Binding VisibleNearbyRecommendations}">
                         <BindableLayout.ItemTemplate>
                             <DataTemplate x:DataType="dtos:RecommendationDto">
-                                <Border MinimumHeightRequest="112"
-                                        Padding="14"
-                                        Margin="0,0,0,10"
-                                        BackgroundColor="{AppThemeBinding Light={StaticResource Paper}, Dark={StaticResource NightSurface}}"
-                                        Stroke="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
-                                        StrokeThickness="1">
+                                <Border MinimumHeightRequest="66"
+                                        Padding="6,8"
+                                        Margin="0"
+                                        BackgroundColor="Transparent"
+                                        Stroke="Transparent"
+                                        StrokeThickness="0">
                                     <Border.StrokeShape>
                                         <RoundRectangle CornerRadius="0" />
                                     </Border.StrokeShape>
                                     <Border.GestureRecognizers>
                                         <TapGestureRecognizer Tapped="OnRecommendationTapped" />
                                     </Border.GestureRecognizers>
-                                    <Grid RowDefinitions="Auto,Auto,Auto"
-                                          ColumnDefinitions="*,100">
+                                    <Grid RowDefinitions="Auto,Auto,1"
+                                          ColumnDefinitions="*,Auto,Auto"
+                                          ColumnSpacing="8">
                                         <Label Text="{Binding Title, Mode=OneTime}"
-                                               FontSize="17"
-                                               FontAttributes="Bold"
+                                               FontSize="15"
+                                               FontAttributes="None"
                                                TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
                                                LineBreakMode="TailTruncation"
                                                MaxLines="1" />
                                         <Label Grid.Row="1"
                                                Text="{Binding Neighborhood, Mode=OneTime}"
-                                               FontSize="13"
-                                               Margin="0,6,0,0"
+                                               FontSize="11"
+                                               Margin="0,2,0,7"
                                                TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
                                                LineBreakMode="TailTruncation"
                                                MaxLines="1" />
-                                        <Button Grid.Row="2" Grid.ColumnSpan="2"
-                                                Margin="0,8,0,0"
-                                                Text="+ Agregar al itinerario"
+                                        <Button Grid.Column="2"
+                                                Grid.RowSpan="2"
+                                                Text="+"
                                                 Command="{Binding Source={x:Reference PageRoot}, Path=BindingContext.AddToItineraryCommand}"
                                                 CommandParameter="{Binding .}"
                                                 IsVisible="{Binding Source={x:Reference PageRoot}, Path=BindingContext.CanAddToItinerary}"
-                                                Style="{StaticResource GhostButton}" />
+                                                Style="{StaticResource PagerButton}"
+                                                FontSize="16"
+                                                WidthRequest="34"
+                                                HeightRequest="34"
+                                                Padding="0"
+                                                VerticalOptions="Center"
+                                                SemanticProperties.Description="Agregar al itinerario" />
                                         <Label Grid.Column="1"
                                                Text="{Binding DistanceKm, StringFormat='{0:F1} km', Mode=OneTime}"
-                                               FontSize="15"
-                                               FontAttributes="Bold"
-                                               TextColor="{AppThemeBinding Light={StaticResource Gold}, Dark={StaticResource GoldSoft}}"
+                                               FontSize="12"
+                                               TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}"
                                                HorizontalTextAlignment="End" />
                                         <Label Grid.Row="1"
                                                Grid.Column="1"
                                                Text="{Binding Category, Mode=OneTime}"
-                                               FontSize="12"
-                                               Margin="0,6,0,0"
+                                               FontSize="10"
+                                               Margin="0,2,0,7"
                                                TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
                                                HorizontalTextAlignment="End"
                                                LineBreakMode="TailTruncation"
                                                MaxLines="1" />
+                                        <BoxView Grid.Row="2"
+                                                 Grid.ColumnSpan="3"
+                                                 HeightRequest="1"
+                                                 BackgroundColor="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
+                                                 Opacity="0.55" />
                                     </Grid>
                                 </Border>
                             </DataTemplate>
@@ -200,5 +216,100 @@
                        TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
             </VerticalStackLayout>
         </Grid>
+
+        <!-- Pin preview replaces search/results so the map remains unobstructed. -->
+        <ScrollView Grid.Row="1"
+                    Padding="18,10,18,14"
+                    BackgroundColor="#F8F3ED"
+                    VerticalScrollBarVisibility="Never"
+                    IsVisible="{Binding HasSelectedRecommendation}">
+            <Border Padding="6"
+                    BackgroundColor="Transparent"
+                    Stroke="Transparent"
+                    StrokeThickness="0">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="0" />
+                </Border.StrokeShape>
+                <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto"
+                      ColumnDefinitions="Auto,Auto,*,Auto"
+                      RowSpacing="5"
+                      ColumnSpacing="6">
+                    <Button Text="‹"
+                            Command="{Binding SelectPreviousRecommendationCommand}"
+                            IsEnabled="{Binding CanBrowseSelectedRecommendations}"
+                            Style="{StaticResource PagerButton}"
+                            MinimumWidthRequest="34"
+                            HeightRequest="34"
+                            Padding="4"
+                            SemanticProperties.Description="Pin anterior" />
+                    <Button Grid.Column="1"
+                            Text="›"
+                            Command="{Binding SelectNextRecommendationCommand}"
+                            IsEnabled="{Binding CanBrowseSelectedRecommendations}"
+                            Style="{StaticResource PagerButton}"
+                            MinimumWidthRequest="34"
+                            HeightRequest="34"
+                            Padding="4"
+                            SemanticProperties.Description="Pin siguiente" />
+                    <Label Grid.Column="2"
+                           Text="{Binding SelectedRecommendationPosition}"
+                           FontSize="12"
+                           TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                           VerticalTextAlignment="Center" />
+                    <Button Grid.Column="3"
+                            Text="×"
+                            Command="{Binding ClearRecommendationSelectionCommand}"
+                            Style="{StaticResource PagerButton}"
+                            MinimumWidthRequest="34"
+                            HeightRequest="34"
+                            Padding="4"
+                            SemanticProperties.Description="Cerrar preview" />
+
+                    <Label Grid.Row="1"
+                           Grid.ColumnSpan="4"
+                           Text="{Binding SelectedRecommendation.Title}"
+                           FontFamily="serif"
+                           FontSize="20"
+                           MaxLines="1"
+                           LineBreakMode="TailTruncation" />
+                    <Label Grid.Row="2"
+                           Grid.ColumnSpan="4"
+                           Text="{Binding SelectedRecommendationMeta}"
+                           FontSize="12"
+                           MaxLines="1"
+                           LineBreakMode="TailTruncation"
+                           TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
+                    <Label Grid.Row="3"
+                           Grid.ColumnSpan="4"
+                           Text="{Binding SelectedRecommendation.Description}"
+                           FontSize="12"
+                           MaxLines="2"
+                           LineBreakMode="TailTruncation"
+                           TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}" />
+                    <Grid Grid.Row="4"
+                          Grid.ColumnSpan="4"
+                          ColumnDefinitions="*,*"
+                          ColumnSpacing="8"
+                          Margin="0,4,0,0">
+                        <Button Text="Ver detalle"
+                                Command="{Binding OpenRecommendationCommand}"
+                                CommandParameter="{Binding SelectedRecommendation}"
+                                Style="{StaticResource GhostButton}"
+                                FontSize="12"
+                                Padding="8,6"
+                                MinimumHeightRequest="36" />
+                        <Button Grid.Column="1"
+                                Text="+ Itinerario"
+                                Command="{Binding AddToItineraryCommand}"
+                                CommandParameter="{Binding SelectedRecommendation}"
+                                IsVisible="{Binding CanAddToItinerary}"
+                                Style="{StaticResource GhostButton}"
+                                FontSize="12"
+                                Padding="8,6"
+                                MinimumHeightRequest="36" />
+                    </Grid>
+                </Grid>
+            </Border>
+        </ScrollView>
     </Grid>
 </ContentPage>
