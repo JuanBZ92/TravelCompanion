@@ -43,11 +43,17 @@
                            MaxLength="6"
                            IsPassword="True"
                            ReturnType="Go"
+                           ReturnCommand="{Binding LoginCommand}"
                            HorizontalTextAlignment="Center"
                            FontSize="32"
                            CharacterSpacing="12"
                            Placeholder="PIN"
                            ClearButtonVisibility="WhileEditing" />
+
+                    <Label Text="{Binding PinLengthText}"
+                           HorizontalTextAlignment="Center"
+                           FontSize="12"
+                           TextColor="#8E867D" />
 
                     <Border Padding="12"
                             BackgroundColor="#F6F1EA"

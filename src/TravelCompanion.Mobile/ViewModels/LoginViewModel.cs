@@ -13,8 +13,21 @@ public sealed partial class LoginViewModel(
     public string Pin
     {
         get => _pin;
-        set => SetProperty(ref _pin, value);
+        set
+        {
+            var normalized = new string((value ?? string.Empty)
+                .Where(char.IsDigit)
+                .Take(6)
+                .ToArray());
+
+            if (SetProperty(ref _pin, normalized))
+            {
+                OnPropertyChanged(nameof(PinLengthText));
+            }
+        }
     }
+
+    public string PinLengthText => $"{Pin.Length} / 6";
 
     public bool CanUseBiometricUnlock => sessionService.HasSession && sessionService.IsBiometricEnabled;
 
