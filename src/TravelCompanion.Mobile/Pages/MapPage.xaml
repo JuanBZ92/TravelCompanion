@@ -210,7 +210,7 @@
               RowDefinitions="Auto,Auto"
               ColumnDefinitions="Auto,*,Auto"
               ColumnSpacing="8"
-              MaximumHeightRequest="240"
+              MaximumHeightRequest="340"
               BackgroundColor="#FFFDF9"
               IsVisible="{Binding HasSelectedRecommendation}">
             <BoxView Grid.ColumnSpan="3"
@@ -231,35 +231,34 @@
                     VerticalOptions="Center"
                     SemanticProperties.Description="Lugar anterior" />
 
-            <VerticalStackLayout Grid.Row="1" Grid.Column="1" Spacing="5" Padding="2,0">
-                    <Grid ColumnDefinitions="*,Auto">
-                        <Label Text="{Binding SelectedRecommendationPosition}"
-                               FontSize="11"
-                               TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
-                               VerticalTextAlignment="Center" />
-                        <Button Grid.Column="1"
-                                Text="×"
-                                Command="{Binding ClearRecommendationSelectionCommand}"
-                                Style="{StaticResource PagerButton}"
-                                WidthRequest="32"
-                                HeightRequest="32"
-                                Padding="0"
-                                SemanticProperties.Description="Cerrar preview" />
-                    </Grid>
+            <Grid Grid.Row="1" Grid.Column="1" RowDefinitions="Auto,*" Padding="2,0">
+                <Grid ColumnDefinitions="*,Auto">
+                    <Label Text="{Binding SelectedRecommendationPosition}"
+                           FontSize="11"
+                           TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                           VerticalTextAlignment="Center" />
+                    <Button Grid.Column="1"
+                            Text="×"
+                            Command="{Binding ClearRecommendationSelectionCommand}"
+                            Style="{StaticResource PagerButton}"
+                            WidthRequest="32"
+                            HeightRequest="32"
+                            Padding="0"
+                            SemanticProperties.Description="Cerrar preview" />
+                </Grid>
+                <ScrollView Grid.Row="1" VerticalScrollBarVisibility="Default">
+                    <VerticalStackLayout Spacing="5">
                     <Label Text="{Binding SelectedRecommendation.Title}"
                            FontFamily="serif"
                            FontSize="20"
-                           MaxLines="1"
-                           LineBreakMode="TailTruncation" />
+                           LineBreakMode="WordWrap" />
                     <Label Text="{Binding SelectedRecommendationMeta}"
                            FontSize="12"
-                           MaxLines="1"
-                           LineBreakMode="TailTruncation"
+                           LineBreakMode="WordWrap"
                            TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
                     <Label Text="{Binding SelectedRecommendation.Description}"
                            FontSize="12"
-                           MaxLines="2"
-                           LineBreakMode="TailTruncation"
+                           LineBreakMode="WordWrap"
                            TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}" />
                     <Button Text="+ Agregar al itinerario"
                             Command="{Binding AddToItineraryCommand}"
@@ -268,9 +267,11 @@
                             Style="{StaticResource GhostButton}"
                             FontSize="12"
                             Padding="8,6"
-                            MinimumHeightRequest="36"
-                            Margin="0,4,0,0" />
-            </VerticalStackLayout>
+                             MinimumHeightRequest="36"
+                             Margin="0,4,0,0" />
+                    </VerticalStackLayout>
+                </ScrollView>
+            </Grid>
 
             <Button Grid.Row="1"
                     Grid.Column="2"
