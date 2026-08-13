@@ -160,24 +160,25 @@ public sealed partial class MapViewModel(
     }
 
     [RelayCommand]
-    private void SelectRecommendation(RecommendationDto? recommendation)
+    private async Task SelectRecommendationAsync(RecommendationDto? recommendation)
     {
-        if (recommendation is null || !VisibleNearbyRecommendations.Contains(recommendation))
+        if (recommendation is null || !VisibleNearbyRecommendations.Any(item => item.Id == recommendation.Id))
         {
             return;
         }
 
         SelectedRecommendation = recommendation;
+        await LoadSelectedRecommendationDetailAsync(recommendation);
     }
 
     [RelayCommand]
     private void ClearRecommendationSelection() => SelectedRecommendation = null;
 
     [RelayCommand]
-    private void SelectPreviousRecommendation() => SelectAdjacentRecommendation(-1);
+    private Task SelectPreviousRecommendationAsync() => SelectAdjacentRecommendationAsync(-1);
 
     [RelayCommand]
-    private void SelectNextRecommendation() => SelectAdjacentRecommendation(1);
+    private Task SelectNextRecommendationAsync() => SelectAdjacentRecommendationAsync(1);
 
     [RelayCommand]
     private async Task AddToItineraryAsync(RecommendationDto? recommendation)
@@ -355,7 +356,7 @@ public sealed partial class MapViewModel(
         OnPropertyChanged(nameof(SelectedRecommendationPosition));
     }
 
-    private void SelectAdjacentRecommendation(int offset)
+    private async Task SelectAdjacentRecommendationAsync(int offset)
     {
         if (SelectedRecommendation is null || VisibleNearbyRecommendations.Count < 2)
         {
@@ -365,13 +366,42 @@ public sealed partial class MapViewModel(
         var currentIndex = FindSelectedRecommendationIndex();
         if (currentIndex < 0)
         {
-            SelectedRecommendation = VisibleNearbyRecommendations[0];
+            await SelectRecommendationAsync(VisibleNearbyRecommendations[0]);
             return;
         }
 
         var nextIndex = (currentIndex + offset + VisibleNearbyRecommendations.Count)
             % VisibleNearbyRecommendations.Count;
-        SelectedRecommendation = VisibleNearbyRecommendations[nextIndex];
+        await SelectRecommendationAsync(VisibleNearbyRecommendations[nextIndex]);
+    }
+
+    private async Task LoadSelectedRecommendationDetailAsync(RecommendationDto recommendation)
+    {
+        if (recommendation.Id == Guid.Empty)
+        {
+            return;
+        }
+
+        try
+        {
+            var token = await sessionService.GetTokenAsync();
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                return;
+            }
+
+            var detail = await apiClient.GetMobileRecommendationDetailAsync(token, recommendation.Id);
+            if (detail is null || SelectedRecommendation?.Id != recommendation.Id)
+            {
+                return;
+            }
+
+            SelectedRecommendation = detail with { DistanceKm = recommendation.DistanceKm };
+        }
+        catch
+        {
+            // Keep the cached summary available when the detail endpoint is offline.
+        }
     }
 
     private int FindSelectedRecommendationIndex()
@@ -383,7 +413,7 @@ public sealed partial class MapViewModel(
 
         for (var index = 0; index < VisibleNearbyRecommendations.Count; index++)
         {
-            if (VisibleNearbyRecommendations[index] == SelectedRecommendation)
+            if (VisibleNearbyRecommendations[index].Id == SelectedRecommendation.Id)
             {
                 return index;
             }
