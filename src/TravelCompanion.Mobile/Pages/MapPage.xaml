@@ -9,7 +9,7 @@
              Shell.NavBarIsVisible="False"
              BackgroundColor="#F8F3ED">
 
-    <Grid RowDefinitions="0.58*,0.42*" RowSpacing="0">
+    <Grid RowDefinitions="*,Auto" RowSpacing="0">
         <!-- Map Section -->
         <Grid Grid.Row="0">
             <Border x:Name="MapHost"
@@ -70,6 +70,7 @@
         <!-- Nearby Places List -->
         <Grid Grid.Row="1"
               Padding="18,10,18,0"
+              HeightRequest="300"
               RowDefinitions="Auto,*"
               RowSpacing="6"
               IsVisible="{Binding ShowRecommendationBrowser}">
@@ -205,12 +206,22 @@
 
         <!-- Recommendation preview replaces search/results so the map remains unobstructed. -->
         <Grid Grid.Row="1"
-              Padding="8,10,8,14"
+              Padding="8,6,8,12"
+              RowDefinitions="Auto,Auto"
               ColumnDefinitions="Auto,*,Auto"
               ColumnSpacing="8"
-              BackgroundColor="#F8F3ED"
+              MaximumHeightRequest="240"
+              BackgroundColor="#FFFDF9"
               IsVisible="{Binding HasSelectedRecommendation}">
-            <Button Text="‹"
+            <BoxView Grid.ColumnSpan="3"
+                     WidthRequest="38"
+                     HeightRequest="3"
+                     Margin="0,0,0,5"
+                     HorizontalOptions="Center"
+                     BackgroundColor="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}" />
+
+            <Button Grid.Row="1"
+                    Text="‹"
                     Command="{Binding SelectPreviousRecommendationCommand}"
                     IsEnabled="{Binding CanBrowseSelectedRecommendations}"
                     Style="{StaticResource PagerButton}"
@@ -220,8 +231,7 @@
                     VerticalOptions="Center"
                     SemanticProperties.Description="Lugar anterior" />
 
-            <ScrollView Grid.Column="1" VerticalScrollBarVisibility="Never">
-                <VerticalStackLayout Spacing="5" Padding="2,0">
+            <VerticalStackLayout Grid.Row="1" Grid.Column="1" Spacing="5" Padding="2,0">
                     <Grid ColumnDefinitions="*,Auto">
                         <Label Text="{Binding SelectedRecommendationPosition}"
                                FontSize="11"
@@ -260,10 +270,10 @@
                             Padding="8,6"
                             MinimumHeightRequest="36"
                             Margin="0,4,0,0" />
-                </VerticalStackLayout>
-            </ScrollView>
+            </VerticalStackLayout>
 
-            <Button Grid.Column="2"
+            <Button Grid.Row="1"
+                    Grid.Column="2"
                     Text="›"
                     Command="{Binding SelectNextRecommendationCommand}"
                     IsEnabled="{Binding CanBrowseSelectedRecommendations}"
