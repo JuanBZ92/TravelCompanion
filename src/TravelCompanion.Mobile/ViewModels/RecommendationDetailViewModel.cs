@@ -140,14 +140,7 @@ public sealed partial class RecommendationDetailViewModel(
             return;
         }
 
-        var location = new Location((double)Recommendation.Latitude, (double)Recommendation.Longitude);
-        var options = new MapLaunchOptions
-        {
-            Name = Recommendation.Title,
-            NavigationMode = NavigationMode.Walking
-        };
-
-        await Map.Default.OpenAsync(location, options);
+        await GoogleMapsLauncher.OpenAsync(Recommendation.Latitude, Recommendation.Longitude);
     }
 
     private static string GetAccessLevelText(ContentAccessLevel accessLevel) =>

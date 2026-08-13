@@ -209,6 +209,23 @@ public sealed partial class MapViewModel(
     }
 
     [RelayCommand]
+    private async Task OpenInGoogleMapsAsync(RecommendationDto? recommendation)
+    {
+        if (recommendation is null)
+        {
+            return;
+        }
+
+        var opened = await GoogleMapsLauncher.OpenAsync(
+            recommendation.Latitude,
+            recommendation.Longitude);
+        if (!opened)
+        {
+            StatusMessage = "No se pudo abrir Google Maps.";
+        }
+    }
+
+    [RelayCommand]
     private Task SearchAsync() => LoadAsync(async ct =>
     {
         if (string.IsNullOrWhiteSpace(SearchText))

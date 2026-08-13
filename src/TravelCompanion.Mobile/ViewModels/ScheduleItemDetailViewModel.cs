@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.Input;
+using TravelCompanion.Mobile.Services;
 using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Mobile.ViewModels;
@@ -79,17 +80,6 @@ public sealed partial class ScheduleItemDetailViewModel : ViewModelBase, IQueryA
             return;
         }
 
-        var options = new MapLaunchOptions
-        {
-            Name = ScheduleItem.LocationName,
-            NavigationMode = NavigationMode.Walking
-        };
-
-        var placemark = new Placemark
-        {
-            Thoroughfare = ScheduleItem.Address
-        };
-
-        await Map.Default.OpenAsync(placemark, options);
+        await GoogleMapsLauncher.OpenAsync(ScheduleItem.Address);
     }
 }

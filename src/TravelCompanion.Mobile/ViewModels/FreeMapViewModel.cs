@@ -116,15 +116,9 @@ public sealed partial class FreeMapViewModel(
             return;
         }
 
-        await Map.Default.OpenAsync(
-            new Location(
-                (double)SelectedRecommendation.Latitude,
-                (double)SelectedRecommendation.Longitude),
-            new MapLaunchOptions
-            {
-                Name = SelectedRecommendation.Title,
-                NavigationMode = NavigationMode.None
-            });
+        await GoogleMapsLauncher.OpenAsync(
+            SelectedRecommendation.Latitude,
+            SelectedRecommendation.Longitude);
     }
 
     [RelayCommand]
