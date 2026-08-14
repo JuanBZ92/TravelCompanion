@@ -153,6 +153,62 @@
                     </Border>
 
                     <VerticalStackLayout Spacing="0"
+                                         IsVisible="{Binding ShowTodayLoading}"
+                                         BindableLayout.ItemsSource="{Binding TodayLoadingSections}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="viewModels:ScheduleTodayLoadingSectionViewModel">
+                                <Grid ColumnDefinitions="26,*"
+                                      Margin="0,0,0,26"
+                                      Opacity="0.72">
+                                    <Grid>
+                                        <BoxView WidthRequest="1"
+                                                 HorizontalOptions="Center"
+                                                 VerticalOptions="Fill"
+                                                 BackgroundColor="#1A17141A" />
+                                        <shapes:Ellipse WidthRequest="10"
+                                                        HeightRequest="10"
+                                                        Stroke="#C9C1B8"
+                                                        StrokeThickness="2"
+                                                        Fill="#F8F3ED"
+                                                        HorizontalOptions="Center"
+                                                        VerticalOptions="Start"
+                                                        Margin="0,6,0,0" />
+                                    </Grid>
+
+                                    <VerticalStackLayout Grid.Column="1"
+                                                         Spacing="14"
+                                                         Padding="12,0,0,8">
+                                        <Grid ColumnDefinitions="68,*"
+                                              ColumnSpacing="8"
+                                              HeightRequest="36">
+                                            <Label Text="{Binding Title}"
+                                                   FontFamily="serif"
+                                                   FontSize="16"
+                                                   TextColor="#8A8178"
+                                                   VerticalOptions="Center" />
+                                            <Label Grid.Column="1"
+                                                   Text="{Binding PeriodLabel}"
+                                                   CharacterSpacing="4"
+                                                   FontSize="10"
+                                                   FontAttributes="Bold"
+                                                   TextColor="#AAA198"
+                                                   VerticalOptions="Center" />
+                                        </Grid>
+                                        <BoxView HeightRequest="13"
+                                                 HorizontalOptions="Fill"
+                                                 BackgroundColor="#E8E1D9" />
+                                        <BoxView HeightRequest="13"
+                                                 WidthRequest="190"
+                                                 HorizontalOptions="Start"
+                                                 BackgroundColor="#EEE8E1" />
+                                    </VerticalStackLayout>
+                                </Grid>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="0"
+                                         IsVisible="{Binding ShowTodayContent}"
                                          BindableLayout.ItemsSource="{Binding TodaySections}">
                         <BindableLayout.ItemTemplate>
                             <DataTemplate x:DataType="viewModels:ScheduleTodaySectionViewModel">

@@ -2,6 +2,10 @@ using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Mobile.ViewModels;
 
+public sealed record ScheduleTodayLoadingSectionViewModel(
+    string Title,
+    string PeriodLabel);
+
 public sealed class ScheduleTodaySectionViewModel(
     int dayNumber,
     DateOnly date,

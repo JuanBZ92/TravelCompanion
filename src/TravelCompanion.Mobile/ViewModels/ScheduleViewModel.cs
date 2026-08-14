@@ -38,6 +38,8 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     private IReadOnlyList<ScheduleDayViewModel> _activeDays = [];
     private IReadOnlyList<ScheduleTimelineItemViewModel> _selectedTimelineItems = [];
     private IReadOnlyList<ScheduleTodaySectionViewModel> _todaySections = [];
+    private IReadOnlyList<ScheduleTodayLoadingSectionViewModel> _todayLoadingSections = [];
+    private bool _isTodayLoading;
     private GeoPointDto? _currentLocation;
     private bool _hasRequestedLocation;
     private readonly HashSet<Guid> _nearbyVisitPrompts = [];
@@ -64,10 +66,18 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         private set => SetProperty(ref _todaySections, value);
     }
 
+    public IReadOnlyList<ScheduleTodayLoadingSectionViewModel> TodayLoadingSections
+    {
+        get => _todayLoadingSections;
+        private set => SetProperty(ref _todayLoadingSections, value);
+    }
+
     public bool HasScheduleItems => _allItems.Count > 0;
     public bool HasSelectedDayItems => TodaySections.Any(section => section.HasContent);
     public bool HasFocusItem => _focusItem is not null;
-    public bool ShowInitialLoading => IsBusy && !HasScheduleItems;
+    public bool ShowInitialLoading => IsBusy && DayFilters.Count == 0;
+    public bool ShowTodayLoading => _isTodayLoading && _selectedDate.HasValue;
+    public bool ShowTodayContent => !ShowTodayLoading;
     public bool ShowEmptyState => HasLoaded
         && !IsBusy
         && !HasSelectedDayItems
@@ -150,6 +160,8 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         ActiveDays = [];
         SelectedTimelineItems = [];
         TodaySections = [];
+        TodayLoadingSections = [];
+        SetTodayLoading(false);
         TypeSections.Clear();
         _activeSection = null;
         TypeFilters.Clear();
@@ -374,6 +386,10 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
 
         var stopwatch = Stopwatch.StartNew();
         _selectedDate = day.Date;
+        if (_today?.Date != day.Date)
+        {
+            SetTodayLoading(true);
+        }
         RebuildSelectedDay();
         stopwatch.Stop();
 
@@ -481,6 +497,10 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
                 ApplyToday(today);
                 await PromptForNearbyVisitAsync(token, cancellationToken);
             }
+            else if (cached is null)
+            {
+                CompleteTodayLoadingWithScheduleFallback();
+            }
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
         {
@@ -488,12 +508,24 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
             {
                 StatusMessage = $"Render puede estar despertando. Mostrando Today guardado. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
             }
+            else
+            {
+                StatusMessage = "No pudimos completar las sugerencias. Mostrando el itinerario disponible.";
+                CompleteTodayLoadingWithScheduleFallback();
+            }
         }
     }
 
     private void ApplyToday(TodayDto today)
     {
         _today = today;
+        SetTodayLoading(false);
+        RebuildSelectedDay();
+    }
+
+    private void CompleteTodayLoadingWithScheduleFallback()
+    {
+        SetTodayLoading(false);
         RebuildSelectedDay();
     }
 
@@ -523,6 +555,10 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         _allItems.AddRange(sourceItems);
         _focusItem = GetFocusItem(_allItems);
         _selectedDate = GetInitialSelectedDate(schedule, _allItems);
+        if (_today?.Date != _selectedDate)
+        {
+            SetTodayLoading(true);
+        }
         NotifyFocusChanged();
         RebuildDayFilters(schedule);
         RebuildSelectedDay();
@@ -546,6 +582,8 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         ActiveDays = [];
         SelectedTimelineItems = [];
         TodaySections = [];
+        TodayLoadingSections = [];
+        SetTodayLoading(false);
         TypeSections.Clear();
         _activeSection = null;
         TypeFilters.Clear();
@@ -597,6 +635,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
             PreviewMessage = null;
             SelectedTimelineItems = [];
             TodaySections = [];
+            TodayLoadingSections = [];
             ActiveDays = [];
             NotifySelectedDayChanged();
             return;
@@ -616,9 +655,12 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         var dayNumber = _tripStartsOn.HasValue
             ? selectedDate.DayNumber - _tripStartsOn.Value.DayNumber + 1
             : 1;
+        TodayLoadingSections = BuildTodayLoadingSections(dayNumber);
         TodaySections = _today is not null && _today.Date == selectedDate
             ? BuildTodaySections(_today, dayNumber)
-            : BuildTodaySections(selectedDate, dayNumber, selectedItems);
+            : ShowTodayLoading
+                ? []
+                : BuildTodaySections(selectedDate, dayNumber, selectedItems);
         SelectedTimelineItems = selectedItems
             .Select(item => new ScheduleTimelineItemViewModel(item, dayNumber))
             .ToList();
@@ -789,6 +831,11 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
                 _sessionService.CanEditItinerary))
             .ToList();
     }
+
+    private static IReadOnlyList<ScheduleTodayLoadingSectionViewModel> BuildTodayLoadingSections(int dayNumber) =>
+        TodayPeriod.All
+            .Select(period => new ScheduleTodayLoadingSectionViewModel($"Dia {dayNumber}", period.Label))
+            .ToList();
 
     private IReadOnlyList<ScheduleTodaySectionViewModel> BuildTodaySections(
         DateOnly selectedDate,
@@ -1335,6 +1382,18 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         OnPropertyChanged(nameof(ShowEmptyState));
     }
 
+    private void SetTodayLoading(bool value)
+    {
+        if (_isTodayLoading == value)
+        {
+            return;
+        }
+
+        _isTodayLoading = value;
+        OnPropertyChanged(nameof(ShowTodayLoading));
+        OnPropertyChanged(nameof(ShowTodayContent));
+    }
+
     private void OnScheduleCacheUpdated(object? sender, ScheduleCacheUpdatedEventArgs e)
     {
         _today = null;
@@ -1362,6 +1421,8 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         OnPropertyChanged(nameof(HasSelectedDayItems));
         OnPropertyChanged(nameof(ShowInitialLoading));
         OnPropertyChanged(nameof(ShowEmptyState));
+        OnPropertyChanged(nameof(ShowTodayLoading));
+        OnPropertyChanged(nameof(ShowTodayContent));
     }
 
     private static string FormatLongDate(DateOnly date)
