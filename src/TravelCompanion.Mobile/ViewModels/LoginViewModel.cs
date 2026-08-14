@@ -56,11 +56,10 @@ public sealed partial class LoginViewModel(
                 await logoutService.LogoutAsync();
             }
 
-            // A previous session for this PIN may still have disk snapshots even when
-            // the in-memory authentication was already cleared after an expiration.
-            await logoutService.ResetContentAsync(session.UserId);
-
             await sessionService.SaveAsync(session);
+            // Clear snapshots after saving so capability-bound UI is reset using the
+            // newly authenticated tier rather than the previous session.
+            await logoutService.ResetContentAsync(session.UserId);
             if (Shell.Current is AppShell appShell)
             {
                 appShell.ApplySessionTabs(sessionService);

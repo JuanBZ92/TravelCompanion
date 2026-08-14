@@ -256,6 +256,13 @@
                                                                             Padding="10,6"
                                                                             MinimumHeightRequest="30"
                                                                             IsVisible="{Binding CanDismiss}" />
+                                                                    <Button Text="Quitar"
+                                                                            Clicked="OnRemovePersonalRecommendationClicked"
+                                                                            Style="{StaticResource GhostButton}"
+                                                                            FontSize="11"
+                                                                            Padding="10,6"
+                                                                            MinimumHeightRequest="30"
+                                                                            IsVisible="{Binding CanRemove}" />
                                                                 </HorizontalStackLayout>
                                                             </VerticalStackLayout>
                                                             <Image Grid.Column="1"

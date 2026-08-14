@@ -165,6 +165,8 @@ public sealed partial class MapViewModel(
         CurrentPage = 1;
         TotalPages = 1;
         TotalItems = 0;
+        SearchText = string.Empty;
+        OnPropertyChanged(nameof(CanAddToItinerary));
     }
 
     [RelayCommand]

@@ -59,12 +59,15 @@ public sealed partial class FreeMapViewModel(
                 OnPropertyChanged(nameof(SelectedTagsText));
                 OnPropertyChanged(nameof(SelectedLocationText));
                 OnPropertyChanged(nameof(SelectedMetadataText));
+                OnPropertyChanged(nameof(SelectedMarkerPosition));
+                OnPropertyChanged(nameof(CanBrowseMarkers));
             }
         }
     }
 
     public bool HasPreview => Preview is not null;
     public bool HasSelection => SelectedMarker is not null;
+    public bool CanBrowseMarkers => SelectedMarker is not null && Preview?.Markers.Count > 1;
     public bool IsUnlockedSelection => SelectedMarker?.Access == FreeMapMarkerAccess.Unlocked;
     public bool IsLockedSelection => SelectedMarker?.Access == FreeMapMarkerAccess.Locked;
     public bool ShowMapSummary => Preview is not null && SelectedMarker is null;
@@ -85,6 +88,19 @@ public sealed partial class FreeMapViewModel(
     public string MapSummary => Preview is null
         ? string.Empty
         : $"{Preview.UnlockedCount} lugares abiertos · {Preview.LockedCount} por descubrir";
+    public string SelectedMarkerPosition
+    {
+        get
+        {
+            if (SelectedMarker is null || Preview is null)
+            {
+                return string.Empty;
+            }
+
+            var index = FindSelectedMarkerIndex();
+            return index < 0 ? string.Empty : $"{index + 1} / {Preview.Markers.Count}";
+        }
+    }
 
     [RelayCommand]
     private Task LoadAsync() => LoadAsync(LoadInitialAsync);
@@ -107,6 +123,12 @@ public sealed partial class FreeMapViewModel(
 
     [RelayCommand]
     private void CloseSelection() => SelectedMarker = null;
+
+    [RelayCommand]
+    private void SelectPreviousMarker() => SelectAdjacentMarker(-1);
+
+    [RelayCommand]
+    private void SelectNextMarker() => SelectAdjacentMarker(1);
 
     [RelayCommand]
     private async Task OpenSelectedMapAsync()
@@ -292,6 +314,41 @@ public sealed partial class FreeMapViewModel(
         sessionService.Clear();
         ResetForNewSession();
         await Shell.Current.GoToAsync("//login");
+    }
+
+    private void SelectAdjacentMarker(int offset)
+    {
+        if (SelectedMarker is null || Preview?.Markers.Count is not > 1)
+        {
+            return;
+        }
+
+        var currentIndex = FindSelectedMarkerIndex();
+        if (currentIndex < 0)
+        {
+            return;
+        }
+
+        var nextIndex = (currentIndex + offset + Preview.Markers.Count) % Preview.Markers.Count;
+        SelectedMarker = Preview.Markers[nextIndex];
+    }
+
+    private int FindSelectedMarkerIndex()
+    {
+        if (SelectedMarker is null || Preview is null)
+        {
+            return -1;
+        }
+
+        for (var index = 0; index < Preview.Markers.Count; index++)
+        {
+            if (Preview.Markers[index].MarkerKey == SelectedMarker.MarkerKey)
+            {
+                return index;
+            }
+        }
+
+        return -1;
     }
 
     private static string FormatPrice(string? priceLevel) => priceLevel?.Trim().ToLowerInvariant() switch

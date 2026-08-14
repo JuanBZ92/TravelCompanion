@@ -176,4 +176,12 @@ public partial class SchedulePage : ContentPage
             await _viewModel.DismissLocationCommand.ExecuteAsync(location);
         }
     }
+
+    private async void OnRemovePersonalRecommendationClicked(object? sender, EventArgs e)
+    {
+        if ((sender as BindableObject)?.BindingContext is TodayLocationViewModel location)
+        {
+            await _viewModel.RemovePersonalRecommendationCommand.ExecuteAsync(location);
+        }
+    }
 }

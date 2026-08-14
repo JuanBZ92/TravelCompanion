@@ -17,12 +17,14 @@ public sealed class ScheduleTodaySectionViewModel(
     public DateOnly Date { get; } = date;
     public string PeriodKey { get; } = periodKey;
     public bool CanAddItem { get; } = canAddItem;
-    public string Description { get; } = description;
     public IReadOnlyList<TodayLocationViewModel> Locations { get; } = locations;
     public IReadOnlyList<TodayReservationViewModel> Reservations { get; } = reservations;
     public bool HasLocations => Locations.Count > 0;
     public bool HasReservations => Reservations.Count > 0;
     public bool HasContent => HasLocations || HasReservations;
+    public string Description { get; } = locations.Count == 0 && reservations.Count == 0
+        ? "Libre"
+        : description;
 }
 
 public sealed class TodayLocationViewModel
@@ -71,9 +73,14 @@ public sealed class TodayLocationViewModel
         "high"
     };
 
-    public TodayLocationViewModel(RecommendationDto recommendation, decimal? distanceKm, bool isAssigned = false)
+    public TodayLocationViewModel(
+        RecommendationDto recommendation,
+        decimal? distanceKm,
+        bool isAssigned = false,
+        ScheduleItemDto? assignedItem = null)
     {
         Recommendation = recommendation;
+        AssignedItem = assignedItem;
         DistanceKm = distanceKm;
         IsAssigned = isAssigned;
         Title = recommendation.Title;
@@ -91,8 +98,14 @@ public sealed class TodayLocationViewModel
         AssignmentLabel = isAssigned ? "RECOMENDACION CURADA" : string.Empty;
     }
 
-    public TodayLocationViewModel(TodayRecommendationDto todayRecommendation)
-        : this(todayRecommendation.Recommendation, todayRecommendation.DistanceKm, todayRecommendation.IsAssigned)
+    public TodayLocationViewModel(
+        TodayRecommendationDto todayRecommendation,
+        ScheduleItemDto? assignedItem = null)
+        : this(
+            todayRecommendation.Recommendation,
+            todayRecommendation.DistanceKm,
+            todayRecommendation.IsAssigned,
+            assignedItem)
     {
         RankReason = todayRecommendation.RankReason;
         VisitStatusLabel = todayRecommendation.VisitStatusLabel ?? string.Empty;
@@ -100,6 +113,7 @@ public sealed class TodayLocationViewModel
     }
 
     public RecommendationDto Recommendation { get; }
+    public ScheduleItemDto? AssignedItem { get; }
     public decimal? DistanceKm { get; }
     public string Title { get; }
     public string RefinedCategory { get; }
@@ -112,6 +126,7 @@ public sealed class TodayLocationViewModel
     public bool IsAssigned { get; }
     public bool CanDismiss => !IsAssigned;
     public bool CanMarkVisited => !IsAssigned;
+    public bool CanRemove => AssignedItem?.IsTravelerOwned == true;
     public bool HasDistance => !string.IsNullOrWhiteSpace(DistanceLabel);
     public bool HasRankReason => false;
     public bool HasVisitStatus => !IsAssigned && !string.IsNullOrWhiteSpace(VisitStatusLabel);

@@ -68,7 +68,11 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     public bool HasSelectedDayItems => TodaySections.Any(section => section.HasContent);
     public bool HasFocusItem => _focusItem is not null;
     public bool ShowInitialLoading => IsBusy && !HasScheduleItems;
-    public bool ShowEmptyState => HasLoaded && !IsBusy && !HasSelectedDayItems && !HasStayCard;
+    public bool ShowEmptyState => HasLoaded
+        && !IsBusy
+        && !HasSelectedDayItems
+        && !HasStayCard
+        && !_tripStartsOn.HasValue;
     public bool HasPreviewMessage => !string.IsNullOrWhiteSpace(PreviewMessage);
     public bool HasStayCard => !string.IsNullOrWhiteSpace(StayTitle);
     public string SelectedCity => _selectedCity;
@@ -332,13 +336,25 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     private async Task DeletePersonalItemAsync(TodayReservationViewModel? reservation)
     {
         if (reservation is null || !reservation.Item.IsTravelerOwned) return;
-        var confirmed = await Shell.Current.DisplayAlertAsync("Eliminar plan", $"¿Eliminar {reservation.Title}?", "Eliminar", "Cancelar");
+        await DeleteTravelerItemAsync(reservation.Item);
+    }
+
+    [RelayCommand]
+    private async Task RemovePersonalRecommendationAsync(TodayLocationViewModel? location)
+    {
+        if (location?.AssignedItem is not { IsTravelerOwned: true } item) return;
+        await DeleteTravelerItemAsync(item);
+    }
+
+    private async Task DeleteTravelerItemAsync(ScheduleItemDto item)
+    {
+        var confirmed = await Shell.Current.DisplayAlertAsync("Quitar plan", $"¿Quitar {item.Title} del itinerario?", "Quitar", "Cancelar");
         if (!confirmed) return;
         var token = await _sessionService.GetTokenAsync();
         if (string.IsNullOrWhiteSpace(token)) return;
         var setup = await _apiClient.GetBuilderTripSetupAsync(token);
         if (setup is null) return;
-        var result = await _apiClient.DeleteItineraryItemAsync(token, reservation.Item.Id, setup.Revision);
+        var result = await _apiClient.DeleteItineraryItemAsync(token, item.Id, setup.Revision);
         if (result?.Success != true)
         {
             ErrorMessage = result?.Message ?? "No se pudo eliminar el plan.";
@@ -759,7 +775,12 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
                 section.Title,
                 section.Description,
                 section.Recommendations
-                    .Select(recommendation => new TodayLocationViewModel(recommendation))
+                    .Select(recommendation => new TodayLocationViewModel(
+                        recommendation,
+                        FindTravelerAssignedItem(
+                            today.Date,
+                            section.PeriodKey,
+                            recommendation.Recommendation.Id)))
                     .ToList(),
                 section.Reservations
                     .OrderBy(reservation => reservation.StartsAt)
@@ -774,7 +795,6 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         int dayNumber,
         IReadOnlyList<ScheduleItemDto> selectedReservations)
     {
-        var usedRecommendationIds = CreateAllocatedRecommendationIdsBefore(selectedDate);
         return TodayPeriod.All
             .Select(period =>
             {
@@ -788,31 +808,19 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
                     .ToList();
                 var assignedLocations = periodItems
                     .Where(item => item.PlanningKind == ScheduleItemKind.Recommendation && item.RecommendationId.HasValue)
-                    .Select(item => _recommendations.FirstOrDefault(recommendation => recommendation.Id == item.RecommendationId))
-                    .Where(recommendation => recommendation is not null)
-                    .Select(recommendation => new TodayLocationViewModel(
-                        recommendation!,
-                        CalculateDistanceKm(_currentLocation, recommendation!),
-                        isAssigned: true))
+                    .Select(item => new
+                    {
+                        Item = item,
+                        Recommendation = _recommendations.FirstOrDefault(recommendation => recommendation.Id == item.RecommendationId)
+                    })
+                    .Where(entry => entry.Recommendation is not null)
+                    .Select(entry => new TodayLocationViewModel(
+                        entry.Recommendation!,
+                        CalculateDistanceKm(_currentLocation, entry.Recommendation!),
+                        isAssigned: true,
+                        assignedItem: entry.Item))
                     .ToList();
-                foreach (var assignedLocation in assignedLocations)
-                {
-                    usedRecommendationIds.Add(assignedLocation.Recommendation.Id);
-                }
-
-                var locations = assignedLocations.Count > 0
-                    ? assignedLocations
-                    : periodItems.Count == 0
-                        ? SelectRecommendationsForPeriod(
-                            period,
-                            selectedDate,
-                            usedRecommendationIds,
-                            _currentLocation)
-                            .Select(recommendation => new TodayLocationViewModel(
-                                recommendation,
-                                CalculateDistanceKm(_currentLocation, recommendation)))
-                            .ToList()
-                        : [];
+                var locations = assignedLocations;
                 var curatedDescription = periodItems
                     .Where(item => item.PlanningKind == ScheduleItemKind.Recommendation)
                     .Select(item => ExtractCuratedDescription(item.Notes))
@@ -832,6 +840,19 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
             })
             .ToList();
     }
+
+    private ScheduleItemDto? FindTravelerAssignedItem(
+        DateOnly date,
+        string periodKey,
+        Guid recommendationId) =>
+        _allItems.FirstOrDefault(item =>
+            item.Date == date
+            && item.RecommendationId == recommendationId
+            && string.Equals(
+                PeriodKey(TodayPeriod.All.First(period => period.Contains(item.StartsAt)).Label),
+                periodKey,
+                StringComparison.OrdinalIgnoreCase)
+            && item.IsTravelerOwned);
 
     private static string PeriodKey(string label) => label switch
     {

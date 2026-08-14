@@ -17,6 +17,7 @@ public partial class FreeMapPage : ContentPage
 #if !WINDOWS
     private readonly MauiMap _map;
     private readonly Dictionary<Pin, EventHandler<PinClickedEventArgs>> _pinHandlers = [];
+    private Circle? _selectionIndicator;
 #endif
 
     public FreeMapPage()
@@ -67,6 +68,10 @@ public partial class FreeMapPage : ContentPage
         if (e.PropertyName == nameof(FreeMapViewModel.Preview))
         {
             RefreshMap();
+        }
+        else if (e.PropertyName == nameof(FreeMapViewModel.SelectedMarker))
+        {
+            FocusSelectedMarker();
         }
     }
 
@@ -129,6 +134,35 @@ public partial class FreeMapPage : ContentPage
         _map.MoveToRegion(MapSpan.FromCenterAndRadius(
             center,
             Distance.FromKilometers(Math.Max(4.5, (double)preview.City.FreeRadiusKm * 2.5))));
+#endif
+    }
+
+    private void FocusSelectedMarker()
+    {
+#if !WINDOWS
+        if (_selectionIndicator is not null)
+        {
+            _map.MapElements.Remove(_selectionIndicator);
+            _selectionIndicator = null;
+        }
+
+        var marker = _viewModel.SelectedMarker;
+        if (marker is null)
+        {
+            return;
+        }
+
+        var location = new Location((double)marker.Latitude, (double)marker.Longitude);
+        _selectionIndicator = new Circle
+        {
+            Center = location,
+            Radius = Distance.FromMeters(110),
+            StrokeColor = Color.FromArgb("#8C6841"),
+            FillColor = Color.FromArgb("#338C6841"),
+            StrokeWidth = 4
+        };
+        _map.MapElements.Add(_selectionIndicator);
+        _map.MoveToRegion(MapSpan.FromCenterAndRadius(location, Distance.FromKilometers(1.2)));
 #endif
     }
 

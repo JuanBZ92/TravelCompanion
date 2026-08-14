@@ -83,8 +83,35 @@
             </Border>
 
             <Border Grid.Row="2" Margin="0,0,0,8" Padding="18" VerticalOptions="End" BackgroundColor="#F8F3ED" Stroke="#D8CFC4" StrokeThickness="1" IsVisible="{Binding HasPreview}">
-                <Grid>
-                    <VerticalStackLayout Spacing="8" IsVisible="{Binding IsUnlockedSelection}">
+                <Grid RowDefinitions="Auto,*" RowSpacing="8">
+                    <Grid ColumnDefinitions="Auto,*,Auto"
+                          IsVisible="{Binding HasSelection}">
+                        <Button Text="‹"
+                                Command="{Binding SelectPreviousMarkerCommand}"
+                                IsEnabled="{Binding CanBrowseMarkers}"
+                                Style="{StaticResource PagerButton}"
+                                WidthRequest="38"
+                                HeightRequest="34"
+                                Padding="0"
+                                SemanticProperties.Description="Lugar anterior" />
+                        <Label Grid.Column="1"
+                               Text="{Binding SelectedMarkerPosition}"
+                               FontSize="11"
+                               TextColor="#8E867D"
+                               HorizontalOptions="Center"
+                               VerticalOptions="Center" />
+                        <Button Grid.Column="2"
+                                Text="›"
+                                Command="{Binding SelectNextMarkerCommand}"
+                                IsEnabled="{Binding CanBrowseMarkers}"
+                                Style="{StaticResource PagerButton}"
+                                WidthRequest="38"
+                                HeightRequest="34"
+                                Padding="0"
+                                SemanticProperties.Description="Lugar siguiente" />
+                    </Grid>
+
+                    <VerticalStackLayout Grid.Row="1" Spacing="8" IsVisible="{Binding IsUnlockedSelection}">
                         <Grid ColumnDefinitions="*,Auto">
                             <Label Text="{Binding SelectedRecommendation.Category}" CharacterSpacing="3" FontSize="10" FontAttributes="Bold" TextColor="#9B9288" />
                             <Button Grid.Column="1" Text="×" Command="{Binding CloseSelectionCommand}" Style="{StaticResource GhostButton}" WidthRequest="34" HeightRequest="34" Padding="0" />
@@ -97,13 +124,13 @@
                         <Button Text="Abrir en el mapa" Command="{Binding OpenSelectedMapCommand}" BackgroundColor="#3D3329" TextColor="White" CornerRadius="0" HeightRequest="48" />
                     </VerticalStackLayout>
 
-                    <VerticalStackLayout Spacing="10" IsVisible="{Binding IsLockedSelection}">
+                    <VerticalStackLayout Grid.Row="1" Spacing="10" IsVisible="{Binding IsLockedSelection}">
                         <Grid ColumnDefinitions="*,Auto">
                             <Label Text="CONTENIDO CURADO" CharacterSpacing="3" FontSize="10" FontAttributes="Bold" TextColor="#9B9288" />
                             <Button Grid.Column="1" Text="×" Command="{Binding CloseSelectionCommand}" Style="{StaticResource GhostButton}" WidthRequest="34" HeightRequest="34" Padding="0" />
                         </Grid>
                         <Label Text="Hay una recomendación YUKU en esta zona" FontFamily="serif" FontSize="24" TextColor="#1A1714" />
-                        <Label Text="Accede a un viaje curado para descubrir el lugar, sus tags y todos los detalles." FontSize="14" TextColor="#6E675F" LineHeight="1.35" />
+                        <Label Text="Accede al plan Pago o a un viaje Premium para descubrir el lugar, sus tags y todos los detalles." FontSize="14" TextColor="#6E675F" LineHeight="1.35" />
                         <Grid ColumnDefinitions="*,*" ColumnSpacing="8" IsVisible="{Binding HasContactUrl}">
                             <Button Text="Solicitar acceso" Command="{Binding ContactCommand}" IsVisible="{Binding HasContactUrl}" BackgroundColor="#3D3329" TextColor="White" CornerRadius="0" />
                             <Button Grid.Column="1" Text="Ya tengo PIN" Command="{Binding UseAnotherPinCommand}" Style="{StaticResource GhostButton}" CornerRadius="0" />
@@ -111,7 +138,7 @@
                         <Button Text="Ya tengo PIN" Command="{Binding UseAnotherPinCommand}" Style="{StaticResource GhostButton}" CornerRadius="0" IsVisible="{Binding ShowPinOnlyAction}" />
                     </VerticalStackLayout>
 
-                    <VerticalStackLayout Spacing="4" IsVisible="{Binding ShowMapSummary}">
+                    <VerticalStackLayout Grid.Row="1" Spacing="4" IsVisible="{Binding ShowMapSummary}">
                         <Label Text="RADIO GRATUITO" CharacterSpacing="3" FontSize="10" FontAttributes="Bold" TextColor="#9B9288" />
                         <Label Text="{Binding MapSummary}" FontFamily="serif" FontSize="20" TextColor="#1A1714" />
                         <Label Text="Toca un pin para explorar." FontSize="13" TextColor="#6E675F" />

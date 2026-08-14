@@ -1,11 +1,11 @@
 @page "/admin/builder-access"
 @model TravelCompanion.Api.Pages.Admin.BuilderAccessModel
 @{
-    ViewData["Title"] = "Builder access";
+    ViewData["Title"] = "Acceso pago";
 }
 
-<h1>Builder access</h1>
-<p class="lede">Códigos de 6 dígitos para clientes que arman su propio itinerario.</p>
+<h1>Acceso pago</h1>
+<p class="lede">PINes de 6 dígitos para clientes que pagaron la app y arman su propio itinerario.</p>
 
 @if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
 {
