@@ -8,7 +8,8 @@ public sealed partial class ItineraryItemEditorViewModel(
     TravelCompanionApiClient apiClient,
     AuthSessionService sessionService,
     MobileBootstrapStore bootstrapStore,
-    MobileTodayStore todayStore) : ViewModelBase
+    MobileTodayStore todayStore,
+    MapViewModel mapViewModel) : ViewModelBase
 {
     private RecommendationDto? _recommendation;
     private DateTime _date = DateTime.Today;
@@ -108,9 +109,23 @@ public sealed partial class ItineraryItemEditorViewModel(
             UseExactTime, UseExactTime ? TimeOnly.FromTimeSpan(Time) : null, null,
             _recommendation?.Neighborhood.Split(',')[0], LocationName, Address,
             Notes, _recommendation?.Latitude, _recommendation?.Longitude, _revision, Guid.NewGuid().ToString("N"));
-        var result = _existingItem is null
-            ? await apiClient.CreateItineraryItemAsync(token, mutation, ct)
-            : await apiClient.UpdateItineraryItemAsync(token, _existingItem.Id, mutation, ct);
+        var result = await SaveMutationAsync(mutation);
+        if (result?.HasOverlap == true)
+        {
+            var confirmed = await Shell.Current.DisplayAlertAsync(
+                "Ya hay un plan en este momento",
+                "¿Quieres agregar este plan igualmente? Los dos quedarán visibles en el mismo bloque.",
+                "Agregar igualmente",
+                "Cancelar");
+            if (!confirmed)
+            {
+                ErrorMessage = null;
+                return;
+            }
+
+            result = await SaveMutationAsync(mutation with { ConfirmOverlap = true });
+        }
+
         if (result is null || !result.Success)
         {
             ErrorMessage = result?.Message ?? "No se pudo guardar. Comprueba tu conexión.";
@@ -118,7 +133,13 @@ public sealed partial class ItineraryItemEditorViewModel(
         }
         if (result.Item is not null) await bootstrapStore.UpsertScheduleItemAsync(result.Item, ct);
         await todayStore.ClearUserCacheAsync(sessionService.CurrentUserId, ct);
+        mapViewModel.ResetSelection();
         await Shell.Current.GoToAsync("//main/schedule");
+
+        Task<ItineraryItemMutationResponse?> SaveMutationAsync(ItineraryItemMutationRequest request) =>
+            _existingItem is null
+                ? apiClient.CreateItineraryItemAsync(token, request, ct)
+                : apiClient.UpdateItineraryItemAsync(token, _existingItem.Id, request, ct);
     });
 
     [RelayCommand]

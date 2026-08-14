@@ -120,6 +120,41 @@ public sealed class ScheduleTodayPresentationTests
 
         Assert.False(section.HasContent);
         Assert.Equal("Libre", section.Description);
+        Assert.True(section.HasDescription);
+    }
+
+    [Fact]
+    public void Generated_loaded_message_is_hidden_for_a_populated_block()
+    {
+        var section = new ScheduleTodaySectionViewModel(
+            1,
+            new DateOnly(2026, 10, 1),
+            "midday",
+            "Medio día",
+            "Medio día: ya tenes Tonkatsu Suzuki cargado.",
+            [new TodayLocationViewModel(CreateRecommendation("Tonkatsu Suzuki", "tonkatsu"), 0.5m, true)],
+            []);
+
+        Assert.True(section.HasContent);
+        Assert.Equal(string.Empty, section.Description);
+        Assert.False(section.HasDescription);
+    }
+
+    [Fact]
+    public void Curated_description_remains_visible_for_a_populated_block()
+    {
+        const string curatedDescription = "Después del museo, almuerzo tranquilo en Ginza.";
+        var section = new ScheduleTodaySectionViewModel(
+            1,
+            new DateOnly(2026, 10, 1),
+            "midday",
+            "Medio día",
+            curatedDescription,
+            [new TodayLocationViewModel(CreateRecommendation("Tonkatsu Suzuki", "tonkatsu"), 0.5m, true)],
+            []);
+
+        Assert.Equal(curatedDescription, section.Description);
+        Assert.True(section.HasDescription);
     }
 
     private static RecommendationDto CreateRecommendation(string title, string tag) => new(

@@ -194,6 +194,11 @@ public sealed partial class MapViewModel(
     [RelayCommand]
     private void ClearRecommendationSelection()
     {
+        ResetSelection();
+    }
+
+    public void ResetSelection()
+    {
         SelectedRecommendation = null;
         IsSelectedRecommendationLoading = false;
     }

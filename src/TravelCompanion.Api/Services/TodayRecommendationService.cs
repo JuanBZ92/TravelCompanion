@@ -756,7 +756,7 @@ public sealed class TodayRecommendationService(
                 return curatedDescription;
             }
 
-            return $"{period.Label}: ya tenes {reservations.Count switch { 1 => reservations[0].Title, _ => $"{reservations.Count} planes" }} cargado.";
+            return string.Empty;
         }
 
         return suggestions.Count > 0

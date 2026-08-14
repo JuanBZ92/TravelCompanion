@@ -176,17 +176,24 @@
                                     <VerticalStackLayout Grid.Column="1"
                                                          Spacing="13"
                                                          Padding="12,0,0,8">
-                                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                                        <Grid ColumnDefinitions="68,*,42"
+                                              ColumnSpacing="8"
+                                              HeightRequest="36">
                                             <Label Text="{Binding Title}"
                                                    FontFamily="serif"
                                                    FontSize="16"
-                                                   TextColor="#5A5148" />
+                                                   TextColor="#5A5148"
+                                                   VerticalOptions="Center"
+                                                   VerticalTextAlignment="Center"
+                                                   LineBreakMode="NoWrap" />
                                             <Label Grid.Column="1" Text="{Binding PeriodLabel}"
                                                    CharacterSpacing="4"
                                                    FontSize="10"
                                                    FontAttributes="Bold"
                                                    TextColor="#9B9288"
-                                                   VerticalOptions="Center" />
+                                                   VerticalOptions="Center"
+                                                   VerticalTextAlignment="Center"
+                                                   LineBreakMode="NoWrap" />
                                             <Button Grid.Column="2" Text="+" ToolTipProperties.Text="Agregar plan personal"
                                                     Command="{Binding Source={x:Reference PageRoot}, Path=BindingContext.AddPersonalItemCommand}"
                                                     CommandParameter="{Binding .}" IsVisible="{Binding CanAddItem}"
@@ -196,7 +203,8 @@
                                         <Label Text="{Binding Description}"
                                                FontSize="16"
                                                LineHeight="1.35"
-                                               TextColor="#4D4741" />
+                                               TextColor="#4D4741"
+                                               IsVisible="{Binding HasDescription}" />
 
                                         <VerticalStackLayout Spacing="8"
                                                              IsVisible="{Binding HasLocations}">

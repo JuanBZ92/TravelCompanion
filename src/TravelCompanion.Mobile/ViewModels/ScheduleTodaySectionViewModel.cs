@@ -22,9 +22,27 @@ public sealed class ScheduleTodaySectionViewModel(
     public bool HasLocations => Locations.Count > 0;
     public bool HasReservations => Reservations.Count > 0;
     public bool HasContent => HasLocations || HasReservations;
-    public string Description { get; } = locations.Count == 0 && reservations.Count == 0
-        ? "Libre"
-        : description;
+    public string Description { get; } = NormalizeDescription(
+        periodLabel,
+        description,
+        locations.Count > 0 || reservations.Count > 0);
+    public bool HasDescription => !string.IsNullOrWhiteSpace(Description);
+
+    private static string NormalizeDescription(string periodLabel, string description, bool hasContent)
+    {
+        if (!hasContent)
+        {
+            return "Libre";
+        }
+
+        var value = description?.Trim() ?? string.Empty;
+        var isGeneratedLoadedMessage = value.StartsWith($"{periodLabel}:", StringComparison.OrdinalIgnoreCase)
+            && (value.Contains("ya tenes", StringComparison.OrdinalIgnoreCase)
+                || value.Contains("ya tenés", StringComparison.OrdinalIgnoreCase))
+            && value.Contains("cargad", StringComparison.OrdinalIgnoreCase);
+
+        return isGeneratedLoadedMessage ? string.Empty : value;
+    }
 }
 
 public sealed class TodayLocationViewModel
