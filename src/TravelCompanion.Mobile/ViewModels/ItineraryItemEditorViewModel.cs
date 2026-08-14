@@ -134,6 +134,7 @@ public sealed partial class ItineraryItemEditorViewModel(
         if (result.Item is not null) await bootstrapStore.UpsertScheduleItemAsync(result.Item, ct);
         await todayStore.ClearUserCacheAsync(sessionService.CurrentUserId, ct);
         mapViewModel.ResetSelection();
+        await Shell.Current.Navigation.PopToRootAsync(animated: false);
         await Shell.Current.GoToAsync("//main/schedule");
 
         Task<ItineraryItemMutationResponse?> SaveMutationAsync(ItineraryItemMutationRequest request) =>
@@ -143,5 +144,5 @@ public sealed partial class ItineraryItemEditorViewModel(
     });
 
     [RelayCommand]
-    private Task CancelAsync() => Shell.Current.GoToAsync("//main/map");
+    private Task CancelAsync() => Shell.Current.Navigation.PopToRootAsync(animated: false);
 }

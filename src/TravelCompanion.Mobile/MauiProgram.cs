@@ -19,6 +19,10 @@ public static class MauiProgram
 
     public static MauiApp CreateMauiApp()
     {
+#if !WINDOWS
+        MapPinSelectionStyling.Configure();
+#endif
+
         var builder = MauiApp.CreateBuilder();
         builder
             .UseMauiApp<App>()

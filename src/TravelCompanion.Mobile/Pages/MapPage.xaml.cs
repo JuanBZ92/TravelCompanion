@@ -2,9 +2,14 @@ using System;
 using System.ComponentModel;
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
+using TravelCompanion.Mobile.Controls;
 using TravelCompanion.Mobile.ViewModels;
 using TravelCompanion.Shared.Dtos;
 
+#if IOS || MACCATALYST
+using MapKit;
+using UIKit;
+#endif
 #if !WINDOWS
 using MauiMap = Microsoft.Maui.Controls.Maps.Map;
 using Microsoft.Maui.Controls.Maps;
@@ -21,7 +26,6 @@ public partial class MapPage : ContentPage
 #if !WINDOWS
     private readonly MauiMap _map;
     private readonly Dictionary<Pin, EventHandler<PinClickedEventArgs>> _pinHandlers = new();
-    private Circle? _selectionIndicator;
     private bool _isSubscribedToRecommendations;
     private bool _hasRenderedPins;
 #endif
@@ -56,6 +60,9 @@ public partial class MapPage : ContentPage
 
         MapContainer.Children.Clear();
         MapContainer.Children.Add(_map);
+#if IOS || MACCATALYST
+        _map.HandlerChanged += OnMapHandlerChanged;
+#endif
         mapStopwatch.Stop();
         _logger.LogInformation(
             "Map native control initialized in {ElapsedMs}ms.",
@@ -140,6 +147,7 @@ public partial class MapPage : ContentPage
         {
             try
             {
+                RefreshMapPins(moveToBounds: false);
                 FocusRecommendation(_viewModel.SelectedRecommendation);
             }
             catch (Exception exception)
@@ -173,7 +181,7 @@ public partial class MapPage : ContentPage
         _isSubscribedToRecommendations = false;
     }
 
-    private void RefreshMapPins()
+    private void RefreshMapPins(bool moveToBounds = true)
     {
         var stopwatch = Stopwatch.StartNew();
         // Unsubscribe all existing pin event handlers to prevent memory leaks
@@ -183,16 +191,16 @@ public partial class MapPage : ContentPage
         }
         _pinHandlers.Clear();
         _map.Pins.Clear();
-        ClearSelectionIndicator();
 
         foreach (var recommendation in _viewModel.VisibleNearbyRecommendations)
         {
-            var pin = new Pin
+            var pin = new RecommendationMapPin
             {
                 Label = recommendation.Title,
                 Address = recommendation.Neighborhood,
                 Type = PinType.Place,
-                Location = new Location((double)recommendation.Latitude, (double)recommendation.Longitude)
+                Location = new Location((double)recommendation.Latitude, (double)recommendation.Longitude),
+                IsSelected = recommendation.Id == _viewModel.SelectedRecommendation?.Id
             };
 
             // Store handler reference to enable proper cleanup
@@ -215,7 +223,11 @@ public partial class MapPage : ContentPage
             _map.Pins.Add(pin);
         }
 
-        MoveToRecommendationBounds(_viewModel.VisibleNearbyRecommendations);
+        if (moveToBounds)
+        {
+            MoveToRecommendationBounds(_viewModel.VisibleNearbyRecommendations);
+        }
+
         _hasRenderedPins = true;
         stopwatch.Stop();
         _logger.LogInformation(
@@ -245,37 +257,53 @@ public partial class MapPage : ContentPage
 
     private void FocusRecommendation(RecommendationDto? recommendation)
     {
-        ClearSelectionIndicator();
         if (recommendation is null)
         {
             return;
         }
 
         var location = new Location((double)recommendation.Latitude, (double)recommendation.Longitude);
-        _selectionIndicator = new Circle
-        {
-            Center = location,
-            Radius = Distance.FromMeters(130),
-            StrokeColor = Color.FromArgb("#8C6841"),
-            StrokeWidth = 4,
-            FillColor = Color.FromArgb("#338C6841")
-        };
-        _map.MapElements.Add(_selectionIndicator);
         _map.MoveToRegion(MapSpan.FromCenterAndRadius(
             location,
             Distance.FromKilometers(1.2)));
     }
 
-    private void ClearSelectionIndicator()
+#if IOS || MACCATALYST
+    private void OnMapHandlerChanged(object? sender, EventArgs e)
     {
-        if (_selectionIndicator is null)
+        if (_map.Handler?.PlatformView is not MKMapView nativeMap)
         {
             return;
         }
 
-        _map.MapElements.Remove(_selectionIndicator);
-        _selectionIndicator = null;
+        nativeMap.GetViewForAnnotation = CreateAnnotationView;
     }
+
+    private MKAnnotationView? CreateAnnotationView(MKMapView mapView, IMKAnnotation annotation)
+    {
+        if (annotation is MKUserLocation)
+        {
+            return null;
+        }
+
+        var pin = _map.Pins
+            .OfType<RecommendationMapPin>()
+            .FirstOrDefault(candidate => ReferenceEquals(candidate.MarkerId, annotation));
+        var reuseIdentifier = pin?.IsSelected == true
+            ? "selectedRecommendationPin"
+            : "recommendationPin";
+        var annotationView = mapView.DequeueReusableAnnotation(reuseIdentifier) as MKMarkerAnnotationView
+            ?? new MKMarkerAnnotationView(annotation, reuseIdentifier);
+
+        annotationView.Annotation = annotation;
+        annotationView.CanShowCallout = false;
+        annotationView.MarkerTintColor = pin?.IsSelected == true
+            ? UIColor.FromRGB(197, 157, 62)
+            : UIColor.SystemRed;
+
+        return annotationView;
+    }
+#endif
 #endif
 
     private void OnRecommendationTapped(object? sender, TappedEventArgs e)
