@@ -5,6 +5,8 @@ namespace TravelCompanion.Mobile;
 
 public partial class AppShell : Shell
 {
+    private bool _logoutInProgress;
+
     public AppShell()
     {
         InitializeComponent();
@@ -54,6 +56,40 @@ public partial class AppShell : Shell
         ScheduleTab.IsVisible = !sessionService.IsFreeMapPreview;
         AssistantTab.IsVisible = !sessionService.IsFreeMapPreview;
         DocsTab.IsVisible = sessionService.HasCuratedDocs;
+        LogoutTab.IsVisible = sessionService.HasSession && !sessionService.IsFreeMapPreview;
+    }
+
+    protected override void OnNavigating(ShellNavigatingEventArgs args)
+    {
+        base.OnNavigating(args);
+        if (!args.Target.Location.OriginalString.TrimEnd('/').EndsWith("/logout", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        args.Cancel();
+        if (_logoutInProgress)
+        {
+            return;
+        }
+
+        Dispatcher.Dispatch(async () => await LogoutFromTabAsync());
+    }
+
+    private async Task LogoutFromTabAsync()
+    {
+        _logoutInProgress = true;
+        try
+        {
+            var logoutService = MauiProgram.Services.GetRequiredService<SessionLogoutService>();
+            await logoutService.LogoutAsync();
+            ApplySessionTabs(MauiProgram.Services.GetRequiredService<AuthSessionService>());
+            await GoToAsync("//login");
+        }
+        finally
+        {
+            _logoutInProgress = false;
+        }
     }
 
     private void OnCultureChanged(object? sender, EventArgs e)
@@ -72,5 +108,6 @@ public partial class AppShell : Shell
         ScheduleTab.Title = resources["TabToday"];
         AssistantTab.Title = resources["TabAssistant"];
         DocsTab.Title = resources["TabDocs"];
+        LogoutTab.Title = resources["TabLogout"];
     }
 }

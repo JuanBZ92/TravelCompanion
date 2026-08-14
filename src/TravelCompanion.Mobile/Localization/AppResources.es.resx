@@ -93,4 +93,5 @@
   <data name="TabToday" xml:space="preserve"><value>Today</value></data>
   <data name="TabAssistant" xml:space="preserve"><value>Assistant</value></data>
   <data name="TabDocs" xml:space="preserve"><value>Docs</value></data>
+  <data name="TabLogout" xml:space="preserve"><value>Salir</value></data>
 </root>

@@ -6,7 +6,8 @@ namespace TravelCompanion.Mobile.ViewModels;
 
 public sealed partial class LoginViewModel(
     TravelCompanionApiClient apiClient,
-    AuthSessionService sessionService) : ViewModelBase
+    AuthSessionService sessionService,
+    SessionLogoutService logoutService) : ViewModelBase
 {
     private string _pin = string.Empty;
 
@@ -49,6 +50,15 @@ public sealed partial class LoginViewModel(
                 ErrorMessage = "No encontramos un viaje con ese PIN.";
                 return;
             }
+
+            if (sessionService.HasSession)
+            {
+                await logoutService.LogoutAsync();
+            }
+
+            // A previous session for this PIN may still have disk snapshots even when
+            // the in-memory authentication was already cleared after an expiration.
+            await logoutService.ResetContentAsync(session.UserId);
 
             await sessionService.SaveAsync(session);
             if (Shell.Current is AppShell appShell)

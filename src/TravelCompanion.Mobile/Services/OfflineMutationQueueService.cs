@@ -20,6 +20,19 @@ public sealed class OfflineMutationQueueService(
         return queue.Items.Count;
     }
 
+    public async Task ClearAsync()
+    {
+        await _queueLock.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            await offlineCacheService.DeleteAsync(QueueCacheKey).ConfigureAwait(false);
+        }
+        finally
+        {
+            _queueLock.Release();
+        }
+    }
+
     public async Task<Guid> EnqueueSaveItineraryItemAsync(
         SaveItineraryItemRequest request,
         CancellationToken cancellationToken = default)

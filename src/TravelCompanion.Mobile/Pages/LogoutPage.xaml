@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="TravelCompanion.Mobile.Pages.LogoutPage"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="#F8F3ED">
+    <ActivityIndicator IsRunning="True"
+                       WidthRequest="24"
+                       HeightRequest="24"
+                       HorizontalOptions="Center"
+                       VerticalOptions="Center" />
+</ContentPage>

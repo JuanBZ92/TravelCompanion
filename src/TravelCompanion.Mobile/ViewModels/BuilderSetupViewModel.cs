@@ -10,7 +10,8 @@ namespace TravelCompanion.Mobile.ViewModels;
 public sealed partial class BuilderSetupViewModel(
     TravelCompanionApiClient apiClient,
     AuthSessionService sessionService,
-    PendingItineraryActionStore pendingStore) : ViewModelBase
+    PendingItineraryActionStore pendingStore,
+    SessionLogoutService logoutService) : ViewModelBase
 {
     private DateTime _arrivalDate = DateTime.Today;
     private DateTime _departureDate = DateTime.Today.AddDays(6);
@@ -191,6 +192,9 @@ public sealed partial class BuilderSetupViewModel(
 
         _revision = result.Revision;
         sessionService.MarkTripConfigured(result.TripId.Value, result.Destination);
+        await logoutService.ResetContentAsync(
+            sessionService.CurrentUserId,
+            preservePendingItineraryAction: true);
         if (Shell.Current is AppShell shell) shell.ApplySessionTabs(sessionService);
         var pending = pendingStore.Take();
         if (pending is not null)

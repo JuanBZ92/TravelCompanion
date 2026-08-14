@@ -77,6 +77,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<OfflineMutationQueueService>();
         builder.Services.AddSingleton<FavoritesService>();
         builder.Services.AddSingleton<PendingItineraryActionStore>();
+        builder.Services.AddSingleton<SessionLogoutService>();
         builder.Services.AddSingleton<ILocationService, LocationService>();
         builder.Services.AddSingleton(LocalizationResourceManager.Instance);
 
@@ -113,6 +114,7 @@ public static class MauiProgram
         builder.Services.AddTransient<ScheduleItemDetailPage>();
         builder.Services.AddSingleton<PackagesPage>();
         builder.Services.AddSingleton<DocsPage>();
+        builder.Services.AddTransient<LogoutPage>();
         builder.Services.AddTransient<RecommendationDetailPage>();
         builder.Services.AddTransient<BuilderSetupPage>();
         builder.Services.AddTransient<ItineraryItemEditorPage>();

@@ -62,6 +62,14 @@
             Icon="tab_docs.svg"
             ContentTemplate="{DataTemplate pages:DocsPage}"
             Route="docs" />
+
+        <ShellContent
+            x:Name="LogoutTab"
+            Title="Salir"
+            Icon="tab_power.svg"
+            IsVisible="False"
+            ContentTemplate="{DataTemplate pages:LogoutPage}"
+            Route="logout" />
     </TabBar>
 
 </Shell>
