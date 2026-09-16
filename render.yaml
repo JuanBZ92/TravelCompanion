@@ -30,7 +30,7 @@ services:
       - key: FreePreview__MarkerObfuscationKey
         generateValue: true
       - key: GooglePlaces__Enabled
-        value: "false"
+        value: "true"
       - key: GooglePlaces__ApiKey
         sync: false
       - key: GoogleRoutes__Enabled
