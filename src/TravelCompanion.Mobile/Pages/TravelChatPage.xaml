@@ -244,7 +244,7 @@
                                                         <Button Text="{Binding SaveButtonText}"
                                                                 Clicked="OnSaveItineraryItemClicked"
                                                                 IsEnabled="{Binding CanSave}"
-                                                                IsVisible="{Binding Source={x:Reference PageRoot}, Path=BindingContext.CanEditItinerary}"
+                                                                IsVisible="{Binding CanEditItinerary, Source={RelativeSource AncestorType={x:Type viewModels:TravelChatViewModel}}, x:DataType=viewModels:TravelChatViewModel}"
                                                                 FontSize="12"
                                                                 Padding="10,7"
                                                                 MinimumHeightRequest="34"

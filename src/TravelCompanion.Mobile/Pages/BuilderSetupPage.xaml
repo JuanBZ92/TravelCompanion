@@ -26,7 +26,7 @@
                             <Border Padding="16" BackgroundColor="#FFFDF9" Stroke="#D8CFC4" StrokeThickness="1">
                                 <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="12">
                                     <Entry Placeholder="Ciudad" Text="{Binding City}" FontSize="18" />
-                                    <Button Grid.Column="1" Text="×" Command="{Binding Source={x:Reference PageRoot}, Path=BindingContext.RemoveSegmentCommand}" CommandParameter="{Binding .}" Style="{StaticResource GhostButton}" />
+                                    <Button Grid.Column="1" Text="×" Command="{Binding RemoveSegmentCommand, Source={RelativeSource AncestorType={x:Type viewModels:BuilderSetupViewModel}}, x:DataType=viewModels:BuilderSetupViewModel}" CommandParameter="{Binding .}" Style="{StaticResource GhostButton}" />
                                     <Grid Grid.Row="1" Grid.ColumnSpan="2" ColumnDefinitions="*,*" ColumnSpacing="10"><DatePicker Date="{Binding StartsOn}"/><DatePicker Grid.Column="1" Date="{Binding EndsOn}"/></Grid>
                                     <Entry Grid.Row="2" Grid.ColumnSpan="2" Placeholder="Hotel o base (opcional)" Text="{Binding HotelName}" TextChanged="OnHotelTextChanged" />
                                     <VerticalStackLayout Grid.Row="3" Grid.ColumnSpan="2">
