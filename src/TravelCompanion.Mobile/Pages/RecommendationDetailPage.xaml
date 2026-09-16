@@ -83,7 +83,7 @@
                            FontSize="11"
                            FontAttributes="Bold"
                            TextColor="#9B9288" />
-                    <Label Text="{Binding Recommendation.Description}"
+                    <Label Text="{Binding Recommendation.DisplayDescription}"
                            FontSize="16"
                            LineHeight="1.45"
                            TextColor="#4D4741" />

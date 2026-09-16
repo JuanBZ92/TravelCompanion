@@ -112,23 +112,7 @@ public sealed class RecommendationsController(
             ? CalculateDistanceKm(latitude.Value, longitude.Value, recommendation.Latitude, recommendation.Longitude)
             : null;
 
-        return new RecommendationDto(
-            recommendation.Id,
-            recommendation.DestinationId,
-            recommendation.Title,
-            recommendation.Category,
-            recommendation.Neighborhood,
-            recommendation.Description,
-            recommendation.Tags,
-            recommendation.PriceLevel,
-            recommendation.Latitude,
-            recommendation.Longitude,
-            recommendation.SuggestedDurationMinutes,
-            recommendation.Rating,
-            recommendation.OpeningHours,
-            recommendation.AccessLevel,
-            recommendation.Packages.Select(package => package.Id).ToList(),
-            distanceKm);
+        return RecommendationPresentation.ToDto(recommendation, distanceKm);
     }
 
     private static decimal CalculateDistanceKm(decimal originLatitude, decimal originLongitude, decimal targetLatitude, decimal targetLongitude)

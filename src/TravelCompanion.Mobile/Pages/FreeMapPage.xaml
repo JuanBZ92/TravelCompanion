@@ -111,18 +111,20 @@
                                 SemanticProperties.Description="Lugar siguiente" />
                     </Grid>
 
-                    <VerticalStackLayout Grid.Row="1" Spacing="8" IsVisible="{Binding IsUnlockedSelection}">
+                    <ScrollView Grid.Row="1" MaximumHeightRequest="320" IsVisible="{Binding IsUnlockedSelection}">
+                    <VerticalStackLayout Spacing="8">
                         <Grid ColumnDefinitions="*,Auto">
                             <Label Text="{Binding SelectedRecommendation.Category}" CharacterSpacing="3" FontSize="10" FontAttributes="Bold" TextColor="#9B9288" />
                             <Button Grid.Column="1" Text="×" Command="{Binding CloseSelectionCommand}" Style="{StaticResource GhostButton}" WidthRequest="34" HeightRequest="34" Padding="0" />
                         </Grid>
-                        <Label Text="{Binding SelectedRecommendation.Title}" FontFamily="serif" FontSize="25" TextColor="#1A1714" LineBreakMode="WordWrap" MaxLines="2" />
-                        <Label Text="{Binding SelectedRecommendation.Description}" FontSize="14" TextColor="#4D4741" LineHeight="1.35" MaxLines="3" LineBreakMode="TailTruncation" />
+                        <Label Text="{Binding SelectedRecommendation.Title}" FontFamily="serif" FontSize="25" TextColor="#1A1714" LineBreakMode="WordWrap" />
+                        <Label Text="{Binding SelectedRecommendation.DisplayDescription}" FontSize="14" TextColor="#4D4741" LineHeight="1.35" LineBreakMode="WordWrap" />
                         <Label Text="{Binding SelectedLocationText}" FontSize="12" TextColor="#6E675F" />
                         <Label Text="{Binding SelectedTagsText}" FontSize="12" TextColor="#8A6F3D" LineBreakMode="TailTruncation" MaxLines="2" />
                         <Label Text="{Binding SelectedMetadataText}" FontSize="12" TextColor="#6E675F" />
                         <Button Text="Abrir en el mapa" Command="{Binding OpenSelectedMapCommand}" BackgroundColor="#3D3329" TextColor="White" CornerRadius="0" HeightRequest="48" />
                     </VerticalStackLayout>
+                    </ScrollView>
 
                     <VerticalStackLayout Grid.Row="1" Spacing="10" IsVisible="{Binding IsLockedSelection}">
                         <Grid ColumnDefinitions="*,Auto">

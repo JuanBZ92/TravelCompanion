@@ -25,7 +25,8 @@ public interface ITodayRecommendationService
 
 public sealed class TodayRecommendationService(
     TravelCompanionDbContext dbContext,
-    ILogger<TodayRecommendationService> logger) : ITodayRecommendationService
+    ILogger<TodayRecommendationService> logger,
+    IGooglePlacesService? googlePlaces = null) : ITodayRecommendationService
 {
     private const string AutomaticSuggestionSourcePrefix = "today_auto:";
     private const int DefaultSuggestionsPerFreePeriod = 2;
@@ -250,7 +251,24 @@ public sealed class TodayRecommendationService(
             sections.Sum(section => section.Recommendations.Count),
             currentLocation is not null);
 
-        return new TodayDto(DateTimeOffset.UtcNow, selectedDate, currentLocation, sections);
+        var selectedDay = trip.DayPlans.FirstOrDefault(day => day.Date == selectedDate);
+        TodayHotelBaseDto? hotel = null;
+        if (selectedDay is not null && (!string.IsNullOrWhiteSpace(selectedDay.HotelBase) || !string.IsNullOrWhiteSpace(selectedDay.BaseProviderPlaceId)))
+        {
+            hotel = new TodayHotelBaseDto(selectedDay.HotelBase, selectedDay.BaseAddress, selectedDay.BaseProviderPlaceId, selectedDay.BaseLatitude, selectedDay.BaseLongitude);
+            if (!string.IsNullOrWhiteSpace(selectedDay.BaseProviderPlaceId))
+            {
+                var resolved = googlePlaces is null ? null : await googlePlaces.DetailsAsync(trip.DestinationId,
+                    new PlaceDetailsRequest(selectedDay.BaseProviderPlaceId, string.Empty), cancellationToken);
+                hotel = hotel with { Name = resolved?.Title ?? (string.IsNullOrWhiteSpace(hotel.Name) ? "Hotel" : hotel.Name),
+                    Address = resolved?.Neighborhood ?? hotel.Address, Latitude = resolved?.Latitude ?? hotel.Latitude,
+                    Longitude = resolved?.Longitude ?? hotel.Longitude, Attribution = "Google Maps" };
+            }
+        }
+        return new TodayDto(DateTimeOffset.UtcNow, selectedDate, currentLocation, sections)
+        {
+            HotelBase = hotel
+        };
     }
 
     public async Task<RecommendationSignalResponse> RecordSignalAsync(
@@ -716,23 +734,7 @@ public sealed class TodayRecommendationService(
             reservation.ProviderPlaceId);
 
     private static RecommendationDto ToRecommendationDto(Recommendation recommendation, decimal? distanceKm) =>
-        new(
-            recommendation.Id,
-            recommendation.DestinationId,
-            recommendation.Title,
-            recommendation.Category,
-            recommendation.Neighborhood,
-            recommendation.Description,
-            recommendation.Tags,
-            recommendation.PriceLevel,
-            recommendation.Latitude,
-            recommendation.Longitude,
-            recommendation.SuggestedDurationMinutes,
-            recommendation.Rating,
-            recommendation.OpeningHours,
-            recommendation.AccessLevel,
-            recommendation.Packages.Select(package => package.Id).ToList(),
-            distanceKm);
+        RecommendationPresentation.ToDto(recommendation, distanceKm);
 
     private static string CreateDescription(
         TodayPeriod period,

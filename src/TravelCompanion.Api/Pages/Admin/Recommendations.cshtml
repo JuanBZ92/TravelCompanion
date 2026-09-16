@@ -160,6 +160,26 @@
             <span asp-validation-for="Input.CurationNotes"></span>
         </div>
         <div class="actions">
+        </div>
+        <details>
+            <summary>Catalogo bilingue y verificacion</summary>
+            <div class="form-grid">
+                <div><label asp-for="Input.ProviderPlaceId">Place ID (Google)</label><input asp-for="Input.ProviderPlaceId" /><span asp-validation-for="Input.ProviderPlaceId"></span></div>
+                <div><label asp-for="Input.DescriptionEn">Descripcion EN</label><textarea asp-for="Input.DescriptionEn"></textarea><span asp-validation-for="Input.DescriptionEn"></span></div>
+                <div><label asp-for="Input.ExtraDescription">Comentario extra ES</label><textarea asp-for="Input.ExtraDescription"></textarea><span asp-validation-for="Input.ExtraDescription"></span></div>
+                <div><label asp-for="Input.ExtraDescriptionEn">Comentario extra EN</label><textarea asp-for="Input.ExtraDescriptionEn"></textarea><span asp-validation-for="Input.ExtraDescriptionEn"></span></div>
+                <div><label asp-for="Input.RefinedType">Tipo ES</label><input asp-for="Input.RefinedType" /><span asp-validation-for="Input.RefinedType"></span></div>
+                <div><label asp-for="Input.RefinedTypeEn">Tipo EN</label><input asp-for="Input.RefinedTypeEn" /><span asp-validation-for="Input.RefinedTypeEn"></span></div>
+                <div><label asp-for="Input.ReservationInstructions">Reserva ES</label><textarea asp-for="Input.ReservationInstructions"></textarea><span asp-validation-for="Input.ReservationInstructions"></span></div>
+                <div><label asp-for="Input.ReservationInstructionsEn">Reserva EN</label><textarea asp-for="Input.ReservationInstructionsEn"></textarea><span asp-validation-for="Input.ReservationInstructionsEn"></span></div>
+                <div><label asp-for="Input.OriginalPrice">Precio original</label><input asp-for="Input.OriginalPrice" /><span asp-validation-for="Input.OriginalPrice"></span></div>
+                <div><label asp-for="Input.IsPriceKnown">Precio conocido</label><input asp-for="Input.IsPriceKnown" type="checkbox" /><span asp-validation-for="Input.IsPriceKnown"></span></div>
+                <div><label asp-for="Input.VerificationConfidence">Confianza (1-5)</label><input asp-for="Input.VerificationConfidence" type="number" min="1" max="5" /><span asp-validation-for="Input.VerificationConfidence"></span></div>
+                <div><label asp-for="Input.ReservationSource">Fuente de reserva</label><input asp-for="Input.ReservationSource" /><span asp-validation-for="Input.ReservationSource"></span></div>
+                <div><label asp-for="Input.VerificationNotes">Verificacion interna</label><textarea asp-for="Input.VerificationNotes"></textarea><span asp-validation-for="Input.VerificationNotes"></span></div>
+            </div>
+        </details>
+        <div class="actions">
             <button type="submit">Guardar</button>
             @if (Model.Input.Id.HasValue)
             {

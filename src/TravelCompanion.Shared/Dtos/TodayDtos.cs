@@ -4,7 +4,15 @@ public sealed record TodayDto(
     DateTimeOffset GeneratedAtUtc,
     DateOnly Date,
     GeoPointDto? CurrentLocationUsed,
-    IReadOnlyList<TodaySectionDto> Sections);
+    IReadOnlyList<TodaySectionDto> Sections)
+{
+    public TodayHotelBaseDto? HotelBase { get; init; }
+}
+
+public sealed record TodayHotelBaseDto(string Name, string Address, string? ProviderPlaceId, decimal? Latitude, decimal? Longitude)
+{
+    public string? Attribution { get; init; }
+}
 
 public sealed record TodaySectionDto(
     string PeriodKey,

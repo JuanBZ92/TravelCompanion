@@ -74,10 +74,10 @@
               RowDefinitions="Auto,*"
               RowSpacing="6"
               IsVisible="{Binding ShowRecommendationBrowser}">
-            <SearchBar Grid.Row="0"
+            <SearchBar x:Name="PlaceSearch" Grid.Row="0"
                        Placeholder="Buscar restaurante, café o lugar"
                        Text="{Binding SearchText}"
-                       SearchCommand="{Binding SearchCommand}"
+                       SearchButtonPressed="OnSearchSubmitted"
                        HeightRequest="38"
                        FontSize="13"
                        BackgroundColor="#F8F3ED"
@@ -262,7 +262,7 @@
                                        HeightRequest="20"
                                        HorizontalOptions="Start"
                                        Margin="0,4" />
-                    <Label Text="{Binding SelectedRecommendation.Description}"
+                    <Label Text="{Binding SelectedRecommendation.DisplayDescription}"
                            IsVisible="{Binding ShowSelectedRecommendationDescription}"
                            FontSize="12"
                            LineBreakMode="WordWrap"

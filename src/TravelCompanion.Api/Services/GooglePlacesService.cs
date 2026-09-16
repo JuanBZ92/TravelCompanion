@@ -10,6 +10,8 @@ namespace TravelCompanion.Api.Services;
 public interface IGooglePlacesService
 {
     Task<IReadOnlyList<RecommendationDto>> SearchAsync(Guid destinationId, PlaceSearchRequest request, CancellationToken cancellationToken);
+    Task<IReadOnlyList<PlaceSuggestionDto>> AutocompleteAsync(PlaceAutocompleteRequest request, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<PlaceSuggestionDto>>([]);
+    Task<RecommendationDto?> DetailsAsync(Guid destinationId, PlaceDetailsRequest request, CancellationToken cancellationToken) => Task.FromResult<RecommendationDto?>(null);
 }
 
 public sealed class GooglePlacesService(
@@ -17,6 +19,65 @@ public sealed class GooglePlacesService(
     IOptions<GooglePlacesOptions> options,
     ILogger<GooglePlacesService> logger) : IGooglePlacesService
 {
+    public async Task<IReadOnlyList<PlaceSuggestionDto>> AutocompleteAsync(PlaceAutocompleteRequest request, CancellationToken cancellationToken)
+    {
+        if (!options.Value.Enabled || string.IsNullOrWhiteSpace(options.Value.ApiKey)) return [];
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(5));
+        using var message = new HttpRequestMessage(HttpMethod.Post, "https://places.googleapis.com/v1/places:autocomplete");
+        message.Headers.Add("X-Goog-Api-Key", options.Value.ApiKey);
+        message.Headers.Add("X-Goog-FieldMask", "suggestions.placePrediction.placeId,suggestions.placePrediction.structuredFormat");
+        message.Content = JsonContent.Create(new
+        {
+            input = $"{request.Query.Trim()} {request.City}".Trim(),
+            includedRegionCodes = new[] { "jp" }, includedPrimaryTypes = new[] { "lodging" },
+            sessionToken = request.SessionToken, languageCode = Language(request.Locale)
+        });
+        try
+        {
+            using var response = await httpClientFactory.CreateClient().SendAsync(message, timeout.Token);
+            if (!response.IsSuccessStatusCode) { logger.LogWarning("Places autocomplete returned {StatusCode}.", (int)response.StatusCode); return []; }
+            var payload = await response.Content.ReadFromJsonAsync<AutocompleteResponse>(cancellationToken: timeout.Token);
+            return payload?.Suggestions?.Where(s => !string.IsNullOrWhiteSpace(s.PlacePrediction?.PlaceId))
+                .Take(5).Select(s => new PlaceSuggestionDto(s.PlacePrediction!.PlaceId,
+                    s.PlacePrediction.StructuredFormat?.MainText?.Text ?? "Hotel",
+                    s.PlacePrediction.StructuredFormat?.SecondaryText?.Text ?? string.Empty)).ToList() ?? [];
+        }
+        catch (HttpRequestException) { logger.LogWarning("Places autocomplete unavailable."); return []; }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested) { logger.LogWarning("Places autocomplete timed out."); return []; }
+    }
+
+    public async Task<RecommendationDto?> DetailsAsync(Guid destinationId, PlaceDetailsRequest request, CancellationToken cancellationToken)
+    {
+        if (!options.Value.Enabled || string.IsNullOrWhiteSpace(options.Value.ApiKey)) return null;
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(5));
+        using var message = new HttpRequestMessage(HttpMethod.Get,
+            $"https://places.googleapis.com/v1/places/{Uri.EscapeDataString(request.PlaceId)}?languageCode={Language(request.Locale)}"
+            + (string.IsNullOrWhiteSpace(request.SessionToken) ? string.Empty : $"&sessionToken={Uri.EscapeDataString(request.SessionToken)}"));
+        message.Headers.Add("X-Goog-Api-Key", options.Value.ApiKey);
+        message.Headers.Add("X-Goog-FieldMask", "id,displayName,formattedAddress,location,primaryType");
+        try
+        {
+            using var response = await httpClientFactory.CreateClient().SendAsync(message, timeout.Token);
+            if (!response.IsSuccessStatusCode) { logger.LogWarning("Places details returned {StatusCode}.", (int)response.StatusCode); return null; }
+            var place = await response.Content.ReadFromJsonAsync<GooglePlace>(cancellationToken: timeout.Token);
+            return place?.Location is null ? null : new RecommendationDto(Guid.Empty, destinationId,
+                place.DisplayName?.Text ?? "Hotel", place.PrimaryType ?? "lodging", place.FormattedAddress ?? string.Empty,
+                string.Empty, [], "medium", (decimal)place.Location.Latitude, (decimal)place.Location.Longitude,
+                60, null, null, ContentAccessLevel.Free, [], null)
+            { Provider = "Google", ProviderPlaceId = place.Id, Attribution = "Google Maps", IsPriceKnown = false };
+        }
+        catch (HttpRequestException) { logger.LogWarning("Places details unavailable."); return null; }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested) { logger.LogWarning("Places details timed out."); return null; }
+    }
+
+    private static string Language(string? locale) => (locale ?? System.Globalization.CultureInfo.CurrentUICulture.Name).StartsWith("en", StringComparison.OrdinalIgnoreCase) ? "en" : "es";
+    private sealed record AutocompleteResponse(List<AutocompleteSuggestion>? Suggestions);
+    private sealed record AutocompleteSuggestion(PlacePrediction? PlacePrediction);
+    private sealed record PlacePrediction(string PlaceId, StructuredFormat? StructuredFormat);
+    private sealed record StructuredFormat(GoogleDisplayName? MainText, GoogleDisplayName? SecondaryText);
+
     public async Task<IReadOnlyList<RecommendationDto>> SearchAsync(Guid destinationId, PlaceSearchRequest request, CancellationToken cancellationToken)
     {
         var configuration = options.Value;
@@ -55,7 +116,8 @@ public sealed class GooglePlacesService(
                 {
                     Provider = "Google",
                     ProviderPlaceId = place.Id,
-                    Attribution = "Google"
+                    Attribution = "Google Maps",
+                    IsPriceKnown = false
                 }).ToList() ?? [];
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)

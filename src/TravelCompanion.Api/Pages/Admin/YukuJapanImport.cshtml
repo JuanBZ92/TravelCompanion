@@ -23,7 +23,7 @@
     <div class="section-header">
         <div>
             <h2>Excel verificado</h2>
-            <p class="form-hint">Columnas esperadas: Ciudad, Lugar, Comentario, Tipo de comida, Google Maps Link, Coordenadas Value, Tabelog Score, Reserva y Precio Aprox.</p>
+            <p class="form-hint">Compatible con FINAL bilingue: Place ID, coordenadas verificadas, textos ES/EN y datos de verificacion. Tambien admite el formato v1.</p>
         </div>
         <span class="badge">AccessLevel Free</span>
     </div>
@@ -36,7 +36,7 @@
                 <label asp-for="Workbook" class="required">Archivo .xlsx</label>
                 <input asp-for="Workbook" type="file" accept=".xlsx" />
                 <span asp-validation-for="Workbook"></span>
-                <p class="form-hint">El preview no guarda datos. Confirmar import crea o actualiza por external_id.</p>
+                <p class="form-hint">El preview no guarda datos. Confirmar import actualiza por Place ID en el formato bilingue y agrega nuevas ciudades al mapa Free.</p>
             </div>
         </div>
         <div class="actions">

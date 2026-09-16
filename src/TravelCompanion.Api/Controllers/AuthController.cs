@@ -88,7 +88,7 @@ public sealed class AuthController(
                 capabilities: TravelerAccessService.CreateCapabilities(ExperienceMode.FreePreview, false)));
         }
 
-        if (pin.Length == 6)
+        // Access mode belongs to the matched grant, not to the PIN length.
         {
             var now = DateTimeOffset.UtcNow;
             var grants = await dbContext.BuilderAccessGrants
@@ -130,7 +130,6 @@ public sealed class AuthController(
                     TravelerAccessService.CreateCapabilities(ExperienceMode.SelfServiceBuilder, !grant.TripId.HasValue)));
             }
 
-            return Unauthorized();
         }
 
         var today = DateOnly.FromDateTime(DateTime.UtcNow);

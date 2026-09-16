@@ -88,7 +88,7 @@ public sealed class OfflineCacheService
 
     public Task DeleteByPrefixAndSuffixAsync(string keyPrefix, string keySuffix)
     {
-        var directory = Path.Combine(FileSystem.AppDataDirectory, "offline-cache");
+        var directory = CacheRoot;
         if (!Directory.Exists(directory))
         {
             return Task.CompletedTask;
@@ -96,7 +96,7 @@ public sealed class OfflineCacheService
 
         var safePrefix = SanitizeKey(keyPrefix);
         var safeSuffix = SanitizeKey(keySuffix);
-        foreach (var path in Directory.EnumerateFiles(directory, "*.json"))
+        foreach (var path in Directory.EnumerateFiles(directory, "*.json", SearchOption.AllDirectories))
         {
             var name = Path.GetFileNameWithoutExtension(path);
             if (name.StartsWith(safePrefix, StringComparison.Ordinal)
@@ -111,7 +111,7 @@ public sealed class OfflineCacheService
 
     public Task DeleteByPrefixAsync(params string[] keyPrefixes)
     {
-        var directory = Path.Combine(FileSystem.AppDataDirectory, "offline-cache");
+        var directory = CacheRoot;
         if (!Directory.Exists(directory))
         {
             return Task.CompletedTask;
@@ -121,7 +121,7 @@ public sealed class OfflineCacheService
             .Where(prefix => !string.IsNullOrWhiteSpace(prefix))
             .Select(SanitizeKey)
             .ToList();
-        foreach (var path in Directory.EnumerateFiles(directory, "*.json"))
+        foreach (var path in Directory.EnumerateFiles(directory, "*.json", SearchOption.AllDirectories))
         {
             var name = Path.GetFileNameWithoutExtension(path);
             if (safePrefixes.Any(prefix => name.StartsWith(prefix, StringComparison.Ordinal)))
@@ -143,8 +143,11 @@ public sealed class OfflineCacheService
     {
         var safeKey = SanitizeKey(key);
 
-        return Path.Combine(FileSystem.AppDataDirectory, "offline-cache", $"{safeKey}.json");
+        var locale = key.StartsWith("offline-mutation-", StringComparison.Ordinal) ? "neutral" : System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
+        return Path.Combine(CacheRoot, locale, $"{safeKey}.json");
     }
+
+    private static string CacheRoot => Path.Combine(FileSystem.AppDataDirectory, "offline-cache-catalog-v2");
 
     private static string SanitizeKey(string key)
     {

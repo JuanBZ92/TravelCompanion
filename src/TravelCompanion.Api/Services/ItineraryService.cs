@@ -68,6 +68,7 @@ public sealed class ItineraryService(TravelCompanionDbContext dbContext) : IItin
             Id = Guid.NewGuid(),
             TripId = trip.Id,
             RecommendationId = recommendation.Id,
+            ProviderPlaceId = recommendation.ProviderPlaceId,
             TripDayBlockId = trip.DayPlans
                 .FirstOrDefault(day => day.Date == request.Date)?
                 .Blocks.FirstOrDefault(block => block.PeriodKey == TripPlanPeriods.Resolve(request.StartsAt).Key)?.Id,
@@ -174,7 +175,8 @@ public sealed class ItineraryService(TravelCompanionDbContext dbContext) : IItin
             reservation.DestinationName,
             reservation.OriginAirport,
             reservation.DestinationAirport,
-            reservation.PlanningKind);
+            reservation.PlanningKind, reservation.Owner, reservation.ItemSource, reservation.TimePrecision,
+            reservation.SortOrder, reservation.ProviderPlaceId);
     }
 
     private static RecommendationInteractionSignal CreateSavedSignal(

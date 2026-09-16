@@ -20,7 +20,7 @@
                        FontSize="34"
                        FontFamily="serif"
                        TextColor="#1A1714" />
-                <Label Text="Usa el codigo de 4 numeros de tu viaje curado o el de 6 numeros para crear tu propio itinerario."
+                <Label Text="Ingresa tu PIN de acceso."
                        FontSize="16"
                        LineHeight="1.45"
                        TextColor="#6E675F" />

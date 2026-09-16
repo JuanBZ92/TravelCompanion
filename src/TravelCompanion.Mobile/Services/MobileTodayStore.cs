@@ -16,6 +16,8 @@ public sealed class MobileTodayStore(
     private DateTimeOffset? _currentSavedAt;
     private Guid? _currentUserId;
     private DateOnly? _currentDate;
+    private string? _currentLocale;
+    private static string Locale => System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
 
     public async Task<OfflineCacheResult<TodayDto>?> GetCachedAsync(
         DateOnly date,
@@ -24,6 +26,7 @@ public sealed class MobileTodayStore(
         var stopwatch = Stopwatch.StartNew();
         var currentUserId = sessionService.CurrentUserId;
         if (_current is not null
+            && _currentLocale == Locale
             && _currentUserId == currentUserId
             && _currentDate == date
             && _currentSavedAt.HasValue)
@@ -57,6 +60,7 @@ public sealed class MobileTodayStore(
             }
 
             _current = normalized;
+            _currentLocale = Locale;
             _currentSavedAt = cached.SavedAt;
             _currentUserId = currentUserId;
             _currentDate = date;
@@ -86,13 +90,18 @@ public sealed class MobileTodayStore(
 
         var savedAt = DateTimeOffset.UtcNow;
         var currentUserId = sessionService.CurrentUserId;
+        var cachedToday = today.HotelBase?.Attribution is null ? today : today with
+        {
+            HotelBase = today.HotelBase with { Name = "Hotel", Address = string.Empty, Latitude = null, Longitude = null }
+        };
         await offlineCacheService.SaveAsync(
             GetCacheKey(currentUserId, today.Date),
-            today,
+            cachedToday,
             cancellationToken).ConfigureAwait(false);
         stopwatch.Stop();
 
         _current = today;
+        _currentLocale = Locale;
         _currentSavedAt = savedAt;
         _currentUserId = currentUserId;
         _currentDate = today.Date;
@@ -111,6 +120,7 @@ public sealed class MobileTodayStore(
     {
         var ageLimit = maxAge ?? DefaultFreshnessWindow;
         return _current is not null
+            && _currentLocale == Locale
             && _currentUserId == sessionService.CurrentUserId
             && _currentDate == date
             && _currentSavedAt.HasValue

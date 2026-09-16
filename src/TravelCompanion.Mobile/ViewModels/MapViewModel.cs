@@ -24,6 +24,7 @@ public sealed partial class MapViewModel(
     private bool _isSelectedRecommendationLoading;
     private IReadOnlyList<RecommendationDto> _visibleNearbyRecommendations = [];
     private string _searchText = string.Empty;
+    private string? _activeSearchQuery;
 
     public string SearchText { get => _searchText; set => SetProperty(ref _searchText, value); }
 
@@ -76,7 +77,7 @@ public sealed partial class MapViewModel(
                 return string.Empty;
             }
 
-            var values = new List<string> { SelectedRecommendation.Category };
+            var values = new List<string> { SelectedRecommendation.RefinedType ?? SelectedRecommendation.Category };
             if (!string.IsNullOrWhiteSpace(SelectedRecommendation.Neighborhood))
             {
                 values.Add(SelectedRecommendation.Neighborhood);
@@ -166,6 +167,7 @@ public sealed partial class MapViewModel(
         TotalPages = 1;
         TotalItems = 0;
         SearchText = string.Empty;
+        _activeSearchQuery = null;
         OnPropertyChanged(nameof(CanAddToItinerary));
     }
 
@@ -181,7 +183,7 @@ public sealed partial class MapViewModel(
     [RelayCommand]
     private async Task SelectRecommendationAsync(RecommendationDto? recommendation)
     {
-        if (recommendation is null || !VisibleNearbyRecommendations.Any(item => item.Id == recommendation.Id))
+        if (recommendation is null || !VisibleNearbyRecommendations.Any(item => item.SelectionKey == recommendation.SelectionKey))
         {
             return;
         }
@@ -217,14 +219,6 @@ public sealed partial class MapViewModel(
             return;
         }
 
-        if (recommendation.Id == Guid.Empty)
-        {
-            StatusMessage = recommendation.Attribution is null
-                ? "Detalle externo no disponible."
-                : $"Información provista por {recommendation.Attribution}. Puedes agregarla a tu itinerario.";
-            return;
-        }
-
         if (sessionService.RequiresTripSetup)
         {
             pendingStore.Set(recommendation);
@@ -257,21 +251,32 @@ public sealed partial class MapViewModel(
     {
         if (string.IsNullOrWhiteSpace(SearchText))
         {
+            _activeSearchQuery = null;
             await LoadNearbyRecommendationsLocalFirstAsync(ct);
             return;
         }
-        var token = await sessionService.GetTokenAsync();
-        if (string.IsNullOrWhiteSpace(token)) return;
-        var results = await apiClient.SearchPlacesAsync(token, new PlaceSearchRequest(SearchText.Trim()), ct);
-        ApplyRecommendations(results.Select(item => item with
-        {
-            DistanceKm = item.DistanceKm ?? CalculateDistanceKm(TokyoStationLatitude, TokyoStationLongitude, item.Latitude, item.Longitude)
-        }).OrderBy(item => item.DistanceKm).ToList(), true);
+        _activeSearchQuery = SearchText.Trim();
+        await LoadSearchPageAsync(1, ct);
     });
+
+    private async Task LoadSearchPageAsync(int page, CancellationToken cancellationToken)
+    {
+        var token = await sessionService.GetTokenAsync();
+        if (string.IsNullOrWhiteSpace(token) || _activeSearchQuery is null) return;
+        var result = await apiClient.SearchPlacesPageAsync(token, new PlaceSearchRequest(_activeSearchQuery), page, cancellationToken);
+        if (result is null) return;
+        SelectedRecommendation = null;
+        CurrentPage = result.Page;
+        TotalItems = result.TotalItems;
+        TotalPages = result.TotalPages;
+        VisibleNearbyRecommendations = result.Items;
+        OnPropertyChanged(nameof(CanBrowseSelectedRecommendations));
+        OnPropertyChanged(nameof(SelectedRecommendationPosition));
+    }
 
 
     [RelayCommand]
-    private void PreviousPage()
+    private async Task PreviousPageAsync()
     {
         if (!CanGoPrevious)
         {
@@ -279,12 +284,13 @@ public sealed partial class MapViewModel(
         }
 
         SelectedRecommendation = null;
+        if (_activeSearchQuery is not null) { await LoadAsync(ct => LoadSearchPageAsync(CurrentPage - 1, ct)); return; }
         CurrentPage--;
         ApplyCurrentPage();
     }
 
     [RelayCommand]
-    private void NextPage()
+    private async Task NextPageAsync()
     {
         if (!CanGoNext)
         {
@@ -292,6 +298,7 @@ public sealed partial class MapViewModel(
         }
 
         SelectedRecommendation = null;
+        if (_activeSearchQuery is not null) { await LoadAsync(ct => LoadSearchPageAsync(CurrentPage + 1, ct)); return; }
         CurrentPage++;
         ApplyCurrentPage();
     }
@@ -465,7 +472,7 @@ public sealed partial class MapViewModel(
 
         for (var index = 0; index < VisibleNearbyRecommendations.Count; index++)
         {
-            if (VisibleNearbyRecommendations[index].Id == SelectedRecommendation.Id)
+            if (VisibleNearbyRecommendations[index].SelectionKey == SelectedRecommendation.SelectionKey)
             {
                 return index;
             }

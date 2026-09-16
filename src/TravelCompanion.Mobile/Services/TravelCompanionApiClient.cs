@@ -597,8 +597,36 @@ public sealed class TravelCompanionApiClient
     private static HttpRequestMessage CreateAuthorizedRequest(HttpMethod method, string url, string token)
     {
         var request = new HttpRequestMessage(method, url);
+        request.Headers.AcceptLanguage.ParseAdd(System.Globalization.CultureInfo.CurrentUICulture.Name);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         return request;
+    }
+
+    public async Task<PagedResultDto<RecommendationDto>?> SearchPlacesPageAsync(string token, PlaceSearchRequest query, int page, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Post, $"api/mobile/places/search-page?page={page}", token);
+        request.Content = JsonContent.Create(query, options: JsonOptions);
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<PagedResultDto<RecommendationDto>>(JsonOptions, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<IReadOnlyList<PlaceSuggestionDto>> AutocompleteHotelsAsync(string token, PlaceAutocompleteRequest query, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Post, "api/mobile/places/autocomplete", token);
+        request.Content = JsonContent.Create(query, options: JsonOptions);
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<List<PlaceSuggestionDto>>(JsonOptions, cancellationToken).ConfigureAwait(false) ?? [];
+    }
+
+    public async Task<RecommendationDto?> GetPlaceDetailsAsync(string token, PlaceDetailsRequest query, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Post, "api/mobile/places/details", token);
+        request.Content = JsonContent.Create(query, options: JsonOptions);
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode) return null;
+        return await response.Content.ReadFromJsonAsync<RecommendationDto>(JsonOptions, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<IReadOnlyList<T>> GetPagedItemsAsync<T>(

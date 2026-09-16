@@ -329,7 +329,10 @@ public sealed class TravelChatService(
         var ranked = planningResult.RankedRecommendations
             .Take(3)
             .ToList();
-        var cards = ranked.Select(scored => responseComposer.ToRecommendationCard(scored, context)).ToList();
+        var cards = ranked.Select(scored => responseComposer.ToRecommendationCard(scored, context) with
+        {
+            Description = RecommendationPresentation.ToDto(scored.Recommendation, locale: locale).DisplayDescription
+        }).ToList();
         var defaultSuggestedReplies = responseComposer.CreateSuggestedReplies(responseMode, locale);
         var defaultMessage = responseComposer.CreateAssistantMessage(city, planningWindow.Value, ranked, responseMode, locale);
         var modelResult = await CreateModelResponseAsync(

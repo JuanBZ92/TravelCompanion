@@ -15,6 +15,13 @@ using TravelCompanion.Api.Options;
 using TravelCompanion.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.Configure<RequestLocalizationOptions>(options =>
+{
+    options.SetDefaultCulture("en-US").AddSupportedCultures("en-US")
+        .AddSupportedUICultures("es", "es-ES", "en", "en-US");
+    options.DefaultRequestCulture = new Microsoft.AspNetCore.Localization.RequestCulture("en-US", "es");
+    options.RequestCultureProviders = [new Microsoft.AspNetCore.Localization.AcceptLanguageHeaderRequestCultureProvider()];
+});
 
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -155,6 +162,7 @@ app.MapGet("/health", () => Results.Ok(new
     status = "ok",
     service = "TravelCompanion.Api"
 }));
+app.UseRequestLocalization();
 app.MapControllers();
 app.MapRazorPages();
 

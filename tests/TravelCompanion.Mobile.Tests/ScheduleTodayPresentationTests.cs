@@ -38,8 +38,8 @@ public sealed class ScheduleTodayPresentationTests
         var viewModel = new TodayLocationViewModel(dto);
 
         Assert.True(viewModel.IsAssigned);
-        Assert.True(viewModel.HasAssignmentLabel);
-        Assert.Equal("RECOMENDACION CURADA", viewModel.AssignmentLabel);
+        Assert.False(viewModel.HasAssignmentLabel);
+        Assert.Equal(string.Empty, viewModel.AssignmentLabel);
         Assert.False(viewModel.CanDismiss);
         Assert.False(viewModel.CanMarkVisited);
         Assert.False(viewModel.CanRemove);

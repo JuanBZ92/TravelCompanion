@@ -140,25 +140,69 @@ public sealed partial class BuilderSetupViewModel(
     [RelayCommand]
     private async Task SearchHotelAsync(BuilderSegmentViewModel? segment)
     {
-        if (segment is null || string.IsNullOrWhiteSpace(segment.City)) return;
-        var token = await sessionService.GetTokenAsync();
-        if (string.IsNullOrWhiteSpace(token)) return;
-        var query = string.IsNullOrWhiteSpace(segment.HotelName) ? "hotel" : segment.HotelName.Trim();
-        var results = await apiClient.SearchPlacesAsync(token, new PlaceSearchRequest(query, City: segment.City));
-        if (results.Count == 0)
+        if (segment is null || segment.ApplyingHotelSelection) return;
+        segment.CancelHotelSearch();
+        segment.HotelSuggestions.Clear();
+        if (segment.HotelName.Trim().Length < 3 || string.IsNullOrWhiteSpace(segment.City)) return;
+        using var operation = new CancellationTokenSource();
+        segment.HotelSearch = operation;
+        var query = segment.HotelName.Trim();
+        var city = segment.City;
+        try
         {
-            StatusMessage = "No encontramos hoteles. Puedes escribirlo manualmente.";
-            return;
+            await Task.Delay(350, operation.Token);
+            var token = await sessionService.GetTokenAsync();
+            if (string.IsNullOrWhiteSpace(token)) return;
+            var results = await apiClient.AutocompleteHotelsAsync(token, new PlaceAutocompleteRequest(query, city,
+                segment.HotelSessionToken, System.Globalization.CultureInfo.CurrentUICulture.Name), operation.Token);
+            if (operation.IsCancellationRequested || segment.City != city || segment.HotelName.Trim() != query) return;
+            foreach (var result in results.Take(5)) segment.HotelSuggestions.Add(result);
+            StatusMessage = results.Count == 0 ? "Sin resultados. Puedes escribir el hotel y direccion manualmente." : null;
         }
-        var choices = results.Take(8).Select(item => item.Title).Append("Cancelar").ToArray();
-        var selected = await Shell.Current.DisplayActionSheetAsync("Elegir hotel/base", "Cancelar", null, choices);
-        var hotel = results.FirstOrDefault(item => item.Title == selected);
-        if (hotel is null) return;
-        segment.HotelName = hotel.Title;
-        segment.HotelAddress = hotel.Neighborhood;
-        segment.HotelLatitude = hotel.Latitude;
-        segment.HotelLongitude = hotel.Longitude;
-        segment.HotelPlaceId = hotel.ProviderPlaceId ?? string.Empty;
+        catch (OperationCanceledException) { }
+        catch (Exception) { if (!operation.IsCancellationRequested) StatusMessage = "Busqueda no disponible. Puedes escribir el hotel y direccion manualmente."; }
+        finally { if (ReferenceEquals(segment.HotelSearch, operation)) segment.HotelSearch = null; }
+    }
+
+    public Task SearchHotelSuggestionsAsync(BuilderSegmentViewModel segment) => SearchHotelAsync(segment);
+
+    public async Task SelectHotelAsync(BuilderSegmentViewModel segment, PlaceSuggestionDto suggestion)
+    {
+        segment.CancelHotelSearch();
+        var query = segment.HotelName;
+        var city = segment.City;
+        var session = segment.HotelSessionToken;
+        using var operation = new CancellationTokenSource();
+        segment.HotelSearch = operation;
+        try
+        {
+            var token = await sessionService.GetTokenAsync();
+            if (string.IsNullOrWhiteSpace(token)) return;
+            var hotel = await apiClient.GetPlaceDetailsAsync(token, new PlaceDetailsRequest(suggestion.PlaceId, session,
+                System.Globalization.CultureInfo.CurrentUICulture.Name), operation.Token);
+            if (operation.IsCancellationRequested || segment.City != city || segment.HotelName != query) return;
+            if (hotel is null) { StatusMessage = "No pudimos cargar el hotel. Puedes completarlo manualmente."; return; }
+            segment.ApplyingHotelSelection = true;
+            segment.HotelName = hotel.Title;
+            segment.HotelAddress = hotel.Neighborhood;
+            segment.HotelLatitude = hotel.Latitude;
+            segment.HotelLongitude = hotel.Longitude;
+            segment.HotelPlaceId = hotel.ProviderPlaceId ?? string.Empty;
+            segment.HotelSuggestions.Clear();
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception) { StatusMessage = "No pudimos cargar el hotel. Puedes completarlo manualmente."; }
+        finally
+        {
+            segment.ApplyingHotelSelection = false;
+            segment.HotelSessionToken = Guid.NewGuid().ToString();
+            if (ReferenceEquals(segment.HotelSearch, operation)) segment.HotelSearch = null;
+        }
+    }
+
+    public void CancelHotelSearches()
+    {
+        foreach (var segment in Segments) segment.CancelHotelSearch();
     }
 
     [RelayCommand]
@@ -293,6 +337,23 @@ public sealed partial class BuilderSetupViewModel(
 
 public sealed partial class BuilderSegmentViewModel : ObservableObject
 {
+    public ObservableCollection<PlaceSuggestionDto> HotelSuggestions { get; } = [];
+    public CancellationTokenSource? HotelSearch { get; set; }
+    public string HotelSessionToken { get; set; } = Guid.NewGuid().ToString();
+    public bool ApplyingHotelSelection { get; set; }
+    public void CancelHotelSearch() { HotelSearch?.Cancel(); HotelSearch = null; }
+    partial void OnHotelNameChanged(string value) => InvalidateHotel();
+    partial void OnCityChanged(string value) => InvalidateHotel();
+    private void InvalidateHotel()
+    {
+        if (ApplyingHotelSelection) return;
+        CancelHotelSearch();
+        HotelPlaceId = string.Empty;
+        HotelAddress = string.Empty;
+        HotelLatitude = null;
+        HotelLongitude = null;
+        HotelSuggestions.Clear();
+    }
     [ObservableProperty] private string _city = "Tokyo";
     [ObservableProperty] private DateTime _startsOn = DateTime.Today;
     [ObservableProperty] private DateTime _endsOn = DateTime.Today;

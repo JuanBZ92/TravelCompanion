@@ -130,23 +130,7 @@ public sealed class FreeMapPreviewService(
             recommendation.Latitude,
             recommendation.Longitude,
             FreeMapMarkerAccess.Unlocked,
-            new RecommendationDto(
-                recommendation.Id,
-                recommendation.DestinationId,
-                recommendation.Title,
-                recommendation.Category,
-                recommendation.Neighborhood,
-                recommendation.Description,
-                recommendation.Tags,
-                recommendation.PriceLevel,
-                recommendation.Latitude,
-                recommendation.Longitude,
-                recommendation.SuggestedDurationMinutes,
-                recommendation.Rating,
-                recommendation.OpeningHours,
-                recommendation.AccessLevel,
-                [],
-                candidate.DistanceKm));
+            RecommendationPresentation.ToDto(recommendation, candidate.DistanceKm) with { PackageIds = [] });
     }
 
     private byte[] GetObfuscationKey()

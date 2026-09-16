@@ -54,7 +54,7 @@ public sealed class TravelerItineraryService(
                 : isGooglePlace ? ItineraryItemSource.GooglePlace
                 : ItineraryItemSource.Manual,
             TimePrecision = request.UseExactTime ? ItineraryTimePrecision.Exact : ItineraryTimePrecision.PeriodOnly,
-            ProviderPlaceId = request.GooglePlaceId?.Trim(),
+            ProviderPlaceId = recommendation?.ProviderPlaceId ?? request.GooglePlaceId?.Trim(),
             Date = request.Date,
             StartsAt = startsAt,
             EndsAt = request.UseExactTime ? request.EndsAt : null,

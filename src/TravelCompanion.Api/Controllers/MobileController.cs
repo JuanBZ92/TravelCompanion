@@ -636,26 +636,11 @@ public sealed class MobileController(
 
     private static RecommendationDto ToRecommendationDto(
         Recommendation recommendation,
-        bool useSummaryDescription) =>
-        new(
-            recommendation.Id,
-            recommendation.DestinationId,
-            recommendation.Title,
-            recommendation.Category,
-            recommendation.Neighborhood,
-            useSummaryDescription
-                ? CreateSummaryDescription(recommendation.Description)
-                : recommendation.Description,
-            recommendation.Tags,
-            recommendation.PriceLevel,
-            recommendation.Latitude,
-            recommendation.Longitude,
-            recommendation.SuggestedDurationMinutes,
-            recommendation.Rating,
-            recommendation.OpeningHours,
-            recommendation.AccessLevel,
-            recommendation.Packages.Select(package => package.Id).ToList(),
-            null);
+        bool useSummaryDescription)
+    {
+        var dto = RecommendationPresentation.ToDto(recommendation);
+        return useSummaryDescription ? dto with { Description = CreateSummaryDescription(dto.Description) } : dto;
+    }
 
     internal static RecommendationDto ToRecommendationDtoForInternalUse(Recommendation recommendation) =>
         ToRecommendationDto(recommendation, useSummaryDescription: true);

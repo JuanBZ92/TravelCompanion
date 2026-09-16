@@ -36,6 +36,8 @@ public sealed record TravelCardDto(
     string? ReservationId)
 {
     public IReadOnlyList<string> Tags { get; init; } = [];
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? ProviderPlaceId { get; init; }
 }
 
 public sealed record MissingContextDto(

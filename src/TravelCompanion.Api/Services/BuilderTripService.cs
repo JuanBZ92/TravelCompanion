@@ -7,7 +7,8 @@ namespace TravelCompanion.Api.Services;
 
 public sealed class BuilderTripService(
     TravelCompanionDbContext dbContext,
-    UserSessionService sessionService)
+    UserSessionService sessionService,
+    IGooglePlacesService? googlePlaces = null)
 {
     private const int MaxTripDays = 91;
 
@@ -32,7 +33,7 @@ public sealed class BuilderTripService(
             .Include(item => item.DayPlans)
             .Include(item => item.Destination)
             .FirstOrDefaultAsync(item => item.Id == grant.TripId && item.AppUserId == access.User.Id, cancellationToken);
-        return trip is null ? EmptySetup("Japan", "Asia/Tokyo") : ToDto(trip);
+        return trip is null ? EmptySetup("Japan", "Asia/Tokyo") : await ResolveHotelsAsync(trip, cancellationToken);
     }
 
     public async Task<BuilderTripSetupDto> SaveAsync(
@@ -95,7 +96,7 @@ public sealed class BuilderTripService(
         trip.UpdatedAtUtc = DateTimeOffset.UtcNow;
         await dbContext.SaveChangesAsync(cancellationToken);
         await sessionService.BindCurrentSessionToTripAsync(httpContext, trip.Id, cancellationToken);
-        return ToDto(trip);
+        return await ResolveHotelsAsync(trip, cancellationToken);
     }
 
     private async Task<TravelerAccessContext?> GetBuilderAccessAsync(HttpContext context, CancellationToken cancellationToken)
@@ -159,11 +160,12 @@ public sealed class BuilderTripService(
 
             day.DayNumber = date.DayNumber - trip.StartsOn.DayNumber + 1;
             day.City = segment.City.Trim();
-            day.HotelBase = segment.HotelName?.Trim() ?? string.Empty;
-            day.BaseAddress = segment.HotelAddress?.Trim() ?? string.Empty;
+            var externalHotel = !string.IsNullOrWhiteSpace(segment.HotelPlaceId);
+            day.HotelBase = externalHotel ? string.Empty : segment.HotelName?.Trim() ?? string.Empty;
+            day.BaseAddress = externalHotel ? string.Empty : segment.HotelAddress?.Trim() ?? string.Empty;
             day.BaseProviderPlaceId = segment.HotelPlaceId?.Trim();
-            day.BaseLatitude = segment.HotelLatitude;
-            day.BaseLongitude = segment.HotelLongitude;
+            day.BaseLatitude = externalHotel ? null : segment.HotelLatitude;
+            day.BaseLongitude = externalHotel ? null : segment.HotelLongitude;
             foreach (var period in TripPlanPeriods.All)
             {
                 var block = day.Blocks.FirstOrDefault(item => item.PeriodKey == period.Key);
@@ -195,7 +197,7 @@ public sealed class BuilderTripService(
         foreach (var day in trip.DayPlans.OrderBy(item => item.Date))
         {
             var previous = segments.LastOrDefault();
-            if (previous is not null && previous.City == day.City && previous.HotelName == day.HotelBase
+            if (previous is not null && previous.City == day.City && previous.HotelName == day.HotelBase && previous.HotelPlaceId == day.BaseProviderPlaceId
                 && previous.HotelAddress == day.BaseAddress && previous.EndsOn.AddDays(1) == day.Date)
             {
                 segments[^1] = previous with { EndsOn = day.Date };
@@ -207,6 +209,26 @@ public sealed class BuilderTripService(
         }
 
         return new(true, trip.Id, trip.PlanRevision, trip.StartsOn, trip.EndsOn, trip.Destination?.Name ?? "Japan", trip.TimeZoneId, segments);
+    }
+
+    private async Task<BuilderTripSetupDto> ResolveHotelsAsync(Trip trip, CancellationToken cancellationToken)
+    {
+        var dto = ToDto(trip);
+        var segments = new List<BuilderTripSetupSegmentDto>();
+        var resolved = new Dictionary<string, RecommendationDto?>();
+        foreach (var segment in dto.Segments)
+        {
+            if (string.IsNullOrWhiteSpace(segment.HotelPlaceId)) { segments.Add(segment); continue; }
+            if (!resolved.TryGetValue(segment.HotelPlaceId, out var place))
+            {
+                place = googlePlaces is null ? null : await googlePlaces.DetailsAsync(trip.DestinationId,
+                    new PlaceDetailsRequest(segment.HotelPlaceId, string.Empty), cancellationToken);
+                resolved[segment.HotelPlaceId] = place;
+            }
+            segments.Add(segment with { HotelName = place?.Title ?? "Hotel", HotelAddress = place?.Neighborhood,
+                HotelLatitude = place?.Latitude, HotelLongitude = place?.Longitude });
+        }
+        return dto with { Segments = segments };
     }
 }
 

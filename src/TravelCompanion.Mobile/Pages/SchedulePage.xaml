@@ -80,6 +80,9 @@
                                    TextColor="#1A1714"
                                    LineBreakMode="TailTruncation"
                                    MaxLines="2" />
+                            <Label Text="{Binding StayAddress}" FontSize="13" TextColor="#6E675F" IsVisible="{Binding CanOpenStayMap}" />
+                            <Label Text="{Binding StayAttribution}" FontSize="11" TextColor="#6E675F" IsVisible="{Binding CanOpenStayMap}" />
+                            <Button Text="Abrir mapa" Command="{Binding OpenStayMapCommand}" IsVisible="{Binding CanOpenStayMap}" Style="{StaticResource GhostButton}" HorizontalOptions="Start" />
                         </VerticalStackLayout>
                     </Border>
 

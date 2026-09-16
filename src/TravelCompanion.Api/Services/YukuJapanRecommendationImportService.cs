@@ -15,6 +15,7 @@ public sealed partial class YukuJapanRecommendationImportService(
 {
     private const string DestinationSlug = "japon";
     public const string SourceName = "YUKU Japan verificada v1";
+    public const string BilingualSourceName = "YUKU Japan FINAL bilingue";
 
     private static readonly string[] RequiredHeaders =
     [
@@ -69,19 +70,22 @@ public sealed partial class YukuJapanRecommendationImportService(
             .ToList();
         var existingRecommendations = await dbContext.Recommendations
             .Include(recommendation => recommendation.Packages)
-            .Where(recommendation => recommendation.DestinationId == destination.Id
-                && recommendation.ExternalId != null
-                && externalIds.Contains(recommendation.ExternalId))
+            .Where(recommendation => recommendation.DestinationId == destination.Id)
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
         var existingByExternalId = existingRecommendations
+            .Where(recommendation => recommendation.ExternalId != null)
             .ToDictionary(recommendation => recommendation.ExternalId!, StringComparer.OrdinalIgnoreCase);
+        var existingByPlaceId = existingRecommendations.Where(r => r.ProviderPlaceId != null)
+            .ToDictionary(r => r.ProviderPlaceId!, StringComparer.Ordinal);
 
         var created = 0;
         var updated = 0;
         foreach (var row in parseResult.Rows)
         {
-            if (!existingByExternalId.TryGetValue(row.ExternalId, out var recommendation))
+            var found = row.ProviderPlaceId is not null && existingByPlaceId.TryGetValue(row.ProviderPlaceId, out _);
+            var recommendation = found ? existingByPlaceId[row.ProviderPlaceId!] : existingByExternalId.GetValueOrDefault(row.ExternalId);
+            if (recommendation is null)
             {
                 recommendation = new Recommendation
                 {
@@ -104,6 +108,7 @@ public sealed partial class YukuJapanRecommendationImportService(
             ApplyRow(recommendation, destination.Id, row);
         }
 
+        await EnsureCatalogCitiesAsync(destination.Id, parseResult.Rows, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
         logger.LogInformation(
@@ -149,6 +154,16 @@ public sealed partial class YukuJapanRecommendationImportService(
         }
 
         var headerMap = CreateHeaderMap(usedRange.FirstRowUsed());
+        AddAlias(headerMap, "Lugar", "Lugar (verificado)");
+        AddAlias(headerMap, "Google Maps Link", "Google Maps Link (verificado)");
+        AddAlias(headerMap, "Coordenadas Value", "Coordenadas verificadas (pin)");
+        AddAlias(headerMap, "Reserva", "Reserva (verificada)");
+        var bilingual = headerMap.ContainsKey(NormalizeHeader("Place ID (Google)"))
+            || headerMap.ContainsKey(NormalizeHeader("Comentario EN"));
+        if (bilingual && !headerMap.ContainsKey(NormalizeHeader("Place ID (Google)")))
+            errors.Add("El catalogo bilingue requiere la columna 'Place ID (Google)'.");
+        var configuredCities = await dbContext.FreeMapCities.AsNoTracking()
+            .Where(c => c.Destination!.Slug == DestinationSlug).ToListAsync(cancellationToken);
         foreach (var requiredHeader in RequiredHeaders)
         {
             if (!headerMap.ContainsKey(NormalizeHeader(requiredHeader)))
@@ -185,9 +200,28 @@ public sealed partial class YukuJapanRecommendationImportService(
             var coordinates = ReadCell(excelRow, headerMap, "Coordenadas Value");
             var reservation = ReadCell(excelRow, headerMap, "Reserva");
             var approximatePrice = ReadCell(excelRow, headerMap, "Precio Aprox");
+            var placeId = ReadCell(excelRow, headerMap, "Place ID (Google)");
+            var descriptionEn = ReadCell(excelRow, headerMap, "Comentario EN");
+            var extra = ReadCell(excelRow, headerMap, "Comentario Extra");
+            var extraEn = ReadCell(excelRow, headerMap, "Comentario Extra EN");
+            if (bilingual)
+            {
+                Require(rowErrors, rowNumber, "Place ID (Google)", placeId);
+                Require(rowErrors, rowNumber, "Comentario EN", descriptionEn);
+                Require(rowErrors, rowNumber, "Tipo EN", ReadCell(excelRow, headerMap, "Tipo EN"));
+                if (placeId.Length > 256 || placeId.Any(char.IsWhiteSpace)) rowErrors.Add($"Fila {rowNumber}: Place ID invalido.");
+                if (!Uri.TryCreate(mapsLink, UriKind.Absolute, out var mapsUri)
+                    || mapsUri.Scheme != "https"
+                    || !Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(mapsUri.Query).Any(p =>
+                        (p.Key == "query_place_id" || p.Key == "q") && p.Value.Any(v => v == placeId || v == $"place_id:{placeId}")))
+                    rowErrors.Add($"Fila {rowNumber}: el enlace de Maps no coincide con Place ID.");
+                if (!string.IsNullOrWhiteSpace(extra) && string.IsNullOrWhiteSpace(extraEn))
+                    rowWarnings.Add("Comentario extra sin traduccion EN; se usara espanol.");
+            }
 
             Require(rowErrors, rowNumber, "Ciudad", city);
             Require(rowErrors, rowNumber, "Lugar", title);
+            if (title.Length > 160) rowErrors.Add($"Fila {rowNumber}: Lugar supera 160 caracteres.");
             Require(rowErrors, rowNumber, "Comentario", comment);
             Require(rowErrors, rowNumber, "Tipo de comida", foodType);
             Require(rowErrors, rowNumber, "Google Maps Link", mapsLink);
@@ -205,7 +239,7 @@ public sealed partial class YukuJapanRecommendationImportService(
                 rowErrors.Add($"Fila {rowNumber}: Coordenadas Value debe tener formato 'lat, lon'.");
             }
 
-            var externalId = CreateExternalId(city, title);
+            var externalId = bilingual ? $"google-{placeId}" : CreateExternalId(city, title);
             if (!seenExternalIds.Add(externalId))
             {
                 rowErrors.Add($"Fila {rowNumber}: external_id duplicado '{externalId}' dentro del archivo.");
@@ -216,6 +250,11 @@ public sealed partial class YukuJapanRecommendationImportService(
             var duration = InferDurationMinutes(foodType);
             var rating = ParseRating(excelRow, headerMap);
             var curationNotes = CreateCurationNotes(foodType, reservation, approximatePrice);
+            var configuredCity = configuredCities.FirstOrDefault(c => c.CitySlug == RecommendationCitySlug.FromCity(city));
+            if (latitude.HasValue && longitude.HasValue && configuredCity is not null
+                && FreeMapPreviewService.CalculateDistanceKm(configuredCity.CenterLatitude, configuredCity.CenterLongitude,
+                    latitude.Value, longitude.Value) > configuredCity.CoverageRadiusKm)
+                rowWarnings.Add("Lugar fuera de la cobertura Free configurada para la ciudad.");
 
             var previewRow = new YukuJapanRecommendationImportRow(
                 rowNumber,
@@ -250,12 +289,29 @@ public sealed partial class YukuJapanRecommendationImportService(
                     longitude!.Value,
                     duration,
                     rating,
-                    SourceName,
+                    bilingual ? BilingualSourceName : SourceName,
                     mapsLink.Trim(),
-                    curationNotes));
+                    curationNotes,
+                    string.IsNullOrWhiteSpace(placeId) ? null : placeId,
+                    descriptionEn, extra, extraEn, foodType, ReadCell(excelRow, headerMap, "Tipo EN"),
+                    reservation, ReadCell(excelRow, headerMap, "Reserva EN"), approximatePrice,
+                    !rowWarnings.Any(w => w.StartsWith("Precio Aprox", StringComparison.Ordinal)),
+                    int.TryParse(ReadCell(excelRow, headerMap, "Confianza (1-5)"), out var confidence) && confidence is >= 1 and <= 5 ? confidence : null,
+                    ReadCell(excelRow, headerMap, "Fuente reserva"), ReadCell(excelRow, headerMap, "Verificacion")));
             }
         }
 
+        if (rows.Count == 0) errors.Add("El archivo no contiene recomendaciones.");
+        foreach (var group in drafts.GroupBy(r => r.CitySlug))
+        {
+            if (configuredCities.Any(c => c.CitySlug == group.Key)) continue;
+            var center = FindCenter(group);
+            foreach (var row in group.Where(r => Distance(center, r) > 25m))
+            {
+                var preview = rows.FindIndex(r => r.ExternalId == row.ExternalId);
+                rows[preview] = rows[preview] with { Warnings = [.. rows[preview].Warnings, "Lugar fuera de la cobertura inicial Free de 25 km."] };
+            }
+        }
         return new ParsedYukuJapanWorkbook(drafts, CreateResult(rows, errors, imported: false));
     }
 
@@ -316,6 +372,19 @@ public sealed partial class YukuJapanRecommendationImportService(
     private static void ApplyRow(Recommendation recommendation, Guid destinationId, YukuJapanRecommendationDraft row)
     {
         recommendation.ExternalId = row.ExternalId;
+        recommendation.ProviderPlaceId = row.ProviderPlaceId;
+        recommendation.DescriptionEn = row.DescriptionEn;
+        recommendation.ExtraDescription = row.ExtraDescription;
+        recommendation.ExtraDescriptionEn = row.ExtraDescriptionEn;
+        recommendation.RefinedType = row.RefinedType;
+        recommendation.RefinedTypeEn = row.RefinedTypeEn;
+        recommendation.ReservationInstructions = row.ReservationInstructions;
+        recommendation.ReservationInstructionsEn = row.ReservationInstructionsEn;
+        recommendation.OriginalPrice = row.OriginalPrice;
+        recommendation.IsPriceKnown = row.IsPriceKnown;
+        recommendation.VerificationConfidence = row.VerificationConfidence;
+        recommendation.ReservationSource = row.ReservationSource;
+        recommendation.VerificationNotes = row.VerificationNotes;
         recommendation.DestinationId = destinationId;
         recommendation.Title = row.Title;
         recommendation.Category = row.Category;
@@ -339,14 +408,20 @@ public sealed partial class YukuJapanRecommendationImportService(
     private static string InferCategory(string foodType)
     {
         var normalized = NormalizeSearchText(foodType);
-        return normalized.Contains("bar", StringComparison.Ordinal)
-            ? "Nightlife"
-            : "Food";
+        if (ContainsAny(normalized, "museo", "templo", "santuario", "castillo", "villa imperial", "galeria", "arquitectura", "sumo", "acuario", "barrio")) return "Culture";
+        if (ContainsAny(normalized, "jardin", "naturaleza", "rio paseo")) return "Nature";
+        if (ContainsAny(normalized, "club", "sake bar", "jazz kissa") || normalized == "bar" || normalized.StartsWith("bar ", StringComparison.Ordinal)) return "Nightlife";
+        if (normalized.StartsWith("cafe", StringComparison.Ordinal)) return "Food";
+        if (ContainsAny(normalized, "artesania", "audio", "calle", "cuchilleria", "discos", "diseno", "fotografia", "librer", "papel", "textil", "moda", "washi", "shotengai", "compras")) return "Shopping";
+        return "Food";
     }
 
     private static int InferDurationMinutes(string foodType)
     {
         var normalized = NormalizeSearchText(foodType);
+        if (InferCategory(foodType) == "Nature") return 90;
+        if (InferCategory(foodType) == "Culture") return 90;
+        if (InferCategory(foodType) == "Shopping") return 60;
         if (ContainsAny(normalized, "cafe", "desayuno"))
         {
             return 45;
@@ -383,16 +458,25 @@ public sealed partial class YukuJapanRecommendationImportService(
         string comment)
     {
         var tags = new List<string>();
-        AddTag(tags, "food");
+        var category = InferCategory(foodType);
+        AddTag(tags, category.ToLowerInvariant());
+        if (category is "Culture" or "Nature" or "Shopping")
+        {
+            var type = NormalizeSearchText(foodType);
+            foreach (var (word, tag) in new[] { ("museo", "museum"), ("templo", "temple"), ("santuario", "shrine"), ("jardin", "garden"), ("naturaleza", "nature"), ("artesania", "crafts"), ("discos", "music"), ("galeria", "art"), ("arquitectura", "architecture"), ("compras", "shopping") })
+                AddIfContains(tags, type, word, tag);
+            return tags;
+        }
 
         var normalizedType = NormalizeSearchText(foodType);
         var normalizedReservation = NormalizeSearchText(reservation);
         var searchableText = NormalizeSearchText($"{foodType} {title} {comment}");
 
-        if (ContainsAny(normalizedType, "bar"))
+        if (category == "Nightlife")
         {
             AddTag(tags, "nightlife");
-            AddTag(tags, "bar");
+            if (normalizedType.Contains("club", StringComparison.Ordinal)) AddTag(tags, "dancing");
+            else AddTag(tags, "bar");
         }
 
         AddIfContains(tags, searchableText, "sushi", "sushi");
@@ -442,6 +526,7 @@ public sealed partial class YukuJapanRecommendationImportService(
 
     private static string InferPriceLevel(string approximatePrice, List<string> warnings)
     {
+        if (ContainsAny(NormalizeSearchText(approximatePrice), "gratis", "free", "gratuit")) return "low";
         var values = NumberRegex()
             .Matches(approximatePrice)
             .Select(match => match.Value.Replace(",", string.Empty).Replace(".", string.Empty))
@@ -473,6 +558,7 @@ public sealed partial class YukuJapanRecommendationImportService(
 
         return decimal.TryParse(match.Groups[1].Value, NumberStyles.Number, CultureInfo.InvariantCulture, out var latitude)
             && decimal.TryParse(match.Groups[2].Value, NumberStyles.Number, CultureInfo.InvariantCulture, out var longitude)
+            && latitude is >= -90 and <= 90 && longitude is >= -180 and <= 180
             ? (latitude, longitude)
             : (null, null);
     }
@@ -624,7 +710,43 @@ public sealed partial class YukuJapanRecommendationImportService(
         double? Rating,
         string SourceName,
         string SourceUrl,
-        string CurationNotes);
+        string CurationNotes,
+        string? ProviderPlaceId, string? DescriptionEn, string? ExtraDescription, string? ExtraDescriptionEn,
+        string? RefinedType, string? RefinedTypeEn, string? ReservationInstructions, string? ReservationInstructionsEn,
+        string? OriginalPrice, bool IsPriceKnown, int? VerificationConfidence, string? ReservationSource, string? VerificationNotes);
+
+    private static void AddAlias(Dictionary<string, int> headers, string original, string alias)
+    {
+        if (headers.TryGetValue(NormalizeHeader(alias), out var column)) headers[NormalizeHeader(original)] = column;
+    }
+
+    private static decimal Distance(YukuJapanRecommendationDraft a, YukuJapanRecommendationDraft b) =>
+        FreeMapPreviewService.CalculateDistanceKm(a.Latitude, a.Longitude, b.Latitude, b.Longitude);
+
+    private static YukuJapanRecommendationDraft FindCenter(IEnumerable<YukuJapanRecommendationDraft> rows)
+    {
+        var candidates = rows.ToList();
+        return candidates.OrderBy(a => candidates.Sum(b => Distance(a, b)))
+            .ThenBy(a => a.ProviderPlaceId ?? a.ExternalId, StringComparer.Ordinal).First();
+    }
+
+    private async Task EnsureCatalogCitiesAsync(Guid destinationId, IReadOnlyList<YukuJapanRecommendationDraft> rows, CancellationToken cancellationToken)
+    {
+        var cities = await dbContext.FreeMapCities.Where(c => c.DestinationId == destinationId).ToListAsync(cancellationToken);
+        var order = cities.Select(c => c.SortOrder).DefaultIfEmpty(0).Max();
+        foreach (var group in rows.GroupBy(r => r.CitySlug).OrderBy(g => g.Key, StringComparer.Ordinal))
+        {
+            if (cities.Any(c => c.CitySlug == group.Key)) continue;
+            var center = FindCenter(group);
+            dbContext.FreeMapCities.Add(new FreeMapCity
+            {
+                Id = Guid.NewGuid(), DestinationId = destinationId, CitySlug = group.Key,
+                DisplayName = center.Neighborhood.Split(',')[0], CenterLatitude = center.Latitude,
+                CenterLongitude = center.Longitude, FreeRadiusKm = 2, CoverageRadiusKm = 25,
+                SortOrder = ++order, IsEnabled = true
+            });
+        }
+    }
 }
 
 public sealed record YukuJapanRecommendationImportResult(

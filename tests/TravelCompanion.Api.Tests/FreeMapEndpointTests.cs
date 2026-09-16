@@ -45,6 +45,8 @@ public sealed class FreeMapEndpointTests
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/mobile/today")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/mobile/docs")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/me/schedule")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync("/api/mobile/places/autocomplete", new PlaceAutocompleteRequest("hotel", "Tokyo", Guid.NewGuid().ToString()))).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync("/api/mobile/places/details", new PlaceDetailsRequest("ChIJtest", Guid.NewGuid().ToString()))).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync(
             "/api/ai/travel-chat",
             new { message = "plan", locale = "es" })).StatusCode);

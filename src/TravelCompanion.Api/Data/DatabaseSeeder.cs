@@ -34,7 +34,6 @@ public static class DatabaseSeeder
         _ = passwordHasher;
 
         var japan = await EnsureJapanDestinationAsync(dbContext);
-        await RemoveLegacySeedDataAsync(dbContext, japan.Id);
         await EnsureFreePreviewAccountAsync(dbContext);
         await EnsureFreeMapCitiesAsync(dbContext, japan.Id);
         await EnsureBuilderDemoAccessAsync(
@@ -62,9 +61,9 @@ public static class DatabaseSeeder
         }
 
         pin = pin.Trim();
-        if (pin.Length != 6 || pin.Any(character => !char.IsDigit(character)))
+        if (pin.Length is not (4 or 6) || pin == "0000" || pin.Any(character => !char.IsAsciiDigit(character)))
         {
-            throw new InvalidOperationException("BuilderDemo:Pin must contain exactly 6 digits.");
+            throw new InvalidOperationException("BuilderDemo:Pin must contain 4 or 6 digits and cannot be 0000.");
         }
 
         if (await dbContext.AppUsers.AnyAsync(user => user.Email == demoEmail))

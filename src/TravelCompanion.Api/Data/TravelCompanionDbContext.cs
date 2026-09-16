@@ -55,6 +55,8 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
             entity.HasIndex(recommendation => new { recommendation.DestinationId, recommendation.Category, recommendation.Title });
             entity.HasIndex(recommendation => new { recommendation.DestinationId, recommendation.CitySlug });
             entity.Property(recommendation => recommendation.ExternalId).HasMaxLength(160);
+            entity.Property(recommendation => recommendation.ProviderPlaceId).HasMaxLength(256);
+            entity.HasIndex(recommendation => new { recommendation.DestinationId, recommendation.ProviderPlaceId }).IsUnique();
             entity.Property(recommendation => recommendation.Title).HasMaxLength(160);
             entity.Property(recommendation => recommendation.Category).HasMaxLength(80);
             entity.Property(recommendation => recommendation.Neighborhood).HasMaxLength(120);

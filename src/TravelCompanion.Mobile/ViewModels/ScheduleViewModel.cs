@@ -85,6 +85,16 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         && !_tripStartsOn.HasValue;
     public bool HasPreviewMessage => !string.IsNullOrWhiteSpace(PreviewMessage);
     public bool HasStayCard => !string.IsNullOrWhiteSpace(StayTitle);
+    public string StayAddress => _today is not null && _today.Date == _selectedDate ? _today.HotelBase?.Address ?? string.Empty : string.Empty;
+    public bool CanOpenStayMap => _today is not null && _today.Date == _selectedDate && _today.HotelBase is not null;
+    public string? StayAttribution => CanOpenStayMap ? _today?.HotelBase?.Attribution : null;
+
+    [RelayCommand]
+    private async Task OpenStayMapAsync()
+    {
+        if (!CanOpenStayMap || _today?.HotelBase is not { } hotel) return;
+        await GoogleMapsLauncher.OpenAsync($"{hotel.Name}, {hotel.Address}", hotel.ProviderPlaceId);
+    }
     public string SelectedCity => _selectedCity;
     public string SelectedDateLabel => _selectedDate.HasValue
         ? FormatLongDate(_selectedDate.Value)
@@ -643,7 +653,10 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
 
         var selectedDate = _selectedDate.Value;
         _selectedCity = GetCityForDate(selectedDate, TripTitle);
-        StayTitle = GetStayTitleForDate(selectedDate);
+        StayTitle = (_today?.Date == selectedDate ? _today.HotelBase?.Name : null) ?? GetStayTitleForDate(selectedDate);
+        OnPropertyChanged(nameof(StayAddress));
+        OnPropertyChanged(nameof(CanOpenStayMap));
+        OnPropertyChanged(nameof(StayAttribution));
         PreviewMessage = null;
 
         var selectedItems = _allItems

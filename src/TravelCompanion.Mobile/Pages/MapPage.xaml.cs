@@ -2,6 +2,7 @@ using System;
 using System.ComponentModel;
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
+using Microsoft.Maui;
 using TravelCompanion.Mobile.Controls;
 using TravelCompanion.Mobile.ViewModels;
 using TravelCompanion.Shared.Dtos;
@@ -60,6 +61,7 @@ public partial class MapPage : ContentPage
 
         MapContainer.Children.Clear();
         MapContainer.Children.Add(_map);
+        _map.MapClicked += (_, _) => DismissSearchKeyboard();
 #if IOS || MACCATALYST
         _map.HandlerChanged += OnMapHandlerChanged;
 #endif
@@ -119,6 +121,7 @@ public partial class MapPage : ContentPage
 
     protected override void OnDisappearing()
     {
+        DismissSearchKeyboard();
         base.OnDisappearing();
 #if !WINDOWS
         UnsubscribeFromRecommendations();
@@ -145,6 +148,7 @@ public partial class MapPage : ContentPage
 #if !WINDOWS
         else if (e.PropertyName == nameof(MapViewModel.SelectedRecommendation))
         {
+            DismissSearchKeyboard();
             try
             {
                 RefreshMapPins(moveToBounds: false);
@@ -200,7 +204,7 @@ public partial class MapPage : ContentPage
                 Address = recommendation.Neighborhood,
                 Type = PinType.Place,
                 Location = new Location((double)recommendation.Latitude, (double)recommendation.Longitude),
-                IsSelected = recommendation.Id == _viewModel.SelectedRecommendation?.Id
+                IsSelected = recommendation.SelectionKey == _viewModel.SelectedRecommendation?.SelectionKey
             };
 
             // Store handler reference to enable proper cleanup
@@ -308,9 +312,33 @@ public partial class MapPage : ContentPage
 
     private void OnRecommendationTapped(object? sender, TappedEventArgs e)
     {
+        DismissSearchKeyboard();
         if ((sender as BindableObject)?.BindingContext is RecommendationDto recommendation)
         {
             _viewModel.SelectRecommendationCommand.Execute(recommendation);
         }
+    }
+
+    private async void OnSearchSubmitted(object? sender, EventArgs e)
+    {
+        DismissSearchKeyboard();
+        await _viewModel.SearchCommand.ExecuteAsync(null);
+    }
+
+    private async void DismissSearchKeyboard()
+    {
+        try { await PlaceSearch.HideSoftInputAsync(CancellationToken.None); }
+        catch (Exception exception) { _logger.LogDebug(exception, "Could not dismiss map search keyboard."); }
+        finally { PlaceSearch.Unfocus(); }
+    }
+
+    protected override bool OnBackButtonPressed()
+    {
+        if (PlaceSearch.IsFocused)
+        {
+            DismissSearchKeyboard();
+            return true;
+        }
+        return base.OnBackButtonPressed();
     }
 }

@@ -103,7 +103,7 @@ public sealed class BuilderAccessModel(
         for (var attempt = 0; attempt < 100; attempt++)
         {
             var candidate = RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
-            if (active.All(item => pinHasher.VerifyHashedPassword(item, item.PinHash, candidate) == PasswordVerificationResult.Failed))
+            if (await AccessPinAvailability.IsAvailableAsync(dbContext, candidate))
             {
                 return candidate;
             }

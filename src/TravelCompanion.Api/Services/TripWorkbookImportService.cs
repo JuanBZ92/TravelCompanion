@@ -184,6 +184,8 @@ public sealed partial class TripWorkbookImportService(
             .ConfigureAwait(false);
 
         var createdTrip = trip is null;
+        if (!await AccessPinAvailability.IsAvailableAsync(dbContext, metadata.Pin, trip?.Id, cancellationToken: cancellationToken))
+            throw new InvalidOperationException("El PIN ya pertenece a otro acceso o borrador.");
         var user = trip?.AppUserId is not null
             ? await dbContext.AppUsers.FirstOrDefaultAsync(existingUser => existingUser.Id == trip.AppUserId.Value, cancellationToken)
                 .ConfigureAwait(false)

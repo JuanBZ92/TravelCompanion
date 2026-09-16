@@ -342,7 +342,7 @@ public sealed class TripWorkbookImportServiceTests
     }
 
     [Fact]
-    public async Task DatabaseSeeder_removes_legacy_dummy_content_but_keeps_yuku_recommendations_free()
+    public async Task DatabaseSeeder_never_removes_existing_content_on_startup()
     {
         await using var dbContext = CreateDbContext();
         var destinationId = await SeedJapanDestinationAsync(dbContext);
@@ -405,13 +405,14 @@ public sealed class TripWorkbookImportServiceTests
 
         var remainingRecommendation = await dbContext.Recommendations
             .Include(recommendation => recommendation.Packages)
-            .SingleAsync();
+            .SingleAsync(recommendation => recommendation.Id == yukuRecommendation.Id);
         Assert.Equal(yukuRecommendation.Id, remainingRecommendation.Id);
         Assert.Equal(ContentAccessLevel.Free, remainingRecommendation.AccessLevel);
         Assert.Empty(remainingRecommendation.Packages);
-        Assert.False(await dbContext.AppUsers.AnyAsync(user => user.Email == "demo@travelcompanion.local"));
-        Assert.False(await dbContext.Trips.AnyAsync());
-        Assert.False(await dbContext.TravelPackages.AnyAsync(package => package.Slug == "japon-essentials"));
+        Assert.True(await dbContext.Recommendations.AnyAsync(r => r.Id == legacyRecommendation.Id));
+        Assert.True(await dbContext.AppUsers.AnyAsync(user => user.Email == "demo@travelcompanion.local"));
+        Assert.True(await dbContext.Trips.AnyAsync());
+        Assert.True(await dbContext.TravelPackages.AnyAsync(package => package.Slug == "japon-essentials"));
     }
 
     private static TripWorkbookImportService CreateService(TravelCompanionDbContext dbContext)

@@ -17,6 +17,39 @@ namespace TravelCompanion.Api.Tests;
 public sealed class BuilderSetupEndpointTests
 {
     [Fact]
+    public async Task Four_digit_paid_pin_resolves_mode_from_account_and_searches_descriptions_before_paging()
+    {
+        await using var factory = new BuilderApiFactory();
+        await factory.SeedBuilderAsync();
+        using var client = factory.CreateClient();
+        var login = await client.PostAsJsonAsync("/api/auth/pin-login", new PinLoginRequestDto("1111"));
+        login.EnsureSuccessStatusCode();
+        using var json = System.Text.Json.JsonDocument.Parse(await login.Content.ReadAsStringAsync());
+        Assert.Equal("SelfServiceBuilder", json.RootElement.GetProperty("experienceMode").GetString());
+        Assert.Equal(System.Text.Json.JsonValueKind.Null, json.RootElement.GetProperty("tripId").ValueKind);
+        client.DefaultRequestHeaders.Authorization = new("Bearer", json.RootElement.GetProperty("token").GetString());
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<TravelCompanionDbContext>();
+        var destination = await db.Destinations.SingleAsync();
+        for (var index = 0; index < 12; index++) db.Recommendations.Add(new Recommendation
+        {
+            Id = Guid.NewGuid(), DestinationId = destination.Id, Title = $"Cafe {index:D2}", Category = "Food",
+            Neighborhood = "Tokyo", Description = "Cafe y pasteleria", DescriptionEn = "Coffee and donuts",
+            Latitude = 35, Longitude = 139, PriceLevel = "low", ProviderPlaceId = $"ChIJ{index}"
+        });
+        await db.SaveChangesAsync();
+        client.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US");
+        var response = await client.PostAsJsonAsync("/api/mobile/places/search-page?page=2", new PlaceSearchRequest("DONUTS"));
+        response.EnsureSuccessStatusCode();
+        var page = await response.Content.ReadFromJsonAsync<PagedResultDto<RecommendationDto>>(new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web)
+        { Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() } });
+        Assert.NotNull(page);
+        Assert.Equal(12, page.TotalItems);
+        Assert.Equal(2, page.Items.Count);
+        Assert.All(page.Items, item => Assert.Equal("Coffee and donuts", item.Description));
+    }
+
+    [Fact]
     public async Task Put_setup_accepts_valid_record_validation_metadata_and_creates_trip()
     {
         await using var factory = new BuilderApiFactory();
@@ -84,7 +117,7 @@ public sealed class BuilderSetupEndpointTests
                 AppUser = user,
                 DestinationId = destination.Id,
                 Destination = destination,
-                PinHash = "test"
+                PinHash = new Microsoft.AspNetCore.Identity.PasswordHasher<BuilderAccessGrant>().HashPassword(null!, "1111")
             });
             await dbContext.SaveChangesAsync();
 

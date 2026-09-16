@@ -2,6 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:viewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
+             xmlns:dto="clr-namespace:TravelCompanion.Shared.Dtos;assembly=TravelCompanion.Shared"
              x:Class="TravelCompanion.Mobile.Pages.BuilderSetupPage"
              x:Name="PageRoot"
              x:DataType="viewModels:BuilderSetupViewModel"
@@ -27,11 +28,24 @@
                                     <Entry Placeholder="Ciudad" Text="{Binding City}" FontSize="18" />
                                     <Button Grid.Column="1" Text="×" Command="{Binding Source={x:Reference PageRoot}, Path=BindingContext.RemoveSegmentCommand}" CommandParameter="{Binding .}" Style="{StaticResource GhostButton}" />
                                     <Grid Grid.Row="1" Grid.ColumnSpan="2" ColumnDefinitions="*,*" ColumnSpacing="10"><DatePicker Date="{Binding StartsOn}"/><DatePicker Grid.Column="1" Date="{Binding EndsOn}"/></Grid>
-                                    <Entry Grid.Row="2" Grid.ColumnSpan="2" Placeholder="Hotel o base (opcional)" Text="{Binding HotelName}" />
-                                    <Entry Grid.Row="3" Grid.ColumnSpan="2" Placeholder="Dirección del hotel (opcional)" Text="{Binding HotelAddress}" />
-                                    <Button Grid.Row="4" Grid.ColumnSpan="2" Text="Buscar hotel" Style="{StaticResource GhostButton}"
-                                            Command="{Binding Source={x:Reference PageRoot}, Path=BindingContext.SearchHotelCommand}"
-                                            CommandParameter="{Binding .}" />
+                                    <Entry Grid.Row="2" Grid.ColumnSpan="2" Placeholder="Hotel o base (opcional)" Text="{Binding HotelName}" TextChanged="OnHotelTextChanged" />
+                                    <VerticalStackLayout Grid.Row="3" Grid.ColumnSpan="2">
+                                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding HotelSuggestions}">
+                                            <BindableLayout.ItemTemplate>
+                                                <DataTemplate x:DataType="dto:PlaceSuggestionDto">
+                                                    <Grid Padding="4,10" RowDefinitions="Auto,Auto">
+                                                        <Grid.GestureRecognizers><TapGestureRecognizer Tapped="OnHotelSuggestionTapped" /></Grid.GestureRecognizers>
+                                                        <Label Text="{Binding Name}" FontSize="14" TextColor="#1A1714" />
+                                                        <Label Grid.Row="1" Text="{Binding Address}" FontSize="12" TextColor="#6E675F" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </BindableLayout.ItemTemplate>
+                                        </VerticalStackLayout>
+                                        <Label Text="Google Maps" FontSize="11" TextColor="#6E675F">
+                                            <Label.Triggers><DataTrigger TargetType="Label" Binding="{Binding HotelSuggestions.Count}" Value="0"><Setter Property="IsVisible" Value="False" /></DataTrigger></Label.Triggers>
+                                        </Label>
+                                    </VerticalStackLayout>
+                                    <Entry Grid.Row="4" Grid.ColumnSpan="2" Placeholder="Dirección del hotel (opcional)" Text="{Binding HotelAddress}" />
                                 </Grid>
                             </Border>
                         </DataTemplate>
@@ -52,6 +66,7 @@
                     </Grid>
                 </Border>
                 <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
+                <Label Text="{Binding StatusMessage}" IsVisible="{Binding HasStatus}" FontSize="13" TextColor="#6E675F" />
             </VerticalStackLayout>
         </ScrollView>
         <Grid Grid.Row="1" Padding="20,12" ColumnDefinitions="*,*" ColumnSpacing="12" BackgroundColor="#FFFDF9">

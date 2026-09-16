@@ -929,16 +929,7 @@ public sealed class TripPlanEditorService(
         Guid? exceptTripId,
         CancellationToken cancellationToken)
     {
-        var trips = await dbContext.Trips
-            .AsNoTracking()
-            .Include(item => item.PlanDraft)
-            .Where(item => !exceptTripId.HasValue || item.Id != exceptTripId.Value)
-            .ToListAsync(cancellationToken);
-        return trips.All(trip =>
-            (string.IsNullOrWhiteSpace(trip.AccessPinHash)
-                || tripPinHasher.VerifyHashedPassword(trip, trip.AccessPinHash, pin) == PasswordVerificationResult.Failed)
-            && (string.IsNullOrWhiteSpace(trip.PlanDraft?.PendingAccessPinHash)
-                || tripPinHasher.VerifyHashedPassword(trip, trip.PlanDraft.PendingAccessPinHash, pin) == PasswordVerificationResult.Failed));
+        return await AccessPinAvailability.IsAvailableAsync(dbContext, pin, exceptTripId, cancellationToken: cancellationToken);
     }
 
     private static void ValidateDateRange(DateOnly startsOn, DateOnly endsOn)

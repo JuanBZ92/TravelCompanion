@@ -75,11 +75,11 @@ public sealed partial class ScheduleItemDetailViewModel : ViewModelBase, IQueryA
     [RelayCommand]
     private async Task OpenMapsAsync()
     {
-        if (ScheduleItem is null || string.IsNullOrWhiteSpace(ScheduleItem.Address))
+        if (ScheduleItem is null)
         {
             return;
         }
 
-        await GoogleMapsLauncher.OpenAsync(ScheduleItem.Address);
+        await GoogleMapsLauncher.OpenAsync($"{ScheduleItem.LocationName}, {ScheduleItem.Address}", ScheduleItem.ProviderPlaceId);
     }
 }

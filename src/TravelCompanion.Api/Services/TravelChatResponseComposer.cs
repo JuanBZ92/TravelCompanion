@@ -69,7 +69,7 @@ public sealed class TravelChatResponseComposer(ITravelAssistantTextProvider text
             "recommendation",
             recommendation.Title,
             FormatSubtitle(scored, recommendation),
-            recommendation.Description,
+            RecommendationPresentation.ToDto(recommendation).Description,
             context.WindowStart?.ToString("HH:mm", CultureInfo.InvariantCulture),
             CalculateEndTime(context.WindowStart, recommendation.SuggestedDurationMinutes),
             recommendation.PriceLevel,
@@ -80,7 +80,8 @@ public sealed class TravelChatResponseComposer(ITravelAssistantTextProvider text
             recommendation.Id.ToString(),
             null)
         {
-            Tags = recommendation.Tags.ToList()
+            Tags = recommendation.Tags.ToList(),
+            ProviderPlaceId = recommendation.ProviderPlaceId
         };
     }
 

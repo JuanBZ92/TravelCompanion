@@ -117,6 +117,15 @@ public sealed class RecommendationsModel(
             await LoadPageDataAsync();
             return Page();
         }
+        if (Input.ProviderPlaceId?.Length > 256 || (!string.IsNullOrWhiteSpace(Input.ProviderPlaceId)
+            && await dbContext.Recommendations.AnyAsync(r => r.DestinationId == Input.DestinationId && r.Id != Input.Id && r.ProviderPlaceId == Input.ProviderPlaceId.Trim())))
+            ModelState.AddModelError("Input.ProviderPlaceId", "Place ID invalido o ya asignado a otro lugar.");
+        if (Input.VerificationConfidence is < 1 or > 5) ModelState.AddModelError("Input.VerificationConfidence", "Usa un valor entre 1 y 5.");
+        if (!ModelState.IsValid)
+        {
+            await LoadPageDataAsync();
+            return Page();
+        }
 
         var tagNormalization = await tagCatalogService.NormalizeTagsAsync(
             RecommendationInput.ParseTags(Input.TagsText),
@@ -266,6 +275,19 @@ public sealed class RecommendationsModel(
 
     public sealed class RecommendationInput
     {
+        public string? ProviderPlaceId { get; set; }
+        public string? DescriptionEn { get; set; }
+        public string? ExtraDescription { get; set; }
+        public string? ExtraDescriptionEn { get; set; }
+        public string? RefinedType { get; set; }
+        public string? RefinedTypeEn { get; set; }
+        public string? ReservationInstructions { get; set; }
+        public string? ReservationInstructionsEn { get; set; }
+        public string? OriginalPrice { get; set; }
+        public bool IsPriceKnown { get; set; } = true;
+        public int? VerificationConfidence { get; set; }
+        public string? ReservationSource { get; set; }
+        public string? VerificationNotes { get; set; }
         public Guid? Id { get; set; }
         public string? ExternalId { get; set; }
         public Guid DestinationId { get; set; }
@@ -293,6 +315,19 @@ public sealed class RecommendationsModel(
             {
                 Id = recommendation.Id,
                 ExternalId = recommendation.ExternalId,
+                ProviderPlaceId = recommendation.ProviderPlaceId,
+                DescriptionEn = recommendation.DescriptionEn,
+                ExtraDescription = recommendation.ExtraDescription,
+                ExtraDescriptionEn = recommendation.ExtraDescriptionEn,
+                RefinedType = recommendation.RefinedType,
+                RefinedTypeEn = recommendation.RefinedTypeEn,
+                ReservationInstructions = recommendation.ReservationInstructions,
+                ReservationInstructionsEn = recommendation.ReservationInstructionsEn,
+                OriginalPrice = recommendation.OriginalPrice,
+                IsPriceKnown = recommendation.IsPriceKnown,
+                VerificationConfidence = recommendation.VerificationConfidence,
+                ReservationSource = recommendation.ReservationSource,
+                VerificationNotes = recommendation.VerificationNotes,
                 DestinationId = recommendation.DestinationId,
                 Title = recommendation.Title,
                 Category = recommendation.Category,
@@ -317,6 +352,19 @@ public sealed class RecommendationsModel(
         public void ApplyTo(Recommendation recommendation)
         {
             recommendation.ExternalId = NormalizeOptional(ExternalId);
+            recommendation.ProviderPlaceId = NormalizeOptional(ProviderPlaceId);
+            recommendation.DescriptionEn = NormalizeOptional(DescriptionEn);
+            recommendation.ExtraDescription = NormalizeOptional(ExtraDescription);
+            recommendation.ExtraDescriptionEn = NormalizeOptional(ExtraDescriptionEn);
+            recommendation.RefinedType = NormalizeOptional(RefinedType);
+            recommendation.RefinedTypeEn = NormalizeOptional(RefinedTypeEn);
+            recommendation.ReservationInstructions = NormalizeOptional(ReservationInstructions);
+            recommendation.ReservationInstructionsEn = NormalizeOptional(ReservationInstructionsEn);
+            recommendation.OriginalPrice = NormalizeOptional(OriginalPrice);
+            recommendation.IsPriceKnown = IsPriceKnown;
+            recommendation.VerificationConfidence = VerificationConfidence;
+            recommendation.ReservationSource = NormalizeOptional(ReservationSource);
+            recommendation.VerificationNotes = NormalizeOptional(VerificationNotes);
             recommendation.DestinationId = DestinationId;
             recommendation.Title = Title.Trim();
             recommendation.Category = Category.Trim();

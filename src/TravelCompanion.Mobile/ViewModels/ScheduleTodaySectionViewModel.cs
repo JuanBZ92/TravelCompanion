@@ -117,7 +117,7 @@ public sealed class TodayLocationViewModel
             : string.Empty;
         RankReason = string.Empty;
         VisitStatusLabel = string.Empty;
-        AssignmentLabel = isAssigned ? "RECOMENDACION CURADA" : string.Empty;
+        AssignmentLabel = string.Empty;
     }
 
     public TodayLocationViewModel(
@@ -156,6 +156,7 @@ public sealed class TodayLocationViewModel
 
     private static string GetRefinedCategory(RecommendationDto recommendation)
     {
+        if (!string.IsNullOrWhiteSpace(recommendation.RefinedType)) return recommendation.RefinedType;
         foreach (var tag in recommendation.Tags)
         {
             if (RefinedTagLabels.TryGetValue(tag, out var label))

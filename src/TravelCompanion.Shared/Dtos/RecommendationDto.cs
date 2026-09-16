@@ -23,6 +23,16 @@ public sealed record RecommendationDto(
     public string Provider { get; init; } = "YUKU";
     public string? ProviderPlaceId { get; init; }
     public string? Attribution { get; init; }
+    public string? ExtraDescription { get; init; }
+    public string? RefinedType { get; init; }
+    public string? ReservationInstructions { get; init; }
+    public string? OriginalPrice { get; init; }
+    public bool IsPriceKnown { get; init; } = true;
+    public string? RatingSource { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string SelectionKey => Id != Guid.Empty ? Id.ToString("N") : $"{Provider}:{ProviderPlaceId}";
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string DisplayDescription => string.IsNullOrWhiteSpace(ExtraDescription) ? Description : $"{Description}\n\n{ExtraDescription}";
 }
 
 public sealed record PlaceSearchRequest(
@@ -30,6 +40,10 @@ public sealed record PlaceSearchRequest(
     decimal? Latitude = null,
     decimal? Longitude = null,
     string? City = null);
+
+public sealed record PlaceAutocompleteRequest(string Query, string? City, string SessionToken, string? Locale = null);
+public sealed record PlaceSuggestionDto(string PlaceId, string Name, string Address);
+public sealed record PlaceDetailsRequest(string PlaceId, string SessionToken, string? Locale = null);
 
 public sealed record RecommendationTagDto(
     string Tag,

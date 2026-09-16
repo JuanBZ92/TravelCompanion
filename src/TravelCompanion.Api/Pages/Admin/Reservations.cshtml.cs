@@ -115,6 +115,9 @@ public sealed class ReservationsModel(
         }
 
         await ApplyTripTimeZoneDefaultAsync();
+        if (!string.IsNullOrWhiteSpace(normalizedPin)
+            && !await TravelCompanion.Api.Services.AccessPinAvailability.IsAvailableAsync(dbContext, normalizedPin, TripInput.Id))
+            ModelState.AddModelError($"{nameof(TripInput)}.{nameof(TripInput.AccessPin)}", "El PIN ya pertenece a otro acceso o borrador.");
 
         if (!ModelState.IsValid)
         {

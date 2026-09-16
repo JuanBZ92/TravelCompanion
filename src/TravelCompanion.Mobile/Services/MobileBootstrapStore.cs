@@ -15,6 +15,8 @@ public sealed class MobileBootstrapStore(
     private MobileBootstrapDto? _current;
     private DateTimeOffset? _currentSavedAt;
     private Guid? _currentUserId;
+    private string? _currentLocale;
+    private static string Locale => System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
     private readonly object _refreshLock = new();
     private Task<MobileBootstrapDto?>? _refreshTask;
 
@@ -28,6 +30,7 @@ public sealed class MobileBootstrapStore(
         var currentUserId = sessionService.CurrentUserId;
         var cacheScope = NormalizeCacheScope(destinationSlug);
         if (_current is not null
+            && _currentLocale == Locale
             && _currentUserId == currentUserId
             && _currentSavedAt.HasValue
             && IsScopeMatch(cacheScope, _current.Destination.Slug))
@@ -62,6 +65,7 @@ public sealed class MobileBootstrapStore(
             }
 
             _current = normalized;
+            _currentLocale = Locale;
             _currentSavedAt = cached.SavedAt;
             _currentUserId = currentUserId;
             return new OfflineCacheResult<MobileBootstrapDto>(normalized, cached.SavedAt);
@@ -143,6 +147,7 @@ public sealed class MobileBootstrapStore(
         stopwatch.Stop();
 
         _current = bootstrap;
+        _currentLocale = Locale;
         _currentSavedAt = savedAt;
         _currentUserId = currentUserId;
 
@@ -164,6 +169,7 @@ public sealed class MobileBootstrapStore(
         var ageLimit = maxAge ?? DefaultFreshnessWindow;
 
         return _current is not null
+            && _currentLocale == Locale
             && _currentUserId == currentUserId
             && _currentSavedAt.HasValue
             && DateTimeOffset.UtcNow - _currentSavedAt.Value <= ageLimit
