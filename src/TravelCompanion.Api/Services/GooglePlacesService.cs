@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Options;
@@ -29,7 +30,7 @@ public sealed class GooglePlacesService(
         message.Headers.Add("X-Goog-FieldMask", "suggestions.placePrediction.placeId,suggestions.placePrediction.structuredFormat");
         message.Content = JsonContent.Create(new
         {
-            input = $"{request.Query.Trim()} {request.City}".Trim(),
+            input = BuildAutocompleteInput(request.Query, request.City),
             includedRegionCodes = new[] { "jp" }, includedPrimaryTypes = new[] { "lodging" },
             sessionToken = request.SessionToken, languageCode = Language(request.Locale)
         });
@@ -73,6 +74,32 @@ public sealed class GooglePlacesService(
     }
 
     private static string Language(string? locale) => (locale ?? System.Globalization.CultureInfo.CurrentUICulture.Name).StartsWith("en", StringComparison.OrdinalIgnoreCase) ? "en" : "es";
+    private static string BuildAutocompleteInput(string query, string? city)
+    {
+        var input = NormalizeSearchText(query);
+        var normalizedCity = NormalizeSearchText(city ?? string.Empty);
+        if (!string.IsNullOrWhiteSpace(normalizedCity) && !ContainsSearchTerm(input, normalizedCity))
+        {
+            input = $"{input}, {normalizedCity}";
+        }
+
+        if (!ContainsSearchTerm(input, "Japan") && !ContainsSearchTerm(input, "Japon"))
+        {
+            input = $"{input}, Japan";
+        }
+
+        return input;
+    }
+
+    private static string NormalizeSearchText(string value) =>
+        string.Join(' ', value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
+    private static bool ContainsSearchTerm(string input, string term) =>
+        CultureInfo.InvariantCulture.CompareInfo.IndexOf(
+            input,
+            term,
+            CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace) >= 0;
+
     private sealed record AutocompleteResponse(List<AutocompleteSuggestion>? Suggestions);
     private sealed record AutocompleteSuggestion(PlacePrediction? PlacePrediction);
     private sealed record PlacePrediction(string PlaceId, StructuredFormat? StructuredFormat);

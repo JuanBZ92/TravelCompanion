@@ -56,10 +56,15 @@ public partial class BuilderSetupPage : ContentPage
 
     private async void OnHotelSuggestionTapped(object? sender, TappedEventArgs e)
     {
-        if (sender is not Element element || element.BindingContext is not PlaceSuggestionDto suggestion) return;
-        var parent = element.Parent;
-        while (parent is not null && parent.BindingContext is not BuilderSegmentViewModel) parent = parent.Parent;
-        if (parent?.BindingContext is BuilderSegmentViewModel segment) await _viewModel.SelectHotelAsync(segment, suggestion);
+        var suggestion = e.Parameter as PlaceSuggestionDto
+            ?? (sender as BindableObject)?.BindingContext as PlaceSuggestionDto;
+        if (suggestion is null) return;
+
+        var segment = _viewModel.Segments.FirstOrDefault(candidate =>
+            candidate.HotelSuggestions.Any(item => item.PlaceId == suggestion.PlaceId));
+        if (segment is null) return;
+
+        await _viewModel.SelectHotelAsync(segment, suggestion);
     }
 
     protected override void OnDisappearing()

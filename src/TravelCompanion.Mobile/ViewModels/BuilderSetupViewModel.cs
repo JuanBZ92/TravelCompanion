@@ -194,13 +194,18 @@ public sealed partial class BuilderSetupViewModel(
     private async Task SearchHotelAsync(BuilderSegmentViewModel? segment)
     {
         if (segment is null || segment.ApplyingHotelSelection) return;
+        foreach (var other in Segments.Where(item => !ReferenceEquals(item, segment)))
+        {
+            other.CancelHotelSearch();
+            other.HotelSuggestions.Clear();
+        }
         segment.CancelHotelSearch();
         segment.HotelSuggestions.Clear();
         if (segment.HotelName.Trim().Length < 3 || string.IsNullOrWhiteSpace(segment.City)) return;
         using var operation = new CancellationTokenSource();
         segment.HotelSearch = operation;
-        var query = segment.HotelName.Trim();
-        var city = segment.City;
+        var query = NormalizeSearchText(segment.HotelName);
+        var city = segment.City.Trim();
         try
         {
             await Task.Delay(350, operation.Token);
@@ -208,7 +213,9 @@ public sealed partial class BuilderSetupViewModel(
             if (string.IsNullOrWhiteSpace(token)) return;
             var results = await apiClient.AutocompleteHotelsAsync(token, new PlaceAutocompleteRequest(query, city,
                 segment.HotelSessionToken, System.Globalization.CultureInfo.CurrentUICulture.Name), operation.Token);
-            if (operation.IsCancellationRequested || segment.City != city || segment.HotelName.Trim() != query) return;
+            if (operation.IsCancellationRequested
+                || !string.Equals(segment.City.Trim(), city, StringComparison.Ordinal)
+                || !string.Equals(NormalizeSearchText(segment.HotelName), query, StringComparison.Ordinal)) return;
             foreach (var result in results.Take(5)) segment.HotelSuggestions.Add(result);
             StatusMessage = results.Count == 0 ? "Sin resultados. Puedes escribir el hotel y direccion manualmente." : null;
         }
@@ -242,6 +249,7 @@ public sealed partial class BuilderSetupViewModel(
             segment.HotelLongitude = hotel.Longitude;
             segment.HotelPlaceId = hotel.ProviderPlaceId ?? string.Empty;
             segment.HotelSuggestions.Clear();
+            StatusMessage = null;
         }
         catch (OperationCanceledException) { }
         catch (Exception) { StatusMessage = "No pudimos cargar el hotel. Puedes completarlo manualmente."; }
@@ -257,6 +265,9 @@ public sealed partial class BuilderSetupViewModel(
     {
         foreach (var segment in Segments) segment.CancelHotelSearch();
     }
+
+    private static string NormalizeSearchText(string value) =>
+        string.Join(' ', value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
     [RelayCommand]
     private Task SaveSetupAsync() => LoadAsync(async ct =>
