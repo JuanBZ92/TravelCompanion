@@ -44,11 +44,13 @@ public sealed class ItineraryRoutesController(TravelCompanionDbContext db, Trave
         }
         RouteWaypoint? origin = null;
         var label = "Hotel/base";
+        var originKind = "Hotel";
         if (isToday && request.Latitude.HasValue && destination.Latitude.HasValue && destination.Longitude.HasValue &&
             FreeMapPreviewService.CalculateDistanceKm(request.Latitude.Value, request.Longitude!.Value, destination.Latitude.Value, destination.Longitude.Value) <= 50)
         {
             origin = new(null, request.Latitude, request.Longitude);
             label = "Tu ubicacion";
+            originKind = "CurrentLocation";
         }
         else
         {
@@ -59,11 +61,13 @@ public sealed class ItineraryRoutesController(TravelCompanionDbContext db, Trave
                 label = string.IsNullOrWhiteSpace(day.HotelBase) ? label : day.HotelBase;
             }
         }
-        if (origin is null || !origin.IsValid || !destination.IsValid) return Ok(new ItineraryRouteDto(request.Mode, "NoLocation", label));
+        if (origin is null || !origin.IsValid || !destination.IsValid)
+            return Ok(new ItineraryRouteDto(request.Mode, "NoLocation", label, OriginKind: originKind));
         var estimate = await routes.EstimateAsync(origin, destination, request.Mode, target, ct);
-        if (estimate is null) return Ok(new ItineraryRouteDto(request.Mode, "Unavailable", label));
+        if (estimate is null)
+            return Ok(new ItineraryRouteDto(request.Mode, "Unavailable", label, OriginKind: originKind));
         var leave = TimeZoneInfo.ConvertTime(estimate.LeaveAt, zone);
         return Ok(new ItineraryRouteDto(request.Mode, "Available", label, estimate.Minutes, leave,
-            leave <= now, leave.ToString(leave.Date == local.Date ? "HH:mm" : "dd/MM HH:mm")));
+            leave <= now, leave.ToString(leave.Date == local.Date ? "HH:mm" : "dd/MM HH:mm"), originKind));
     }
 }

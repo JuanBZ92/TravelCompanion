@@ -426,7 +426,12 @@
                                                                         </DataTemplate>
                                                                     </BindableLayout.ItemTemplate>
                                                                 </FlexLayout>
-                                                                <Label Text="Estimaciones de Google Maps · llegada 10 min antes" IsVisible="{Binding HasRoutes}" FontSize="10" TextColor="#6E675F" Margin="0,4,0,0" />
+                                                                <Label Text="Google Maps · (H) hotel · (U) ubicación actual · llegada 10 min antes"
+                                                                       IsVisible="{Binding HasRoutes}"
+                                                                       FontSize="10"
+                                                                       TextColor="#6E675F"
+                                                                       LineBreakMode="WordWrap"
+                                                                       Margin="0,4,0,0" />
                                                             </VerticalStackLayout>
                                                             <Border.GestureRecognizers>
                                                                 <TapGestureRecognizer Tapped="OnTodayReservationTapped" />

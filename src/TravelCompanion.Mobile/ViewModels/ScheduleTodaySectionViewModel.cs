@@ -225,7 +225,13 @@ public sealed class ItineraryRouteViewModel(string mode, string label, string ic
     public string Origin { get => _origin; private set => SetProperty(ref _origin, value); }
     public void Apply(ItineraryRouteDto? route)
     {
-        Duration = route?.Status == "Available" ? $"{route.Minutes} min" : route?.Status switch
+        var originMarker = route?.OriginKind switch
+        {
+            "Hotel" => " (H)",
+            "CurrentLocation" => " (U)",
+            _ => string.Empty
+        };
+        Duration = route?.Status == "Available" ? $"{route.Minutes} min{originMarker}" : route?.Status switch
         {
             "TooEarly" => "Aun no disponible",
             "NoLocation" => "Sin ubicacion",
