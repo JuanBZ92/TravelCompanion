@@ -24,12 +24,21 @@
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="viewModels:BuilderSegmentViewModel">
                             <Border Padding="16" BackgroundColor="#FFFDF9" Stroke="#D8CFC4" StrokeThickness="1">
-                                <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="12">
-                                    <Entry Placeholder="Ciudad" Text="{Binding City}" FontSize="18" />
+                                <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="12">
+                                    <Entry Placeholder="Ciudad" Text="{Binding City}" FontSize="18" Focused="OnCityFocused" Unfocused="OnCityUnfocused" TextChanged="OnCityTextChanged" />
                                     <Button Grid.Column="1" Text="×" Command="{Binding RemoveSegmentCommand, Source={RelativeSource AncestorType={x:Type viewModels:BuilderSetupViewModel}}, x:DataType=viewModels:BuilderSetupViewModel}" CommandParameter="{Binding .}" Style="{StaticResource GhostButton}" />
-                                    <Grid Grid.Row="1" Grid.ColumnSpan="2" ColumnDefinitions="*,*" ColumnSpacing="10"><DatePicker Date="{Binding StartsOn}"/><DatePicker Grid.Column="1" Date="{Binding EndsOn}"/></Grid>
-                                    <Entry Grid.Row="2" Grid.ColumnSpan="2" Placeholder="Hotel o base (opcional)" Text="{Binding HotelName}" TextChanged="OnHotelTextChanged" />
-                                    <VerticalStackLayout Grid.Row="3" Grid.ColumnSpan="2">
+                                    <VerticalStackLayout Grid.Row="1" Grid.ColumnSpan="2" BindableLayout.ItemsSource="{Binding CitySuggestions}">
+                                        <BindableLayout.ItemTemplate>
+                                            <DataTemplate x:DataType="x:String">
+                                                <Label Text="{Binding .}" Padding="4,10" TextColor="#1A1714" FontSize="15">
+                                                    <Label.GestureRecognizers><TapGestureRecognizer Tapped="OnCitySuggestionTapped" /></Label.GestureRecognizers>
+                                                </Label>
+                                            </DataTemplate>
+                                        </BindableLayout.ItemTemplate>
+                                    </VerticalStackLayout>
+                                    <Grid Grid.Row="2" Grid.ColumnSpan="2" ColumnDefinitions="*,*" ColumnSpacing="10"><DatePicker Date="{Binding StartsOn}"/><DatePicker Grid.Column="1" Date="{Binding EndsOn}"/></Grid>
+                                    <Entry Grid.Row="3" Grid.ColumnSpan="2" Placeholder="Hotel o base (opcional)" Text="{Binding HotelName}" TextChanged="OnHotelTextChanged" />
+                                    <VerticalStackLayout Grid.Row="4" Grid.ColumnSpan="2">
                                         <VerticalStackLayout BindableLayout.ItemsSource="{Binding HotelSuggestions}">
                                             <BindableLayout.ItemTemplate>
                                                 <DataTemplate x:DataType="dto:PlaceSuggestionDto">
@@ -45,7 +54,7 @@
                                             <Label.Triggers><DataTrigger TargetType="Label" Binding="{Binding HotelSuggestions.Count}" Value="0"><Setter Property="IsVisible" Value="False" /></DataTrigger></Label.Triggers>
                                         </Label>
                                     </VerticalStackLayout>
-                                    <Entry Grid.Row="4" Grid.ColumnSpan="2" Placeholder="Dirección del hotel (opcional)" Text="{Binding HotelAddress}" />
+                                    <Entry Grid.Row="5" Grid.ColumnSpan="2" Placeholder="Dirección del hotel (opcional)" Text="{Binding HotelAddress}" />
                                 </Grid>
                             </Border>
                         </DataTemplate>

@@ -205,6 +205,37 @@ public sealed class TodayReservationViewModel
     public string Confirmation { get; }
     public bool HasConfirmation => !string.IsNullOrWhiteSpace(Confirmation);
     public bool CanEdit => Item.IsTravelerOwned;
+    public bool HasRoutes => Item.IsTravelerOwned && Item.HasExactTime
+        && Item.ItemSource is TravelCompanion.Shared.ItineraryItemSource.YukuRecommendation
+            or TravelCompanion.Shared.ItineraryItemSource.GooglePlace;
+    public IReadOnlyList<ItineraryRouteViewModel> Routes { get; } =
+        [new("DRIVE", "Auto", "route_car.svg"), new("TRANSIT", "Transporte", "route_bus.svg"), new("WALK", "A pie", "route_walk.svg")];
+}
+
+public sealed class ItineraryRouteViewModel(string mode, string label, string icon) : CommunityToolkit.Mvvm.ComponentModel.ObservableObject
+{
+    public string Mode { get; } = mode;
+    public string Label { get; } = label;
+    public string Icon { get; } = icon;
+    private string _duration = "Calculando...";
+    private string _departure = "";
+    private string _origin = "";
+    public string Duration { get => _duration; private set => SetProperty(ref _duration, value); }
+    public string Departure { get => _departure; private set => SetProperty(ref _departure, value); }
+    public string Origin { get => _origin; private set => SetProperty(ref _origin, value); }
+    public void Apply(ItineraryRouteDto? route)
+    {
+        Duration = route?.Status == "Available" ? $"{route.Minutes} min" : route?.Status switch
+        {
+            "TooEarly" => "Aun no disponible",
+            "NoLocation" => "Sin ubicacion",
+            "Past" => "Horario pasado",
+            _ => "No disponible"
+        };
+        Departure = route?.Status == "Available"
+            ? $"{(route.DeparturePassed ? "Salida pasada" : "Salir")} {route.DepartureLabel}" : "";
+        Origin = string.IsNullOrWhiteSpace(route?.Origin) ? "" : $"Desde {route.Origin}";
+    }
 }
 
 internal sealed record TodayPeriod(

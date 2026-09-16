@@ -25,7 +25,7 @@ public sealed class MobileRecommendationsEndpointTests
     };
 
     [Fact]
-    public async Task Mobile_bootstrap_returns_summaries_and_detail_endpoint_returns_full_authorized_content()
+    public async Task Mobile_bootstrap_and_detail_endpoint_return_full_authorized_content()
     {
         await using var factory = new TravelCompanionApiFactory();
         var seed = await factory.SeedUserWithPackagedRecommendationAsync();
@@ -39,8 +39,7 @@ public sealed class MobileRecommendationsEndpointTests
         Assert.NotNull(bootstrap);
         var summary = Assert.Single(bootstrap.Recommendations);
         Assert.Equal(seed.RecommendationId, summary.Id);
-        Assert.EndsWith("...", summary.Description);
-        Assert.True(summary.Description.Length < seed.FullDescription.Length);
+        Assert.Equal(seed.FullDescription, summary.Description);
 
         var detail = await client.GetFromJsonAsync<RecommendationDto>(
             $"/api/mobile/recommendations/{seed.RecommendationId}",

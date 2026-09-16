@@ -15,7 +15,8 @@ public sealed class TravelerItineraryService(
         ItineraryItemMutationRequest request,
         CancellationToken cancellationToken = default)
     {
-        var (trip, block) = await LoadEditableContextAsync(httpContext, request.Date, request.PeriodKey, request.ExpectedRevision, cancellationToken);
+        var periodKey = ResolvePeriod(request);
+        var (trip, block) = await LoadEditableContextAsync(httpContext, request.Date, periodKey, request.ExpectedRevision, cancellationToken);
         var externalId = $"traveler-{request.IdempotencyKey.Trim()}";
         var existing = trip.Reservations.FirstOrDefault(item => item.ExternalId == externalId);
         if (existing is not null)
@@ -31,7 +32,7 @@ public sealed class TravelerItineraryService(
             throw new InvalidOperationException("La recomendacion no esta disponible para este viaje.");
         }
 
-        var period = TripPlanPeriods.Find(request.PeriodKey)!;
+        var period = TripPlanPeriods.Find(periodKey)!;
         var startsAt = request.UseExactTime ? request.StartsAt ?? period.StartsAt : period.StartsAt;
         var overlap = trip.Reservations.Any(item => item.Date == request.Date && item.StartsAt == startsAt);
         if (overlap && !request.ConfirmOverlap)
@@ -48,7 +49,7 @@ public sealed class TravelerItineraryService(
             TripDayBlockId = block.Id,
             RecommendationId = recommendation?.Id,
             Type = ReservationType.Event,
-            PlanningKind = recommendation is null ? ScheduleItemKind.ManualEvent : ScheduleItemKind.Recommendation,
+            PlanningKind = ResolveKind(request.UseExactTime, recommendation is not null || isGooglePlace),
             Owner = ItineraryItemOwner.Traveler,
             ItemSource = recommendation is not null ? ItineraryItemSource.YukuRecommendation
                 : isGooglePlace ? ItineraryItemSource.GooglePlace
@@ -88,23 +89,31 @@ public sealed class TravelerItineraryService(
         ItineraryItemMutationRequest request,
         CancellationToken cancellationToken = default)
     {
-        var (trip, block) = await LoadEditableContextAsync(httpContext, request.Date, request.PeriodKey, request.ExpectedRevision, cancellationToken);
+        var periodKey = ResolvePeriod(request);
+        var (trip, block) = await LoadEditableContextAsync(httpContext, request.Date, periodKey, request.ExpectedRevision, cancellationToken);
         var item = trip.Reservations.SingleOrDefault(existing => existing.Id == id)
             ?? throw new KeyNotFoundException();
         EnsureTravelerOwned(item);
-        var period = TripPlanPeriods.Find(request.PeriodKey)!;
+        var period = TripPlanPeriods.Find(periodKey)!;
+        var startsAt = request.UseExactTime ? request.StartsAt!.Value : period.StartsAt;
+        if (!request.ConfirmOverlap && trip.Reservations.Any(other => other.Id != id && other.Date == request.Date && other.StartsAt == startsAt))
+            return new(false, "Ya hay otro item en ese horario. Confirma para agregarlo igualmente.", trip.PlanRevision, HasOverlap: true);
         item.TripDayBlockId = block.Id;
         item.Date = request.Date;
         item.StartsAt = request.UseExactTime ? request.StartsAt ?? period.StartsAt : period.StartsAt;
         item.EndsAt = request.UseExactTime ? request.EndsAt : null;
         item.TimePrecision = request.UseExactTime ? ItineraryTimePrecision.Exact : ItineraryTimePrecision.PeriodOnly;
+        item.PlanningKind = ResolveKind(request.UseExactTime, item.RecommendationId.HasValue || item.ItemSource == ItineraryItemSource.GooglePlace);
         item.Title = request.Title.Trim();
         item.City = request.City?.Trim() ?? item.City;
         item.LocationName = request.LocationName?.Trim() ?? request.Title.Trim();
         item.Address = request.Address?.Trim() ?? string.Empty;
         item.Notes = request.Notes?.Trim() ?? string.Empty;
-        item.Latitude = request.Latitude;
-        item.Longitude = request.Longitude;
+        if (item.ItemSource == ItineraryItemSource.Manual)
+        {
+            item.Latitude = request.Latitude;
+            item.Longitude = request.Longitude;
+        }
         trip.PlanRevision++;
         trip.UpdatedAtUtc = DateTimeOffset.UtcNow;
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -161,6 +170,17 @@ public sealed class TravelerItineraryService(
 
         var block = trip.DayPlans.Single(day => day.Date == date).Blocks.Single(item => item.PeriodKey == period.Key);
         return (trip, block);
+    }
+
+    public static ScheduleItemKind ResolveKind(bool exact, bool place) => place
+        ? exact ? ScheduleItemKind.ConfirmedReservation : ScheduleItemKind.Recommendation
+        : ScheduleItemKind.ManualEvent;
+
+    private static string ResolvePeriod(ItineraryItemMutationRequest request)
+    {
+        if (!request.UseExactTime) return request.PeriodKey;
+        if (request.StartsAt is null) throw new ArgumentException("Indica la hora de inicio.");
+        return TripPlanPeriods.Resolve(request.StartsAt.Value).Key;
     }
 
     private static void EnsureRevision(Trip trip, int expectedRevision)

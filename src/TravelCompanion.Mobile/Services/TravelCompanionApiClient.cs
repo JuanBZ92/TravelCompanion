@@ -531,6 +531,15 @@ public sealed class TravelCompanionApiClient
         return await response.Content.ReadFromJsonAsync<BuilderTripSetupDto>(JsonOptions, cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task<ItineraryRouteDto?> GetItineraryRouteAsync(string token, Guid id, ItineraryRouteRequest route, CancellationToken ct)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Post, $"api/mobile/itinerary/{id}/route", token);
+        request.Content = JsonContent.Create(route, options: JsonOptions);
+        using var response = await _httpClient.SendAsync(request, ct).ConfigureAwait(false);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<ItineraryRouteDto>(JsonOptions, ct).ConfigureAwait(false) : null;
+    }
+
     public async Task<BuilderTripSetupDto?> SaveBuilderTripSetupAsync(string token, SaveBuilderTripSetupRequest setup, CancellationToken cancellationToken = default)
     {
         using var request = CreateAuthorizedRequest(HttpMethod.Put, "api/mobile/builder/setup", token);

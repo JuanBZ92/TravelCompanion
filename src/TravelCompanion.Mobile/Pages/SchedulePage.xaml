@@ -68,7 +68,8 @@
                         <Border.StrokeShape>
                             <RoundRectangle CornerRadius="0" />
                         </Border.StrokeShape>
-                        <VerticalStackLayout Spacing="8">
+                        <Grid ColumnDefinitions="*,44" ColumnSpacing="12">
+                            <VerticalStackLayout Spacing="8">
                             <Label Text="HOTEL"
                                    CharacterSpacing="4"
                                    FontSize="10"
@@ -82,8 +83,16 @@
                                    MaxLines="2" />
                             <Label Text="{Binding StayAddress}" FontSize="13" TextColor="#6E675F" IsVisible="{Binding CanOpenStayMap}" />
                             <Label Text="{Binding StayAttribution}" FontSize="11" TextColor="#6E675F" IsVisible="{Binding CanOpenStayMap}" />
-                            <Button Text="Abrir mapa" Command="{Binding OpenStayMapCommand}" IsVisible="{Binding CanOpenStayMap}" Style="{StaticResource GhostButton}" HorizontalOptions="Start" />
-                        </VerticalStackLayout>
+                            </VerticalStackLayout>
+                            <ImageButton Grid.Column="1"
+                                         Source="tab_map.svg"
+                                         Command="{Binding OpenStayMapCommand}"
+                                         IsVisible="{Binding CanOpenStayMap}"
+                                         Style="{StaticResource MapPreviewIconButton}"
+                                         HorizontalOptions="Center"
+                                         VerticalOptions="Center"
+                                         SemanticProperties.Description="Abrir hotel en Google Maps" />
+                        </Grid>
                     </Border>
 
                     <CollectionView ItemsSource="{Binding DayFilters}"
@@ -392,6 +401,20 @@
                                                                     <Button Text="Editar" Clicked="OnEditPersonalItemClicked" Style="{StaticResource GhostButton}" FontSize="11" Padding="10,6" />
                                                                     <Button Text="Eliminar" Clicked="OnDeletePersonalItemClicked" Style="{StaticResource GhostButton}" FontSize="11" Padding="10,6" />
                                                                 </HorizontalStackLayout>
+                                                                <FlexLayout Direction="Row" Wrap="NoWrap" AlignItems="Start" IsVisible="{Binding HasRoutes}" BindableLayout.ItemsSource="{Binding Routes}" Margin="0,10,0,0">
+                                                                    <BindableLayout.ItemTemplate>
+                                                                        <DataTemplate x:DataType="viewModels:ItineraryRouteViewModel">
+                                                                            <VerticalStackLayout FlexLayout.Basis="33.33%" Padding="3,0" Spacing="4">
+                                                                                <Image Source="{Binding Icon}" WidthRequest="22" HeightRequest="22" HorizontalOptions="Start" SemanticProperties.Description="{Binding Label}" />
+                                                                                <Label Text="{Binding Label}" FontSize="11" TextColor="#6E675F" />
+                                                                                <Label Text="{Binding Duration}" FontSize="12" TextColor="#1A1714" />
+                                                                                <Label Text="{Binding Departure}" FontSize="11" TextColor="#1A1714" />
+                                                                                <Label Text="{Binding Origin}" FontSize="10" TextColor="#6E675F" />
+                                                                            </VerticalStackLayout>
+                                                                        </DataTemplate>
+                                                                    </BindableLayout.ItemTemplate>
+                                                                </FlexLayout>
+                                                                <Label Text="Estimaciones de Google Maps · llegada 10 min antes" IsVisible="{Binding HasRoutes}" FontSize="10" TextColor="#6E675F" Margin="0,4,0,0" />
                                                             </VerticalStackLayout>
                                                             <Border.GestureRecognizers>
                                                                 <TapGestureRecognizer Tapped="OnTodayReservationTapped" />

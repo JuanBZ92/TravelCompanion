@@ -630,7 +630,7 @@ public sealed class MobileController(
 
         return recommendations
             .Where(recommendation => IsRecommendationUnlocked(recommendation, entitlements))
-            .Select(recommendation => ToRecommendationDto(recommendation, useSummaryDescription: true))
+            .Select(recommendation => ToRecommendationDto(recommendation, useSummaryDescription: false))
             .ToList();
     }
 

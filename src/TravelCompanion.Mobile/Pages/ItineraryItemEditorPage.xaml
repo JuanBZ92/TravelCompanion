@@ -19,6 +19,7 @@
                 <VerticalStackLayout Spacing="6"><Label Text="MOMENTO" Style="{StaticResource Eyebrow}"/><Picker ItemsSource="{Binding Periods}" SelectedItem="{Binding SelectedPeriod}" /></VerticalStackLayout>
                 <Grid ColumnDefinitions="*,Auto" Padding="0,6"><Label Text="Definir hora exacta" VerticalOptions="Center"/><Switch Grid.Column="1" IsToggled="{Binding UseExactTime}" /></Grid>
                 <TimePicker Time="{Binding Time}" IsVisible="{Binding UseExactTime}" />
+                <Label Text="Se mostrara como reserva en tu itinerario. Esto no reserva con el establecimiento." IsVisible="{Binding UseExactTime}" FontSize="12" TextColor="#6E675F" />
                 <Editor Placeholder="Notas personales (opcional)" Text="{Binding Notes}" AutoSize="TextChanges" MinimumHeightRequest="100" />
                 <Border IsVisible="{Binding HasError}" Style="{StaticResource ErrorPanel}"><Label Text="{Binding ErrorMessage}" /></Border>
                 <ActivityIndicator IsVisible="{Binding IsBusy}" IsRunning="{Binding IsBusy}" />

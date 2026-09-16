@@ -24,6 +24,36 @@ public partial class BuilderSetupPage : ContentPage
             await _viewModel.SearchHotelSuggestionsAsync(segment);
     }
 
+    private void OnCityFocused(object? sender, FocusEventArgs e) => UpdateCities(sender);
+    private void OnCityTextChanged(object? sender, TextChangedEventArgs e) => UpdateCities(sender);
+    private void UpdateCities(object? sender)
+    {
+        if (sender is not Entry { IsFocused: true, BindingContext: BuilderSegmentViewModel segment }) return;
+        segment.CitySuggestions.Clear();
+        foreach (var city in _viewModel.SuggestedCities.Where(city => System.Globalization.CultureInfo.InvariantCulture.CompareInfo.IndexOf(
+                     city, segment.City.Trim(), System.Globalization.CompareOptions.IgnoreCase | System.Globalization.CompareOptions.IgnoreNonSpace) >= 0).Take(8))
+            segment.CitySuggestions.Add(city);
+    }
+
+    private async void OnCityUnfocused(object? sender, FocusEventArgs e)
+    {
+        // Allow a suggestion tap to finish before hiding its row.
+        await Task.Delay(180);
+        if (sender is Entry { IsFocused: false, BindingContext: BuilderSegmentViewModel segment }) segment.CitySuggestions.Clear();
+    }
+
+    private void OnCitySuggestionTapped(object? sender, TappedEventArgs e)
+    {
+        if (sender is not Element { BindingContext: string city } element) return;
+        var parent = element.Parent;
+        while (parent is not null && parent.BindingContext is not BuilderSegmentViewModel) parent = parent.Parent;
+        if (parent?.BindingContext is not BuilderSegmentViewModel segment) return;
+        segment.City = city;
+        segment.CitySuggestions.Clear();
+        if (parent.Parent is Grid grid)
+            foreach (var entry in grid.Children.OfType<Entry>()) entry.Unfocus();
+    }
+
     private async void OnHotelSuggestionTapped(object? sender, TappedEventArgs e)
     {
         if (sender is not Element element || element.BindingContext is not PlaceSuggestionDto suggestion) return;
@@ -34,6 +64,7 @@ public partial class BuilderSetupPage : ContentPage
 
     protected override void OnDisappearing()
     {
+        foreach (var segment in _viewModel.Segments) segment.CitySuggestions.Clear();
         _viewModel.CancelHotelSearches();
         base.OnDisappearing();
     }

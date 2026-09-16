@@ -11,13 +11,16 @@ public sealed partial class BuilderSetupViewModel(
     TravelCompanionApiClient apiClient,
     AuthSessionService sessionService,
     PendingItineraryActionStore pendingStore,
-    SessionLogoutService logoutService) : ViewModelBase
+    SessionLogoutService logoutService,
+    MobileBootstrapStore bootstrapStore) : ViewModelBase
 {
     private DateTime _arrivalDate = DateTime.Today;
     private DateTime _departureDate = DateTime.Today.AddDays(6);
     private int _revision;
 
     public ObservableCollection<BuilderSegmentViewModel> Segments { get; } = [];
+    public ObservableCollection<string> SuggestedCities { get; } = [];
+    public bool HasSuggestedCities => SuggestedCities.Count > 0;
     public DateTime ArrivalDate
     {
         get => _arrivalDate;
@@ -63,6 +66,7 @@ public sealed partial class BuilderSetupViewModel(
         }
 
         var setup = await apiClient.GetBuilderTripSetupAsync(token, ct);
+        await LoadSuggestedCitiesAsync(token, ct);
         if (setup is null)
         {
             if (Segments.Count == 0)
@@ -83,6 +87,46 @@ public sealed partial class BuilderSetupViewModel(
         }
         if (Segments.Count == 0) AddDefaultSegment();
     });
+
+    private async Task LoadSuggestedCitiesAsync(string token, CancellationToken cancellationToken)
+    {
+        var cached = await bootstrapStore.GetCachedAsync(cancellationToken: cancellationToken);
+        var bootstrap = cached?.Value;
+        if (bootstrap is null)
+        {
+            try
+            {
+                bootstrap = await bootstrapStore.RefreshAsync(token, cancellationToken: cancellationToken);
+            }
+            catch
+            {
+                // Free text remains available when the catalog cannot be refreshed.
+            }
+        }
+
+        if (bootstrap is null)
+        {
+            return;
+        }
+
+        var cities = bootstrap.Recommendations
+            .Select(recommendation => recommendation.Neighborhood
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .FirstOrDefault())
+            .Where(city => !string.IsNullOrWhiteSpace(city))
+            .Select(city => city!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(city => city, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+
+        SuggestedCities.Clear();
+        foreach (var city in cities)
+        {
+            SuggestedCities.Add(city);
+        }
+
+        OnPropertyChanged(nameof(HasSuggestedCities));
+    }
 
     [RelayCommand]
     private void AddSegment()
@@ -337,6 +381,7 @@ public sealed partial class BuilderSetupViewModel(
 
 public sealed partial class BuilderSegmentViewModel : ObservableObject
 {
+    public ObservableCollection<string> CitySuggestions { get; } = [];
     public ObservableCollection<PlaceSuggestionDto> HotelSuggestions { get; } = [];
     public CancellationTokenSource? HotelSearch { get; set; }
     public string HotelSessionToken { get; set; } = Guid.NewGuid().ToString();

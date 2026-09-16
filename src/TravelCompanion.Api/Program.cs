@@ -62,6 +62,12 @@ builder.Services.AddResponseCompression(options =>
 });
 builder.Services.AddRateLimiter(options =>
 {
+    options.AddFixedWindowLimiter("ItineraryRoutes", limiter =>
+    {
+        limiter.PermitLimit = 60;
+        limiter.Window = TimeSpan.FromMinutes(1);
+        limiter.QueueLimit = 0;
+    });
     options.AddFixedWindowLimiter("PinLogin", limiterOptions =>
     {
         limiterOptions.PermitLimit = 8;
@@ -79,6 +85,7 @@ builder.Services.Configure<OpenAiTravelOptions>(
 builder.Services.Configure<FreePreviewOptions>(
     builder.Configuration.GetSection(FreePreviewOptions.SectionName));
 builder.Services.Configure<GooglePlacesOptions>(builder.Configuration.GetSection(GooglePlacesOptions.SectionName));
+builder.Services.Configure<GoogleRoutesOptions>(builder.Configuration.GetSection("GoogleRoutes"));
 builder.Services.Configure<BuilderDemoOptions>(builder.Configuration.GetSection(BuilderDemoOptions.SectionName));
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
@@ -102,6 +109,8 @@ builder.Services.AddScoped<BuilderTripService>();
 builder.Services.AddScoped<TravelerItineraryService>();
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<IGooglePlacesService, GooglePlacesService>();
+builder.Services.AddSingleton<IGoogleRoutesService, GoogleRoutesService>();
+builder.Services.AddHttpClient("GoogleRoutes").RemoveAllLoggers();
 builder.Services.AddScoped<FreePreviewAccountService>();
 builder.Services.AddScoped<FreeMapPreviewService>();
 builder.Services.AddScoped<IUserInvitationSender, LoggingUserInvitationSender>();

@@ -43,6 +43,51 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     private GeoPointDto? _currentLocation;
     private bool _hasRequestedLocation;
     private readonly HashSet<Guid> _nearbyVisitPrompts = [];
+    private CancellationTokenSource? _routeLoad;
+    private readonly Dictionary<string, (DateTimeOffset SavedAt, ItineraryRouteDto Value)> _routeCache = [];
+
+    public void CancelRouteLoading() => _routeLoad?.Cancel();
+
+    private async Task LoadRoutesAsync()
+    {
+        _routeLoad?.Cancel();
+        var load = _routeLoad = new CancellationTokenSource();
+        try
+        {
+            if (!_sessionService.IsBuilder) return;
+            var token = await _sessionService.GetTokenAsync();
+            if (string.IsNullOrWhiteSpace(token)) return;
+            var tasks = TodaySections.SelectMany(s => s.Reservations)
+                .Where(r => r.HasRoutes)
+                .SelectMany(reservation => reservation.Routes.Select(route => LoadRouteAsync(token, reservation, route, load)))
+                .ToArray();
+            await Task.WhenAll(tasks);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            _logger.LogWarning("Route UI load failed ({ErrorType}).", ex.GetType().Name);
+        }
+    }
+
+    private async Task LoadRouteAsync(string token, TodayReservationViewModel reservation,
+        ItineraryRouteViewModel route, CancellationTokenSource load)
+    {
+        load.Token.ThrowIfCancellationRequested();
+        var request = new ItineraryRouteRequest(route.Mode, _currentLocation?.Latitude, _currentLocation?.Longitude);
+        var key = $"{reservation.Item.Id}:{reservation.Item.Date}:{reservation.Item.StartsAt}:{request}";
+        ItineraryRouteDto? result;
+        if (_routeCache.TryGetValue(key, out var cached) && DateTimeOffset.UtcNow - cached.SavedAt < TimeSpan.FromMinutes(5)) result = cached.Value;
+        else
+        {
+            try { result = await _apiClient.GetItineraryRouteAsync(token, reservation.Item.Id, request, load.Token); }
+            catch (HttpRequestException) { result = null; }
+            catch (TaskCanceledException) when (!load.IsCancellationRequested) { result = null; }
+            load.Token.ThrowIfCancellationRequested();
+            if (result is not null) _routeCache[key] = (DateTimeOffset.UtcNow, result);
+        }
+        route.Apply(result);
+    }
 
     public ObservableCollection<ScheduleTypeSectionViewModel> TypeSections { get; } = [];
     public ObservableCollection<ScheduleTypeFilterViewModel> TypeFilters { get; } = [];
@@ -163,6 +208,8 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
 
     public void ResetForNewSession()
     {
+        CancelRouteLoading();
+        _routeCache.Clear();
         ResetLoadState();
         _allItems.Clear();
         _recommendations.Clear();
@@ -477,6 +524,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         bool forceRefresh,
         CancellationToken cancellationToken)
     {
+        if (forceRefresh) _routeCache.Clear();
         if (!_selectedDate.HasValue)
         {
             return;
@@ -682,6 +730,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
             : [new ScheduleDayViewModel(selectedDate, selectedItems)];
 
         NotifySelectedDayChanged();
+        _ = LoadRoutesAsync();
     }
 
     [RelayCommand]

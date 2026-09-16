@@ -56,6 +56,7 @@ public sealed partial class FreeMapViewModel(
                 OnPropertyChanged(nameof(IsLockedSelection));
                 OnPropertyChanged(nameof(ShowMapSummary));
                 OnPropertyChanged(nameof(SelectedRecommendation));
+                OnPropertyChanged(nameof(SelectedRecommendationType));
                 OnPropertyChanged(nameof(SelectedTagsText));
                 OnPropertyChanged(nameof(SelectedLocationText));
                 OnPropertyChanged(nameof(SelectedMetadataText));
@@ -74,6 +75,8 @@ public sealed partial class FreeMapViewModel(
     public bool HasContactUrl => !string.IsNullOrWhiteSpace(Preview?.ContactUrl);
     public bool ShowPinOnlyAction => Preview is not null && !HasContactUrl;
     public RecommendationDto? SelectedRecommendation => SelectedMarker?.Recommendation;
+    public string SelectedRecommendationType =>
+        SelectedRecommendation?.RefinedType ?? SelectedRecommendation?.Category ?? string.Empty;
     public string SelectedTagsText => SelectedRecommendation is null
         ? string.Empty
         : string.Join(" · ", SelectedRecommendation.Tags);

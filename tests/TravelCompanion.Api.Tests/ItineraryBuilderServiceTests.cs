@@ -81,6 +81,18 @@ public sealed class ItineraryBuilderServiceTests
         Assert.Equal(ItineraryItemSource.YukuRecommendation, result.Item?.ItemSource);
         Assert.Equal(ItineraryTimePrecision.PeriodOnly, result.Item?.TimePrecision);
         Assert.Equal(recommendation.Id, result.Item?.RecommendationId);
+        var timed = new ItineraryItemMutationRequest(recommendation.Id, null, recommendation.Title, startsOn,
+            "morning", true, new TimeOnly(20, 0), null, "Tokyo", recommendation.Title, "", null,
+            null, null, result.Revision, "test-edit", true);
+        var updated = await itineraryService.UpdateAsync(httpContext, result.Item!.Id, timed);
+        Assert.Equal(ScheduleItemKind.ConfirmedReservation, updated.Item!.PlanningKind);
+        Assert.Equal(new TimeOnly(20, 0), updated.Item.StartsAt);
+        var persisted = await dbContext.Reservations.SingleAsync();
+        Assert.Equal("night", trip.DayPlans.SelectMany(d => d.Blocks).Single(b => b.Id == persisted.TripDayBlockId).PeriodKey);
+        Assert.Equal(recommendation.Latitude, persisted.Latitude);
+        var untimed = await itineraryService.UpdateAsync(httpContext, result.Item.Id,
+            timed with { UseExactTime = false, StartsAt = null, ExpectedRevision = updated.Revision });
+        Assert.Equal(ScheduleItemKind.Recommendation, untimed.Item!.PlanningKind);
     }
 
     private static TravelCompanionDbContext CreateDbContext() => new(

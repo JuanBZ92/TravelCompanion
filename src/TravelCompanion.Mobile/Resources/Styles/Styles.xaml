@@ -290,6 +290,33 @@
         <Setter Property="CornerRadius" Value="0" />
     </Style>
 
+    <Style TargetType="Border" x:Key="MapPreviewPanel">
+        <Setter Property="BackgroundColor" Value="#FFFDF9" />
+        <Setter Property="Stroke" Value="{StaticResource Line}" />
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="Padding" Value="18,10,18,12" />
+        <Setter Property="StrokeShape">
+            <RoundRectangle CornerRadius="0" />
+        </Setter>
+    </Style>
+
+    <Style TargetType="Button" x:Key="MapPreviewNavigationButton" BasedOn="{StaticResource PagerButton}">
+        <Setter Property="FontSize" Value="20" />
+        <Setter Property="WidthRequest" Value="40" />
+        <Setter Property="HeightRequest" Value="42" />
+        <Setter Property="MinimumWidthRequest" Value="40" />
+        <Setter Property="MinimumHeightRequest" Value="42" />
+        <Setter Property="Padding" Value="0" />
+    </Style>
+
+    <Style TargetType="ImageButton" x:Key="MapPreviewIconButton">
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="BorderWidth" Value="0" />
+        <Setter Property="Padding" Value="9" />
+        <Setter Property="WidthRequest" Value="42" />
+        <Setter Property="HeightRequest" Value="42" />
+    </Style>
+
     <Style TargetType="Border" x:Key="Chip">
         <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Mist}, Dark={StaticResource NightSurfaceAlt}}" />
         <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}" />

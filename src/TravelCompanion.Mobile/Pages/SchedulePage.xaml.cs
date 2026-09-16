@@ -49,6 +49,12 @@ public partial class SchedulePage : ContentPage
         await Dispatcher.DispatchAsync(HandleAppearingAsync);
     }
 
+    protected override void OnDisappearing()
+    {
+        _viewModel.CancelRouteLoading();
+        base.OnDisappearing();
+    }
+
     private async Task HandleAppearingAsync()
     {
         var stopwatch = Stopwatch.StartNew();

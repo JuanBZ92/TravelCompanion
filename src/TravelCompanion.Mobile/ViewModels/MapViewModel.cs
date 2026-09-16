@@ -46,6 +46,7 @@ public sealed partial class MapViewModel(
                 OnPropertyChanged(nameof(ShowSelectedRecommendationDescription));
                 OnPropertyChanged(nameof(SelectedRecommendationPosition));
                 OnPropertyChanged(nameof(SelectedRecommendationMeta));
+                OnPropertyChanged(nameof(SelectedRecommendationType));
                 OnPropertyChanged(nameof(CanBrowseSelectedRecommendations));
             }
         }
@@ -68,6 +69,8 @@ public sealed partial class MapViewModel(
     public bool ShowSelectedRecommendationDescription =>
         HasSelectedRecommendation && !IsSelectedRecommendationLoading;
     public bool CanBrowseSelectedRecommendations => HasSelectedRecommendation && VisibleNearbyRecommendations.Count > 1;
+    public string SelectedRecommendationType =>
+        SelectedRecommendation?.RefinedType ?? SelectedRecommendation?.Category ?? string.Empty;
     public string SelectedRecommendationMeta
     {
         get
