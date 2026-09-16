@@ -1,0 +1,122 @@
+@page "/admin/external-places"
+@model TravelCompanion.Api.Pages.Admin.ExternalPlacesModel
+@{
+    ViewData["Title"] = "Lugares externos guardados";
+}
+
+<div class="page-heading">
+    <div>
+        <h1>Lugares externos guardados</h1>
+        <p class="lede">Señales reales de lugares que los viajeros agregaron desde Google Maps. Revisalos antes de incorporarlos al catálogo YUKU.</p>
+    </div>
+    <span class="eyebrow">Curación</span>
+</div>
+
+<section class="grid" style="margin-bottom: 16px">
+    <article class="panel"><div class="metric">@Model.Report.SavedCount</div><strong>Guardados</strong><p class="muted">Elementos agregados a itinerarios.</p></article>
+    <article class="panel"><div class="metric">@Model.Report.UniquePlaceCount</div><strong>Lugares únicos</strong><p class="muted">Agrupados por destino y Place ID.</p></article>
+    <article class="panel"><div class="metric">@Model.Report.PendingReviewCount</div><strong>Pendientes</strong><p class="muted">Todavía no están en Recommendations.</p></article>
+    <article class="panel"><div class="metric">@Model.Report.TripCount</div><strong>Viajes</strong><p class="muted">Viajes con al menos un lugar externo.</p></article>
+</section>
+
+<section class="panel">
+    <div class="section-header">
+        <div>
+            <h2>Bandeja editorial</h2>
+            <p class="form-hint">El panel conserva Place ID, nombre y uso dentro del itinerario. No replica fichas completas de Google.</p>
+        </div>
+    </div>
+
+    <form method="get" class="inline-form" style="margin: 16px 0">
+        <div>
+            <label asp-for="Search">Buscar</label>
+            <input asp-for="Search" placeholder="Lugar, ciudad, viaje o Place ID" />
+        </div>
+        <div>
+            <label asp-for="Status">Estado</label>
+            <select asp-for="Status">
+                <option value="pending">Pendientes</option>
+                <option value="catalog">En catálogo</option>
+                <option value="all">Todos</option>
+            </select>
+        </div>
+        <button type="submit">Filtrar</button>
+    </form>
+
+    @if (Model.Places.Count == 0)
+    {
+        <p class="muted">No hay lugares que coincidan con este filtro.</p>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Lugar</th>
+                        <th>Estado</th>
+                        <th>Uso</th>
+                        <th>Fechas del itinerario</th>
+                        <th>Viajes</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var place in Model.Places)
+                {
+                    <tr>
+                        <td>
+                            <strong>@place.Title</strong><br />
+                            <span class="muted">@place.City · @place.DestinationName</span><br />
+                            <small class="muted">@place.ProviderPlaceId</small>
+                        </td>
+                        <td>
+                            @if (place.IsInCatalog)
+                            {
+                                <span class="badge">En catálogo</span>
+                            }
+                            else
+                            {
+                                <span class="badge">Pendiente</span>
+                            }
+                        </td>
+                        <td>
+                            <strong>@place.SavedCount guardados</strong><br />
+                            <span class="muted">@place.TripCount viajes · @place.TravelerCount viajeros</span>
+                        </td>
+                        <td>
+                            @place.FirstPlannedDate.ToString("dd/MM/yyyy")
+                            @if (place.LastPlannedDate != place.FirstPlannedDate)
+                            {
+                                <span>– @place.LastPlannedDate.ToString("dd/MM/yyyy")</span>
+                            }
+                        </td>
+                        <td>@string.Join(", ", place.TripNames)</td>
+                        <td>
+                            <div class="row-actions">
+                                <a class="button secondary" href="@place.GoogleMapsUrl" target="_blank" rel="noopener">Abrir Maps</a>
+                                @if (place.RecommendationId.HasValue)
+                                {
+                                    <a class="button" asp-page="/Admin/Recommendations" asp-route-editId="@place.RecommendationId">Editar</a>
+                                }
+                                else
+                                {
+                                    <a class="button"
+                                       asp-page="/Admin/Recommendations"
+                                       asp-route-sourcePlaceId="@place.ProviderPlaceId"
+                                       asp-route-sourceTitle="@place.Title"
+                                       asp-route-sourceCity="@place.City"
+                                       asp-route-sourceDestinationId="@place.DestinationId"
+                                       asp-route-sourceUsageCount="@place.SavedCount">Curar lugar</a>
+                                }
+                            </div>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    <p class="form-hint" style="margin-top: 16px">Las fechas muestran cuándo está planificado el lugar en el itinerario. El modelo actual no registra todavía la fecha exacta en que se guardó.</p>
+</section>

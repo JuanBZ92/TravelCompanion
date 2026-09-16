@@ -82,16 +82,20 @@
                 <Label Text="{Binding StatusMessage}" FontSize="12" TextColor="#6E675F" />
             </Border>
 
-            <Border Grid.Row="2" Margin="0,0,0,8" Padding="18" VerticalOptions="End" BackgroundColor="#F8F3ED" Stroke="#D8CFC4" StrokeThickness="1" IsVisible="{Binding HasPreview}">
-                <Grid RowDefinitions="Auto,*" RowSpacing="8">
-                    <Grid ColumnDefinitions="Auto,*,Auto"
+            <Border Grid.Row="2" Margin="0,0,0,8" Padding="14,10" VerticalOptions="End" BackgroundColor="#F8F3ED" Stroke="#D8CFC4" StrokeThickness="1" IsVisible="{Binding HasPreview}">
+                <Grid RowDefinitions="Auto,*" RowSpacing="5">
+                    <Grid ColumnDefinitions="34,Auto,34,*,36,36"
+                          ColumnSpacing="4"
+                          HeightRequest="36"
                           IsVisible="{Binding HasSelection}">
                         <Button Text="‹"
                                 Command="{Binding SelectPreviousMarkerCommand}"
                                 IsEnabled="{Binding CanBrowseMarkers}"
                                 Style="{StaticResource PagerButton}"
-                                WidthRequest="38"
-                                HeightRequest="34"
+                                WidthRequest="34"
+                                MinimumWidthRequest="34"
+                                HeightRequest="36"
+                                MinimumHeightRequest="36"
                                 Padding="0"
                                 SemanticProperties.Description="Lugar anterior" />
                         <Label Grid.Column="1"
@@ -99,40 +103,88 @@
                                FontSize="11"
                                TextColor="#8E867D"
                                HorizontalOptions="Center"
-                               VerticalOptions="Center" />
+                               VerticalOptions="Center"
+                               Margin="3,0" />
                         <Button Grid.Column="2"
                                 Text="›"
                                 Command="{Binding SelectNextMarkerCommand}"
                                 IsEnabled="{Binding CanBrowseMarkers}"
                                 Style="{StaticResource PagerButton}"
-                                WidthRequest="38"
-                                HeightRequest="34"
+                                WidthRequest="34"
+                                MinimumWidthRequest="34"
+                                HeightRequest="36"
+                                MinimumHeightRequest="36"
                                 Padding="0"
                                 SemanticProperties.Description="Lugar siguiente" />
+                        <Label Grid.Column="3"
+                               Text="{Binding SelectedRecommendation.RefinedType}"
+                               CharacterSpacing="2"
+                               FontSize="9"
+                               FontAttributes="Bold"
+                               TextColor="#9B9288"
+                               LineBreakMode="TailTruncation"
+                               MaxLines="1"
+                               HorizontalTextAlignment="End"
+                               VerticalTextAlignment="Center"
+                               Margin="6,0" />
+                        <ImageButton Grid.Column="4"
+                                     Source="tab_map.svg"
+                                     Command="{Binding OpenSelectedMapCommand}"
+                                     IsVisible="{Binding IsUnlockedSelection}"
+                                     BackgroundColor="Transparent"
+                                     BorderWidth="0"
+                                     Padding="8"
+                                     WidthRequest="36"
+                                     HeightRequest="36"
+                                     SemanticProperties.Description="Abrir ubicación en Google Maps" />
+                        <Button Grid.Column="5"
+                                Text="×"
+                                Command="{Binding CloseSelectionCommand}"
+                                Style="{StaticResource PagerButton}"
+                                WidthRequest="36"
+                                MinimumWidthRequest="36"
+                                HeightRequest="36"
+                                MinimumHeightRequest="36"
+                                Padding="0"
+                                SemanticProperties.Description="Cerrar detalle" />
                     </Grid>
 
-                    <ScrollView Grid.Row="1" MaximumHeightRequest="320" IsVisible="{Binding IsUnlockedSelection}">
-                    <VerticalStackLayout Spacing="8">
-                        <Grid ColumnDefinitions="*,Auto">
-                            <Label Text="{Binding SelectedRecommendation.Category}" CharacterSpacing="3" FontSize="10" FontAttributes="Bold" TextColor="#9B9288" />
-                            <Button Grid.Column="1" Text="×" Command="{Binding CloseSelectionCommand}" Style="{StaticResource GhostButton}" WidthRequest="34" HeightRequest="34" Padding="0" />
-                        </Grid>
-                        <Label Text="{Binding SelectedRecommendation.Title}" FontFamily="serif" FontSize="25" TextColor="#1A1714" LineBreakMode="WordWrap" />
-                        <Label Text="{Binding SelectedRecommendation.DisplayDescription}" FontSize="14" TextColor="#4D4741" LineHeight="1.35" LineBreakMode="WordWrap" />
-                        <Label Text="{Binding SelectedLocationText}" FontSize="12" TextColor="#6E675F" />
-                        <Label Text="{Binding SelectedTagsText}" FontSize="12" TextColor="#8A6F3D" LineBreakMode="TailTruncation" MaxLines="2" />
-                        <Label Text="{Binding SelectedMetadataText}" FontSize="12" TextColor="#6E675F" />
-                        <Button Text="Abrir en el mapa" Command="{Binding OpenSelectedMapCommand}" BackgroundColor="#3D3329" TextColor="White" CornerRadius="0" HeightRequest="48" />
-                    </VerticalStackLayout>
+                    <ScrollView Grid.Row="1"
+                                MaximumHeightRequest="280"
+                                VerticalScrollBarVisibility="Default"
+                                IsVisible="{Binding IsUnlockedSelection}">
+                        <VerticalStackLayout Spacing="5">
+                            <Label Text="{Binding SelectedRecommendation.Title}"
+                                   FontFamily="serif"
+                                   FontSize="22"
+                                   TextColor="#1A1714"
+                                   LineBreakMode="WordWrap" />
+                            <Label Text="{Binding SelectedRecommendation.DisplayDescription}"
+                                   FontSize="13"
+                                   TextColor="#4D4741"
+                                   LineHeight="1.25"
+                                   LineBreakMode="WordWrap" />
+                            <FlexLayout Direction="Row" Wrap="Wrap" AlignItems="Center">
+                                <Label Text="{Binding SelectedLocationText}"
+                                       FontSize="11"
+                                       TextColor="#6E675F"
+                                       Margin="0,0,12,2" />
+                                <Label Text="{Binding SelectedMetadataText}"
+                                       FontSize="11"
+                                       TextColor="#6E675F"
+                                       Margin="0,0,0,2" />
+                            </FlexLayout>
+                            <Label Text="{Binding SelectedTagsText}"
+                                   FontSize="11"
+                                   TextColor="#8A6F3D"
+                                   LineBreakMode="TailTruncation"
+                                   MaxLines="1" />
+                        </VerticalStackLayout>
                     </ScrollView>
 
-                    <VerticalStackLayout Grid.Row="1" Spacing="10" IsVisible="{Binding IsLockedSelection}">
-                        <Grid ColumnDefinitions="*,Auto">
-                            <Label Text="CONTENIDO CURADO" CharacterSpacing="3" FontSize="10" FontAttributes="Bold" TextColor="#9B9288" />
-                            <Button Grid.Column="1" Text="×" Command="{Binding CloseSelectionCommand}" Style="{StaticResource GhostButton}" WidthRequest="34" HeightRequest="34" Padding="0" />
-                        </Grid>
-                        <Label Text="Hay una recomendación YUKU en esta zona" FontFamily="serif" FontSize="24" TextColor="#1A1714" />
-                        <Label Text="Accede al plan Pago o a un viaje Premium para descubrir el lugar, sus tags y todos los detalles." FontSize="14" TextColor="#6E675F" LineHeight="1.35" />
+                    <VerticalStackLayout Grid.Row="1" Spacing="6" IsVisible="{Binding IsLockedSelection}">
+                        <Label Text="Hay una recomendación YUKU en esta zona" FontFamily="serif" FontSize="21" TextColor="#1A1714" />
+                        <Label Text="Accede al plan Pago o a un viaje Premium para descubrir el lugar, sus tags y todos los detalles." FontSize="13" TextColor="#6E675F" LineHeight="1.25" />
                         <Grid ColumnDefinitions="*,*" ColumnSpacing="8" IsVisible="{Binding HasContactUrl}">
                             <Button Text="Solicitar acceso" Command="{Binding ContactCommand}" IsVisible="{Binding HasContactUrl}" BackgroundColor="#3D3329" TextColor="White" CornerRadius="0" />
                             <Button Grid.Column="1" Text="Ya tengo PIN" Command="{Binding UseAnotherPinCommand}" Style="{StaticResource GhostButton}" CornerRadius="0" />

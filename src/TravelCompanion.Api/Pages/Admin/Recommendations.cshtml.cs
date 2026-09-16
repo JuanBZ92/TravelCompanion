@@ -31,7 +31,13 @@ public sealed class RecommendationsModel(
     [TempData]
     public string? StatusMessage { get; set; }
 
-    public async Task OnGetAsync(Guid? editId)
+    public async Task OnGetAsync(
+        Guid? editId,
+        string? sourcePlaceId,
+        string? sourceTitle,
+        string? sourceCity,
+        Guid? sourceDestinationId,
+        int? sourceUsageCount)
     {
         await LoadPageDataAsync();
 
@@ -44,6 +50,29 @@ public sealed class RecommendationsModel(
             {
                 Input = RecommendationInput.FromEntity(recommendation);
             }
+        }
+        else if (!string.IsNullOrWhiteSpace(sourcePlaceId))
+        {
+            var fallbackDestinationId = DestinationOptions.Count > 0
+                ? Guid.Parse(DestinationOptions[0].Value)
+                : Guid.Empty;
+            var destinationId = sourceDestinationId.HasValue
+                && DestinationOptions.Any(option => option.Value == sourceDestinationId.Value.ToString())
+                    ? sourceDestinationId.Value
+                    : fallbackDestinationId;
+            var title = Truncate(sourceTitle, 160) ?? "Lugar externo";
+            var city = Truncate(sourceCity, 120) ?? string.Empty;
+            var placeId = Truncate(sourcePlaceId.Trim(), 256)!;
+
+            Input.DestinationId = destinationId;
+            Input.ProviderPlaceId = placeId;
+            Input.Title = title;
+            Input.Neighborhood = city;
+            Input.SourceName = "Google Places";
+            Input.SourceUrl = ExternalPlaceInsightsService.BuildGoogleMapsUrl(title, placeId);
+            Input.CurationNotes = sourceUsageCount is > 0
+                ? $"Detectado en {sourceUsageCount.Value} guardados de itinerario. Verificar contenido antes de publicar."
+                : "Detectado desde un itinerario. Verificar contenido antes de publicar.";
         }
         else if (DestinationOptions.Count > 0)
         {
@@ -243,6 +272,17 @@ public sealed class RecommendationsModel(
         }
 
         return string.Join(" ", messages);
+    }
+
+    private static string? Truncate(string? value, int maximumLength)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var normalized = value.Trim();
+        return normalized.Length <= maximumLength ? normalized : normalized[..maximumLength];
     }
 
     public sealed record RecommendationRow(

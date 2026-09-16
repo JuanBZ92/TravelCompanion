@@ -6,6 +6,7 @@ public partial class App : Application
 	{
 		TravelCompanion.Mobile.Services.LocalizationResourceManager.Instance.Initialize();
 		InitializeComponent();
+		UserAppTheme = AppTheme.Light;
 	}
 
 	protected override Window CreateWindow(IActivationState? activationState)
