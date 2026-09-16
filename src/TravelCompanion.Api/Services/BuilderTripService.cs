@@ -33,7 +33,9 @@ public sealed class BuilderTripService(
             .Include(item => item.DayPlans)
             .Include(item => item.Destination)
             .FirstOrDefaultAsync(item => item.Id == grant.TripId && item.AppUserId == access.User.Id, cancellationToken);
-        return trip is null ? EmptySetup("Japan", "Asia/Tokyo") : await ResolveHotelsAsync(trip, cancellationToken);
+        return trip is null || trip.ExperienceMode != ExperienceMode.SelfServiceBuilder
+            ? null
+            : await ResolveHotelsAsync(trip, cancellationToken);
     }
 
     public async Task<BuilderTripSetupDto> SaveAsync(
@@ -55,14 +57,26 @@ public sealed class BuilderTripService(
                 .Include(item => item.Reservations)
                 .Include(item => item.Destination)
                 .SingleAsync(item => item.Id == grant.TripId && item.AppUserId == access.User.Id, cancellationToken);
+            if (trip.ExperienceMode != ExperienceMode.SelfServiceBuilder)
+            {
+                throw new UnauthorizedAccessException();
+            }
+
             if (trip.PlanRevision != request.ExpectedRevision)
             {
                 throw new BuilderRevisionConflictException(trip.PlanRevision);
             }
 
-            if (trip.Reservations.Any(item => item.Date < request.ArrivalDate || item.Date > request.DepartureDate))
+            var excludedDates = trip.Reservations
+                .Where(item => item.Date < request.ArrivalDate || item.Date > request.DepartureDate)
+                .Select(item => item.Date)
+                .Distinct()
+                .Order()
+                .ToList();
+            if (excludedDates.Count > 0)
             {
-                throw new InvalidOperationException("Move or remove itinerary items outside the new date range first.");
+                var dates = string.Join(", ", excludedDates.Select(item => item.ToString("dd/MM/yyyy")));
+                throw new InvalidOperationException($"Hay planes fuera del nuevo rango en estas fechas: {dates}. Muévelos o elimínalos antes de guardar.");
             }
         }
         else
@@ -97,6 +111,61 @@ public sealed class BuilderTripService(
         await dbContext.SaveChangesAsync(cancellationToken);
         await sessionService.BindCurrentSessionToTripAsync(httpContext, trip.Id, cancellationToken);
         return await ResolveHotelsAsync(trip, cancellationToken);
+    }
+
+    public async Task<BuilderTripSetupDto> DeleteAsync(
+        HttpContext httpContext,
+        DeleteBuilderTripSetupRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var access = await GetBuilderAccessAsync(httpContext, cancellationToken)
+            ?? throw new UnauthorizedAccessException();
+        var grant = await LoadGrantAsync(access.User.Id, cancellationToken)
+            ?? throw new InvalidOperationException("No active builder access was found.");
+        if (grant.TripId != request.TripId)
+        {
+            throw new UnauthorizedAccessException();
+        }
+
+        var trip = await dbContext.Trips
+            .Include(item => item.Reservations)
+            .Include(item => item.DayPlans).ThenInclude(day => day.Blocks)
+            .Include(item => item.Documents)
+            .Include(item => item.PlanDraft)
+            .SingleOrDefaultAsync(item => item.Id == request.TripId && item.AppUserId == access.User.Id, cancellationToken)
+            ?? throw new UnauthorizedAccessException();
+        if (trip.ExperienceMode != ExperienceMode.SelfServiceBuilder)
+        {
+            throw new UnauthorizedAccessException();
+        }
+
+        if (trip.PlanRevision != request.ExpectedRevision)
+        {
+            throw new BuilderRevisionConflictException(trip.PlanRevision);
+        }
+
+        var reservationIds = trip.Reservations.Select(item => item.Id).ToList();
+        if (reservationIds.Count > 0)
+        {
+            var notifications = await dbContext.NotificationOutboxItems
+                .Where(item => item.ReservationId.HasValue && reservationIds.Contains(item.ReservationId.Value))
+                .ToListAsync(cancellationToken);
+            dbContext.NotificationOutboxItems.RemoveRange(notifications);
+        }
+
+        var sessions = await dbContext.AppUserSessions
+            .Where(item => item.UserId == access.User.Id && item.TripId == trip.Id)
+            .ToListAsync(cancellationToken);
+        foreach (var session in sessions)
+        {
+            session.TripId = null;
+        }
+
+        grant.TripId = null;
+        dbContext.Trips.Remove(trip);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return EmptySetup(grant.Destination?.Name ?? "Japan", grant.Destination?.TimeZoneId ?? "Asia/Tokyo");
     }
 
     private async Task<TravelerAccessContext?> GetBuilderAccessAsync(HttpContext context, CancellationToken cancellationToken)
@@ -232,7 +301,7 @@ public sealed class BuilderTripService(
     }
 }
 
-public sealed class BuilderRevisionConflictException(int currentRevision) : Exception("The itinerary changed. Reload it before saving.")
+public sealed class BuilderRevisionConflictException(int currentRevision) : Exception("El itinerario cambió en otro dispositivo. Actualízalo antes de continuar.")
 {
     public int CurrentRevision { get; } = currentRevision;
 }

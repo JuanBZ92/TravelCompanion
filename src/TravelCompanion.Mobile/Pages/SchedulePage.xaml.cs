@@ -131,6 +131,29 @@ public partial class SchedulePage : ContentPage
         }
     }
 
+    private async void OnItineraryMenuClicked(object? sender, EventArgs e)
+    {
+        if (!_viewModel.CanManageItinerary)
+        {
+            return;
+        }
+
+        var action = await DisplayActionSheetAsync(
+            "Mi itinerario",
+            "Cancelar",
+            null,
+            "Editar itinerario",
+            "Eliminar itinerario");
+        if (action == "Editar itinerario")
+        {
+            await _viewModel.EditItineraryCommand.ExecuteAsync(null);
+        }
+        else if (action == "Eliminar itinerario")
+        {
+            await _viewModel.DeleteItineraryCommand.ExecuteAsync(null);
+        }
+    }
+
     private async void OnTimelineItemTapped(object? sender, TappedEventArgs e)
     {
         if ((sender as BindableObject)?.BindingContext is ScheduleTimelineItemViewModel timelineItem)

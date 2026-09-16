@@ -17,10 +17,18 @@ public sealed partial class BuilderSetupViewModel(
     private DateTime _arrivalDate = DateTime.Today;
     private DateTime _departureDate = DateTime.Today.AddDays(6);
     private int _revision;
+    private Guid? _tripId;
 
     public ObservableCollection<BuilderSegmentViewModel> Segments { get; } = [];
     public ObservableCollection<string> SuggestedCities { get; } = [];
     public bool HasSuggestedCities => SuggestedCities.Count > 0;
+    public bool IsEditing => _tripId.HasValue;
+    public string HeaderEyebrow => IsEditing ? "EDITAR ITINERARIO · JAPÓN" : "CREAR ITINERARIO · JAPÓN";
+    public string HeaderTitle => IsEditing ? "Editar itinerario" : "Primero, las bases";
+    public string HeaderDescription => IsEditing
+        ? "Ajusta fechas, ciudades y hoteles. Tus planes se conservan en sus días actuales."
+        : "Define cuándo y en qué ciudades estarás. El itinerario comienza vacío.";
+    public string PrimaryButtonText => IsEditing ? "Guardar cambios" : "Crear itinerario";
     public DateTime ArrivalDate
     {
         get => _arrivalDate;
@@ -78,6 +86,7 @@ public sealed partial class BuilderSetupViewModel(
             return;
         }
         Segments.Clear();
+        SetTripId(setup.TripId);
         _revision = setup.Revision;
         ArrivalDate = setup.ArrivalDate?.ToDateTime(TimeOnly.MinValue) ?? DateTime.Today;
         DepartureDate = setup.DepartureDate?.ToDateTime(TimeOnly.MinValue) ?? DateTime.Today.AddDays(6);
@@ -279,6 +288,7 @@ public sealed partial class BuilderSetupViewModel(
         }
 
         _revision = result.Revision;
+        SetTripId(result.TripId);
         sessionService.MarkTripConfigured(result.TripId.Value, result.Destination);
         await logoutService.ResetContentAsync(
             sessionService.CurrentUserId,
@@ -299,7 +309,22 @@ public sealed partial class BuilderSetupViewModel(
     private async Task CancelAsync()
     {
         pendingStore.Clear();
-        await Shell.Current.GoToAsync("//main/map");
+        await Shell.Current.GoToAsync(IsEditing ? "//main/schedule" : "//main/map");
+    }
+
+    private void SetTripId(Guid? tripId)
+    {
+        if (_tripId == tripId)
+        {
+            return;
+        }
+
+        _tripId = tripId;
+        OnPropertyChanged(nameof(IsEditing));
+        OnPropertyChanged(nameof(HeaderEyebrow));
+        OnPropertyChanged(nameof(HeaderTitle));
+        OnPropertyChanged(nameof(HeaderDescription));
+        OnPropertyChanged(nameof(PrimaryButtonText));
     }
 
     private void AddDefaultSegment() => Segments.Add(new BuilderSegmentViewModel

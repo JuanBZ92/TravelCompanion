@@ -554,6 +554,24 @@ public sealed class TravelCompanionApiClient
         return await response.Content.ReadFromJsonAsync<BuilderTripSetupDto>(JsonOptions, cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task<BuilderTripSetupDto?> DeleteBuilderTripSetupAsync(
+        string token,
+        DeleteBuilderTripSetupRequest setup,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Delete, "api/mobile/builder/setup", token);
+        request.Content = JsonContent.Create(setup, options: JsonOptions);
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning("Builder setup deletion failed with {StatusCode}.", (int)response.StatusCode);
+            var error = await ReadApiErrorMessageAsync(response, cancellationToken).ConfigureAwait(false);
+            throw new InvalidOperationException(error ?? "No pudimos eliminar el itinerario. Intenta nuevamente.");
+        }
+
+        return await response.Content.ReadFromJsonAsync<BuilderTripSetupDto>(JsonOptions, cancellationToken).ConfigureAwait(false);
+    }
+
     private static async Task<string?> ReadApiErrorMessageAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
         try

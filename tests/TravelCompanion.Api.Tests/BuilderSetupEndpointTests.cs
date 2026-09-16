@@ -72,6 +72,23 @@ public sealed class BuilderSetupEndpointTests
         Assert.NotNull(setup?.TripId);
         Assert.Equal(arrival, setup.ArrivalDate);
         Assert.Equal(arrival.AddDays(6), setup.DepartureDate);
+
+        using var deleteRequest = new HttpRequestMessage(HttpMethod.Delete, "/api/mobile/builder/setup")
+        {
+            Content = JsonContent.Create(new DeleteBuilderTripSetupRequest(setup.TripId.Value, setup.Revision))
+        };
+        var deleteResponse = await client.SendAsync(deleteRequest);
+        deleteResponse.EnsureSuccessStatusCode();
+        var deleted = await deleteResponse.Content.ReadFromJsonAsync<BuilderTripSetupDto>();
+        Assert.False(deleted?.IsConfigured);
+        Assert.Null(deleted?.TripId);
+
+        client.DefaultRequestHeaders.Authorization = null;
+        var loginAgain = await client.PostAsJsonAsync("/api/auth/pin-login", new PinLoginRequestDto("1111"));
+        loginAgain.EnsureSuccessStatusCode();
+        using var loginJson = System.Text.Json.JsonDocument.Parse(await loginAgain.Content.ReadAsStringAsync());
+        Assert.Equal(System.Text.Json.JsonValueKind.Null, loginJson.RootElement.GetProperty("tripId").ValueKind);
+        Assert.True(loginJson.RootElement.GetProperty("capabilities").GetProperty("requiresTripSetup").GetBoolean());
     }
 
     private sealed class BuilderApiFactory : WebApplicationFactory<Program>

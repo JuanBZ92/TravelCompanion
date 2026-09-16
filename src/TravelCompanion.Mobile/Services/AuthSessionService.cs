@@ -157,6 +157,12 @@ public sealed class AuthSessionService
         }
     }
 
+    public void MarkTripDeleted()
+    {
+        Preferences.Default.Remove(TripIdKey);
+        Preferences.Default.Set(RequiresTripSetupKey, true);
+    }
+
     public void Clear()
     {
         Preferences.Default.Remove(UserIdKey);

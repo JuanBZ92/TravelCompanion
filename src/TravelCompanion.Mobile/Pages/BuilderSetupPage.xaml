@@ -12,9 +12,9 @@
         <ScrollView>
             <VerticalStackLayout Padding="24,20" Spacing="22">
                 <VerticalStackLayout Spacing="6">
-                    <Label Text="CREAR ITINERARIO · JAPÓN" CharacterSpacing="3" FontSize="11" TextColor="#8E867D" />
-                    <Label Text="Primero, las bases" FontFamily="serif" FontSize="34" TextColor="#1A1714" />
-                    <Label Text="Define cuándo y en qué ciudades estarás. El itinerario comienza vacío." FontSize="15" TextColor="#6E675F" />
+                    <Label Text="{Binding HeaderEyebrow}" CharacterSpacing="3" FontSize="11" TextColor="#8E867D" />
+                    <Label Text="{Binding HeaderTitle}" FontFamily="serif" FontSize="34" TextColor="#1A1714" />
+                    <Label Text="{Binding HeaderDescription}" FontSize="15" TextColor="#6E675F" />
                 </VerticalStackLayout>
                 <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
                     <VerticalStackLayout><Label Text="Llegada" Style="{StaticResource Eyebrow}"/><DatePicker Date="{Binding ArrivalDate}" /></VerticalStackLayout>
@@ -80,7 +80,7 @@
         </ScrollView>
         <Grid Grid.Row="1" Padding="20,12" ColumnDefinitions="*,*" ColumnSpacing="12" BackgroundColor="#FFFDF9">
             <Button Text="Cancelar" Command="{Binding CancelCommand}" Style="{StaticResource GhostButton}" />
-            <Button Grid.Column="1" Text="Crear itinerario" Command="{Binding SaveSetupCommand}" IsEnabled="{Binding IsNotBusy}" />
+            <Button Grid.Column="1" Text="{Binding PrimaryButtonText}" Command="{Binding SaveSetupCommand}" IsEnabled="{Binding IsNotBusy}" />
         </Grid>
     </Grid>
 </ContentPage>

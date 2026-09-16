@@ -29,6 +29,10 @@ public sealed record SaveBuilderTripSetupRequest(
     int ExpectedRevision,
     IReadOnlyList<BuilderTripSetupSegmentDto> Segments);
 
+public sealed record DeleteBuilderTripSetupRequest(
+    Guid TripId,
+    int ExpectedRevision);
+
 public sealed record ItineraryItemMutationRequest(
     Guid? RecommendationId,
     [param: MaxLength(160)] string? GooglePlaceId,

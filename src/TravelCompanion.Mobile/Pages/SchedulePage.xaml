@@ -19,11 +19,23 @@
 
                     <Grid RowDefinitions="Auto,Auto,Auto,Auto"
                           RowSpacing="10">
-                        <Label Text="HOY · YUKU JAPAN"
-                               CharacterSpacing="6"
-                               FontSize="11"
-                               FontAttributes="Bold"
-                               TextColor="#8E867D" />
+                        <Grid ColumnDefinitions="*,36">
+                            <Label Text="HOY · YUKU JAPAN"
+                                   CharacterSpacing="6"
+                                   FontSize="11"
+                                   FontAttributes="Bold"
+                                   VerticalTextAlignment="Center"
+                                   TextColor="#8E867D" />
+                            <ImageButton Grid.Column="1"
+                                         Source="itinerary_menu.svg"
+                                         BackgroundColor="Transparent"
+                                         Padding="8"
+                                         WidthRequest="36"
+                                         HeightRequest="36"
+                                         IsVisible="{Binding CanManageItinerary}"
+                                         Clicked="OnItineraryMenuClicked"
+                                         SemanticProperties.Description="Opciones del itinerario" />
+                        </Grid>
 
                         <Grid Grid.Row="1"
                               ColumnDefinitions="*,Auto"

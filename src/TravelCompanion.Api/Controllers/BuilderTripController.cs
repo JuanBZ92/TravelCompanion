@@ -39,4 +39,27 @@ public sealed class BuilderTripController(BuilderTripService service) : Controll
             return BadRequest(new { message = exception.Message });
         }
     }
+
+    [HttpDelete]
+    public async Task<ActionResult<BuilderTripSetupDto>> Delete(
+        DeleteBuilderTripSetupRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return Ok(await service.DeleteAsync(HttpContext, request, cancellationToken));
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+        catch (BuilderRevisionConflictException exception)
+        {
+            return Conflict(new { message = exception.Message, currentRevision = exception.CurrentRevision });
+        }
+        catch (InvalidOperationException exception)
+        {
+            return BadRequest(new { message = exception.Message });
+        }
+    }
 }
