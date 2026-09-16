@@ -6,6 +6,7 @@ public sealed record TodayDto(
     GeoPointDto? CurrentLocationUsed,
     IReadOnlyList<TodaySectionDto> Sections)
 {
+    public string? City { get; init; }
     public TodayHotelBaseDto? HotelBase { get; init; }
 }
 

@@ -11,6 +11,7 @@ public sealed partial class ScheduleDayFilterViewModel : ObservableObject
     private static readonly Color TransparentColor = Color.FromArgb("#00FFFFFF");
 
     private bool _isSelected;
+    private string _city;
 
     public ScheduleDayFilterViewModel(
         DateOnly date,
@@ -20,13 +21,17 @@ public sealed partial class ScheduleDayFilterViewModel : ObservableObject
     {
         Date = date;
         TripDayNumber = tripDayNumber;
-        City = city;
+        _city = city;
         _isSelected = isSelected;
     }
 
     public DateOnly Date { get; }
     public int TripDayNumber { get; }
-    public string City { get; }
+    public string City
+    {
+        get => _city;
+        private set => SetProperty(ref _city, value);
+    }
     public string DayLabel => $"DIA {TripDayNumber}";
     public string DateLabel => Date.Day.ToString();
 
@@ -49,4 +54,12 @@ public sealed partial class ScheduleDayFilterViewModel : ObservableObject
     public Color BorderColor => IsSelected ? InkColor : LineColor;
     public Color PrimaryTextColor => IsSelected ? PaperColor : InkColor;
     public Color SecondaryTextColor => IsSelected ? PaperColor : MutedColor;
+
+    public void UpdateCity(string city)
+    {
+        if (!string.IsNullOrWhiteSpace(city))
+        {
+            City = city;
+        }
+    }
 }

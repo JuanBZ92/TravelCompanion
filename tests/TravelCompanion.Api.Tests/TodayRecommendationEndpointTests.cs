@@ -61,6 +61,7 @@ public sealed class TodayRecommendationEndpointTests
             JsonOptions);
 
         Assert.NotNull(today);
+        Assert.Equal("Tokyo", today.City);
         var morning = Assert.Single(today.Sections, section => section.PeriodKey == "morning");
         Assert.NotEmpty(morning.Reservations);
         Assert.Empty(morning.Recommendations);
@@ -160,6 +161,17 @@ public sealed class TodayRecommendationEndpointTests
                 TravelerName = "Today Traveler",
                 StartsOn = new DateOnly(2026, 10, 20),
                 EndsOn = new DateOnly(2026, 10, 30),
+                DayPlans =
+                [
+                    new TripDayPlan
+                    {
+                        Id = Guid.NewGuid(),
+                        TripId = tripId,
+                        Date = freeDate,
+                        DayNumber = 3,
+                        City = "Tokyo"
+                    }
+                ],
                 Reservations =
                 [
                     CreateReservation("Morning booking", freeDate, new TimeOnly(9, 0), "Tokyo"),

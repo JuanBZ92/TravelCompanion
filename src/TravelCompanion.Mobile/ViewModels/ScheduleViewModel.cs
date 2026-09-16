@@ -48,6 +48,11 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     private readonly HashSet<Guid> _nearbyVisitPrompts = [];
     private CancellationTokenSource? _routeLoad;
     private readonly Dictionary<string, (DateTimeOffset SavedAt, ItineraryRouteDto Value)> _routeCache = [];
+    private readonly Dictionary<DateOnly, string> _citiesByDate = [];
+    private readonly Dictionary<DateOnly, TodayHotelBaseDto> _hotelsByDate = [];
+    private readonly Dictionary<DateOnly, TodayDto> _todayByDate = [];
+    private TodayHotelBaseDto? _selectedHotelBase;
+    private string _destinationName = "Tu viaje";
 
     public void CancelRouteLoading() => _routeLoad?.Cancel();
 
@@ -137,14 +142,14 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         && !_tripStartsOn.HasValue;
     public bool HasPreviewMessage => !string.IsNullOrWhiteSpace(PreviewMessage);
     public bool HasStayCard => !string.IsNullOrWhiteSpace(StayTitle);
-    public string StayAddress => _today is not null && _today.Date == _selectedDate ? _today.HotelBase?.Address ?? string.Empty : string.Empty;
-    public bool CanOpenStayMap => _today is not null && _today.Date == _selectedDate && _today.HotelBase is not null;
-    public string? StayAttribution => CanOpenStayMap ? _today?.HotelBase?.Attribution : null;
+    public string StayAddress => _selectedHotelBase?.Address ?? string.Empty;
+    public bool CanOpenStayMap => _selectedHotelBase is not null;
+    public string? StayAttribution => _selectedHotelBase?.Attribution;
 
     [RelayCommand]
     private async Task OpenStayMapAsync()
     {
-        if (!CanOpenStayMap || _today?.HotelBase is not { } hotel) return;
+        if (!CanOpenStayMap || _selectedHotelBase is not { } hotel) return;
         await GoogleMapsLauncher.OpenAsync($"{hotel.Name}, {hotel.Address}", hotel.ProviderPlaceId);
     }
     public string SelectedCity => _selectedCity;
@@ -219,6 +224,9 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     {
         CancelRouteLoading();
         _routeCache.Clear();
+        _citiesByDate.Clear();
+        _hotelsByDate.Clear();
+        _todayByDate.Clear();
         ResetLoadState();
         _allItems.Clear();
         _recommendations.Clear();
@@ -244,6 +252,8 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         StayTitle = null;
         _focusItem = null;
         _today = null;
+        _selectedHotelBase = null;
+        _destinationName = "Tu viaje";
         _currentLocation = null;
         _hasRequestedLocation = false;
         _nearbyVisitPrompts.Clear();
@@ -523,10 +533,8 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
 
         var stopwatch = Stopwatch.StartNew();
         _selectedDate = day.Date;
-        if (_today?.Date != day.Date)
-        {
-            SetTodayLoading(true);
-        }
+        _today = _todayByDate.GetValueOrDefault(day.Date);
+        SetTodayLoading(_today is null);
         RebuildSelectedDay();
         stopwatch.Stop();
 
@@ -611,6 +619,10 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         {
             var setup = await _apiClient.GetBuilderTripSetupAsync(token, cancellationToken);
             _builderRevision = setup?.TripId == _tripId ? setup.Revision : null;
+            if (setup?.TripId == _tripId)
+            {
+                ApplyBuilderDayMetadata(setup);
+            }
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
         {
@@ -633,12 +645,15 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         var cached = await _todayStore.GetCachedAsync(selectedDate, cancellationToken);
         if (cached is not null)
         {
-            ApplyToday(cached.Value);
+            ApplyToday(cached.Value, includeHotelMetadata: false);
         }
 
         if (!forceRefresh && _todayStore.HasFreshSnapshot(selectedDate))
         {
-            await PromptForNearbyVisitAsync(token, cancellationToken);
+            if (_selectedDate == selectedDate)
+            {
+                await PromptForNearbyVisitAsync(token, cancellationToken);
+            }
             return;
         }
 
@@ -652,15 +667,23 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
             if (today is not null)
             {
                 ApplyToday(today);
-                await PromptForNearbyVisitAsync(token, cancellationToken);
+                if (_selectedDate == selectedDate)
+                {
+                    await PromptForNearbyVisitAsync(token, cancellationToken);
+                }
             }
-            else if (cached is null)
+            else if (cached is null && _selectedDate == selectedDate)
             {
                 CompleteTodayLoadingWithScheduleFallback();
             }
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
         {
+            if (_selectedDate != selectedDate)
+            {
+                return;
+            }
+
             if (cached is not null)
             {
                 StatusMessage = $"Render puede estar despertando. Mostrando Today guardado. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
@@ -673,10 +696,59 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         }
     }
 
-    private void ApplyToday(TodayDto today)
+    private void ApplyToday(TodayDto today, bool includeHotelMetadata = true)
     {
+        _todayByDate[today.Date] = today;
+        if (!string.IsNullOrWhiteSpace(today.City))
+        {
+            _citiesByDate[today.Date] = today.City;
+            DayFilters.FirstOrDefault(item => item.Date == today.Date)?.UpdateCity(today.City);
+        }
+        if (includeHotelMetadata && today.HotelBase is not null)
+        {
+            _hotelsByDate[today.Date] = today.HotelBase;
+        }
+        if (_selectedDate != today.Date)
+        {
+            return;
+        }
+
         _today = today;
         SetTodayLoading(false);
+        RebuildSelectedDay();
+    }
+
+    private void ApplyBuilderDayMetadata(BuilderTripSetupDto setup)
+    {
+        _citiesByDate.Clear();
+        _hotelsByDate.Clear();
+        foreach (var segment in setup.Segments)
+        {
+            for (var date = segment.StartsOn; date <= segment.EndsOn; date = date.AddDays(1))
+            {
+                _citiesByDate[date] = segment.City;
+                if (!string.IsNullOrWhiteSpace(segment.HotelName) || !string.IsNullOrWhiteSpace(segment.HotelPlaceId))
+                {
+                    _hotelsByDate[date] = new TodayHotelBaseDto(
+                        string.IsNullOrWhiteSpace(segment.HotelName) ? "Hotel" : segment.HotelName,
+                        segment.HotelAddress ?? string.Empty,
+                        segment.HotelPlaceId,
+                        segment.HotelLatitude,
+                        segment.HotelLongitude)
+                    {
+                        Attribution = string.IsNullOrWhiteSpace(segment.HotelPlaceId) ? null : "Google Maps"
+                    };
+                }
+            }
+        }
+
+        foreach (var day in DayFilters)
+        {
+            if (_citiesByDate.TryGetValue(day.Date, out var city))
+            {
+                day.UpdateCity(city);
+            }
+        }
         RebuildSelectedDay();
     }
 
@@ -706,6 +778,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         var sourceItems = schedule.Items ?? [];
         TripTitle = $"{schedule.DestinationName} for {schedule.TravelerName}";
         TripDates = $"{schedule.StartsOn:MMM d} - {schedule.EndsOn:MMM d, yyyy}";
+        _destinationName = schedule.DestinationName;
         _tripStartsOn = schedule.StartsOn;
         _tripEndsOn = schedule.EndsOn;
         _tripId = schedule.TripId;
@@ -714,10 +787,10 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         _allItems.AddRange(sourceItems);
         _focusItem = GetFocusItem(_allItems);
         _selectedDate = GetInitialSelectedDate(schedule, _allItems);
-        if (_today?.Date != _selectedDate)
-        {
-            SetTodayLoading(true);
-        }
+        _today = _selectedDate.HasValue
+            ? _todayByDate.GetValueOrDefault(_selectedDate.Value)
+            : null;
+        SetTodayLoading(_today is null);
         NotifyFocusChanged();
         RebuildDayFilters(schedule);
         RebuildSelectedDay();
@@ -754,6 +827,12 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         _tripEndsOn = null;
         _tripId = null;
         _builderRevision = null;
+        _destinationName = "Tu viaje";
+        _today = null;
+        _selectedHotelBase = null;
+        _citiesByDate.Clear();
+        _hotelsByDate.Clear();
+        _todayByDate.Clear();
         OnPropertyChanged(nameof(CanManageItinerary));
         _selectedDate = null;
         _selectedCity = "Tu viaje";
@@ -793,7 +872,11 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         if (_selectedDate is null)
         {
             _selectedCity = "Tu viaje";
+            _selectedHotelBase = null;
             StayTitle = null;
+            OnPropertyChanged(nameof(StayAddress));
+            OnPropertyChanged(nameof(CanOpenStayMap));
+            OnPropertyChanged(nameof(StayAttribution));
             PreviewMessage = null;
             SelectedTimelineItems = [];
             TodaySections = [];
@@ -804,8 +887,10 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         }
 
         var selectedDate = _selectedDate.Value;
-        _selectedCity = GetCityForDate(selectedDate, TripTitle);
-        StayTitle = (_today?.Date == selectedDate ? _today.HotelBase?.Name : null) ?? GetStayTitleForDate(selectedDate);
+        _selectedCity = GetCityForDate(selectedDate, _destinationName);
+        _selectedHotelBase = _hotelsByDate.GetValueOrDefault(selectedDate);
+        _selectedHotelBase ??= _today?.Date == selectedDate ? _today.HotelBase : null;
+        StayTitle = _selectedHotelBase?.Name ?? GetStayTitleForDate(selectedDate);
         OnPropertyChanged(nameof(StayAddress));
         OnPropertyChanged(nameof(CanOpenStayMap));
         OnPropertyChanged(nameof(StayAttribution));
@@ -1270,6 +1355,11 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
 
     private string GetCityForDate(DateOnly date, string fallback)
     {
+        if (_citiesByDate.TryGetValue(date, out var configuredCity) && !string.IsNullOrWhiteSpace(configuredCity))
+        {
+            return configuredCity;
+        }
+
         var sameDayCity = _allItems
             .Where(item => item.Date == date)
             .Select(item => NormalizeCity(item.City))

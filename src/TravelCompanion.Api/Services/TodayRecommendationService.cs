@@ -267,6 +267,7 @@ public sealed class TodayRecommendationService(
         }
         return new TodayDto(DateTimeOffset.UtcNow, selectedDate, currentLocation, sections)
         {
+            City = selectedDay?.City,
             HotelBase = hotel
         };
     }
