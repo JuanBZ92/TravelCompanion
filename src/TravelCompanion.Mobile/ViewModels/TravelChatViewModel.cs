@@ -353,7 +353,16 @@ public sealed partial class TravelChatViewModel(
     private void ToggleSecondaryMenu() => IsSecondaryMenuVisible = !IsSecondaryMenuVisible;
 
     [RelayCommand]
-    private void AdjustGuidedPlan() => ShowGuidedStep("adjust", Resource("AssistantGuidedAdjustQuestion"), CreateAdjustOptions());
+    private void AdjustGuidedPlan()
+    {
+        if (_guidedCriteria is null)
+        {
+            RestartGuidedFlow();
+            return;
+        }
+
+        ShowGuidedStep("adjust", Resource("AssistantGuidedAdjustQuestion"), CreateAdjustOptions());
+    }
 
     [RelayCommand(CanExecute = nameof(CanSendMessage))]
     private async Task SendMessageAsync()
