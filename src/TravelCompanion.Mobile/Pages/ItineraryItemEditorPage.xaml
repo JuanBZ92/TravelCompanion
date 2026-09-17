@@ -2,6 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:viewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
+             xmlns:dtos="clr-namespace:TravelCompanion.Shared.Dtos;assembly=TravelCompanion.Shared"
              x:Class="TravelCompanion.Mobile.Pages.ItineraryItemEditorPage"
              x:DataType="viewModels:ItineraryItemEditorViewModel"
              Title="Agregar al itinerario"
@@ -13,7 +14,54 @@
                 <Label Text="{Binding HeaderTitle}" FontFamily="serif" FontSize="32" TextColor="#1A1714" />
                 <Label Text="{Binding Subtitle}" FontSize="14" TextColor="#6E675F" />
                 <Entry Placeholder="Nombre del plan" Text="{Binding TitleText}" />
-                <Entry Placeholder="Lugar (opcional)" Text="{Binding LocationName}" />
+                <VerticalStackLayout Spacing="8">
+                    <Entry x:Name="PlaceEntry"
+                           Placeholder="Lugar (opcional)"
+                           Text="{Binding LocationName}"
+                           TextChanged="OnPlaceTextChanged"
+                           SemanticProperties.Hint="Escribe tres letras para buscar lugares en Google Maps" />
+                    <Label Text="Elige una sugerencia de Google Maps o escribe el lugar manualmente."
+                           IsVisible="{Binding CanSearchPlaces}"
+                           FontSize="12"
+                           TextColor="#6E675F" />
+                    <VerticalStackLayout Spacing="0"
+                                         IsVisible="{Binding CanSearchPlaces}"
+                                         BindableLayout.ItemsSource="{Binding PlaceSuggestions}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="dtos:PlaceSuggestionDto">
+                                <Border Padding="12,10"
+                                        BackgroundColor="#FFFDF9"
+                                        Stroke="#D8CFC4"
+                                        StrokeThickness="1">
+                                    <Border.StrokeShape>
+                                        <RoundRectangle CornerRadius="0" />
+                                    </Border.StrokeShape>
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnPlaceSuggestionTapped"
+                                                              CommandParameter="{Binding .}" />
+                                    </Border.GestureRecognizers>
+                                    <VerticalStackLayout Spacing="2">
+                                        <Label Text="{Binding Name}"
+                                               FontSize="14"
+                                               FontAttributes="Bold"
+                                               TextColor="#1A1714"
+                                               LineBreakMode="TailTruncation"
+                                               MaxLines="1" />
+                                        <Label Text="{Binding Address}"
+                                               FontSize="12"
+                                               TextColor="#6E675F"
+                                               LineBreakMode="TailTruncation"
+                                               MaxLines="2" />
+                                    </VerticalStackLayout>
+                                </Border>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                    <Label Text="{Binding PlaceSearchMessage}"
+                           IsVisible="{Binding HasPlaceSearchMessage}"
+                           FontSize="12"
+                           TextColor="#6E675F" />
+                </VerticalStackLayout>
                 <Entry Placeholder="Dirección (opcional)" Text="{Binding Address}" />
                 <VerticalStackLayout Spacing="6"><Label Text="DÍA" Style="{StaticResource Eyebrow}"/><DatePicker Date="{Binding Date}" /></VerticalStackLayout>
                 <VerticalStackLayout Spacing="6"><Label Text="MOMENTO" Style="{StaticResource Eyebrow}"/><Picker ItemsSource="{Binding Periods}" SelectedItem="{Binding SelectedPeriod}" /></VerticalStackLayout>

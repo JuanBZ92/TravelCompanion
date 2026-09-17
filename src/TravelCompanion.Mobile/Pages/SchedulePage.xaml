@@ -395,12 +395,38 @@
                                                                 <Label Text="{Binding TimeLabel}"
                                                                        FontSize="12"
                                                                        TextColor="#8A8078" />
-                                                                <Label Text="{Binding Title}"
-                                                                       FontFamily="serif"
-                                                                       FontSize="21"
-                                                                       TextColor="#1A1714"
-                                                                       LineBreakMode="WordWrap"
-                                                                       MaxLines="2" />
+                                                                <Grid ColumnDefinitions="*,Auto,Auto"
+                                                                      ColumnSpacing="4">
+                                                                    <Label Text="{Binding Title}"
+                                                                           FontFamily="serif"
+                                                                           FontSize="21"
+                                                                           TextColor="#1A1714"
+                                                                           LineBreakMode="WordWrap"
+                                                                           MaxLines="3"
+                                                                           VerticalOptions="Center" />
+                                                                    <ImageButton Grid.Column="1"
+                                                                                 Source="action_edit.svg"
+                                                                                 Clicked="OnEditPersonalItemClicked"
+                                                                                 IsVisible="{Binding CanEdit}"
+                                                                                 BackgroundColor="Transparent"
+                                                                                 WidthRequest="44"
+                                                                                 HeightRequest="44"
+                                                                                 Padding="10"
+                                                                                 VerticalOptions="Start"
+                                                                                 SemanticProperties.Description="Editar reserva"
+                                                                                 ToolTipProperties.Text="Editar reserva" />
+                                                                    <ImageButton Grid.Column="2"
+                                                                                 Source="action_delete.svg"
+                                                                                 Clicked="OnDeletePersonalItemClicked"
+                                                                                 IsVisible="{Binding CanEdit}"
+                                                                                 BackgroundColor="Transparent"
+                                                                                 WidthRequest="44"
+                                                                                 HeightRequest="44"
+                                                                                 Padding="10"
+                                                                                 VerticalOptions="Start"
+                                                                                 SemanticProperties.Description="Eliminar reserva"
+                                                                                 ToolTipProperties.Text="Eliminar reserva" />
+                                                                </Grid>
                                                                 <Label Text="{Binding Place}"
                                                                        FontSize="13"
                                                                        TextColor="#6E675F"
@@ -413,24 +439,6 @@
                                                                        IsVisible="{Binding HasConfirmation}"
                                                                        LineBreakMode="TailTruncation"
                                                                        MaxLines="1" />
-                                                                <HorizontalStackLayout Spacing="8" IsVisible="{Binding CanEdit}">
-                                                                    <ImageButton Source="action_edit.svg"
-                                                                                 Clicked="OnEditPersonalItemClicked"
-                                                                                 BackgroundColor="Transparent"
-                                                                                 WidthRequest="44"
-                                                                                 HeightRequest="44"
-                                                                                 Padding="10"
-                                                                                 SemanticProperties.Description="Editar reserva"
-                                                                                 ToolTipProperties.Text="Editar reserva" />
-                                                                    <ImageButton Source="action_delete.svg"
-                                                                                 Clicked="OnDeletePersonalItemClicked"
-                                                                                 BackgroundColor="Transparent"
-                                                                                 WidthRequest="44"
-                                                                                 HeightRequest="44"
-                                                                                 Padding="10"
-                                                                                 SemanticProperties.Description="Eliminar reserva"
-                                                                                 ToolTipProperties.Text="Eliminar reserva" />
-                                                                </HorizontalStackLayout>
                                                                 <FlexLayout Direction="Row" Wrap="NoWrap" AlignItems="Start" IsVisible="{Binding HasRoutes}" BindableLayout.ItemsSource="{Binding Routes}" Margin="0,10,0,0">
                                                                     <BindableLayout.ItemTemplate>
                                                                         <DataTemplate x:DataType="viewModels:ItineraryRouteViewModel">

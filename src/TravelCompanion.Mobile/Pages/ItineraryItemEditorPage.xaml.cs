@@ -28,4 +28,27 @@ public partial class ItineraryItemEditorPage : ContentPage, IQueryAttributable
             MainThread.BeginInvokeOnMainThread(async () => await _viewModel.InitializeExistingAsync(item));
         }
     }
+
+    private async void OnPlaceTextChanged(object? sender, TextChangedEventArgs e)
+    {
+        if (sender is Entry { IsFocused: true })
+        {
+            await _viewModel.SearchPlaceSuggestionsAsync();
+        }
+    }
+
+    private async void OnPlaceSuggestionTapped(object? sender, TappedEventArgs e)
+    {
+        var suggestion = e.Parameter as PlaceSuggestionDto
+            ?? (sender as BindableObject)?.BindingContext as PlaceSuggestionDto;
+        if (suggestion is null) return;
+        await _viewModel.SelectPlaceAsync(suggestion);
+        PlaceEntry.Unfocus();
+    }
+
+    protected override void OnDisappearing()
+    {
+        _viewModel.CancelPlaceSearches();
+        base.OnDisappearing();
+    }
 }

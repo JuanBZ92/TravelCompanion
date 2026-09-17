@@ -33,7 +33,7 @@ public sealed partial class ScheduleDayFilterViewModel : ObservableObject
         private set => SetProperty(ref _city, value);
     }
     public string DayLabel => $"DIA {TripDayNumber}";
-    public string DateLabel => Date.Day.ToString();
+    public string DateLabel => $"{Date.Day}/{Date.Month}";
 
     public bool IsSelected
     {

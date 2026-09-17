@@ -41,7 +41,18 @@ public sealed record PlaceSearchRequest(
     decimal? Longitude = null,
     string? City = null);
 
-public sealed record PlaceAutocompleteRequest(string Query, string? City, string SessionToken, string? Locale = null);
+public enum PlaceAutocompleteMode
+{
+    Hotel,
+    Place
+}
+
+public sealed record PlaceAutocompleteRequest(
+    string Query,
+    string? City,
+    string SessionToken,
+    string? Locale = null,
+    PlaceAutocompleteMode Mode = PlaceAutocompleteMode.Hotel);
 public sealed record PlaceSuggestionDto(string PlaceId, string Name, string Address);
 public sealed record PlaceDetailsRequest(string PlaceId, string SessionToken, string? Locale = null);
 

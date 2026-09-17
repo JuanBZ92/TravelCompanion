@@ -96,6 +96,97 @@ public sealed class ItineraryBuilderServiceTests
     }
 
     [Fact]
+    public async Task Google_place_keeps_location_appears_in_insights_and_retry_does_not_duplicate()
+    {
+        await using var dbContext = CreateDbContext();
+        var destination = CreateDestination();
+        var user = CreateUser();
+        dbContext.AddRange(destination, user, new BuilderAccessGrant
+        {
+            Id = Guid.NewGuid(),
+            AppUserId = user.Id,
+            AppUser = user,
+            DestinationId = destination.Id,
+            Destination = destination,
+            PinHash = "test"
+        });
+        await dbContext.SaveChangesAsync();
+
+        var sessionService = new UserSessionService(dbContext);
+        var (_, token) = await sessionService.CreateSessionAsync(user, accessMode: SessionAccessMode.Builder);
+        var httpContext = CreateHttpContext(token);
+        var startsOn = new DateOnly(2026, 9, 18);
+        var setup = await new BuilderTripService(dbContext, sessionService).SaveAsync(
+            httpContext,
+            new SaveBuilderTripSetupRequest(
+                startsOn,
+                startsOn.AddDays(1),
+                "Asia/Tokyo",
+                0,
+                [new BuilderTripSetupSegmentDto("Kyoto", startsOn, startsOn.AddDays(1))]));
+        var service = new TravelerItineraryService(dbContext, new TravelerAccessService(sessionService));
+        var request = new ItineraryItemMutationRequest(
+            null,
+            "google-place-1",
+            "Tonkatsu Suzuki",
+            startsOn,
+            "afternoon",
+            false,
+            null,
+            null,
+            null,
+            "Tonkatsu Suzuki",
+            "123 Example, Osaka, Japan",
+            null,
+            35.0116m,
+            135.7681m,
+            setup.Revision,
+            "google-place-create");
+
+        var created = await service.CreateAsync(httpContext, request);
+        var retried = await service.CreateAsync(httpContext, request);
+
+        Assert.Equal(created.Item!.Id, retried.Item!.Id);
+        Assert.Equal(created.Revision, retried.Revision);
+        var item = await dbContext.Reservations.SingleAsync(candidate => candidate.ProviderPlaceId == "google-place-1");
+        Assert.Equal(ItineraryItemSource.GooglePlace, item.ItemSource);
+        Assert.Equal("Kyoto", item.City);
+        Assert.Equal("123 Example, Osaka, Japan", item.Address);
+        Assert.Equal(35.0116m, item.Latitude);
+        Assert.Equal(135.7681m, item.Longitude);
+
+        var insight = Assert.Single((await new ExternalPlaceInsightsService(dbContext).GetReportAsync()).Places);
+        Assert.Equal("Kyoto", insight.City);
+        Assert.Equal(1, insight.SavedCount);
+
+        var preserved = await service.UpdateAsync(httpContext, item.Id, request with
+        {
+            Title = "Tonkatsu Suzuki editado",
+            Latitude = null,
+            Longitude = null,
+            ExpectedRevision = created.Revision
+        });
+        var preservedItem = await dbContext.Reservations.SingleAsync(candidate => candidate.Id == item.Id);
+        Assert.Equal(35.0116m, preservedItem.Latitude);
+        Assert.Equal(135.7681m, preservedItem.Longitude);
+
+        var updated = await service.UpdateAsync(httpContext, item.Id, request with
+        {
+            GooglePlaceId = null,
+            Title = "Plan libre",
+            LocationName = "Mi lugar favorito",
+            Address = "Dirección escrita a mano",
+            Latitude = null,
+            Longitude = null,
+            ExpectedRevision = preserved.Revision
+        });
+
+        Assert.Equal(ItineraryItemSource.Manual, updated.Item!.ItemSource);
+        Assert.Null(updated.Item.ProviderPlaceId);
+        Assert.Empty((await new ExternalPlaceInsightsService(dbContext).GetReportAsync()).Places);
+    }
+
+    [Fact]
     public async Task Builder_can_delete_manual_trip_without_losing_access_or_leaving_linked_data()
     {
         await using var dbContext = CreateDbContext();

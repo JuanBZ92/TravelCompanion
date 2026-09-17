@@ -15,9 +15,27 @@ public sealed class TravelerItineraryService(
         ItineraryItemMutationRequest request,
         CancellationToken cancellationToken = default)
     {
+        var access = await accessService.GetAsync(httpContext, cancellationToken);
+        if (access is null || !access.Capabilities.CanEditItinerary || access.TripId is null)
+        {
+            throw new UnauthorizedAccessException();
+        }
+
+        var externalId = $"traveler-{request.IdempotencyKey.Trim()}";
+        var priorResult = await dbContext.Reservations
+            .AsNoTracking()
+            .Where(item => item.TripId == access.TripId
+                && item.Trip!.AppUserId == access.User.Id
+                && item.ExternalId == externalId)
+            .Select(item => new { Item = item, Revision = item.Trip!.PlanRevision })
+            .SingleOrDefaultAsync(cancellationToken);
+        if (priorResult is not null)
+        {
+            return new(true, "El lugar ya estaba en tu itinerario.", priorResult.Revision, ToDto(priorResult.Item));
+        }
+
         var periodKey = ResolvePeriod(request);
         var (trip, block) = await LoadEditableContextAsync(httpContext, request.Date, periodKey, request.ExpectedRevision, cancellationToken);
-        var externalId = $"traveler-{request.IdempotencyKey.Trim()}";
         var existing = trip.Reservations.FirstOrDefault(item => item.ExternalId == externalId);
         if (existing is not null)
         {
@@ -63,11 +81,11 @@ public sealed class TravelerItineraryService(
             Title = recommendation?.Title ?? request.Title.Trim(),
             City = recommendation?.Neighborhood.Split(',')[0].Trim() ?? request.City?.Trim() ?? block.TripDayPlan?.City ?? string.Empty,
             LocationName = recommendation?.Title ?? request.LocationName?.Trim() ?? request.Title.Trim(),
-            Address = isGooglePlace ? string.Empty : request.Address?.Trim() ?? recommendation?.Neighborhood ?? string.Empty,
+            Address = request.Address?.Trim() ?? recommendation?.Neighborhood ?? string.Empty,
             ConfirmationCode = string.Empty,
             Notes = request.Notes?.Trim() ?? recommendation?.Description ?? string.Empty,
-            Latitude = isGooglePlace ? null : recommendation?.Latitude ?? request.Latitude,
-            Longitude = isGooglePlace ? null : recommendation?.Longitude ?? request.Longitude,
+            Latitude = recommendation?.Latitude ?? request.Latitude,
+            Longitude = recommendation?.Longitude ?? request.Longitude,
             SourceName = itemSourceLabel(recommendation, request.GooglePlaceId),
             SourceUrl = recommendation?.SourceUrl,
             SortOrder = trip.Reservations.Where(existingItem => existingItem.TripDayBlockId == block.Id).Select(existingItem => existingItem.SortOrder).DefaultIfEmpty().Max() + 1
@@ -103,17 +121,37 @@ public sealed class TravelerItineraryService(
         item.StartsAt = request.UseExactTime ? request.StartsAt ?? period.StartsAt : period.StartsAt;
         item.EndsAt = request.UseExactTime ? request.EndsAt : null;
         item.TimePrecision = request.UseExactTime ? ItineraryTimePrecision.Exact : ItineraryTimePrecision.PeriodOnly;
-        item.PlanningKind = ResolveKind(request.UseExactTime, item.RecommendationId.HasValue || item.ItemSource == ItineraryItemSource.GooglePlace);
         item.Title = request.Title.Trim();
-        item.City = request.City?.Trim() ?? item.City;
+        item.City = request.City?.Trim() ?? block.TripDayPlan?.City ?? item.City;
         item.LocationName = request.LocationName?.Trim() ?? request.Title.Trim();
         item.Address = request.Address?.Trim() ?? string.Empty;
         item.Notes = request.Notes?.Trim() ?? string.Empty;
-        if (item.ItemSource == ItineraryItemSource.Manual)
+        if (!item.RecommendationId.HasValue)
         {
-            item.Latitude = request.Latitude;
-            item.Longitude = request.Longitude;
+            var googlePlaceId = request.GooglePlaceId?.Trim();
+            if (!string.IsNullOrWhiteSpace(googlePlaceId))
+            {
+                var sameGooglePlace = item.ItemSource == ItineraryItemSource.GooglePlace
+                    && string.Equals(item.ProviderPlaceId, googlePlaceId, StringComparison.Ordinal);
+                item.ItemSource = ItineraryItemSource.GooglePlace;
+                item.ProviderPlaceId = googlePlaceId;
+                item.Latitude = request.Latitude ?? (sameGooglePlace ? item.Latitude : null);
+                item.Longitude = request.Longitude ?? (sameGooglePlace ? item.Longitude : null);
+                item.SourceName = "Google Places";
+                item.SourceUrl = null;
+            }
+            else
+            {
+                item.ItemSource = ItineraryItemSource.Manual;
+                item.ProviderPlaceId = null;
+                item.Latitude = request.Latitude;
+                item.Longitude = request.Longitude;
+                item.SourceName = "Traveler";
+                item.SourceUrl = null;
+            }
         }
+        item.PlanningKind = ResolveKind(request.UseExactTime,
+            item.RecommendationId.HasValue || item.ItemSource == ItineraryItemSource.GooglePlace);
         trip.PlanRevision++;
         trip.UpdatedAtUtc = DateTimeOffset.UtcNow;
         await dbContext.SaveChangesAsync(cancellationToken);

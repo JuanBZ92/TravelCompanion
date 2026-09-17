@@ -643,6 +643,9 @@ public sealed class TravelCompanionApiClient
     }
 
     public async Task<IReadOnlyList<PlaceSuggestionDto>> AutocompleteHotelsAsync(string token, PlaceAutocompleteRequest query, CancellationToken cancellationToken = default)
+        => await AutocompletePlacesAsync(token, query, cancellationToken).ConfigureAwait(false);
+
+    public async Task<IReadOnlyList<PlaceSuggestionDto>> AutocompletePlacesAsync(string token, PlaceAutocompleteRequest query, CancellationToken cancellationToken = default)
     {
         using var request = CreateAuthorizedRequest(HttpMethod.Post, "api/mobile/places/autocomplete", token);
         request.Content = JsonContent.Create(query, options: JsonOptions);

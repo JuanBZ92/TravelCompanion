@@ -30,6 +30,32 @@ public sealed class GooglePlacesServiceTests
         Assert.Single(results);
         using var body = JsonDocument.Parse(Assert.Single(handler.Bodies));
         Assert.Equal(expectedInput, body.RootElement.GetProperty("input").GetString());
+        Assert.Equal("lodging", body.RootElement.GetProperty("includedPrimaryTypes")[0].GetString());
+    }
+
+    [Fact]
+    public async Task Autocomplete_place_mode_keeps_japan_scope_without_lodging_filter()
+    {
+        var handler = new Handler();
+        var service = new GooglePlacesService(
+            new Factory(handler),
+            Microsoft.Extensions.Options.Options.Create(new GooglePlacesOptions { Enabled = true, ApiKey = "test" }),
+            NullLogger<GooglePlacesService>.Instance);
+
+        var results = await service.AutocompleteAsync(
+            new PlaceAutocompleteRequest(
+                "Tonkatsu",
+                "Kyoto",
+                Guid.NewGuid().ToString(),
+                "es-ES",
+                PlaceAutocompleteMode.Place),
+            CancellationToken.None);
+
+        Assert.Single(results);
+        using var body = JsonDocument.Parse(Assert.Single(handler.Bodies));
+        Assert.Equal("Tonkatsu, Kyoto, Japan", body.RootElement.GetProperty("input").GetString());
+        Assert.Equal("jp", body.RootElement.GetProperty("includedRegionCodes")[0].GetString());
+        Assert.False(body.RootElement.TryGetProperty("includedPrimaryTypes", out _));
     }
 
     private sealed class Factory(Handler handler) : IHttpClientFactory

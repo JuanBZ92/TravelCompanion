@@ -28,12 +28,18 @@ public sealed class GooglePlacesService(
         using var message = new HttpRequestMessage(HttpMethod.Post, "https://places.googleapis.com/v1/places:autocomplete");
         message.Headers.Add("X-Goog-Api-Key", options.Value.ApiKey);
         message.Headers.Add("X-Goog-FieldMask", "suggestions.placePrediction.placeId,suggestions.placePrediction.structuredFormat");
-        message.Content = JsonContent.Create(new
+        var requestPayload = new Dictionary<string, object?>
         {
-            input = BuildAutocompleteInput(request.Query, request.City),
-            includedRegionCodes = new[] { "jp" }, includedPrimaryTypes = new[] { "lodging" },
-            sessionToken = request.SessionToken, languageCode = Language(request.Locale)
-        });
+            ["input"] = BuildAutocompleteInput(request.Query, request.City),
+            ["includedRegionCodes"] = new[] { "jp" },
+            ["sessionToken"] = request.SessionToken,
+            ["languageCode"] = Language(request.Locale)
+        };
+        if (request.Mode == PlaceAutocompleteMode.Hotel)
+        {
+            requestPayload["includedPrimaryTypes"] = new[] { "lodging" };
+        }
+        message.Content = JsonContent.Create(requestPayload);
         try
         {
             using var response = await httpClientFactory.CreateClient().SendAsync(message, timeout.Token);
@@ -41,7 +47,8 @@ public sealed class GooglePlacesService(
             var payload = await response.Content.ReadFromJsonAsync<AutocompleteResponse>(cancellationToken: timeout.Token);
             return payload?.Suggestions?.Where(s => !string.IsNullOrWhiteSpace(s.PlacePrediction?.PlaceId))
                 .Take(5).Select(s => new PlaceSuggestionDto(s.PlacePrediction!.PlaceId,
-                    s.PlacePrediction.StructuredFormat?.MainText?.Text ?? "Hotel",
+                    s.PlacePrediction.StructuredFormat?.MainText?.Text
+                        ?? (request.Mode == PlaceAutocompleteMode.Hotel ? "Hotel" : "Lugar"),
                     s.PlacePrediction.StructuredFormat?.SecondaryText?.Text ?? string.Empty)).ToList() ?? [];
         }
         catch (HttpRequestException) { logger.LogWarning("Places autocomplete unavailable."); return []; }
