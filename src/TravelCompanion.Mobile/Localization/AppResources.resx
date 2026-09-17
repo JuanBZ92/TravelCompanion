@@ -111,4 +111,44 @@
   <data name="PasswordSave" xml:space="preserve"><value>Save password</value></data>
   <data name="PasswordLengthError" xml:space="preserve"><value>Your new password must contain at least 12 characters.</value></data>
   <data name="PasswordMismatchError" xml:space="preserve"><value>The passwords do not match.</value></data>
+  <data name="AssistantGuidedCategoryQuestion" xml:space="preserve"><value>What kind of plan would you like?</value></data>
+  <data name="AssistantGuidedMoreQuestion" xml:space="preserve"><value>What else sounds good?</value></data>
+  <data name="AssistantGuidedPriorityQuestion" xml:space="preserve"><value>What would you like to prioritize?</value></data>
+  <data name="AssistantGuidedBudgetQuestion" xml:space="preserve"><value>What budget should I use?</value></data>
+  <data name="AssistantGuidedDistanceQuestion" xml:space="preserve"><value>How far would you like to walk?</value></data>
+  <data name="AssistantGuidedDurationQuestion" xml:space="preserve"><value>How much time do you have?</value></data>
+  <data name="AssistantGuidedAdjustQuestion" xml:space="preserve"><value>What would you like to adjust?</value></data>
+  <data name="AssistantGuidedFood" xml:space="preserve"><value>Food</value></data>
+  <data name="AssistantGuidedRelax" xml:space="preserve"><value>Relax</value></data>
+  <data name="AssistantGuidedCulture" xml:space="preserve"><value>Culture</value></data>
+  <data name="AssistantGuidedWalk" xml:space="preserve"><value>Walk</value></data>
+  <data name="AssistantGuidedDance" xml:space="preserve"><value>Dance</value></data>
+  <data name="AssistantGuidedMore" xml:space="preserve"><value>More options</value></data>
+  <data name="AssistantGuidedNature" xml:space="preserve"><value>Nature</value></data>
+  <data name="AssistantGuidedShopping" xml:space="preserve"><value>Shopping</value></data>
+  <data name="AssistantGuidedViewpoint" xml:space="preserve"><value>Viewpoints</value></data>
+  <data name="AssistantGuidedNightlife" xml:space="preserve"><value>Nightlife</value></data>
+  <data name="AssistantGuidedBudget" xml:space="preserve"><value>Budget</value></data>
+  <data name="AssistantGuidedDistance" xml:space="preserve"><value>Distance</value></data>
+  <data name="AssistantGuidedDuration" xml:space="preserve"><value>Duration</value></data>
+  <data name="AssistantGuidedRecommendNow" xml:space="preserve"><value>Recommend now</value></data>
+  <data name="AssistantGuidedBudgetLow" xml:space="preserve"><value>Low</value></data>
+  <data name="AssistantGuidedBudgetMedium" xml:space="preserve"><value>Medium</value></data>
+  <data name="AssistantGuidedBudgetHigh" xml:space="preserve"><value>High</value></data>
+  <data name="AssistantGuidedWalk15" xml:space="preserve"><value>Up to 15 min walking</value></data>
+  <data name="AssistantGuidedWalk30" xml:space="preserve"><value>Up to 30 min walking</value></data>
+  <data name="AssistantGuidedNoPreference" xml:space="preserve"><value>No preference</value></data>
+  <data name="AssistantGuidedDuration60" xml:space="preserve"><value>Up to 1 hour</value></data>
+  <data name="AssistantGuidedDuration120" xml:space="preserve"><value>Up to 2 hours</value></data>
+  <data name="AssistantGuidedNoLimit" xml:space="preserve"><value>No extra limit</value></data>
+  <data name="AssistantGuidedAdjustCategory" xml:space="preserve"><value>Plan type</value></data>
+  <data name="AssistantGuidedBack" xml:space="preserve"><value>Back</value></data>
+  <data name="AssistantGuidedRestart" xml:space="preserve"><value>Start over</value></data>
+  <data name="AssistantGuidedWriteRequest" xml:space="preserve"><value>Write my request</value></data>
+  <data name="AssistantGuidedMenu" xml:space="preserve"><value>More</value></data>
+  <data name="AssistantGuidedAnotherRequest" xml:space="preserve"><value>Show me another option</value></data>
+  <data name="AssistantGuidedRequestSummary" xml:space="preserve"><value>Find me a {0} plan</value></data>
+  <data name="AssistantGuidedAdjust" xml:space="preserve"><value>Adjust recommendation</value></data>
+  <data name="AssistantGuidedEstimated" xml:space="preserve"><value>estimated</value></data>
+  <data name="AssistantGuidedOfflineQuestion" xml:space="preserve"><value>Your choices are saved. Try the recommendation again when you have a connection.</value></data>
 </root>

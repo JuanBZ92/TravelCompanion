@@ -26,7 +26,7 @@ public partial class TravelChatPage : ContentPage
 
     protected override void OnDisappearing()
     {
-        _viewModel.CancelLoading();
+        _viewModel.CancelActiveOperations();
         base.OnDisappearing();
     }
 
@@ -102,11 +102,16 @@ public partial class TravelChatPage : ContentPage
         }
     }
 
-    private async void OnGuideActionTapped(object? sender, TappedEventArgs e)
+    private async void OnGuidedOptionClicked(object? sender, EventArgs e)
     {
-        if ((sender as BindableObject)?.BindingContext is TravelChatGuideActionViewModel guideAction)
+        if ((sender as BindableObject)?.BindingContext is TravelChatGuidedOptionViewModel option)
         {
-            await _viewModel.SendSuggestedReplyCommand.ExecuteAsync(guideAction.Prompt);
+            await _viewModel.SelectGuidedOptionCommand.ExecuteAsync(option);
         }
+    }
+
+    private void OnAdjustGuidedPlanClicked(object? sender, EventArgs e)
+    {
+        _viewModel.AdjustGuidedPlanCommand.Execute(null);
     }
 }

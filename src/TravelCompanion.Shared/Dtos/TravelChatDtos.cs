@@ -6,7 +6,9 @@ public sealed record TravelChatRequest(
     string? City,
     DateOnly? Date,
     GeoPointDto? CurrentLocation,
-    string? Locale);
+    string? Locale,
+    GuidedTravelActionDto? GuidedAction = null,
+    GuidedPlanCriteriaDto? Criteria = null);
 
 public sealed record GeoPointDto(
     decimal Latitude,
@@ -18,7 +20,29 @@ public sealed record TravelChatResponse(
     string Intent,
     IReadOnlyList<TravelCardDto> Cards,
     IReadOnlyList<string> SuggestedReplies,
-    MissingContextDto? MissingContext);
+    MissingContextDto? MissingContext,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    GuidedQuestionDto? GuidedQuestion = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    GuidedPlanCriteriaDto? Criteria = null);
+
+public sealed record GuidedTravelActionDto(string Action, string? OptionId = null);
+
+public sealed record GuidedPlanCriteriaDto(
+    string? Category = null,
+    string? Priority = null,
+    string? Budget = null,
+    int? MaxWalkingMinutes = null,
+    int? MaxDurationMinutes = null);
+
+public sealed record GuidedQuestionDto(
+    string Id,
+    string Message,
+    IReadOnlyList<GuidedOptionDto> Options,
+    bool CanGoBack = true,
+    bool CanRestart = true);
+
+public sealed record GuidedOptionDto(string Id, string Label);
 
 public sealed record TravelCardDto(
     string Type,

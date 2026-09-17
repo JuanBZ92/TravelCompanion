@@ -1674,6 +1674,102 @@ public sealed class TravelChatServiceTests
         Assert.DoesNotContain("guardado", saveWithoutCardConfirmation.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task Guided_plan_keeps_category_and_accumulates_seen_alternatives()
+    {
+        await using var dbContext = CreateDbContext();
+        var destinationId = Guid.NewGuid();
+        var cheapFood = CreateRecommendation(destinationId, "Cheap ramen", "Food", "Ramen in Tokyo.", 45, "low");
+        cheapFood.Tags = ["food", "ramen"];
+        var mediumFood = CreateRecommendation(destinationId, "Local dinner", "Food", "Dinner in Tokyo.", 60, "medium");
+        mediumFood.Tags = ["food", "local"];
+        var cheapCulture = CreateRecommendation(destinationId, "Free gallery", "Culture", "Culture in Tokyo.", 45, "free");
+        cheapCulture.Tags = ["culture", "art"];
+        var user = await SeedPlanningWorldAsync(dbContext, destinationId, cheapFood, mediumFood, cheapCulture);
+        var service = CreateService(dbContext);
+        var criteria = new GuidedPlanCriteriaDto(
+            GuidedTravelCategories.Food,
+            GuidedTravelPriorities.Budget,
+            Budget: "low");
+
+        var first = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest(
+                "guided",
+                null,
+                "Tokyo",
+                new DateOnly(2026, 10, 6),
+                null,
+                "es-ES",
+                new GuidedTravelActionDto(GuidedTravelActions.Recommend),
+                criteria),
+            CancellationToken.None);
+        var second = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest(
+                "guided",
+                first.ConversationId,
+                "Tokyo",
+                new DateOnly(2026, 10, 6),
+                null,
+                "es-ES",
+                new GuidedTravelActionDto(GuidedTravelActions.Alternative),
+                criteria),
+            CancellationToken.None);
+        var exhausted = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest(
+                "guided",
+                first.ConversationId,
+                "Tokyo",
+                new DateOnly(2026, 10, 6),
+                null,
+                "es-ES",
+                new GuidedTravelActionDto(GuidedTravelActions.Alternative),
+                criteria),
+            CancellationToken.None);
+
+        Assert.Single(first.Cards);
+        Assert.Equal("Cheap ramen", first.Cards[0].Title);
+        Assert.Single(second.Cards);
+        Assert.Equal("Local dinner", second.Cards[0].Title);
+        Assert.Empty(exhausted.Cards);
+        Assert.Equal("adjust", exhausted.GuidedQuestion?.Id);
+        Assert.Equal(GuidedTravelCategories.Food, exhausted.Criteria?.Category);
+        Assert.DoesNotContain(first.Cards.Concat(second.Cards), card => card.Title == "Free gallery");
+    }
+
+    [Fact]
+    public async Task Guided_distance_requires_location_and_offers_a_stable_choice()
+    {
+        await using var dbContext = CreateDbContext();
+        var destinationId = Guid.NewGuid();
+        var food = CreateRecommendation(destinationId, "Local lunch", "Food", "Food in Tokyo.", 60, "medium");
+        food.Tags = ["food"];
+        var user = await SeedPlanningWorldAsync(dbContext, destinationId, food);
+        var service = CreateService(dbContext);
+
+        var response = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest(
+                "guided",
+                null,
+                "Tokyo",
+                new DateOnly(2026, 10, 6),
+                null,
+                "en-US",
+                new GuidedTravelActionDto(GuidedTravelActions.Recommend),
+                new GuidedPlanCriteriaDto(
+                    GuidedTravelCategories.Food,
+                    GuidedTravelPriorities.Distance,
+                    MaxWalkingMinutes: 15)),
+            CancellationToken.None);
+
+        Assert.Empty(response.Cards);
+        Assert.Equal("location", response.GuidedQuestion?.Id);
+        Assert.Contains(response.GuidedQuestion!.Options, option => option.Id == "location.skip");
+    }
+
     private static TravelCompanionDbContext CreateDbContext()
     {
         var options = new DbContextOptionsBuilder<TravelCompanionDbContext>()

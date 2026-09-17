@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using TravelCompanion.Api.Data;
 using TravelCompanion.Api.Models;
+using TravelCompanion.Shared;
 using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Api.Services;
@@ -41,6 +42,7 @@ public sealed class TravelAssistantConversationState
     public List<string> LastRecommendationIds { get; set; } = [];
     public List<string> HiddenTags { get; set; } = [];
     public string? PromptVersion { get; set; }
+    public GuidedPlanCriteriaDto? GuidedCriteria { get; set; }
 }
 
 public sealed class TravelAssistantConversationStateService(
@@ -256,7 +258,24 @@ public sealed class TravelAssistantConversationStateService(
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Take(50)
             .ToList();
+        state.GuidedCriteria = SanitizeCriteria(state.GuidedCriteria);
         return state;
+    }
+
+    private static GuidedPlanCriteriaDto? SanitizeCriteria(GuidedPlanCriteriaDto? criteria)
+    {
+        if (criteria is null || !GuidedTravelCategories.IsValid(criteria.Category))
+        {
+            return null;
+        }
+
+        var priority = GuidedTravelPriorities.IsValid(criteria.Priority)
+            ? criteria.Priority
+            : GuidedTravelPriorities.Direct;
+        var budget = criteria.Budget is "low" or "medium" or "high" ? criteria.Budget : null;
+        var walking = criteria.MaxWalkingMinutes is 15 or 30 ? criteria.MaxWalkingMinutes : null;
+        var duration = criteria.MaxDurationMinutes is 60 or 120 ? criteria.MaxDurationMinutes : null;
+        return new GuidedPlanCriteriaDto(criteria.Category, priority, budget, walking, duration);
     }
 
     private static List<string> ParseRecommendationIds(string? recommendationIds)

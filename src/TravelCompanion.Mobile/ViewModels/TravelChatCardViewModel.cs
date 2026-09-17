@@ -1,15 +1,17 @@
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using TravelCompanion.Mobile.Services;
 using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Mobile.ViewModels;
 
-public sealed class TravelChatCardViewModel : ObservableObject
+public sealed partial class TravelChatCardViewModel : ObservableObject
 {
     private readonly TravelCardDto _card;
     private bool _isSaved;
     private string? _feedbackStatusMessage;
+    private bool _isDetailsVisible;
 
     public TravelChatCardViewModel(TravelCardDto card)
     {
@@ -55,6 +57,13 @@ public sealed class TravelChatCardViewModel : ObservableObject
     public string UsefulButtonText => Resource("AssistantUsefulButton");
     public string NotUsefulButtonText => Resource("AssistantNotUsefulButton");
     public string HideSimilarButtonText => Resource("AssistantHideSimilarButton");
+    public string AdjustButtonText => Resource("AssistantGuidedAdjust" );
+    public string SummaryLine => CreateSummaryLine();
+    public bool IsDetailsVisible
+    {
+        get => _isDetailsVisible;
+        private set => SetProperty(ref _isDetailsVisible, value);
+    }
     public bool HasFeedbackActions => HasRecommendationId;
     public string? FeedbackStatusMessage
     {
@@ -99,6 +108,35 @@ public sealed class TravelChatCardViewModel : ObservableObject
         .ToList();
     public bool HasWarnings => Warnings.Count > 0;
 
+    [RelayCommand]
+    private void ToggleDetails() => IsDetailsVisible = !IsDetailsVisible;
+
+    private string CreateSummaryLine()
+    {
+        var values = new List<string>();
+        if (StartsAt.HasValue && EndsAt.HasValue)
+        {
+            var minutes = (int)(EndsAt.Value.ToTimeSpan() - StartsAt.Value.ToTimeSpan()).TotalMinutes;
+            if (minutes > 0)
+            {
+                values.Add($"≈ {minutes} min");
+            }
+        }
+        if (HasCostLabel)
+        {
+            values.Add(CostLabel);
+        }
+        if (HasDistanceLabel)
+        {
+            values.Add(DistanceLabel);
+        }
+        if (HasWalkingLabel)
+        {
+            values.Add($"{WalkingLabel} ({Resource("AssistantGuidedEstimated")})");
+        }
+        return string.Join(" · ", values);
+    }
+
     private static string FormatCost(string? cost)
     {
         return cost?.Trim().ToLowerInvariant() switch
@@ -125,6 +163,8 @@ public sealed class TravelChatCardViewModel : ObservableObject
         OnPropertyChanged(nameof(UsefulButtonText));
         OnPropertyChanged(nameof(NotUsefulButtonText));
         OnPropertyChanged(nameof(HideSimilarButtonText));
+        OnPropertyChanged(nameof(AdjustButtonText));
+        OnPropertyChanged(nameof(SummaryLine));
         OnPropertyChanged(nameof(TagActions));
         OnPropertyChanged(nameof(WarningLabels));
     }

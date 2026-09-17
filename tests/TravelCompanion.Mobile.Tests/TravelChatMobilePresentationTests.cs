@@ -74,4 +74,27 @@ public sealed class TravelChatMobilePresentationTests
         Assert.False(viewModel.CanSave);
         Assert.Equal("Saved", viewModel.SaveButtonText);
     }
+
+    [Fact]
+    public void Normalize_travel_chat_response_preserves_safe_guided_question()
+    {
+        var response = new TravelChatResponse(
+            "conversation",
+            "Choose",
+            "plan_between_reservations",
+            [],
+            [],
+            null,
+            new GuidedQuestionDto(
+                "priority",
+                "What matters most?",
+                [new GuidedOptionDto("priority.budget", "Budget")]),
+            new GuidedPlanCriteriaDto("food"));
+
+        var normalized = MobilePayloadNormalizer.Normalize(response);
+
+        Assert.Equal("priority", normalized!.GuidedQuestion?.Id);
+        Assert.Equal("priority.budget", normalized.GuidedQuestion?.Options.Single().Id);
+        Assert.Equal("food", normalized.Criteria?.Category);
+    }
 }

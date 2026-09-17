@@ -87,7 +87,13 @@ POST /api/ai/travel-chat
     "latitude": 41.9028,
     "longitude": 12.4964
   },
-  "locale": "es-ES"
+  "locale": "es-ES",
+  "guidedAction": { "action": "recommend" },
+  "criteria": {
+    "category": "food",
+    "priority": "budget",
+    "budget": "low"
+  }
 }
 ```
 
@@ -124,9 +130,17 @@ POST /api/ai/travel-chat
     "Algo con menos caminata",
     "Guardar este plan"
   ],
-  "missingContext": null
+  "missingContext": null,
+  "guidedQuestion": null,
+  "criteria": {
+    "category": "food",
+    "priority": "budget",
+    "budget": "low"
+  }
 }
 ```
+
+Guided actions and options use stable codes rather than localized labels. Categories are `food`, `relax`, `culture`, `walk`, `dance`, `nature`, `shopping`, `viewpoint`, and `nightlife`. Priorities are `direct`, `budget`, `distance`, and `duration`. A guided response returns one recommendation. Sending `guidedAction.action = alternative` keeps the criteria and excludes all recommendations already shown in the conversation.
 
 If the authenticated user does not have minimum preference context, the chat returns no cards and sets `missingContext`:
 
@@ -176,7 +190,7 @@ The chat endpoint also handles deterministic assistant intents without asking th
 - `view_schedule`: messages such as `Ver mi agenda` return a schedule summary for the requested date.
 - `view_preferences`: messages such as `Ver mis preferencias` return the current preference profile.
 - `update_preferences`: explicit preference edits such as `Prefiero presupuesto bajo y ritmo tranquilo` or `evitar culture` first return a confirmation prompt. The backend stores the pending patch on the chat conversation and only persists it after an affirmative reply. If the user rejects the change, the pending patch is cleared; planning requests can still use the detected preference as one-off context without modifying the profile.
-- `help`: messages such as `Que puedo pedirte` return guided assistant actions using the same five-part mental model as the MAUI UI: `Planificar`, `Ajustar`, `Agenda`, `Preferencias`, and `Ayuda`. This does not require a completed preference profile.
+- `help`: messages such as `Que puedo pedirte` describe the assistant capabilities. This does not require a completed preference profile.
 - Unsupported free text returns `missingContext.field = assistantCommand` with guided suggestions instead of treating the assistant as an open chat.
 
 Date requests inside chat text are supported for planning prompts, for example `Proponeme planes para 2026-10-08`, `Proponeme planes para el 8 de octubre`, or `Proponeme planes para mañana`. The backend resolves that date before loading schedules and recommendations.
@@ -192,7 +206,9 @@ public sealed record TravelChatRequest(
     string? City,
     DateOnly? Date,
     GeoPointDto? CurrentLocation,
-    string? Locale
+    string? Locale,
+    GuidedTravelActionDto? GuidedAction,
+    GuidedPlanCriteriaDto? Criteria
 );
 
 public sealed record TravelChatResponse(
@@ -201,7 +217,9 @@ public sealed record TravelChatResponse(
     string Intent,
     IReadOnlyList<TravelCardDto> Cards,
     IReadOnlyList<string> SuggestedReplies,
-    MissingContextDto? MissingContext
+    MissingContextDto? MissingContext,
+    GuidedQuestionDto? GuidedQuestion,
+    GuidedPlanCriteriaDto? Criteria
 );
 
 public sealed record TravelCardDto(

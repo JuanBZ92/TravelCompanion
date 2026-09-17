@@ -62,8 +62,25 @@ internal static class MobilePayloadNormalizer
             Intent = response.Intent ?? string.Empty,
             Cards = response.Cards?.Select(Normalize).ToList() ?? [],
             SuggestedReplies = response.SuggestedReplies ?? [],
-            MissingContext = Normalize(response.MissingContext)
+            MissingContext = Normalize(response.MissingContext),
+            GuidedQuestion = Normalize(response.GuidedQuestion)
         };
+    }
+
+    private static GuidedQuestionDto? Normalize(GuidedQuestionDto? question)
+    {
+        return question is null
+            ? null
+            : question with
+            {
+                Id = question.Id ?? string.Empty,
+                Message = question.Message ?? string.Empty,
+                Options = question.Options?.Select(option => option with
+                {
+                    Id = option.Id ?? string.Empty,
+                    Label = option.Label ?? string.Empty
+                }).ToList() ?? []
+            };
     }
 
     private static UserEntitlementsDto Normalize(UserEntitlementsDto entitlements)

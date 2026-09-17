@@ -18,6 +18,7 @@ public interface ITravelRecommendationPlanningService
         IReadOnlyList<Reservation> reservations,
         TravelPlanningContext context,
         string responseMode,
+        GuidedPlanCriteriaDto? guidedCriteria,
         ISet<string> excludedRecommendationIds,
         CancellationToken cancellationToken);
 }
@@ -41,6 +42,7 @@ public sealed class TravelRecommendationPlanningService(
         IReadOnlyList<Reservation> reservations,
         TravelPlanningContext context,
         string responseMode,
+        GuidedPlanCriteriaDto? guidedCriteria,
         ISet<string> excludedRecommendationIds,
         CancellationToken cancellationToken)
     {
@@ -54,9 +56,11 @@ public sealed class TravelRecommendationPlanningService(
             return new TravelRecommendationPlanningResult(0, 0, 0, 0, []);
         }
 
-        var rankedCandidates = ApplyResponseMode(
-                ranker.Rank(profile, reservations, unlockedRecommendations, context),
-                responseMode)
+        var rankedCandidates = ApplyGuidedCriteria(
+                ApplyResponseMode(
+                    ranker.Rank(profile, reservations, unlockedRecommendations, context),
+                    responseMode),
+                guidedCriteria)
             .ToList();
         var rankedCandidateCount = rankedCandidates.Count;
 
@@ -74,7 +78,7 @@ public sealed class TravelRecommendationPlanningService(
                 .Where(scored => !excludedRecommendationIds.Contains(scored.Recommendation.Id.ToString()))
                 .ToList();
             excludedRecommendationCount = rankedCandidates.Count - freshCandidates.Count;
-            if (freshCandidates.Count > 0)
+            if (freshCandidates.Count > 0 || guidedCriteria is not null)
             {
                 rankedCandidates = freshCandidates;
             }
@@ -86,6 +90,62 @@ public sealed class TravelRecommendationPlanningService(
             dislikedFilteredCandidateCount,
             excludedRecommendationCount,
             rankedCandidates);
+    }
+
+    private static IEnumerable<ScoredRecommendation> ApplyGuidedCriteria(
+        IEnumerable<ScoredRecommendation> ranked,
+        GuidedPlanCriteriaDto? criteria)
+    {
+        if (criteria is null || !GuidedTravelCategories.IsValid(criteria.Category))
+        {
+            return ranked;
+        }
+
+        var matches = ranked.Where(candidate =>
+            MatchesGuidedCategory(candidate.Recommendation, criteria.Category!));
+
+        if (criteria.MaxWalkingMinutes.HasValue)
+        {
+            matches = matches.Where(candidate =>
+                candidate.WalkingMinutes.HasValue
+                && candidate.WalkingMinutes.Value <= criteria.MaxWalkingMinutes.Value);
+        }
+
+        if (criteria.MaxDurationMinutes.HasValue)
+        {
+            matches = matches.Where(candidate =>
+                candidate.Recommendation.SuggestedDurationMinutes <= criteria.MaxDurationMinutes.Value);
+        }
+
+        return criteria.Budget switch
+        {
+            "low" => matches.OrderBy(candidate => PriceRank(candidate.Recommendation.PriceLevel))
+                .ThenByDescending(candidate => candidate.Score),
+            "medium" => matches.OrderBy(candidate => Math.Abs(PriceRank(candidate.Recommendation.PriceLevel) - 2))
+                .ThenByDescending(candidate => candidate.Score),
+            "high" => matches.OrderByDescending(candidate => PriceRank(candidate.Recommendation.PriceLevel))
+                .ThenByDescending(candidate => candidate.Score),
+            _ => matches
+        };
+    }
+
+    private static bool MatchesGuidedCategory(Recommendation recommendation, string category)
+    {
+        return category switch
+        {
+            GuidedTravelCategories.Food => IsFoodRecommendation(recommendation),
+            GuidedTravelCategories.Relax => IsNatureFacetRecommendation(recommendation, NatureFacet.Onsen)
+                || ContainsAny(CreateRecommendationSearchableText(recommendation), "relax", "relajar", "wellness", "tranquilo", "quiet"),
+            GuidedTravelCategories.Culture => IsCultureRecommendation(recommendation),
+            GuidedTravelCategories.Walk => IsNeighborhoodRecommendation(recommendation)
+                || ContainsAny(CreateRecommendationSearchableText(recommendation), "walk", "walking", "paseo", "caminar"),
+            GuidedTravelCategories.Dance => IsDanceRecommendation(recommendation),
+            GuidedTravelCategories.Nature => IsNatureRecommendation(recommendation),
+            GuidedTravelCategories.Shopping => IsShoppingRecommendation(recommendation),
+            GuidedTravelCategories.Viewpoint => IsViewpointRecommendation(recommendation),
+            GuidedTravelCategories.Nightlife => IsNightlifeRecommendation(recommendation),
+            _ => false
+        };
     }
 
     private async Task<IReadOnlyList<Recommendation>> LoadUnlockedRecommendationsAsync(

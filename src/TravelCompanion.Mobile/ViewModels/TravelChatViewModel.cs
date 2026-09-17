@@ -22,12 +22,22 @@ public sealed partial class TravelChatViewModel(
     private string? _lastIntent;
     private string? _lastFailedMessage;
     private bool _isLocalizationSubscribed;
-    private string _messageText = Resource("AssistantDefaultPrompt");
+    private string _messageText = string.Empty;
     private DateTime _planningDate = DateTime.Today;
     private string? _city;
     private bool _hasLoadedContext;
     private string? _missingContextMessage;
     private string? _missingContextField;
+    private CancellationTokenSource? _chatRequestCancellationTokenSource;
+    private GuidedPlanCriteriaDto? _guidedCriteria;
+    private GuidedTravelActionDto? _pendingGuidedAction;
+    private string _guidedStep = "category";
+    private string _guidedQuestionText = Resource("AssistantGuidedCategoryQuestion");
+    private bool _hasGuidedQuestion = true;
+    private bool _isFreeTextVisible;
+    private bool _isSecondaryMenuVisible;
+    private bool _isExplicitlyCancelled;
+    private readonly Stack<string> _guidedHistory = new();
 
     public ObservableCollection<TravelChatMessageViewModel> Messages { get; } = [];
     public ObservableCollection<string> SuggestedReplies { get; } =
@@ -38,14 +48,42 @@ public sealed partial class TravelChatViewModel(
         Resource("AssistantViewPreferences")
     ];
     public ObservableCollection<string> MissingContextSuggestions { get; } = [];
+    public ObservableCollection<TravelChatGuidedOptionViewModel> GuidedOptions { get; } =
+        new(CreateCategoryOptions(includeMore: true));
+    public ObservableCollection<TravelChatGuidedOptionViewModel> SecondaryMenuOptions { get; } =
+        new(CreateSecondaryMenuOptions());
     public bool CanEditItinerary => sessionService.CanEditItinerary;
-    public ObservableCollection<TravelChatGuideSectionViewModel> GuideSections { get; } = new(CreateGuideSections());
     public string AssistantEyebrow => Resource("AssistantEyebrow");
     public string AssistantTitle => Resource("AssistantTitle");
     public string EmptyStateTitle => Resource("AssistantEmptyTitle");
     public string EmptyStateSubtitle => Resource("AssistantEmptySubtitle");
     public string MessagePlaceholder => Resource("AssistantMessagePlaceholder");
     public string SendButtonText => Resource("AssistantSend");
+    public string GuidedQuestionText
+    {
+        get => _guidedQuestionText;
+        private set => SetProperty(ref _guidedQuestionText, value);
+    }
+    public bool HasGuidedQuestion
+    {
+        get => _hasGuidedQuestion;
+        private set => SetProperty(ref _hasGuidedQuestion, value);
+    }
+    public bool IsFreeTextVisible
+    {
+        get => _isFreeTextVisible;
+        private set => SetProperty(ref _isFreeTextVisible, value);
+    }
+    public bool IsSecondaryMenuVisible
+    {
+        get => _isSecondaryMenuVisible;
+        private set => SetProperty(ref _isSecondaryMenuVisible, value);
+    }
+    public bool CanGoBack => _guidedHistory.Count > 0;
+    public string BackText => Resource("AssistantGuidedBack");
+    public string RestartText => Resource("AssistantGuidedRestart");
+    public string WriteRequestText => Resource("AssistantGuidedWriteRequest");
+    public string MenuText => Resource("AssistantGuidedMenu");
 
     public string MessageText
     {
@@ -176,15 +214,146 @@ public sealed partial class TravelChatViewModel(
         _lastIntent = null;
         _lastFailedMessage = null;
         _hasLoadedContext = false;
-        MessageText = Resource("AssistantDefaultPrompt");
+        MessageText = string.Empty;
         PlanningDate = DateTime.Today;
         City = null;
         Messages.Clear();
         ResetDefaultSuggestedReplies();
-        RefreshGuideSections();
         ClearMissingContext();
+        RestartGuidedFlow();
         OnMessagesChanged();
     }
+
+    [RelayCommand]
+    private async Task SelectGuidedOptionAsync(TravelChatGuidedOptionViewModel? option)
+    {
+        if (option is null || IsBusy)
+        {
+            return;
+        }
+
+        var id = option.Id;
+        if (id == "category.more")
+        {
+            ShowGuidedStep("category_more", Resource("AssistantGuidedMoreQuestion"), CreateMoreCategoryOptions());
+            return;
+        }
+
+        if (id.StartsWith("category.", StringComparison.Ordinal))
+        {
+            var category = id["category.".Length..];
+            if (!GuidedTravelCategories.IsValid(category))
+            {
+                return;
+            }
+
+            _guidedCriteria = new GuidedPlanCriteriaDto(Category: category);
+            ShowGuidedStep("priority", Resource("AssistantGuidedPriorityQuestion"), CreatePriorityOptions());
+            return;
+        }
+
+        switch (id)
+        {
+            case "priority.budget":
+                _guidedCriteria = _guidedCriteria! with { Priority = GuidedTravelPriorities.Budget };
+                ShowGuidedStep("budget", Resource("AssistantGuidedBudgetQuestion"), CreateBudgetOptions());
+                return;
+            case "priority.distance":
+                _guidedCriteria = _guidedCriteria! with { Priority = GuidedTravelPriorities.Distance };
+                ShowGuidedStep("distance", Resource("AssistantGuidedDistanceQuestion"), CreateDistanceOptions());
+                return;
+            case "priority.duration":
+                _guidedCriteria = _guidedCriteria! with { Priority = GuidedTravelPriorities.Duration };
+                ShowGuidedStep("duration", Resource("AssistantGuidedDurationQuestion"), CreateDurationOptions());
+                return;
+            case "priority.direct":
+                _guidedCriteria = _guidedCriteria! with { Priority = GuidedTravelPriorities.Direct };
+                await SendGuidedPlanAsync(alternative: false);
+                return;
+            case "budget.low":
+            case "budget.medium":
+            case "budget.high":
+                _guidedCriteria = _guidedCriteria! with { Budget = id["budget.".Length..] };
+                await SendGuidedPlanAsync(alternative: false);
+                return;
+            case "distance.15":
+            case "distance.30":
+                _guidedCriteria = _guidedCriteria! with { MaxWalkingMinutes = int.Parse(id["distance.".Length..], CultureInfo.InvariantCulture) };
+                await SendGuidedPlanAsync(alternative: false);
+                return;
+            case "distance.none":
+            case "location.skip":
+                _guidedCriteria = _guidedCriteria! with { MaxWalkingMinutes = null, Priority = GuidedTravelPriorities.Direct };
+                await SendGuidedPlanAsync(alternative: false);
+                return;
+            case "location.retry":
+                await SendGuidedPlanAsync(alternative: false);
+                return;
+            case "offline.retry":
+                await SendMessageAsync();
+                return;
+            case "duration.60":
+            case "duration.120":
+                _guidedCriteria = _guidedCriteria! with { MaxDurationMinutes = int.Parse(id["duration.".Length..], CultureInfo.InvariantCulture) };
+                await SendGuidedPlanAsync(alternative: false);
+                return;
+            case "duration.none":
+                _guidedCriteria = _guidedCriteria! with { MaxDurationMinutes = null, Priority = GuidedTravelPriorities.Direct };
+                await SendGuidedPlanAsync(alternative: false);
+                return;
+            case "adjust.category":
+                ShowGuidedStep("category", Resource("AssistantGuidedCategoryQuestion"), CreateCategoryOptions(includeMore: true));
+                return;
+            case "adjust.budget":
+                ShowGuidedStep("budget", Resource("AssistantGuidedBudgetQuestion"), CreateBudgetOptions());
+                return;
+            case "adjust.distance":
+                ShowGuidedStep("distance", Resource("AssistantGuidedDistanceQuestion"), CreateDistanceOptions());
+                return;
+            case "adjust.duration":
+                ShowGuidedStep("duration", Resource("AssistantGuidedDurationQuestion"), CreateDurationOptions());
+                return;
+            case "menu.schedule":
+                IsSecondaryMenuVisible = false;
+                await SendActionMessageAsync(Resource("AssistantViewSchedule"));
+                return;
+            case "menu.preferences":
+                IsSecondaryMenuVisible = false;
+                await SendActionMessageAsync(Resource("AssistantViewPreferences"));
+                return;
+            case "menu.help":
+                IsSecondaryMenuVisible = false;
+                await SendActionMessageAsync(Resource("AssistantHelpCapabilities"));
+                return;
+        }
+    }
+
+    [RelayCommand]
+    private void GoBackGuided()
+    {
+        if (_guidedHistory.Count == 0)
+        {
+            return;
+        }
+
+        ShowGuidedStepById(_guidedHistory.Pop(), addHistory: false);
+    }
+
+    [RelayCommand]
+    private void RestartGuided() => RestartGuidedFlow();
+
+    [RelayCommand]
+    private void ToggleFreeText()
+    {
+        _pendingGuidedAction = null;
+        IsFreeTextVisible = !IsFreeTextVisible;
+    }
+
+    [RelayCommand]
+    private void ToggleSecondaryMenu() => IsSecondaryMenuVisible = !IsSecondaryMenuVisible;
+
+    [RelayCommand]
+    private void AdjustGuidedPlan() => ShowGuidedStep("adjust", Resource("AssistantGuidedAdjustQuestion"), CreateAdjustOptions());
 
     [RelayCommand(CanExecute = nameof(CanSendMessage))]
     private async Task SendMessageAsync()
@@ -210,6 +379,7 @@ public sealed partial class TravelChatViewModel(
 
         try
         {
+            _isExplicitlyCancelled = false;
             IsBusy = true;
             ErrorMessage = null;
             StatusMessage = null;
@@ -221,7 +391,10 @@ public sealed partial class TravelChatViewModel(
                 ? await locationService.GetCurrentLocationAsync()
                 : null;
 
-            using var timeout = new CancellationTokenSource(TravelChatNetworkTimeout);
+            _chatRequestCancellationTokenSource?.Cancel();
+            _chatRequestCancellationTokenSource?.Dispose();
+            _chatRequestCancellationTokenSource = new CancellationTokenSource(TravelChatNetworkTimeout);
+            var activeRequest = _chatRequestCancellationTokenSource;
             var response = await apiClient.SendTravelChatAsync(
                 token,
                 new TravelChatRequest(
@@ -230,8 +403,10 @@ public sealed partial class TravelChatViewModel(
                     City,
                     DateOnly.FromDateTime(PlanningDate),
                     currentLocation,
-                    CultureInfo.CurrentUICulture.Name),
-                timeout.Token);
+                    CultureInfo.CurrentUICulture.Name,
+                    _pendingGuidedAction,
+                    _pendingGuidedAction is null ? null : _guidedCriteria),
+                activeRequest.Token);
 
             if (response is null)
             {
@@ -242,6 +417,8 @@ public sealed partial class TravelChatViewModel(
             _lastFailedMessage = null;
             _conversationId = response.ConversationId;
             _lastIntent = response.Intent;
+            _guidedCriteria = response.Criteria ?? _guidedCriteria;
+            _pendingGuidedAction = null;
             var cards = (response.Cards ?? [])
                 .Select(card => new TravelChatCardViewModel(card))
                 .ToList();
@@ -253,7 +430,22 @@ public sealed partial class TravelChatViewModel(
             }
 
             ApplyMissingContext(response.MissingContext);
+            if (response.MissingContext is not null)
+            {
+                HasGuidedQuestion = false;
+            }
+            else
+            {
+                ApplyGuidedQuestion(response.GuidedQuestion);
+            }
+            if (response.GuidedQuestion is null && cards.Count > 0)
+            {
+                HasGuidedQuestion = false;
+            }
             OnMessagesChanged();
+        }
+        catch (OperationCanceledException) when (_isExplicitlyCancelled)
+        {
         }
         catch (Exception ex) when (IsTransientNetworkException(ex))
         {
@@ -445,6 +637,11 @@ public sealed partial class TravelChatViewModel(
     [RelayCommand]
     private Task ReplaceRecommendationAsync(TravelChatCardViewModel? card)
     {
+        if (_guidedCriteria is not null)
+        {
+            return SendGuidedPlanAsync(alternative: true);
+        }
+
         var reference = card?.RecommendationReference;
         return string.IsNullOrWhiteSpace(reference)
             ? SendActionMessageAsync(Resource("AssistantOtherOption"))
@@ -527,6 +724,24 @@ public sealed partial class TravelChatViewModel(
         await SendMessageAsync();
     }
 
+    private async Task SendGuidedPlanAsync(bool alternative)
+    {
+        if (_guidedCriteria is null || !GuidedTravelCategories.IsValid(_guidedCriteria.Category))
+        {
+            RestartGuidedFlow();
+            return;
+        }
+
+        _pendingGuidedAction = new GuidedTravelActionDto(
+            alternative ? GuidedTravelActions.Alternative : GuidedTravelActions.Recommend);
+        MessageText = alternative
+            ? Resource("AssistantGuidedAnotherRequest")
+            : BuildGuidedRequestSummary(_guidedCriteria);
+        IsFreeTextVisible = false;
+        IsSecondaryMenuVisible = false;
+        await SendMessageAsync();
+    }
+
     private async Task ApplyChatOfflineFallbackAsync(string message)
     {
         _lastFailedMessage = message;
@@ -555,6 +770,10 @@ public sealed partial class TravelChatViewModel(
         SuggestedReplies.Add(Resource("AssistantOpenToday"));
         SuggestedReplies.Add(Resource("AssistantOpenDiscover"));
         SuggestedReplies.Add(Resource("AssistantOpenDocs"));
+        ShowGuidedStep(
+            "offline",
+            Resource("AssistantGuidedOfflineQuestion"),
+            [new TravelChatGuidedOptionViewModel("offline.retry", Resource("AssistantRetry"))]);
         OnMessagesChanged();
     }
 
@@ -779,13 +998,41 @@ public sealed partial class TravelChatViewModel(
         OnPropertyChanged(nameof(EmptyStateSubtitle));
         OnPropertyChanged(nameof(MessagePlaceholder));
         OnPropertyChanged(nameof(SendButtonText));
-        RefreshGuideSections();
+        OnPropertyChanged(nameof(BackText));
+        OnPropertyChanged(nameof(RestartText));
+        OnPropertyChanged(nameof(WriteRequestText));
+        OnPropertyChanged(nameof(MenuText));
+        SecondaryMenuOptions.Clear();
+        foreach (var option in CreateSecondaryMenuOptions())
+        {
+            SecondaryMenuOptions.Add(option);
+        }
+        ShowGuidedStepById(_guidedStep, addHistory: false);
 
         if (!HasMessages)
         {
-            MessageText = Resource("AssistantDefaultPrompt");
+            MessageText = string.Empty;
             ResetDefaultSuggestedReplies();
         }
+    }
+
+    private void ApplyGuidedQuestion(GuidedQuestionDto? question)
+    {
+        if (question is null)
+        {
+            return;
+        }
+
+        _guidedStep = question.Id;
+        GuidedQuestionText = question.Message;
+        GuidedOptions.Clear();
+        foreach (var option in question.Options)
+        {
+            GuidedOptions.Add(new TravelChatGuidedOptionViewModel(option.Id, option.Label));
+        }
+
+        HasGuidedQuestion = true;
+        OnPropertyChanged(nameof(CanGoBack));
     }
 
     private void ApplyPlanningContext(TripScheduleDto? schedule)
@@ -807,6 +1054,161 @@ public sealed partial class TravelChatViewModel(
             .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
     }
 
+    public void CancelActiveOperations()
+    {
+        _isExplicitlyCancelled = true;
+        CancelLoading();
+        _chatRequestCancellationTokenSource?.Cancel();
+    }
+
+    private void RestartGuidedFlow()
+    {
+        _guidedCriteria = null;
+        _pendingGuidedAction = null;
+        _guidedHistory.Clear();
+        IsFreeTextVisible = false;
+        IsSecondaryMenuVisible = false;
+        ShowGuidedStep("category", Resource("AssistantGuidedCategoryQuestion"), CreateCategoryOptions(includeMore: true), addHistory: false);
+    }
+
+    private void ShowGuidedStep(
+        string step,
+        string question,
+        IReadOnlyList<TravelChatGuidedOptionViewModel> options,
+        bool addHistory = true)
+    {
+        if (addHistory && HasGuidedQuestion && !string.Equals(_guidedStep, step, StringComparison.Ordinal))
+        {
+            _guidedHistory.Push(_guidedStep);
+        }
+
+        _guidedStep = step;
+        GuidedQuestionText = question;
+        GuidedOptions.Clear();
+        foreach (var option in options)
+        {
+            GuidedOptions.Add(option);
+        }
+
+        HasGuidedQuestion = true;
+        OnPropertyChanged(nameof(CanGoBack));
+    }
+
+    private void ShowGuidedStepById(string step, bool addHistory)
+    {
+        switch (step)
+        {
+            case "category_more":
+                ShowGuidedStep(step, Resource("AssistantGuidedMoreQuestion"), CreateMoreCategoryOptions(), addHistory);
+                break;
+            case "priority":
+                ShowGuidedStep(step, Resource("AssistantGuidedPriorityQuestion"), CreatePriorityOptions(), addHistory);
+                break;
+            case "budget":
+                ShowGuidedStep(step, Resource("AssistantGuidedBudgetQuestion"), CreateBudgetOptions(), addHistory);
+                break;
+            case "distance":
+                ShowGuidedStep(step, Resource("AssistantGuidedDistanceQuestion"), CreateDistanceOptions(), addHistory);
+                break;
+            case "duration":
+                ShowGuidedStep(step, Resource("AssistantGuidedDurationQuestion"), CreateDurationOptions(), addHistory);
+                break;
+            case "adjust":
+                ShowGuidedStep(step, Resource("AssistantGuidedAdjustQuestion"), CreateAdjustOptions(), addHistory);
+                break;
+            default:
+                ShowGuidedStep("category", Resource("AssistantGuidedCategoryQuestion"), CreateCategoryOptions(includeMore: true), addHistory);
+                break;
+        }
+    }
+
+    private static IReadOnlyList<TravelChatGuidedOptionViewModel> CreateCategoryOptions(bool includeMore)
+    {
+        var options = new List<TravelChatGuidedOptionViewModel>
+        {
+            new("category.food", Resource("AssistantGuidedFood")),
+            new("category.relax", Resource("AssistantGuidedRelax")),
+            new("category.culture", Resource("AssistantGuidedCulture")),
+            new("category.walk", Resource("AssistantGuidedWalk")),
+            new("category.dance", Resource("AssistantGuidedDance"))
+        };
+        if (includeMore)
+        {
+            options.Add(new("category.more", Resource("AssistantGuidedMore")));
+        }
+        return options;
+    }
+
+    private static IReadOnlyList<TravelChatGuidedOptionViewModel> CreateMoreCategoryOptions() =>
+    [
+        new("category.nature", Resource("AssistantGuidedNature")),
+        new("category.shopping", Resource("AssistantGuidedShopping")),
+        new("category.viewpoint", Resource("AssistantGuidedViewpoint")),
+        new("category.nightlife", Resource("AssistantGuidedNightlife"))
+    ];
+
+    private static IReadOnlyList<TravelChatGuidedOptionViewModel> CreatePriorityOptions() =>
+    [
+        new("priority.budget", Resource("AssistantGuidedBudget")),
+        new("priority.distance", Resource("AssistantGuidedDistance")),
+        new("priority.duration", Resource("AssistantGuidedDuration")),
+        new("priority.direct", Resource("AssistantGuidedRecommendNow"))
+    ];
+
+    private static IReadOnlyList<TravelChatGuidedOptionViewModel> CreateBudgetOptions() =>
+    [
+        new("budget.low", Resource("AssistantGuidedBudgetLow")),
+        new("budget.medium", Resource("AssistantGuidedBudgetMedium")),
+        new("budget.high", Resource("AssistantGuidedBudgetHigh"))
+    ];
+
+    private static IReadOnlyList<TravelChatGuidedOptionViewModel> CreateDistanceOptions() =>
+    [
+        new("distance.15", Resource("AssistantGuidedWalk15")),
+        new("distance.30", Resource("AssistantGuidedWalk30")),
+        new("distance.none", Resource("AssistantGuidedNoPreference"))
+    ];
+
+    private static IReadOnlyList<TravelChatGuidedOptionViewModel> CreateDurationOptions() =>
+    [
+        new("duration.60", Resource("AssistantGuidedDuration60")),
+        new("duration.120", Resource("AssistantGuidedDuration120")),
+        new("duration.none", Resource("AssistantGuidedNoLimit"))
+    ];
+
+    private static IReadOnlyList<TravelChatGuidedOptionViewModel> CreateAdjustOptions() =>
+    [
+        new("adjust.category", Resource("AssistantGuidedAdjustCategory")),
+        new("adjust.budget", Resource("AssistantGuidedBudget")),
+        new("adjust.distance", Resource("AssistantGuidedDistance")),
+        new("adjust.duration", Resource("AssistantGuidedDuration"))
+    ];
+
+    private static IReadOnlyList<TravelChatGuidedOptionViewModel> CreateSecondaryMenuOptions() =>
+    [
+        new("menu.schedule", Resource("AssistantViewSchedule")),
+        new("menu.preferences", Resource("AssistantViewPreferences")),
+        new("menu.help", Resource("AssistantHelpCapabilities"))
+    ];
+
+    private static string BuildGuidedRequestSummary(GuidedPlanCriteriaDto criteria)
+    {
+        var category = criteria.Category switch
+        {
+            GuidedTravelCategories.Food => Resource("AssistantGuidedFood"),
+            GuidedTravelCategories.Relax => Resource("AssistantGuidedRelax"),
+            GuidedTravelCategories.Culture => Resource("AssistantGuidedCulture"),
+            GuidedTravelCategories.Walk => Resource("AssistantGuidedWalk"),
+            GuidedTravelCategories.Dance => Resource("AssistantGuidedDance"),
+            GuidedTravelCategories.Nature => Resource("AssistantGuidedNature"),
+            GuidedTravelCategories.Shopping => Resource("AssistantGuidedShopping"),
+            GuidedTravelCategories.Viewpoint => Resource("AssistantGuidedViewpoint"),
+            GuidedTravelCategories.Nightlife => Resource("AssistantGuidedNightlife"),
+            _ => string.Empty
+        };
+        return string.Format(CultureInfo.CurrentCulture, Resource("AssistantGuidedRequestSummary"), category);
+    }
+
     private void ResetDefaultSuggestedReplies()
     {
         SuggestedReplies.Clear();
@@ -816,83 +1218,15 @@ public sealed partial class TravelChatViewModel(
         SuggestedReplies.Add(Resource("AssistantViewPreferences"));
     }
 
-    private void RefreshGuideSections()
-    {
-        GuideSections.Clear();
-        foreach (var section in CreateGuideSections())
-        {
-            GuideSections.Add(section);
-        }
-    }
-
     private static string Resource(string key)
     {
         return LocalizationResourceManager.Instance[key];
     }
 
-    private static IReadOnlyList<TravelChatGuideSectionViewModel> CreateGuideSections()
-    {
-        return
-        [
-            new TravelChatGuideSectionViewModel(
-                "1",
-                Resource("AssistantGuidePlan"),
-                [
-                    new TravelChatGuideActionViewModel(Resource("AssistantPlanFood"), Resource("AssistantPromptFood")),
-                    new TravelChatGuideActionViewModel(Resource("AssistantPlanRelax"), Resource("AssistantPromptRelax")),
-                    new TravelChatGuideActionViewModel(Resource("AssistantPlanWalk"), Resource("AssistantPromptWalk")),
-                    new TravelChatGuideActionViewModel(Resource("AssistantPlanCouple"), Resource("AssistantPromptCouple")),
-                    new TravelChatGuideActionViewModel(Resource("AssistantPlanNight"), Resource("AssistantPromptNight")),
-                    new TravelChatGuideActionViewModel(Resource("AssistantPlanDance"), Resource("AssistantPromptDance")),
-                    new TravelChatGuideActionViewModel(Resource("AssistantPlanDate"), Resource("AssistantPromptDate"))
-                ]),
-            new TravelChatGuideSectionViewModel(
-                "2",
-                Resource("AssistantGuideAdjust"),
-                [
-                    new TravelChatGuideActionViewModel(Resource("AssistantRecommendNearby"), Resource("AssistantPromptNearby")),
-                    new TravelChatGuideActionViewModel(Resource("AssistantRecommendDuration"), Resource("AssistantPromptDuration")),
-                    new TravelChatGuideActionViewModel(Resource("AssistantOtherOption"), Resource("AssistantPromptOther"))
-                ]),
-            new TravelChatGuideSectionViewModel(
-                "3",
-                Resource("AssistantGuideSchedule"),
-                [
-                    new TravelChatGuideActionViewModel(Resource("AssistantViewSchedule"), Resource("AssistantViewSchedule")),
-                    new TravelChatGuideActionViewModel(Resource("AssistantTomorrow"), Resource("AssistantPromptTomorrow"))
-                ]),
-            new TravelChatGuideSectionViewModel(
-                "4",
-                Resource("AssistantGuidePreferences"),
-                [
-                    new TravelChatGuideActionViewModel(Resource("AssistantViewPreferences"), Resource("AssistantViewPreferences")),
-                    new TravelChatGuideActionViewModel(Resource("AssistantPromptAvoidCulture"), Resource("AssistantPromptAvoidCulture")),
-                    new TravelChatGuideActionViewModel(Resource("AssistantPromptLowBudget"), Resource("AssistantPromptLowBudget"))
-                ]),
-            new TravelChatGuideSectionViewModel(
-                "5",
-                Resource("AssistantGuideHelp"),
-                [
-                    new TravelChatGuideActionViewModel(Resource("AssistantHelpCapabilities"), Resource("AssistantHelpCapabilities")),
-                    new TravelChatGuideActionViewModel(Resource("AssistantPromptCommands"), Resource("AssistantPromptCommands"))
-                ])
-        ];
-    }
 }
 
-public sealed class TravelChatGuideSectionViewModel(
-    string number,
-    string title,
-    IReadOnlyList<TravelChatGuideActionViewModel> actions)
+public sealed class TravelChatGuidedOptionViewModel(string id, string label)
 {
-    public string Number { get; } = number;
-    public string Title { get; } = title;
-    public string Header => $"{Number}. {Title}";
-    public IReadOnlyList<TravelChatGuideActionViewModel> Actions { get; } = actions;
-}
-
-public sealed class TravelChatGuideActionViewModel(string title, string prompt)
-{
-    public string Title { get; } = title;
-    public string Prompt { get; } = prompt;
+    public string Id { get; } = id;
+    public string Label { get; } = label;
 }

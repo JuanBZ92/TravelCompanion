@@ -83,6 +83,20 @@ public sealed class TravelChatService(
         }
 
         var conversationState = conversationStateService.ReadState(conversation);
+        var guidedCriteria = NormalizeGuidedCriteria(request.Criteria ?? conversationState.GuidedCriteria);
+        var isGuidedRequest = request.GuidedAction?.Action is GuidedTravelActions.Recommend or GuidedTravelActions.Alternative
+            && guidedCriteria is not null;
+        var isAlternativeRequest = request.GuidedAction?.Action == GuidedTravelActions.Alternative
+            || IsAlternativeRequest(request.Message);
+        if (isGuidedRequest)
+        {
+            request = request with
+            {
+                Message = CreateGuidedPlanningMessage(guidedCriteria!, isAlternativeRequest, locale),
+                Criteria = guidedCriteria
+            };
+        }
+
         var actionPlan = await actionPlanner.CreateAsync(request, conversation, cancellationToken);
         TravelPreferenceProfilePatchDto? temporaryPreferencePatch = null;
 
@@ -282,11 +296,15 @@ public sealed class TravelChatService(
                 promptVersion: promptVersion);
         }
 
-        var responseMode = IsAlternativeRequest(request.Message)
+        var responseMode = isGuidedRequest
+            ? ResolveGuidedResponseMode(guidedCriteria!.Category)
+            : isAlternativeRequest
             ? string.IsNullOrWhiteSpace(conversationState.LastResponseMode) ? BalancedMode : conversationState.LastResponseMode
             : actionPlan.ResponseMode;
         var explicitRecommendationIds = ParseRecommendationIds(request.Message);
-        HashSet<string> previousRecommendationIds = IsAlternativeRequest(request.Message)
+        var samePlanningContext = conversationState.LastDate == date
+            && string.Equals(conversationState.LastCity, city, StringComparison.OrdinalIgnoreCase);
+        HashSet<string> previousRecommendationIds = isAlternativeRequest && samePlanningContext
             ? conversationState.LastRecommendationIds.ToHashSet(StringComparer.OrdinalIgnoreCase)
             : [];
         var excludedRecommendationIds = previousRecommendationIds
@@ -295,6 +313,37 @@ public sealed class TravelChatService(
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var profile = CreateProfile(user, effectivePreferences!, responseMode, request.Message);
         ApplyHiddenConversationTags(profile, conversationState.HiddenTags);
+        if (isGuidedRequest
+            && guidedCriteria!.MaxWalkingMinutes.HasValue
+            && request.CurrentLocation is null)
+        {
+            conversationState.GuidedCriteria = guidedCriteria;
+            conversationState.LastCity = city;
+            conversationState.LastDate = date;
+            await conversationStateService.SavePlanningStateAsync(
+                conversation,
+                conversationId,
+                user.Id,
+                conversationState,
+                cancellationToken);
+
+            return TrackOutcome(new TravelChatResponse(
+                conversationId,
+                IsEnglish(locale)
+                    ? "I need your current location to prioritize walking distance."
+                    : "Necesito tu ubicación actual para priorizar la distancia a pie.",
+                Intent,
+                [],
+                [],
+                null,
+                CreateLocationQuestion(locale),
+                guidedCriteria),
+                responseMode,
+                eventName: "guided_location_required",
+                locale: locale,
+                promptVersion: promptVersion);
+        }
+
         var context = new TravelPlanningContext(
             city,
             date,
@@ -311,6 +360,7 @@ public sealed class TravelChatService(
             reservations,
             context,
             responseMode,
+            guidedCriteria,
             excludedRecommendationIds,
             cancellationToken);
 
@@ -326,8 +376,37 @@ public sealed class TravelChatService(
                 promptVersion: promptVersion);
         }
 
+        if (isGuidedRequest && planningResult.RankedRecommendations.Count == 0)
+        {
+            conversationState.GuidedCriteria = guidedCriteria;
+            conversationState.LastCity = city;
+            conversationState.LastDate = date;
+            await conversationStateService.SavePlanningStateAsync(
+                conversation,
+                conversationId,
+                user.Id,
+                conversationState,
+                cancellationToken);
+
+            return TrackOutcome(new TravelChatResponse(
+                conversationId,
+                IsEnglish(locale)
+                    ? "I couldn't find another option with those filters. Adjust one criterion to broaden the search."
+                    : "No encontré otra opción con esos filtros. Ajustá un criterio para ampliar la búsqueda.",
+                Intent,
+                [],
+                [],
+                null,
+                CreateAdjustQuestion(locale),
+                guidedCriteria),
+                responseMode,
+                eventName: "guided_no_results",
+                locale: locale,
+                promptVersion: promptVersion);
+        }
+
         var ranked = planningResult.RankedRecommendations
-            .Take(3)
+            .Take(isGuidedRequest ? 1 : 3)
             .ToList();
         var cards = ranked.Select(scored => responseComposer.ToRecommendationCard(scored, context) with
         {
@@ -366,11 +445,18 @@ public sealed class TravelChatService(
         conversationState.LastCity = city;
         conversationState.LastDate = date;
         conversationState.PromptVersion = promptVersion;
-        conversationState.LastRecommendationIds = cards
+        conversationState.GuidedCriteria = isGuidedRequest ? guidedCriteria : conversationState.GuidedCriteria;
+        var returnedRecommendationIds = cards
             .Select(card => card.RecommendationId)
             .Where(id => !string.IsNullOrWhiteSpace(id))
             .Select(id => id!)
             .ToList();
+        conversationState.LastRecommendationIds = isGuidedRequest && isAlternativeRequest && samePlanningContext
+            ? conversationState.LastRecommendationIds
+                .Concat(returnedRecommendationIds)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList()
+            : returnedRecommendationIds;
 
         await conversationStateService.SavePlanningStateAsync(
             conversation,
@@ -387,7 +473,9 @@ public sealed class TravelChatService(
             useModelResponse && modelResult!.SuggestedReplies.Count > 0
                 ? modelResult.SuggestedReplies
                 : defaultSuggestedReplies,
-            null),
+            null,
+            null,
+            isGuidedRequest ? guidedCriteria : null),
             responseMode,
             useModelResponse,
             modelResult is null ? "model_fallback" : "plan_response",
@@ -938,6 +1026,87 @@ public sealed class TravelChatService(
             or NightlifeLiveMusicMode
             or DanceMode;
     }
+
+    private static GuidedPlanCriteriaDto? NormalizeGuidedCriteria(GuidedPlanCriteriaDto? criteria)
+    {
+        if (criteria is null || !GuidedTravelCategories.IsValid(criteria.Category))
+        {
+            return null;
+        }
+
+        return new GuidedPlanCriteriaDto(
+            criteria.Category,
+            GuidedTravelPriorities.IsValid(criteria.Priority) ? criteria.Priority : GuidedTravelPriorities.Direct,
+            criteria.Budget is "low" or "medium" or "high" ? criteria.Budget : null,
+            criteria.MaxWalkingMinutes is 15 or 30 ? criteria.MaxWalkingMinutes : null,
+            criteria.MaxDurationMinutes is 60 or 120 ? criteria.MaxDurationMinutes : null);
+    }
+
+    private static string ResolveGuidedResponseMode(string? category) => category switch
+    {
+        GuidedTravelCategories.Food => FoodMode,
+        GuidedTravelCategories.Relax => NatureOnsenMode,
+        GuidedTravelCategories.Culture => CultureMode,
+        GuidedTravelCategories.Walk => NeighborhoodMode,
+        GuidedTravelCategories.Dance => DanceMode,
+        GuidedTravelCategories.Nature => NatureMode,
+        GuidedTravelCategories.Shopping => ShoppingMode,
+        GuidedTravelCategories.Viewpoint => ViewpointMode,
+        GuidedTravelCategories.Nightlife => NightlifeMode,
+        _ => BalancedMode
+    };
+
+    private static string CreateGuidedPlanningMessage(
+        GuidedPlanCriteriaDto criteria,
+        bool alternative,
+        string locale)
+    {
+        var category = criteria.Category switch
+        {
+            GuidedTravelCategories.Food => IsEnglish(locale) ? "food" : "comida",
+            GuidedTravelCategories.Relax => IsEnglish(locale) ? "relax" : "relajar",
+            GuidedTravelCategories.Culture => IsEnglish(locale) ? "culture" : "cultura",
+            GuidedTravelCategories.Walk => IsEnglish(locale) ? "walking" : "pasear",
+            GuidedTravelCategories.Dance => IsEnglish(locale) ? "dance" : "bailar",
+            GuidedTravelCategories.Nature => IsEnglish(locale) ? "nature" : "naturaleza",
+            GuidedTravelCategories.Shopping => IsEnglish(locale) ? "shopping" : "compras",
+            GuidedTravelCategories.Viewpoint => IsEnglish(locale) ? "viewpoint" : "mirador",
+            GuidedTravelCategories.Nightlife => IsEnglish(locale) ? "nightlife" : "vida nocturna",
+            _ => IsEnglish(locale) ? "activity" : "actividad"
+        };
+        return alternative
+            ? IsEnglish(locale) ? $"Another option for {category}" : $"Otra opción de {category}"
+            : $"{(IsEnglish(locale) ? "Plan for" : "Plan para")} {category}";
+    }
+
+    private static GuidedQuestionDto CreateAdjustQuestion(string locale)
+    {
+        var english = IsEnglish(locale);
+        return new GuidedQuestionDto(
+            "adjust",
+            english ? "What would you like to adjust?" : "¿Qué querés ajustar?",
+            [
+                new GuidedOptionDto("adjust.category", english ? "Plan type" : "Tipo de plan"),
+                new GuidedOptionDto("adjust.budget", english ? "Budget" : "Presupuesto"),
+                new GuidedOptionDto("adjust.distance", english ? "Distance" : "Cercanía"),
+                new GuidedOptionDto("adjust.duration", english ? "Duration" : "Duración")
+            ]);
+    }
+
+    private static GuidedQuestionDto CreateLocationQuestion(string locale)
+    {
+        var english = IsEnglish(locale);
+        return new GuidedQuestionDto(
+            "location",
+            english ? "How should I continue?" : "¿Cómo querés continuar?",
+            [
+                new GuidedOptionDto("location.retry", english ? "Try location again" : "Intentar ubicación otra vez"),
+                new GuidedOptionDto("location.skip", english ? "Continue without distance" : "Continuar sin distancia")
+            ]);
+    }
+
+    private static bool IsEnglish(string? locale) =>
+        locale?.StartsWith("en", StringComparison.OrdinalIgnoreCase) == true;
 
     private static bool IsAlternativeRequest(string? message)
     {

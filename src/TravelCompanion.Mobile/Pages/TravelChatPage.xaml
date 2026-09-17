@@ -154,44 +154,16 @@
                                                            TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}"
                                                            MaxLines="2"
                                                            LineBreakMode="TailTruncation" />
-                                                    <FlexLayout Grid.Row="3"
-                                                                Direction="Row"
-                                                                Wrap="Wrap"
-                                                                AlignItems="Start">
-                                                        <Border Style="{StaticResource GoldPill}"
-                                                                Margin="0,0,6,6"
-                                                                IsVisible="{Binding HasTimeLabel}">
-                                                            <Label Text="{Binding TimeLabel}"
-                                                                   FontSize="12"
-                                                                   TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
-                                                        </Border>
-                                                        <Border Style="{StaticResource GoldPill}"
-                                                                Margin="0,0,6,6"
-                                                                IsVisible="{Binding HasCostLabel}">
-                                                            <Label Text="{Binding CostLabel}"
-                                                                   FontSize="12"
-                                                                   TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
-                                                        </Border>
-                                                        <Border Style="{StaticResource GoldPill}"
-                                                                Margin="0,0,6,6"
-                                                                IsVisible="{Binding HasDistanceLabel}">
-                                                            <Label Text="{Binding DistanceLabel}"
-                                                                   FontSize="12"
-                                                                   TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
-                                                        </Border>
-                                                        <Border Style="{StaticResource GoldPill}"
-                                                                Margin="0,0,6,6"
-                                                                IsVisible="{Binding HasWalkingLabel}">
-                                                            <Label Text="{Binding WalkingLabel}"
-                                                                   FontSize="12"
-                                                                   TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
-                                                        </Border>
-                                                    </FlexLayout>
+                                                    <Label Grid.Row="3"
+                                                           Text="{Binding SummaryLine}"
+                                                           FontSize="12"
+                                                           LineHeight="1.3"
+                                                           TextColor="{AppThemeBinding Light={StaticResource Gold}, Dark={StaticResource GoldSoft}}" />
                                                     <FlexLayout Grid.Row="4"
                                                                 Direction="Row"
                                                                 Wrap="Wrap"
                                                                 AlignItems="Start"
-                                                                IsVisible="{Binding HasTags}"
+                                                                IsVisible="{Binding IsDetailsVisible}"
                                                                 BindableLayout.ItemsSource="{Binding TagActions}">
                                                         <BindableLayout.ItemTemplate>
                                                             <DataTemplate x:DataType="viewModels:TravelChatTagActionViewModel">
@@ -212,7 +184,7 @@
                                                     </FlexLayout>
                                                     <VerticalStackLayout Grid.Row="5"
                                                                          Spacing="4"
-                                                                         IsVisible="{Binding HasReasons}"
+                                                                         IsVisible="{Binding IsDetailsVisible}"
                                                                          BindableLayout.ItemsSource="{Binding WhyItFits}">
                                                         <BindableLayout.ItemTemplate>
                                                             <DataTemplate x:DataType="system:String">
@@ -239,58 +211,41 @@
                                                                 Wrap="Wrap"
                                                                 AlignItems="Start"
                                                                 Margin="0,2,0,0">
-                                                        <Button Text="{Binding DetailButtonText}"
-                                                                Clicked="OnOpenRecommendationDetailClicked"
-                                                                IsVisible="{Binding HasDetailAction}"
+                                                        <Button Text="ⓘ"
+                                                                Command="{Binding ToggleDetailsCommand}"
+                                                                SemanticProperties.Description="{Binding DetailButtonText}"
                                                                 Style="{StaticResource GhostButton}"
-                                                                FontSize="12"
-                                                                Padding="10,7"
+                                                                FontSize="20"
+                                                                Padding="8"
+                                                                MinimumWidthRequest="44"
                                                                 MinimumHeightRequest="44"
                                                                 Margin="0,0,6,6" />
-                                                        <Button Text="{Binding SaveButtonText}"
+                                                        <Button Text="💾"
                                                                 Clicked="OnSaveItineraryItemClicked"
+                                                                SemanticProperties.Description="{Binding SaveButtonText}"
                                                                 IsEnabled="{Binding CanSave}"
                                                                 IsVisible="{Binding CanEditItinerary, Source={RelativeSource AncestorType={x:Type viewModels:TravelChatViewModel}}, x:DataType=viewModels:TravelChatViewModel}"
-                                                                FontSize="12"
-                                                                Padding="10,7"
+                                                                FontSize="18"
+                                                                Padding="8"
+                                                                MinimumWidthRequest="44"
                                                                 MinimumHeightRequest="44"
                                                                 Margin="0,0,6,6" />
-                                                        <Button Text="{Binding NearbyButtonText}"
-                                                                Clicked="OnRequestLessWalkingClicked"
-                                                                Style="{StaticResource GhostButton}"
-                                                                FontSize="12"
-                                                                Padding="10,7"
-                                                                MinimumHeightRequest="44"
-                                                                Margin="0,0,6,6" />
-                                                        <Button Text="{Binding ReplaceButtonText}"
+                                                        <Button Text="↻"
                                                                 Clicked="OnReplaceRecommendationClicked"
+                                                                SemanticProperties.Description="{Binding ReplaceButtonText}"
                                                                 Style="{StaticResource GhostButton}"
-                                                                FontSize="12"
-                                                                Padding="10,7"
+                                                                FontSize="22"
+                                                                Padding="8"
+                                                                MinimumWidthRequest="44"
                                                                 MinimumHeightRequest="44"
                                                                 Margin="0,0,6,6" />
-                                                        <Button Text="{Binding UsefulButtonText}"
-                                                                Clicked="OnMarkUsefulClicked"
-                                                                IsVisible="{Binding HasFeedbackActions}"
+                                                        <Button Text="⚙"
+                                                                Clicked="OnAdjustGuidedPlanClicked"
+                                                                SemanticProperties.Description="{Binding AdjustButtonText}"
                                                                 Style="{StaticResource GhostButton}"
-                                                                FontSize="12"
-                                                                Padding="10,7"
-                                                                MinimumHeightRequest="44"
-                                                                Margin="0,0,6,6" />
-                                                        <Button Text="{Binding NotUsefulButtonText}"
-                                                                Clicked="OnMarkNotUsefulClicked"
-                                                                IsVisible="{Binding HasFeedbackActions}"
-                                                                Style="{StaticResource GhostButton}"
-                                                                FontSize="12"
-                                                                Padding="10,7"
-                                                                MinimumHeightRequest="44"
-                                                                Margin="0,0,6,6" />
-                                                        <Button Text="{Binding HideSimilarButtonText}"
-                                                                Clicked="OnHideSimilarClicked"
-                                                                IsVisible="{Binding HasFeedbackActions}"
-                                                                Style="{StaticResource GhostButton}"
-                                                                FontSize="12"
-                                                                Padding="10,7"
+                                                                FontSize="20"
+                                                                Padding="8"
+                                                                MinimumWidthRequest="44"
                                                                 MinimumHeightRequest="44"
                                                                 Margin="0,0,6,6" />
                                                     </FlexLayout>
@@ -309,88 +264,79 @@
                 </CollectionView.ItemTemplate>
             </CollectionView>
 
-            <ScrollView IsVisible="{Binding ShowEmptyState}"
-                        VerticalScrollBarVisibility="Never">
-                <VerticalStackLayout Spacing="14"
-                                     Padding="0,6,0,12"
-                                     HorizontalOptions="Center"
-                                     MaximumWidthRequest="640">
-                    <VerticalStackLayout Spacing="4">
-                        <Label Text="{Binding EmptyStateTitle}"
-                               FontSize="18"
-                               FontAttributes="Bold"
-                               HorizontalTextAlignment="Center"
-                               TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
-                        <Label Text="{Binding EmptyStateSubtitle}"
-                               FontSize="13"
-                               HorizontalTextAlignment="Center"
-                               TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
-                    </VerticalStackLayout>
-
-                    <VerticalStackLayout Spacing="12"
-                                         BindableLayout.ItemsSource="{Binding GuideSections}">
-                        <BindableLayout.ItemTemplate>
-                            <DataTemplate x:DataType="viewModels:TravelChatGuideSectionViewModel">
-                                <VerticalStackLayout Spacing="6">
-                                    <Label Text="{Binding Header}"
-                                           FontSize="13"
-                                           FontAttributes="Bold"
-                                           TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
-                                    <FlexLayout Direction="Row"
-                                                Wrap="Wrap"
-                                                AlignItems="Start"
-                                                BindableLayout.ItemsSource="{Binding Actions}">
-                                        <BindableLayout.ItemTemplate>
-                                            <DataTemplate x:DataType="viewModels:TravelChatGuideActionViewModel">
-                                                <Border Style="{StaticResource Chip}"
-                                                        Padding="10,6"
-                                                        Margin="0,0,6,6"
-                                                        MaximumWidthRequest="180">
-                                                    <Border.GestureRecognizers>
-                                                        <TapGestureRecognizer Tapped="OnGuideActionTapped" />
-                                                    </Border.GestureRecognizers>
-                                                    <Label Text="{Binding Title}"
-                                                           FontSize="12"
-                                                           TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
-                                                           LineBreakMode="TailTruncation"
-                                                           MaxLines="1" />
-                                                </Border>
-                                            </DataTemplate>
-                                        </BindableLayout.ItemTemplate>
-                                    </FlexLayout>
-                                </VerticalStackLayout>
-                            </DataTemplate>
-                        </BindableLayout.ItemTemplate>
-                    </VerticalStackLayout>
-                </VerticalStackLayout>
-            </ScrollView>
         </Grid>
 
         <VerticalStackLayout Grid.Row="3" Spacing="10" Padding="0,0,0,14">
-            <ScrollView Orientation="Horizontal"
-                        HorizontalScrollBarVisibility="Never"
-                        VerticalScrollBarVisibility="Never">
-                <HorizontalStackLayout Spacing="8"
-                                       BindableLayout.ItemsSource="{Binding SuggestedReplies}">
-                    <BindableLayout.ItemTemplate>
-                        <DataTemplate x:DataType="system:String">
-                            <Border Style="{StaticResource Chip}"
-                                    MaximumWidthRequest="220">
-                                <Border.GestureRecognizers>
-                                    <TapGestureRecognizer Tapped="OnSuggestedReplyTapped" />
-                                </Border.GestureRecognizers>
-                                <Label Text="{Binding .}"
-                                       FontSize="12"
-                                       TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
-                                       LineBreakMode="TailTruncation"
-                                       MaxLines="1" />
-                            </Border>
-                        </DataTemplate>
-                    </BindableLayout.ItemTemplate>
-                </HorizontalStackLayout>
-            </ScrollView>
+            <Border Padding="14,12"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource Paper}, Dark={StaticResource NightSurface}}"
+                    Stroke="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
+                    IsVisible="{Binding HasGuidedQuestion}">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="{Binding GuidedQuestionText}"
+                           FontSize="17"
+                           FontAttributes="Bold"
+                           SemanticProperties.HeadingLevel="Level2"
+                           TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
+                    <FlexLayout Direction="Row"
+                                Wrap="Wrap"
+                                AlignItems="Start"
+                                BindableLayout.ItemsSource="{Binding GuidedOptions}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="viewModels:TravelChatGuidedOptionViewModel">
+                                <Button Text="{Binding Label}"
+                                        Clicked="OnGuidedOptionClicked"
+                                        Style="{StaticResource GhostButton}"
+                                        FontSize="13"
+                                        Padding="12,9"
+                                        MinimumHeightRequest="44"
+                                        Margin="0,0,8,8" />
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </FlexLayout>
+                    <HorizontalStackLayout Spacing="8">
+                        <Button Text="{Binding BackText}"
+                                Command="{Binding GoBackGuidedCommand}"
+                                IsVisible="{Binding CanGoBack}"
+                                Style="{StaticResource GhostButton}"
+                                MinimumHeightRequest="44" />
+                        <Button Text="{Binding RestartText}"
+                                Command="{Binding RestartGuidedCommand}"
+                                Style="{StaticResource GhostButton}"
+                                MinimumHeightRequest="44" />
+                    </HorizontalStackLayout>
+                </VerticalStackLayout>
+            </Border>
 
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+            <FlexLayout Direction="Row" Wrap="Wrap" AlignItems="Center">
+                <Button Text="{Binding WriteRequestText}"
+                        Command="{Binding ToggleFreeTextCommand}"
+                        Style="{StaticResource GhostButton}"
+                        MinimumHeightRequest="44"
+                        Margin="0,0,8,6" />
+                <Button Text="{Binding MenuText}"
+                        Command="{Binding ToggleSecondaryMenuCommand}"
+                        Style="{StaticResource GhostButton}"
+                        MinimumHeightRequest="44"
+                        Margin="0,0,8,6" />
+            </FlexLayout>
+
+            <FlexLayout Direction="Row"
+                        Wrap="Wrap"
+                        IsVisible="{Binding IsSecondaryMenuVisible}"
+                        BindableLayout.ItemsSource="{Binding SecondaryMenuOptions}">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="viewModels:TravelChatGuidedOptionViewModel">
+                        <Button Text="{Binding Label}"
+                                Clicked="OnGuidedOptionClicked"
+                                Style="{StaticResource GhostButton}"
+                                FontSize="12"
+                                MinimumHeightRequest="44"
+                                Margin="0,0,8,6" />
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </FlexLayout>
+
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10" IsVisible="{Binding IsFreeTextVisible}">
                 <Border Padding="12,0"
                         BackgroundColor="#F6F1EA"
                         Stroke="#D8CFC4"
