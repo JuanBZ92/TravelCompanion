@@ -157,10 +157,7 @@ public sealed partial class TravelChatViewModel(
             {
                 ApplyPlanningContext(cached.Value.Schedule);
                 MarkLastUpdated(cached.SavedAt);
-                StatusMessage = string.Format(
-                    CultureInfo.CurrentCulture,
-                    Resource("AssistantOfflineStatusWithCache"),
-                    OfflineCacheService.FormatSavedAt(cached.SavedAt));
+                StatusMessage = null;
 
                 // Yield after applying local state so the cached itinerary can render
                 // before network synchronization starts.
@@ -186,7 +183,7 @@ public sealed partial class TravelChatViewModel(
                 {
                     StatusMessage = cached is null
                         ? Resource("AssistantOfflineStatusNoCache")
-                        : string.Format(CultureInfo.CurrentCulture, Resource("AssistantOfflineStatusWithCache"), OfflineCacheService.FormatSavedAt(cached.SavedAt));
+                        : null;
                     _hasLoadedContext = true;
                     return;
                 }
@@ -205,7 +202,7 @@ public sealed partial class TravelChatViewModel(
                     return;
                 }
 
-                StatusMessage = string.Format(CultureInfo.CurrentCulture, Resource("AssistantOfflineStatusWithCache"), OfflineCacheService.FormatSavedAt(cached.SavedAt));
+                StatusMessage = null;
                 _hasLoadedContext = true;
             }
         });
@@ -781,10 +778,7 @@ public sealed partial class TravelChatViewModel(
 
         StatusMessage = cached is null
             ? Resource("AssistantOfflineStatusNoCache")
-            : string.Format(
-                CultureInfo.CurrentCulture,
-                Resource("AssistantOfflineStatusWithCache"),
-                OfflineCacheService.FormatSavedAt(cached.SavedAt));
+            : null;
 
         Messages.Add(new TravelChatMessageViewModel(offlineMessage, isFromUser: false));
         SuggestedReplies.Clear();

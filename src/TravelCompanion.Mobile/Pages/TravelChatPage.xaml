@@ -94,18 +94,17 @@
         </VerticalStackLayout>
 
         <Grid Grid.Row="2" RowDefinitions="Auto,*" RowSpacing="14">
-            <Border Padding="18,16"
-                    BackgroundColor="{AppThemeBinding Light=#FFFDFC, Dark={StaticResource NightSurface}}"
-                    Stroke="{AppThemeBinding Light=#E8DED3, Dark={StaticResource NightLine}}"
-                    StrokeThickness="1"
-                    IsVisible="{Binding HasGuidedQuestion}">
-                <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="16" />
-                </Border.StrokeShape>
-                <VerticalStackLayout Spacing="14">
+            <Grid ColumnDefinitions="2,*"
+                  ColumnSpacing="16"
+                  IsVisible="{Binding HasGuidedQuestion}">
+                <BoxView WidthRequest="2"
+                         VerticalOptions="Fill"
+                         BackgroundColor="{AppThemeBinding Light={StaticResource Gold}, Dark={StaticResource GoldSoft}}" />
+                <VerticalStackLayout Grid.Column="1" Spacing="16">
                     <Label Text="{Binding GuidedQuestionText}"
-                           FontSize="20"
+                           FontSize="24"
                            FontFamily="serif"
+                           LineHeight="1.2"
                            SemanticProperties.HeadingLevel="Level2"
                            TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
                     <FlexLayout Direction="Row"
@@ -117,15 +116,15 @@
                             <DataTemplate x:DataType="viewModels:TravelChatGuidedOptionViewModel">
                                 <Button Text="{Binding Label}"
                                         Clicked="OnGuidedOptionClicked"
-                                        BackgroundColor="{AppThemeBinding Light=#F3EBE2, Dark={StaticResource NightSurfaceAlt}}"
-                                        BorderColor="Transparent"
-                                        BorderWidth="0"
-                                        CornerRadius="20"
+                                        FlexLayout.Basis="48%"
+                                        BackgroundColor="{AppThemeBinding Light={StaticResource AccentSoft}, Dark={StaticResource NightSurfaceAlt}}"
+                                        BorderColor="{AppThemeBinding Light=#D8CFC4, Dark={StaticResource NightLine}}"
+                                        BorderWidth="1"
+                                        CornerRadius="0"
                                         FontFamily="OpenSansSemibold"
                                         FontSize="13"
-                                        Padding="16,10"
-                                        MinimumWidthRequest="126"
-                                        MinimumHeightRequest="44"
+                                        Padding="12,10"
+                                        MinimumHeightRequest="48"
                                         Margin="0,0,8,8" />
                             </DataTemplate>
                         </BindableLayout.ItemTemplate>
@@ -151,7 +150,7 @@
                                 MinimumHeightRequest="44" />
                     </HorizontalStackLayout>
                 </VerticalStackLayout>
-            </Border>
+            </Grid>
 
             <CollectionView Grid.Row="1"
                             ItemsSource="{Binding Messages}"
@@ -335,6 +334,9 @@
         </Grid>
 
         <VerticalStackLayout Grid.Row="3" Spacing="8" Padding="0,0,0,10">
+            <BoxView HeightRequest="1"
+                     HorizontalOptions="Fill"
+                     BackgroundColor="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}" />
             <FlexLayout Direction="Row" Wrap="Wrap" AlignItems="Center">
                 <Button Text="{Binding WriteRequestText, StringFormat='✎  {0}'}"
                         Command="{Binding ToggleFreeTextCommand}"
@@ -366,6 +368,7 @@
                                 Clicked="OnGuidedOptionClicked"
                                 Style="{StaticResource GhostButton}"
                                 FontSize="12"
+                                Padding="12,8"
                                 MinimumHeightRequest="44"
                                 Margin="0,0,8,6" />
                     </DataTemplate>
