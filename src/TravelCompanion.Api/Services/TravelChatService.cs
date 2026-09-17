@@ -227,7 +227,8 @@ public sealed class TravelChatService(
             ? preferences
             : await CreateEffectivePreferenceProfileAsync(user, preferences, temporaryPreferencePatch, cancellationToken);
 
-        if (!userProfileService.HasMinimumPreferences(effectivePreferences, out var missingPreferenceFields))
+        if (!isGuidedRequest
+            && !userProfileService.HasMinimumPreferences(effectivePreferences, out var missingPreferenceFields))
         {
             return TrackOutcome(responseComposer.MissingContext(
                 conversationId,
@@ -311,7 +312,7 @@ public sealed class TravelChatService(
             .Concat(explicitRecommendationIds)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var profile = CreateProfile(user, effectivePreferences!, responseMode, request.Message);
+        var profile = CreateProfile(user, effectivePreferences, responseMode, request.Message, guidedCriteria);
         ApplyHiddenConversationTags(profile, conversationState.HiddenTags);
         if (isGuidedRequest
             && guidedCriteria!.MaxWalkingMinutes.HasValue
@@ -684,23 +685,24 @@ public sealed class TravelChatService(
 
     private static TravelPreferenceProfile CreateProfile(
         AppUser user,
-        TravelPreferenceProfile preferences,
+        TravelPreferenceProfile? preferences,
         string responseMode,
-        string? message)
+        string? message,
+        GuidedPlanCriteriaDto? guidedCriteria)
     {
         var profile = new TravelPreferenceProfile
         {
             UserId = user.Id,
-            Interests = preferences.Interests.ToList(),
-            FoodPreferences = preferences.FoodPreferences.ToList(),
-            DietaryRestrictions = preferences.DietaryRestrictions.ToList(),
-            BudgetLevel = preferences.BudgetLevel,
-            TravelPace = preferences.TravelPace,
-            Dislikes = preferences.Dislikes.ToList(),
-            AvoidTouristTraps = preferences.AvoidTouristTraps,
+            Interests = preferences?.Interests.ToList() ?? [],
+            FoodPreferences = preferences?.FoodPreferences.ToList() ?? [],
+            DietaryRestrictions = preferences?.DietaryRestrictions.ToList() ?? [],
+            BudgetLevel = guidedCriteria?.Budget ?? preferences?.BudgetLevel ?? "medium",
+            TravelPace = preferences?.TravelPace ?? "balanced",
+            Dislikes = preferences?.Dislikes.ToList() ?? [],
+            AvoidTouristTraps = preferences?.AvoidTouristTraps ?? true,
             MaxWalkingMinutes = responseMode == LessWalkingMode
-                ? Math.Min(preferences.MaxWalkingMinutes, 12)
-                : preferences.MaxWalkingMinutes
+                ? Math.Min(preferences?.MaxWalkingMinutes ?? 25, 12)
+                : guidedCriteria?.MaxWalkingMinutes ?? preferences?.MaxWalkingMinutes ?? 25
         };
 
         ApplyRequestSignals(profile, message, responseMode);

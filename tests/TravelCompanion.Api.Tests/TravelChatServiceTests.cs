@@ -1740,6 +1740,39 @@ public sealed class TravelChatServiceTests
     }
 
     [Fact]
+    public async Task Guided_plan_does_not_require_saved_preferences()
+    {
+        await using var dbContext = CreateDbContext();
+        var destinationId = Guid.NewGuid();
+        var food = CreateRecommendation(destinationId, "Local ramen", "Food", "Ramen in Tokyo.", 60, "low");
+        food.Tags = ["food", "ramen"];
+        var user = await SeedPlanningWorldAsync(dbContext, destinationId, food);
+        dbContext.TravelPreferenceProfiles.Remove(user.TravelPreferenceProfile!);
+        await dbContext.SaveChangesAsync();
+        var service = CreateService(dbContext);
+
+        var response = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest(
+                "guided",
+                null,
+                "Tokyo",
+                new DateOnly(2026, 10, 6),
+                null,
+                "es-ES",
+                new GuidedTravelActionDto(GuidedTravelActions.Recommend),
+                new GuidedPlanCriteriaDto(
+                    GuidedTravelCategories.Food,
+                    GuidedTravelPriorities.Budget,
+                    Budget: "low")),
+            CancellationToken.None);
+
+        Assert.Null(response.MissingContext);
+        Assert.Single(response.Cards);
+        Assert.Equal("Local ramen", response.Cards[0].Title);
+    }
+
+    [Fact]
     public async Task Guided_distance_requires_location_and_offers_a_stable_choice()
     {
         await using var dbContext = CreateDbContext();

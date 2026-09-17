@@ -25,11 +25,19 @@
                        TextColor="#1A1714" />
             </VerticalStackLayout>
 
-            <DatePicker Grid.Column="1"
-                        Date="{Binding PlanningDate}"
-                        FontSize="13"
-                        HorizontalOptions="End"
-                        WidthRequest="138" />
+            <VerticalStackLayout Grid.Column="1"
+                                 Spacing="2"
+                                 HorizontalOptions="End">
+                <DatePicker Date="{Binding PlanningDate}"
+                            FontSize="13"
+                            HorizontalOptions="End"
+                            WidthRequest="138" />
+                <Label Text="{Binding LastUpdatedMessage}"
+                       IsVisible="{Binding HasLastUpdated}"
+                       HorizontalTextAlignment="End"
+                       FontSize="10"
+                       TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
+            </VerticalStackLayout>
         </Grid>
 
         <VerticalStackLayout Grid.Row="1" Spacing="8">
@@ -85,8 +93,68 @@
             </Border>
         </VerticalStackLayout>
 
-        <Grid Grid.Row="2">
-            <CollectionView ItemsSource="{Binding Messages}"
+        <Grid Grid.Row="2" RowDefinitions="Auto,*" RowSpacing="14">
+            <Border Padding="18,16"
+                    BackgroundColor="{AppThemeBinding Light=#FFFDFC, Dark={StaticResource NightSurface}}"
+                    Stroke="{AppThemeBinding Light=#E8DED3, Dark={StaticResource NightLine}}"
+                    StrokeThickness="1"
+                    IsVisible="{Binding HasGuidedQuestion}">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="16" />
+                </Border.StrokeShape>
+                <VerticalStackLayout Spacing="14">
+                    <Label Text="{Binding GuidedQuestionText}"
+                           FontSize="20"
+                           FontFamily="serif"
+                           SemanticProperties.HeadingLevel="Level2"
+                           TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
+                    <FlexLayout Direction="Row"
+                                Wrap="Wrap"
+                                JustifyContent="Start"
+                                AlignItems="Start"
+                                BindableLayout.ItemsSource="{Binding GuidedOptions}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="viewModels:TravelChatGuidedOptionViewModel">
+                                <Button Text="{Binding Label}"
+                                        Clicked="OnGuidedOptionClicked"
+                                        BackgroundColor="{AppThemeBinding Light=#F3EBE2, Dark={StaticResource NightSurfaceAlt}}"
+                                        BorderColor="Transparent"
+                                        BorderWidth="0"
+                                        CornerRadius="20"
+                                        FontFamily="OpenSansSemibold"
+                                        FontSize="13"
+                                        Padding="16,10"
+                                        MinimumWidthRequest="126"
+                                        MinimumHeightRequest="44"
+                                        Margin="0,0,8,8" />
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </FlexLayout>
+                    <HorizontalStackLayout Spacing="4">
+                        <Button Text="{Binding BackText, StringFormat='←  {0}'}"
+                                Command="{Binding GoBackGuidedCommand}"
+                                IsVisible="{Binding CanGoBack}"
+                                SemanticProperties.Description="{Binding BackText}"
+                                BackgroundColor="Transparent"
+                                BorderWidth="0"
+                                FontSize="12"
+                                Padding="8,6"
+                                MinimumHeightRequest="44" />
+                        <Button Text="{Binding RestartText, StringFormat='↺  {0}'}"
+                                Command="{Binding RestartGuidedCommand}"
+                                IsVisible="{Binding CanRestartGuided}"
+                                SemanticProperties.Description="{Binding RestartText}"
+                                BackgroundColor="Transparent"
+                                BorderWidth="0"
+                                FontSize="12"
+                                Padding="8,6"
+                                MinimumHeightRequest="44" />
+                    </HorizontalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+
+            <CollectionView Grid.Row="1"
+                            ItemsSource="{Binding Messages}"
                             IsVisible="{Binding HasMessages}"
                             ItemsUpdatingScrollMode="KeepLastItemInView"
                             SelectionMode="None"
@@ -266,56 +334,24 @@
 
         </Grid>
 
-        <VerticalStackLayout Grid.Row="3" Spacing="10" Padding="0,0,0,14">
-            <Border Padding="14,12"
-                    BackgroundColor="{AppThemeBinding Light={StaticResource Paper}, Dark={StaticResource NightSurface}}"
-                    Stroke="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
-                    IsVisible="{Binding HasGuidedQuestion}">
-                <VerticalStackLayout Spacing="10">
-                    <Label Text="{Binding GuidedQuestionText}"
-                           FontSize="17"
-                           FontAttributes="Bold"
-                           SemanticProperties.HeadingLevel="Level2"
-                           TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
-                    <FlexLayout Direction="Row"
-                                Wrap="Wrap"
-                                AlignItems="Start"
-                                BindableLayout.ItemsSource="{Binding GuidedOptions}">
-                        <BindableLayout.ItemTemplate>
-                            <DataTemplate x:DataType="viewModels:TravelChatGuidedOptionViewModel">
-                                <Button Text="{Binding Label}"
-                                        Clicked="OnGuidedOptionClicked"
-                                        Style="{StaticResource GhostButton}"
-                                        FontSize="13"
-                                        Padding="12,9"
-                                        MinimumHeightRequest="44"
-                                        Margin="0,0,8,8" />
-                            </DataTemplate>
-                        </BindableLayout.ItemTemplate>
-                    </FlexLayout>
-                    <HorizontalStackLayout Spacing="8">
-                        <Button Text="{Binding BackText}"
-                                Command="{Binding GoBackGuidedCommand}"
-                                IsVisible="{Binding CanGoBack}"
-                                Style="{StaticResource GhostButton}"
-                                MinimumHeightRequest="44" />
-                        <Button Text="{Binding RestartText}"
-                                Command="{Binding RestartGuidedCommand}"
-                                Style="{StaticResource GhostButton}"
-                                MinimumHeightRequest="44" />
-                    </HorizontalStackLayout>
-                </VerticalStackLayout>
-            </Border>
-
+        <VerticalStackLayout Grid.Row="3" Spacing="8" Padding="0,0,0,10">
             <FlexLayout Direction="Row" Wrap="Wrap" AlignItems="Center">
-                <Button Text="{Binding WriteRequestText}"
+                <Button Text="{Binding WriteRequestText, StringFormat='✎  {0}'}"
                         Command="{Binding ToggleFreeTextCommand}"
-                        Style="{StaticResource GhostButton}"
+                        SemanticProperties.Description="{Binding WriteRequestText}"
+                        BackgroundColor="Transparent"
+                        BorderWidth="0"
+                        FontSize="13"
+                        Padding="8,6"
                         MinimumHeightRequest="44"
                         Margin="0,0,8,6" />
-                <Button Text="{Binding MenuText}"
+                <Button Text="{Binding MenuText, StringFormat='•••  {0}'}"
                         Command="{Binding ToggleSecondaryMenuCommand}"
-                        Style="{StaticResource GhostButton}"
+                        SemanticProperties.Description="{Binding MenuText}"
+                        BackgroundColor="Transparent"
+                        BorderWidth="0"
+                        FontSize="13"
+                        Padding="8,6"
                         MinimumHeightRequest="44"
                         Margin="0,0,8,6" />
             </FlexLayout>

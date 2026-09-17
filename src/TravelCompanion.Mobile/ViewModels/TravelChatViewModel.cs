@@ -80,6 +80,9 @@ public sealed partial class TravelChatViewModel(
         private set => SetProperty(ref _isSecondaryMenuVisible, value);
     }
     public bool CanGoBack => _guidedHistory.Count > 0;
+    public bool CanRestartGuided => _guidedCriteria is not null
+        || _guidedHistory.Count > 0
+        || !string.Equals(_guidedStep, "category", StringComparison.Ordinal);
     public string BackText => Resource("AssistantGuidedBack");
     public string RestartText => Resource("AssistantGuidedRestart");
     public string WriteRequestText => Resource("AssistantGuidedWriteRequest");
@@ -170,6 +173,7 @@ public sealed partial class TravelChatViewModel(
             {
                 if (bootstrapStore.HasFreshSnapshot())
                 {
+                    StatusMessage = null;
                     _hasLoadedContext = true;
                     return;
                 }
@@ -388,13 +392,22 @@ public sealed partial class TravelChatViewModel(
 
         try
         {
+            var isGuidedSubmission = _pendingGuidedAction is not null;
             _isExplicitlyCancelled = false;
             IsBusy = true;
             ErrorMessage = null;
             StatusMessage = null;
             ClearMissingContext();
             MessageText = string.Empty;
-            Messages.Add(new TravelChatMessageViewModel(message, isFromUser: true));
+            if (isGuidedSubmission)
+            {
+                Messages.Clear();
+                HasGuidedQuestion = false;
+            }
+            else
+            {
+                Messages.Add(new TravelChatMessageViewModel(message, isFromUser: true));
+            }
             OnMessagesChanged();
             var currentLocation = ShouldAttachLocation(message)
                 ? await locationService.GetCurrentLocationAsync()
@@ -1042,6 +1055,7 @@ public sealed partial class TravelChatViewModel(
 
         HasGuidedQuestion = true;
         OnPropertyChanged(nameof(CanGoBack));
+        OnPropertyChanged(nameof(CanRestartGuided));
     }
 
     private void ApplyPlanningContext(TripScheduleDto? schedule)
@@ -1101,6 +1115,7 @@ public sealed partial class TravelChatViewModel(
 
         HasGuidedQuestion = true;
         OnPropertyChanged(nameof(CanGoBack));
+        OnPropertyChanged(nameof(CanRestartGuided));
     }
 
     private void ShowGuidedStepById(string step, bool addHistory)
