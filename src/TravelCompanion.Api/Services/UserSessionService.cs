@@ -93,6 +93,30 @@ public sealed class UserSessionService(TravelCompanionDbContext dbContext)
             return null;
         }
 
+        if (session.AccessMode == SessionAccessMode.Builder)
+        {
+            var grantIsActive = await dbContext.BuilderAccessGrants
+                .AsNoTracking()
+                .AnyAsync(grant =>
+                    grant.AppUserId == session.UserId
+                    && grant.Status == BuilderAccessStatus.Active
+                    && grant.RevokedAtUtc == null
+                    && (!grant.ExpiresAtUtc.HasValue || grant.ExpiresAtUtc > now)
+                    && grant.TripId == session.TripId,
+                    cancellationToken);
+            if (!grantIsActive)
+            {
+                var activeSession = await dbContext.AppUserSessions
+                    .FirstOrDefaultAsync(existingSession => existingSession.Id == session.Id, cancellationToken);
+                if (activeSession is not null)
+                {
+                    activeSession.RevokedAt = now;
+                    await dbContext.SaveChangesAsync(cancellationToken);
+                }
+                return null;
+            }
+        }
+
         if (!session.LastSeenAt.HasValue || now - session.LastSeenAt.Value >= LastSeenUpdateInterval)
         {
             await dbContext.AppUserSessions

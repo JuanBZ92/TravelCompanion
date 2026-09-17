@@ -24,6 +24,12 @@ public partial class TravelChatPage : ContentPage
         await _viewModel.LoadContextAsync();
     }
 
+    protected override void OnDisappearing()
+    {
+        _viewModel.CancelLoading();
+        base.OnDisappearing();
+    }
+
     private async void OnSuggestedReplyTapped(object? sender, TappedEventArgs e)
     {
         if ((sender as BindableObject)?.BindingContext is string reply)

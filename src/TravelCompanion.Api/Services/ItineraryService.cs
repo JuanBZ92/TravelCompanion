@@ -47,6 +47,16 @@ public sealed class ItineraryService(TravelCompanionDbContext dbContext) : IItin
             return new SaveItineraryItemResponse(false, "Esa recomendacion no esta disponible para tu cuenta.", null);
         }
 
+        if (request.ClientMutationId.HasValue)
+        {
+            var replayedReservation = trip.Reservations.FirstOrDefault(reservation =>
+                reservation.ClientMutationId == request.ClientMutationId);
+            if (replayedReservation is not null)
+            {
+                return AlreadySaved(replayedReservation);
+            }
+        }
+
         var existingReservation = trip.Reservations.FirstOrDefault(reservation =>
             reservation.Date == request.Date
             && (reservation.RecommendationId == recommendation.Id
@@ -66,6 +76,7 @@ public sealed class ItineraryService(TravelCompanionDbContext dbContext) : IItin
         var reservation = new Reservation
         {
             Id = Guid.NewGuid(),
+            ClientMutationId = request.ClientMutationId,
             TripId = trip.Id,
             RecommendationId = recommendation.Id,
             ProviderPlaceId = recommendation.ProviderPlaceId,
@@ -95,13 +106,37 @@ public sealed class ItineraryService(TravelCompanionDbContext dbContext) : IItin
         dbContext.RecommendationInteractionSignals.Add(CreateSavedSignal(user, trip.Id, recommendation.Id));
         trip.PlanRevision++;
         trip.UpdatedAtUtc = DateTimeOffset.UtcNow;
-        await dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException) when (request.ClientMutationId.HasValue)
+        {
+            // A retry may race the original request. The unique database index is the
+            // authority; reload the first committed result instead of creating a duplicate.
+            dbContext.ChangeTracker.Clear();
+            var committedReservation = await dbContext.Reservations
+                .AsNoTracking()
+                .FirstOrDefaultAsync(existing =>
+                    existing.TripId == trip.Id
+                    && existing.ClientMutationId == request.ClientMutationId,
+                    cancellationToken);
+            if (committedReservation is not null)
+            {
+                return AlreadySaved(committedReservation);
+            }
+
+            throw;
+        }
 
         return new SaveItineraryItemResponse(
             true,
             "Plan guardado en tu itinerario.",
             ToDto(reservation));
     }
+
+    private static SaveItineraryItemResponse AlreadySaved(Reservation reservation) =>
+        new(true, "Ese plan ya estaba guardado en tu itinerario.", ToDto(reservation));
 
     private static bool CanAccessRecommendation(AppUser user, Recommendation recommendation)
     {

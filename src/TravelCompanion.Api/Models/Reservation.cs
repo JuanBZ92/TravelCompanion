@@ -5,6 +5,7 @@ namespace TravelCompanion.Api.Models;
 public sealed class Reservation
 {
     public Guid Id { get; set; }
+    public Guid? ClientMutationId { get; set; }
     public string? ExternalId { get; set; }
     public Guid TripId { get; set; }
     public Trip? Trip { get; set; }

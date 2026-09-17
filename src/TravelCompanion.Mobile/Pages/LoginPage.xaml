@@ -4,7 +4,7 @@
              xmlns:viewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
              x:Class="TravelCompanion.Mobile.Pages.LoginPage"
              x:DataType="viewModels:LoginViewModel"
-             Title="Ingresar"
+             Title="{Binding PageTitle}"
              Shell.NavBarIsVisible="False"
              BackgroundColor="#F8F3ED">
     <Grid Padding="28" RowDefinitions="*,Auto,*"
@@ -16,15 +16,16 @@
                        FontSize="11"
                        FontAttributes="Bold"
                        TextColor="#8E867D" />
-                <Label Text="Ingresa tu PIN"
+                <Label Text="{Binding LoginTitle}"
                        FontSize="34"
                        FontFamily="serif"
+                       SemanticProperties.HeadingLevel="Level1"
                        TextColor="#1A1714" />
-                <Label Text="Ingresa tu PIN de acceso."
+                <Label Text="{Binding LoginDescription}"
                        FontSize="16"
                        LineHeight="1.45"
                        TextColor="#6E675F" />
-                <Label Text="Explora el mapa curado gratis con el PIN 0000."
+                <Label Text="{Binding LoginFreePreview}"
                        FontSize="13"
                        FontAttributes="Bold"
                        TextColor="#8A6F3D" />
@@ -66,11 +67,11 @@
                         <Label Text="{Binding ErrorMessage}" TextColor="{AppThemeBinding Light={StaticResource Rose}, Dark={StaticResource Paper}}" />
                     </Border>
 
-                    <Button Text="Abrir viaje"
+                    <Button Text="{Binding LoginOpenTrip}"
                             Command="{Binding LoginCommand}"
                             IsEnabled="{Binding IsNotBusy}"
                             CornerRadius="0" />
-                    <Button Text="Desbloquear con biometria"
+                    <Button Text="{Binding LoginBiometric}"
                             Style="{StaticResource GhostButton}"
                             Command="{Binding UnlockWithBiometricsCommand}"
                             IsVisible="{Binding CanUseBiometricUnlock}" />

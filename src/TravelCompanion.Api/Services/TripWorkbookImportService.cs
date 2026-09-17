@@ -88,7 +88,7 @@ public sealed partial class TripWorkbookImportService(
         var startsOn = new DateOnly(2026, 10, 1);
         var endsOn = startsOn.AddDays(17);
 
-        sheet.Cell(1, MetadataValueColumn).Value = "1908";
+        sheet.Cell(1, MetadataValueColumn).Value = "190826";
         sheet.Cell(2, MetadataValueColumn).Value = "Cliente ejemplo Japon 18 dias";
         sheet.Cell(3, MetadataValueColumn).Value = DefaultDestinationSlug;
         sheet.Cell(4, MetadataValueColumn).Value = startsOn.ToDateTime(TimeOnly.MinValue);
@@ -538,13 +538,13 @@ public sealed partial class TripWorkbookImportService(
         var destinationValue = sheet.Cell(3, MetadataValueColumn).GetFormattedString().Trim();
         var timezone = sheet.Cell(6, MetadataValueColumn).GetFormattedString().Trim();
 
-        if (pin.Length != 4 || pin.Any(character => !char.IsDigit(character)))
-        {
-            errors.Add("PIN debe tener exactamente 4 numeros.");
-        }
-        else if (pin == TravelCompanion.Api.Options.FreePreviewOptions.ReservedPin)
+        if (pin == TravelCompanion.Api.Options.FreePreviewOptions.ReservedPin)
         {
             errors.Add("El PIN 0000 esta reservado para el mapa gratuito.");
+        }
+        else if (pin.Length != 6 || pin.Any(character => !char.IsDigit(character)))
+        {
+            errors.Add("PIN debe tener exactamente 6 numeros.");
         }
 
         if (string.IsNullOrWhiteSpace(travelerName))

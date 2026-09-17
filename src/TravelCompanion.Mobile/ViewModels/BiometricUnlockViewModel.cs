@@ -56,7 +56,7 @@ public sealed partial class BiometricUnlockViewModel(
 
             if (await biometricUnlockService.UnlockAsync())
             {
-                await Shell.Current.GoToAsync("//main/map");
+                await Shell.Current.GoToAsync("//main/schedule");
                 return;
             }
 

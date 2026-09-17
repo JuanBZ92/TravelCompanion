@@ -368,6 +368,10 @@ public sealed class TravelCompanionApiClient
     {
         using var request = CreateAuthorizedRequest(HttpMethod.Post, "api/ai/save_itinerary_item", token);
         request.Content = JsonContent.Create(saveRequest, options: JsonOptions);
+        if (saveRequest.ClientMutationId.HasValue)
+        {
+            request.Headers.TryAddWithoutValidation("Idempotency-Key", saveRequest.ClientMutationId.Value.ToString("N"));
+        }
 
         using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         var payload = await response.Content

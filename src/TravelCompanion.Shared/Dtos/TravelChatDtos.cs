@@ -73,7 +73,8 @@ public sealed record SaveItineraryItemRequest(
     Guid RecommendationId,
     DateOnly Date,
     TimeOnly StartsAt,
-    TimeOnly? EndsAt);
+    TimeOnly? EndsAt,
+    Guid? ClientMutationId = null);
 
 public sealed record SaveItineraryItemResponse(
     bool Saved,

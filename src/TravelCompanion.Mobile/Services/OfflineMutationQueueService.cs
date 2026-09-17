@@ -8,6 +8,7 @@ public sealed class OfflineMutationQueueService(
     OfflineCacheService offlineCacheService,
     TravelCompanionApiClient apiClient,
     MobileBootstrapStore bootstrapStore,
+    AuthSessionService sessionService,
     ILogger<OfflineMutationQueueService> logger)
 {
     private const string QueueCacheKey = "offline-mutation-queue-v1";
@@ -17,7 +18,7 @@ public sealed class OfflineMutationQueueService(
     public async Task<int> GetPendingCountAsync(CancellationToken cancellationToken = default)
     {
         var queue = await ReadQueueAsync(cancellationToken).ConfigureAwait(false);
-        return queue.Items.Count;
+        return queue.Items.Count(IsForCurrentSession);
     }
 
     public async Task ClearAsync()
@@ -41,12 +42,17 @@ public sealed class OfflineMutationQueueService(
         try
         {
             var queue = await ReadQueueAsync(cancellationToken).ConfigureAwait(false);
+            var localId = request.ClientMutationId ?? Guid.NewGuid();
+            request = request with { ClientMutationId = localId };
             var existing = queue.Items.FirstOrDefault(item =>
+                IsForCurrentSession(item)
+                &&
                 item.Kind == SaveItineraryItemKind
                 && item.SaveItineraryItem is { } queuedRequest
-                && queuedRequest.RecommendationId == request.RecommendationId
-                && queuedRequest.Date == request.Date
-                && queuedRequest.StartsAt == request.StartsAt);
+                && (queuedRequest.ClientMutationId == request.ClientMutationId
+                    || (queuedRequest.RecommendationId == request.RecommendationId
+                        && queuedRequest.Date == request.Date
+                        && queuedRequest.StartsAt == request.StartsAt)));
             if (existing is not null)
             {
                 logger.LogInformation(
@@ -57,13 +63,15 @@ public sealed class OfflineMutationQueueService(
             }
 
             var mutation = new OfflineMutationItem(
-                Guid.NewGuid(),
+                localId,
                 SaveItineraryItemKind,
                 DateTimeOffset.UtcNow,
                 0,
                 null,
                 null,
-                request);
+                request,
+                sessionService.CurrentUserId,
+                sessionService.CurrentTripId);
             queue = queue with
             {
                 Items = queue.Items.Append(mutation).ToList()
@@ -103,19 +111,36 @@ public sealed class OfflineMutationQueueService(
             var remaining = new List<OfflineMutationItem>();
             var succeeded = 0;
             var failed = 0;
+            var permanentFailures = 0;
 
             foreach (var item in queue.Items.OrderBy(item => item.CreatedAt))
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
+                if (!IsForCurrentSession(item))
+                {
+                    remaining.Add(item);
+                    continue;
+                }
+
+                if (item.FailedPermanently)
+                {
+                    remaining.Add(item);
+                    permanentFailures++;
+                    continue;
+                }
+
                 if (item.Kind != SaveItineraryItemKind || item.SaveItineraryItem is null)
                 {
                     remaining.Add(item with
                     {
+                        AttemptCount = item.AttemptCount + 1,
                         LastAttemptAt = DateTimeOffset.UtcNow,
-                        LastError = "Unsupported offline mutation kind."
+                        LastError = "Unsupported offline mutation kind.",
+                        FailedPermanently = true
                     });
                     failed++;
+                    permanentFailures++;
                     continue;
                 }
 
@@ -142,8 +167,10 @@ public sealed class OfflineMutationQueueService(
                     {
                         AttemptCount = item.AttemptCount + 1,
                         LastAttemptAt = DateTimeOffset.UtcNow,
-                        LastError = response?.Message ?? "The server did not confirm the save."
+                        LastError = response?.Message ?? "The server did not confirm the save.",
+                        FailedPermanently = true
                     });
+                    permanentFailures++;
                 }
                 catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
                 {
@@ -165,7 +192,7 @@ public sealed class OfflineMutationQueueService(
                 failed,
                 remaining.Count);
 
-            return new OfflineMutationReplayResult(queue.Items.Count, succeeded, failed);
+            return new OfflineMutationReplayResult(queue.Items.Count(IsForCurrentSession), succeeded, failed, permanentFailures);
         }
         finally
         {
@@ -195,6 +222,14 @@ public sealed class OfflineMutationQueueService(
         await offlineCacheService.SaveAsync(QueueCacheKey, queue, cancellationToken).ConfigureAwait(false);
     }
 
+    private bool IsForCurrentSession(OfflineMutationItem item)
+    {
+        return item.UserId.HasValue
+            && item.TripId.HasValue
+            && item.UserId == sessionService.CurrentUserId
+            && item.TripId == sessionService.CurrentTripId;
+    }
+
     private sealed record OfflineMutationQueue(IReadOnlyList<OfflineMutationItem> Items);
 
     private sealed record OfflineMutationItem(
@@ -204,10 +239,14 @@ public sealed class OfflineMutationQueueService(
         int AttemptCount,
         DateTimeOffset? LastAttemptAt,
         string? LastError,
-        SaveItineraryItemRequest? SaveItineraryItem);
+        SaveItineraryItemRequest? SaveItineraryItem,
+        Guid? UserId = null,
+        Guid? TripId = null,
+        bool FailedPermanently = false);
 }
 
 public sealed record OfflineMutationReplayResult(
     int Total,
     int Succeeded,
-    int Failed);
+    int Failed,
+    int PermanentFailures = 0);

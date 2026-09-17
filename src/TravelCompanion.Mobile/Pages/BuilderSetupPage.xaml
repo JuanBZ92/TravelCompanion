@@ -74,7 +74,7 @@
                                 Style="{StaticResource GhostButton}"
                                 FontSize="12"
                                 Padding="10,6"
-                                MinimumHeightRequest="36" />
+                                MinimumHeightRequest="44" />
                     </Grid>
                 </Border>
                 <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />

@@ -577,7 +577,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
 
             StatusMessage = forceRefresh
                 ? "Actualizando itinerario..."
-                : $"Mostrando itinerario guardado mientras la API responde. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
+                : $"Mostrando tu itinerario guardado mientras recuperamos la conexion. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
         }
 
         try
@@ -603,7 +603,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
                 throw;
             }
 
-            StatusMessage = $"Render puede estar despertando. Mostrando itinerario guardado. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
+            StatusMessage = $"Mostrando tu itinerario guardado mientras recuperamos la conexion. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
         }
     }
 
@@ -686,7 +686,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
 
             if (cached is not null)
             {
-                StatusMessage = $"Render puede estar despertando. Mostrando Today guardado. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
+                StatusMessage = $"Mostrando Today guardado mientras recuperamos la conexion. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
             }
             else
             {
@@ -1007,7 +1007,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         }
         else
         {
-            StatusMessage = "No pude registrar la accion. Probalo de nuevo cuando la API responda.";
+            StatusMessage = "No pude registrar la accion. Intenta de nuevo cuando vuelva la conexion.";
         }
     }
 

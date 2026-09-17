@@ -947,14 +947,14 @@ public sealed class TripPlanEditorService(
 
     private static void ValidatePinFormat(string pin)
     {
-        if (pin.Length != 4 || pin.Any(character => !char.IsDigit(character)))
-        {
-            throw new ValidationException("El PIN debe tener exactamente 4 números.");
-        }
-
         if (pin == Options.FreePreviewOptions.ReservedPin)
         {
             throw new ValidationException("El PIN 0000 está reservado para el mapa gratuito.");
+        }
+
+        if (pin.Length != 6 || pin.Any(character => !char.IsDigit(character)))
+        {
+            throw new ValidationException("El PIN debe tener exactamente 6 números.");
         }
     }
 

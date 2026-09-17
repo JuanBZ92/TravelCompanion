@@ -202,6 +202,8 @@ public sealed class TodayReservationViewModel
     public string Title { get; }
     public string Detail { get; }
     public string Place { get; }
+    public bool HasPlace => !string.IsNullOrWhiteSpace(Place)
+        && !string.Equals(Place.Trim(), Title.Trim(), StringComparison.OrdinalIgnoreCase);
     public string Confirmation { get; }
     public bool HasConfirmation => !string.IsNullOrWhiteSpace(Confirmation);
     public bool CanEdit => Item.IsTravelerOwned;

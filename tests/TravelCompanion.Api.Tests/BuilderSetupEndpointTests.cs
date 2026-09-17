@@ -17,6 +17,27 @@ namespace TravelCompanion.Api.Tests;
 public sealed class BuilderSetupEndpointTests
 {
     [Fact]
+    public async Task Revoked_builder_grant_invalidates_existing_session()
+    {
+        await using var factory = new BuilderApiFactory();
+        var token = await factory.SeedBuilderAsync();
+        using (var scope = factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<TravelCompanionDbContext>();
+            var grant = await dbContext.BuilderAccessGrants.SingleAsync();
+            grant.Status = BuilderAccessStatus.Revoked;
+            grant.RevokedAtUtc = DateTimeOffset.UtcNow;
+            await dbContext.SaveChangesAsync();
+        }
+
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var response = await client.GetAsync("/api/mobile/builder/setup");
+
+        Assert.Equal(System.Net.HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Four_digit_paid_pin_resolves_mode_from_account_and_searches_descriptions_before_paging()
     {
         await using var factory = new BuilderApiFactory();

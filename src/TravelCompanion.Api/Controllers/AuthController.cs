@@ -24,6 +24,7 @@ public sealed class AuthController(
     IOptions<FreePreviewOptions> freePreviewOptions) : ControllerBase
 {
     [HttpPost("login")]
+    [EnableRateLimiting("PasswordLogin")]
     public async Task<ActionResult<AuthSessionDto>> Login(LoginRequestDto request, CancellationToken cancellationToken)
     {
         var email = request.Email.Trim().ToLowerInvariant();
@@ -178,7 +179,14 @@ public sealed class AuthController(
     [HttpPost("change-password")]
     public async Task<IActionResult> ChangePassword(ChangePasswordRequestDto request, CancellationToken cancellationToken)
     {
-        var user = await sessionService.GetUserAsync(HttpContext, cancellationToken);
+        var sessionUser = await sessionService.GetUserAsync(HttpContext, cancellationToken);
+        if (sessionUser is null)
+        {
+            return Unauthorized();
+        }
+
+        var user = await dbContext.AppUsers
+            .SingleOrDefaultAsync(existingUser => existingUser.Id == sessionUser.Id, cancellationToken);
         if (user is null)
         {
             return Unauthorized();
@@ -210,6 +218,7 @@ public sealed class AuthController(
         user.MustChangePassword = false;
         user.PasswordChangedAt = DateTimeOffset.UtcNow;
         await dbContext.SaveChangesAsync(cancellationToken);
+        await sessionService.RevokeUserSessionsAsync(user.Id, cancellationToken);
 
         return NoContent();
     }

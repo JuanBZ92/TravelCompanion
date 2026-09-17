@@ -45,7 +45,7 @@
                             Style="{StaticResource GhostButton}"
                             FontSize="12"
                             Padding="10,6"
-                            MinimumHeightRequest="36" />
+                            MinimumHeightRequest="44" />
                     <CollectionView Grid.Row="1" Grid.ColumnSpan="2"
                                     ItemsSource="{Binding Cities}"
                                     SelectedItem="{Binding SelectedCity, Mode=TwoWay}"

@@ -11,6 +11,13 @@ public sealed partial class LoginViewModel(
 {
     private string _pin = string.Empty;
 
+    public string PageTitle => Resource("TabLogin");
+    public string LoginTitle => Resource("LoginTitle");
+    public string LoginDescription => Resource("LoginDescription");
+    public string LoginFreePreview => Resource("LoginFreePreview");
+    public string LoginOpenTrip => Resource("LoginOpenTrip");
+    public string LoginBiometric => Resource("LoginBiometric");
+
     public string Pin
     {
         get => _pin;
@@ -40,14 +47,14 @@ public sealed partial class LoginViewModel(
             var pin = new string(Pin.Where(char.IsDigit).Take(6).ToArray());
             if (pin.Length is not (4 or 6))
             {
-                ErrorMessage = "Ingresa tu PIN de 4 o 6 numeros.";
+                ErrorMessage = LocalizationResourceManager.Instance.GetString("LoginPinLengthError");
                 return;
             }
 
             var session = await apiClient.LoginWithPinAsync(pin);
             if (session is null)
             {
-                ErrorMessage = "No encontramos un viaje con ese PIN.";
+                ErrorMessage = LocalizationResourceManager.Instance.GetString("LoginPinNotFound");
                 return;
             }
 
@@ -68,11 +75,9 @@ public sealed partial class LoginViewModel(
 
             var route = session.AccessMode == SessionAccessMode.FreeMapPreview
                 ? "//free-map"
-                : session.AccessMode == SessionAccessMode.Builder
-                    ? "//main/map"
                 : session.MustChangePassword
                     ? "//change-password"
-                    : "//main/map";
+                    : "//main/schedule";
             await Shell.Current.GoToAsync(route);
         });
     }
@@ -82,4 +87,6 @@ public sealed partial class LoginViewModel(
     {
         await Shell.Current.GoToAsync("//biometric-unlock");
     }
+
+    private static string Resource(string key) => LocalizationResourceManager.Instance.GetString(key);
 }

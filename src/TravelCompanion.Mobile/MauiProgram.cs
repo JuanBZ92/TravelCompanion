@@ -66,9 +66,10 @@ public static class MauiProgram
 #endif
 
         var apiBaseUri = ApiEndpointResolver.Resolve();
-        builder.Services.AddSingleton(new HttpClient
+        builder.Services.AddSingleton(new HttpClient(new MobileRetryHandler(new HttpClientHandler()))
         {
-            BaseAddress = apiBaseUri
+            BaseAddress = apiBaseUri,
+            Timeout = TimeSpan.FromSeconds(20)
         });
         builder.Services.AddSingleton<TravelCompanionApiClient>();
         builder.Services.AddSingleton<AuthSessionService>();
@@ -79,6 +80,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<MobileDiscoverStore>();
         builder.Services.AddSingleton<MobileTodayStore>();
         builder.Services.AddSingleton<OfflineMutationQueueService>();
+        builder.Services.AddSingleton<OfflineSyncCoordinator>();
         builder.Services.AddSingleton<FavoritesService>();
         builder.Services.AddSingleton<PendingItineraryActionStore>();
         builder.Services.AddSingleton<SessionLogoutService>();

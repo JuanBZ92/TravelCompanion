@@ -6,6 +6,35 @@ namespace TravelCompanion.Mobile.Tests;
 public sealed class ItineraryRouteViewModelTests
 {
     [Fact]
+    public void Reservation_hides_place_when_it_repeats_the_title()
+    {
+        var item = new ScheduleItemDto(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            TravelCompanion.Shared.ReservationType.Event,
+            new DateOnly(2026, 10, 2),
+            new TimeOnly(15, 0),
+            null,
+            null,
+            "Tonkatsu Suzuki",
+            "Tokyo",
+            "Tonkatsu Suzuki",
+            "Ginza",
+            string.Empty,
+            string.Empty,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null);
+
+        var reservation = new TodayReservationViewModel(item);
+
+        Assert.False(reservation.HasPlace);
+    }
+
+    [Fact]
     public void Shows_departure_origin_and_partial_failure_without_old_times()
     {
         var route = new ItineraryRouteViewModel("WALK", "A pie", "route_walk.svg");

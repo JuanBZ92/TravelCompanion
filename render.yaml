@@ -17,6 +17,8 @@ services:
         value: "true"
       - key: DOTNET_HOSTBUILDER__RELOADCONFIGONCHANGE
         value: "false"
+      - key: Database__ApplyMigrationsOnStartup
+        value: "false"
       - key: DATABASE_URL
         fromDatabase:
           name: travelcompanion-db-v2
@@ -40,7 +42,7 @@ databases:
   - name: travelcompanion-db-v2
     databaseName: travel_companion_v2
     user: travel_companion
-    plan: free
+    plan: 0.1c-256mb
     region: frankfurt
     postgresMajorVersion: "16"
     ipAllowList: []

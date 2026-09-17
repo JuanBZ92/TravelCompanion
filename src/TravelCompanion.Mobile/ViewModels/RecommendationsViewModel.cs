@@ -395,7 +395,7 @@ public sealed partial class RecommendationsViewModel(
                 return;
             }
 
-            StatusMessage = $"Mostrando recomendaciones guardadas mientras la API responde. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
+            StatusMessage = $"Mostrando recomendaciones guardadas mientras recuperamos la conexion. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
         }
 
         try
@@ -419,7 +419,7 @@ public sealed partial class RecommendationsViewModel(
                 throw;
             }
 
-            StatusMessage = $"Render puede estar despertando. Mostrando recomendaciones guardadas. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
+            StatusMessage = $"Mostrando recomendaciones guardadas mientras recuperamos la conexion. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
         }
     }
 

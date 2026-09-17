@@ -107,7 +107,7 @@ public sealed class ReservationsModel(
         if (!string.IsNullOrWhiteSpace(normalizedPin)
             && (normalizedPin.Length != 4 || normalizedPin.Any(character => !char.IsDigit(character))))
         {
-            ModelState.AddModelError($"{nameof(TripInput)}.{nameof(TripInput.AccessPin)}", "El PIN debe tener exactamente 4 numeros.");
+            ModelState.AddModelError($"{nameof(TripInput)}.{nameof(TripInput.AccessPin)}", "El PIN debe tener exactamente 6 numeros.");
         }
         else if (normalizedPin == TravelCompanion.Api.Options.FreePreviewOptions.ReservedPin)
         {
@@ -866,7 +866,7 @@ public sealed class ReservationsModel(
         [StringLength(120, ErrorMessage = "La zona horaria no puede superar 120 caracteres.")]
         public string? TimeZoneId { get; set; } = "UTC";
 
-        [StringLength(4, MinimumLength = 4, ErrorMessage = "El PIN debe tener 4 numeros.")]
+        [StringLength(6, MinimumLength = 6, ErrorMessage = "El PIN debe tener 6 numeros.")]
         public string? AccessPin { get; set; }
 
         public static TripForm FromEntity(Trip trip)

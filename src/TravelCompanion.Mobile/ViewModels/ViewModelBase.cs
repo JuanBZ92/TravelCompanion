@@ -175,6 +175,11 @@ public abstract partial class ViewModelBase : ObservableObject
         HasLoaded = false;
     }
 
+    public void CancelLoading()
+    {
+        _loadCancellationTokenSource?.Cancel();
+    }
+
     protected void MarkLastUpdated(DateTimeOffset savedAt)
     {
         LastUpdatedMessage = $"Actualizado {savedAt.ToLocalTime():dd/MM HH:mm}";

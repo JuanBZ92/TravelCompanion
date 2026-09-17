@@ -11,6 +11,10 @@ public partial class App : Application
 
 	protected override Window CreateWindow(IActivationState? activationState)
 	{
-		return new Window(new AppShell());
+		var window = new Window(new AppShell());
+		var syncCoordinator = MauiProgram.Services.GetRequiredService<TravelCompanion.Mobile.Services.OfflineSyncCoordinator>();
+		syncCoordinator.Start();
+		window.Activated += (_, _) => syncCoordinator.TriggerSynchronize();
+		return window;
 	}
 }

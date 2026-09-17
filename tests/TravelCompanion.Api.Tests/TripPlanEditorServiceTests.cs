@@ -26,7 +26,7 @@ public sealed class TripPlanEditorServiceTests
 
         var tripId = await service.CreateTripAsync(new CreateTripPlanCommand(
             "Cliente multicity",
-            "8642",
+            "864201",
             destination.Id,
             new DateOnly(2026, 10, 1),
             new DateOnly(2026, 10, 5),
@@ -51,7 +51,7 @@ public sealed class TripPlanEditorServiceTests
 
         var exception = await Assert.ThrowsAsync<ValidationException>(() => service.CreateTripAsync(new CreateTripPlanCommand(
             "Cliente multicity",
-            "9753",
+            "975301",
             destination.Id,
             new DateOnly(2026, 10, 1),
             new DateOnly(2026, 10, 5),
@@ -73,7 +73,7 @@ public sealed class TripPlanEditorServiceTests
         var service = CreateService(dbContext);
         var tripId = await service.CreateTripAsync(new CreateTripPlanCommand(
             "Ivana & Manu",
-            "1908",
+            "190826",
             destination.Id,
             new DateOnly(2026, 11, 12),
             new DateOnly(2026, 11, 13),
@@ -132,7 +132,7 @@ public sealed class TripPlanEditorServiceTests
         var service = CreateService(dbContext);
         var tripId = await service.CreateTripAsync(new CreateTripPlanCommand(
             "Cliente",
-            "2468",
+            "246802",
             destination.Id,
             new DateOnly(2026, 10, 1),
             new DateOnly(2026, 10, 1),
@@ -166,7 +166,7 @@ public sealed class TripPlanEditorServiceTests
         var service = CreateService(dbContext);
         var tripId = await service.CreateTripAsync(new CreateTripPlanCommand(
             "Cliente",
-            "1357",
+            "135701",
             destination.Id,
             new DateOnly(2026, 10, 1),
             new DateOnly(2026, 10, 1),

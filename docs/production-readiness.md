@@ -1,6 +1,20 @@
 # Production Readiness Plan
 
-Last baseline review: 2026-05-17
+Last baseline review: 2026-09-17
+
+## Launch hardening implemented
+
+- Login rate limits now cover PIN, password and administrator access per origin, with a global cap and `429` retry guidance.
+- Production startup rejects missing or development administrator credentials; admin authorization requires the `Admin` role.
+- Password changes revoke mobile sessions and Builder sessions are invalidated when their grant is revoked or expires.
+- Newly issued trip and Builder PINs use six digits; existing four-digit PINs and the `0000` preview remain accepted.
+- Itinerary writes accept an optional client mutation ID backed by a PostgreSQL unique constraint and replay the original result.
+- `/health` remains the liveness endpoint and `/health/ready` checks PostgreSQL readiness.
+- Production migrations use the explicit `--migrate` release step; normal production startup does not migrate.
+- Mobile opens configured trips on Today, renders cached assistant content before network synchronization, and uses a single foreground/connectivity sync coordinator.
+- Assistant history uses `CollectionView`; requests have operation timeouts, cancellation, and retries limited to reads or idempotent writes.
+- Main login/password flows and assistant status text are available in English and Spanish, with larger touch targets and heading semantics.
+- Current automated baseline: 222 API tests, 9 shared tests and 10 mobile tests. The real PostgreSQL test is additionally required in staging.
 
 This document tracks the path from MVP to production. It is meant to be updated at the end of each phase.
 

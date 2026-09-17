@@ -347,23 +347,31 @@ public sealed class TravelChatServiceTests
         await dbContext.SaveChangesAsync();
 
         var service = new ItineraryService(dbContext);
+        var clientMutationId = Guid.NewGuid();
+        var request = new SaveItineraryItemRequest(
+            recommendationId,
+            new DateOnly(2026, 10, 6),
+            new TimeOnly(11, 0),
+            new TimeOnly(12, 30),
+            clientMutationId);
         var response = await service.SaveItineraryItemAsync(
             user,
-            new SaveItineraryItemRequest(
-                recommendationId,
-                new DateOnly(2026, 10, 6),
-                new TimeOnly(11, 0),
-                new TimeOnly(12, 30)),
+            request,
             CancellationToken.None);
+        var replayedResponse = await service.SaveItineraryItemAsync(user, request, CancellationToken.None);
 
         Assert.True(response.Saved);
         Assert.NotNull(response.Item);
+        Assert.True(replayedResponse.Saved);
+        Assert.Equal(response.Item.Id, replayedResponse.Item?.Id);
         Assert.Equal(ScheduleItemKind.Recommendation, response.Item.PlanningKind);
         Assert.Equal("Plan guardado en tu itinerario.", response.Message);
-        Assert.True(await dbContext.Reservations.AnyAsync(reservation =>
+        Assert.Equal(1, await dbContext.Reservations.CountAsync(reservation =>
             reservation.Trip!.AppUserId == user.Id
             && reservation.Title == "Tsukiji Snack Walk"
             && reservation.PlanningKind == ScheduleItemKind.Recommendation));
+        Assert.Equal(1, await dbContext.RecommendationInteractionSignals.CountAsync(signal =>
+            signal.UserId == user.Id && signal.RecommendationId == recommendationId));
     }
 
     [Fact]

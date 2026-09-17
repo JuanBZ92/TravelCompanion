@@ -6,6 +6,7 @@ namespace TravelCompanion.Mobile;
 public partial class AppShell : Shell
 {
     private bool _logoutInProgress;
+    private int _pendingMutationCount;
 
     public AppShell()
     {
@@ -18,13 +19,13 @@ public partial class AppShell : Shell
         Routing.RegisterRoute(nameof(ItineraryItemEditorPage), typeof(ItineraryItemEditorPage));
 
         var sessionService = MauiProgram.Services.GetRequiredService<AuthSessionService>();
+        MauiProgram.Services.GetRequiredService<OfflineSyncCoordinator>().PendingCountChanged += OnPendingCountChanged;
         if (sessionService.IsFreeMapPreview)
         {
             FreeMapTab.Content ??= MauiProgram.Services.GetRequiredService<FreeMapPage>();
         }
         else
         {
-            WarmMainTabPages();
             ApplySessionTabs(sessionService);
         }
 
@@ -36,18 +37,10 @@ public partial class AppShell : Shell
                 ? "//change-password"
                 : sessionService.IsBiometricEnabled
                     ? "//biometric-unlock"
-                    : "//main/map";
+                    : "//main/schedule";
 
             Dispatcher.Dispatch(async () => await GoToAsync(route));
         }
-    }
-
-    private void WarmMainTabPages()
-    {
-        MapTab.Content ??= MauiProgram.Services.GetRequiredService<MapPage>();
-        ScheduleTab.Content ??= MauiProgram.Services.GetRequiredService<SchedulePage>();
-        AssistantTab.Content ??= MauiProgram.Services.GetRequiredService<TravelChatPage>();
-        DocsTab.Content ??= MauiProgram.Services.GetRequiredService<DocsPage>();
     }
 
     public void ApplySessionTabs(AuthSessionService sessionService)
@@ -97,16 +90,27 @@ public partial class AppShell : Shell
         ApplyLocalizedTitles();
     }
 
+    private void OnPendingCountChanged(object? sender, int pendingCount)
+    {
+        Dispatcher.Dispatch(() =>
+        {
+            _pendingMutationCount = pendingCount;
+            ApplyLocalizedTitles();
+        });
+    }
+
     private void ApplyLocalizedTitles()
     {
         var resources = LocalizationResourceManager.Instance;
         LoginTab.Title = resources["TabLogin"];
         BiometricUnlockTab.Title = resources["TabBiometricUnlock"];
         ChangePasswordTab.Title = resources["TabChangePassword"];
-        FreeMapTab.Title = "Map";
-        MapTab.Title = "Map";
+        FreeMapTab.Title = resources["TabMap"];
+        MapTab.Title = resources["TabMap"];
         ScheduleTab.Title = resources["TabToday"];
-        AssistantTab.Title = resources["TabAssistant"];
+        AssistantTab.Title = _pendingMutationCount > 0
+            ? $"{resources["TabAssistant"]} ({_pendingMutationCount})"
+            : resources["TabAssistant"];
         DocsTab.Title = resources["TabDocs"];
         LogoutTab.Title = resources["TabLogout"];
     }

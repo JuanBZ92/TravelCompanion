@@ -31,11 +31,11 @@ public sealed record TravelerCapabilitiesDto(
     bool RequiresTripSetup);
 
 public sealed record ChangePasswordRequestDto(
-    [property: MaxLength(256)]
+    [param: MaxLength(256)]
     string? CurrentPassword,
-    [property: Required]
-    [property: MinLength(12)]
-    [property: MaxLength(256)]
+    [param: Required]
+    [param: MinLength(12)]
+    [param: MaxLength(256)]
     string NewPassword);
 
 public sealed record AuthSessionDto(

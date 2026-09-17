@@ -72,10 +72,10 @@
   <data name="AssistantOpenToday" xml:space="preserve"><value>Abrir Today</value></data>
   <data name="AssistantOpenDiscover" xml:space="preserve"><value>Abrir Discover</value></data>
   <data name="AssistantOpenDocs" xml:space="preserve"><value>Abrir Docs</value></data>
-  <data name="AssistantOfflineStatusWithCache" xml:space="preserve"><value>Render puede estar despertando. Mostrando datos guardados. {0}</value></data>
-  <data name="AssistantOfflineStatusNoCache" xml:space="preserve"><value>Render puede estar despertando. Intenta de nuevo en unos segundos.</value></data>
-  <data name="AssistantOfflineFallbackWithCache" xml:space="preserve"><value>Render puede estar despertando, asi que deje tu pedido listo para reintentar. Mientras tanto podes seguir usando las vistas guardadas del viaje. {0}</value></data>
-  <data name="AssistantOfflineFallbackNoCache" xml:space="preserve"><value>Render puede estar despertando, asi que deje tu pedido listo para reintentar. Intenta de nuevo en unos segundos.</value></data>
+  <data name="AssistantOfflineStatusWithCache" xml:space="preserve"><value>Mostramos tu viaje guardado mientras recuperamos la conexion. {0}</value></data>
+  <data name="AssistantOfflineStatusNoCache" xml:space="preserve"><value>No podemos conectar en este momento. Intenta de nuevo en unos segundos.</value></data>
+  <data name="AssistantOfflineFallbackWithCache" xml:space="preserve"><value>Tu pedido esta listo para reintentar. Puedes seguir usando las vistas guardadas del viaje. {0}</value></data>
+  <data name="AssistantOfflineFallbackNoCache" xml:space="preserve"><value>Tu pedido esta listo para reintentar cuando vuelva la conexion.</value></data>
   <data name="AssistantSaveError" xml:space="preserve"><value>No pude guardar el plan. Intenta nuevamente.</value></data>
   <data name="AssistantSaveErrorWithReason" xml:space="preserve"><value>No pude guardar el plan: {0}</value></data>
   <data name="AssistantDetailNotFound" xml:space="preserve"><value>No encontre el detalle de esa recomendacion.</value></data>
@@ -85,13 +85,30 @@
   <data name="AssistantPendingSyncedSingle" xml:space="preserve"><value>Sincronice 1 cambio pendiente.</value></data>
   <data name="AssistantPendingSyncedMany" xml:space="preserve"><value>Sincronice {0} cambios pendientes.</value></data>
   <data name="AssistantPendingPartial" xml:space="preserve"><value>Sincronice {0} cambios; quedan {1} pendientes.</value></data>
+  <data name="AssistantPendingNeedsAttention" xml:space="preserve"><value>Un cambio pendiente necesita tu atencion. Abre el asistente y vuelve a guardarlo.</value></data>
   <data name="AssistantFeedbackError" xml:space="preserve"><value>No pude enviar el feedback.</value></data>
   <data name="TabLogin" xml:space="preserve"><value>Ingresar</value></data>
   <data name="TabBiometricUnlock" xml:space="preserve"><value>Desbloquear</value></data>
   <data name="TabChangePassword" xml:space="preserve"><value>Nueva password</value></data>
   <data name="TabDiscover" xml:space="preserve"><value>Discover</value></data>
+  <data name="TabMap" xml:space="preserve"><value>Mapa</value></data>
   <data name="TabToday" xml:space="preserve"><value>Today</value></data>
   <data name="TabAssistant" xml:space="preserve"><value>Assistant</value></data>
   <data name="TabDocs" xml:space="preserve"><value>Docs</value></data>
   <data name="TabLogout" xml:space="preserve"><value>Salir</value></data>
+  <data name="LoginTitle" xml:space="preserve"><value>Ingresa tu PIN</value></data>
+  <data name="LoginDescription" xml:space="preserve"><value>Ingresa el PIN de acceso a tu viaje.</value></data>
+  <data name="LoginFreePreview" xml:space="preserve"><value>Explora el mapa curado gratis con el PIN 0000.</value></data>
+  <data name="LoginOpenTrip" xml:space="preserve"><value>Abrir viaje</value></data>
+  <data name="LoginBiometric" xml:space="preserve"><value>Desbloquear con biometría</value></data>
+  <data name="LoginPinLengthError" xml:space="preserve"><value>Ingresa tu PIN de 4 o 6 números.</value></data>
+  <data name="LoginPinNotFound" xml:space="preserve"><value>No encontramos un viaje con ese PIN.</value></data>
+  <data name="PasswordAccountLabel" xml:space="preserve"><value>CUENTA</value></data>
+  <data name="PasswordTitle" xml:space="preserve"><value>Crea tu contraseña</value></data>
+  <data name="PasswordDescription" xml:space="preserve"><value>Por seguridad, reemplaza la contraseña temporal antes de entrar a tu viaje.</value></data>
+  <data name="PasswordNew" xml:space="preserve"><value>Nueva contraseña</value></data>
+  <data name="PasswordConfirm" xml:space="preserve"><value>Confirmar contraseña</value></data>
+  <data name="PasswordSave" xml:space="preserve"><value>Guardar contraseña</value></data>
+  <data name="PasswordLengthError" xml:space="preserve"><value>La nueva contraseña debe tener al menos 12 caracteres.</value></data>
+  <data name="PasswordMismatchError" xml:space="preserve"><value>Las contraseñas no coinciden.</value></data>
 </root>

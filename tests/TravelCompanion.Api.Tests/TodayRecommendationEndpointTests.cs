@@ -180,6 +180,14 @@ public sealed class TodayRecommendationEndpointTests
                     CreateReservation("Assigned route", freeDate.AddDays(1), new TimeOnly(16, 0), "Tokyo", assignedRecommendationId)
                 ]
             });
+            dbContext.BuilderAccessGrants.Add(new BuilderAccessGrant
+            {
+                Id = Guid.NewGuid(),
+                AppUserId = user.Id,
+                DestinationId = destinationId,
+                TripId = tripId,
+                PinHash = "test-only-hash"
+            });
             dbContext.Recommendations.AddRange(
                 CreateRecommendation(destinationId, assignedRecommendationId, "Already assigned tea route", ["tea", "walk", "culture"]),
                 CreateRecommendation(destinationId, unassignedRecommendationId, "Quiet tea alley", ["tea", "walk", "culture"]),

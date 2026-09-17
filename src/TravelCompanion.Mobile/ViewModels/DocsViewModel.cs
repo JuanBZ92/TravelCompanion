@@ -78,7 +78,7 @@ public sealed partial class DocsViewModel(
             {
                 ApplyDocs(cached.Value);
                 MarkLastUpdated(cached.SavedAt);
-                StatusMessage = $"Mostrando documentos guardados mientras la API responde. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
+                StatusMessage = $"Mostrando documentos guardados mientras recuperamos la conexion. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
             }
 
             var docs = await apiClient.GetTravelDocsAsync(token);
@@ -91,7 +91,7 @@ public sealed partial class DocsViewModel(
                 }
                 else
                 {
-                    StatusMessage = $"Render puede estar despertando. Mostrando documentos guardados. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
+                    StatusMessage = $"Mostrando documentos guardados mientras recuperamos la conexion. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
                 }
             }
             else
@@ -112,7 +112,7 @@ public sealed partial class DocsViewModel(
             {
                 ApplyDocs(cached.Value);
                 MarkLastUpdated(cached.SavedAt);
-                StatusMessage = $"Render puede estar despertando. Mostrando documentos guardados. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
+                StatusMessage = $"Mostrando documentos guardados mientras recuperamos la conexion. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
             }
             else
             {

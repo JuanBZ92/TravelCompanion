@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.ResponseCompression;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.ApplicationInsights.AspNetCore.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
@@ -15,6 +16,7 @@ using TravelCompanion.Api.Options;
 using TravelCompanion.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+var migrationOnly = args.Contains("--migrate", StringComparer.OrdinalIgnoreCase);
 builder.Services.Configure<RequestLocalizationOptions>(options =>
 {
     options.SetDefaultCulture("en-US").AddSupportedCultures("en-US")
@@ -34,7 +36,11 @@ builder.Services
         options.Conventions.AuthorizeFolder("/Admin", "AdminOnly");
     });
 builder.Services.AddOpenApi();
-builder.Services.AddProblemDetails();
+builder.Services.AddProblemDetails(options =>
+{
+    options.CustomizeProblemDetails = context =>
+        context.ProblemDetails.Extensions["traceId"] = context.HttpContext.TraceIdentifier;
+});
 builder.Services.AddApplicationInsightsTelemetry(new ApplicationInsightsServiceOptions
 {
     EnableAdaptiveSampling = true
@@ -62,19 +68,37 @@ builder.Services.AddResponseCompression(options =>
 });
 builder.Services.AddRateLimiter(options =>
 {
-    options.AddFixedWindowLimiter("ItineraryRoutes", limiter =>
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = async (context, cancellationToken) =>
     {
-        limiter.PermitLimit = 60;
-        limiter.Window = TimeSpan.FromMinutes(1);
-        limiter.QueueLimit = 0;
-    });
-    options.AddFixedWindowLimiter("PinLogin", limiterOptions =>
-    {
-        limiterOptions.PermitLimit = 8;
-        limiterOptions.Window = TimeSpan.FromMinutes(1);
-        limiterOptions.QueueLimit = 0;
-        limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-    });
+        if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+        {
+            context.HttpContext.Response.Headers.RetryAfter =
+                Math.Max(1, (int)Math.Ceiling(retryAfter.TotalSeconds)).ToString();
+        }
+
+        var problem = new ProblemDetails
+        {
+            Status = StatusCodes.Status429TooManyRequests,
+            Title = "Too many requests.",
+            Detail = "Wait before trying again."
+        };
+        problem.Extensions["traceId"] = context.HttpContext.TraceIdentifier;
+        await context.HttpContext.Response.WriteAsJsonAsync(problem, cancellationToken);
+    };
+    options.GlobalLimiter = PartitionedRateLimiter.CreateChained(
+        PartitionedRateLimiter.Create<HttpContext, string>(_ =>
+            CreateNamedFixedWindowPartition("application:global", 4000, TimeSpan.FromMinutes(1))),
+        PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+            CreateFixedWindowPartition(httpContext, "global", 240, TimeSpan.FromMinutes(1))));
+    options.AddPolicy("ItineraryRoutes", httpContext =>
+        CreateFixedWindowPartition(httpContext, "routes", 60, TimeSpan.FromMinutes(1)));
+    options.AddPolicy("PinLogin", httpContext =>
+        CreateFixedWindowPartition(httpContext, "pin", 8, TimeSpan.FromMinutes(1)));
+    options.AddPolicy("PasswordLogin", httpContext =>
+        CreateFixedWindowPartition(httpContext, "password", 8, TimeSpan.FromMinutes(1)));
+    options.AddPolicy("AdminLogin", httpContext =>
+        CreateFixedWindowPartition(httpContext, "admin", 6, TimeSpan.FromMinutes(5)));
 });
 builder.Services.Configure<AdminAuthOptions>(
     builder.Configuration.GetSection(AdminAuthOptions.SectionName));
@@ -92,13 +116,18 @@ builder.Services
     .AddCookie(options =>
     {
         options.Cookie.Name = "TravelCompanion.Admin";
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SameSite = SameSiteMode.Strict;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
         options.LoginPath = "/login";
         options.LogoutPath = "/logout";
         options.AccessDeniedPath = "/login";
+        options.ExpireTimeSpan = TimeSpan.FromHours(8);
+        options.SlidingExpiration = false;
     });
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("AdminOnly", policy => policy.RequireAuthenticatedUser());
+    options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
 });
 builder.Services.AddScoped<IPasswordHasher<AppUser>, PasswordHasher<AppUser>>();
 builder.Services.AddScoped<IPasswordHasher<Trip>, PasswordHasher<Trip>>();
@@ -147,13 +176,21 @@ builder.Services.AddDbContext<TravelCompanionDbContext>((serviceProvider, option
 
 var app = builder.Build();
 
+if (!migrationOnly)
+{
+    ValidateProductionAdminCredentials(app);
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
 
+app.UseForwardedHeaders();
+
 if (!app.Environment.IsDevelopment())
 {
+    app.UseExceptionHandler();
     app.UseHttpsRedirection();
 }
 
@@ -172,16 +209,80 @@ app.MapGet("/health", () => Results.Ok(new
     status = "ok",
     service = "TravelCompanion.Api"
 }));
+app.MapGet("/health/ready", async (TravelCompanionDbContext dbContext, CancellationToken cancellationToken) =>
+{
+    try
+    {
+        return await dbContext.Database.CanConnectAsync(cancellationToken)
+            ? Results.Ok(new { status = "ready", database = "ok" })
+            : Results.Json(new { status = "not-ready", database = "unavailable" }, statusCode: StatusCodes.Status503ServiceUnavailable);
+    }
+    catch
+    {
+        return Results.Json(new { status = "not-ready", database = "unavailable" }, statusCode: StatusCodes.Status503ServiceUnavailable);
+    }
+});
 app.UseRequestLocalization();
 app.MapControllers();
 app.MapRazorPages();
 
-if (!app.Environment.IsEnvironment("Testing"))
+var applyMigrationsOnStartup = app.Configuration.GetValue<bool>("Database:ApplyMigrationsOnStartup");
+if (!app.Environment.IsEnvironment("Testing") && (migrationOnly || applyMigrationsOnStartup))
 {
     await InitializeDatabaseAsync(app);
 }
 
+if (migrationOnly)
+{
+    return;
+}
+
 app.Run();
+
+static RateLimitPartition<string> CreateFixedWindowPartition(
+    HttpContext httpContext,
+    string policy,
+    int permitLimit,
+    TimeSpan window)
+{
+    var origin = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+    return CreateNamedFixedWindowPartition($"{policy}:{origin}", permitLimit, window);
+}
+
+static RateLimitPartition<string> CreateNamedFixedWindowPartition(
+    string key,
+    int permitLimit,
+    TimeSpan window)
+{
+    return RateLimitPartition.GetFixedWindowLimiter(
+        key,
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = permitLimit,
+            Window = window,
+            QueueLimit = 0,
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            AutoReplenishment = true
+        });
+}
+
+static void ValidateProductionAdminCredentials(WebApplication app)
+{
+    if (!app.Environment.IsProduction())
+    {
+        return;
+    }
+
+    var options = app.Configuration.GetSection(AdminAuthOptions.SectionName).Get<AdminAuthOptions>();
+    if (options is null
+        || string.IsNullOrWhiteSpace(options.Username)
+        || string.IsNullOrWhiteSpace(options.Password)
+        || string.Equals(options.Password, AdminAuthOptions.DevelopmentPassword, StringComparison.Ordinal))
+    {
+        throw new InvalidOperationException(
+            "Production requires explicit AdminAuth__Username and AdminAuth__Password values, and the development password is not allowed.");
+    }
+}
 
 static async Task InitializeDatabaseAsync(WebApplication app)
 {

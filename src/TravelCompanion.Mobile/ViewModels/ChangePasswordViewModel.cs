@@ -5,10 +5,19 @@ namespace TravelCompanion.Mobile.ViewModels;
 
 public sealed partial class ChangePasswordViewModel(
     TravelCompanionApiClient apiClient,
-    AuthSessionService sessionService) : ViewModelBase
+    AuthSessionService sessionService,
+    SessionLogoutService logoutService) : ViewModelBase
 {
     private string _newPassword = string.Empty;
     private string _confirmPassword = string.Empty;
+
+    public string PageTitle => Resource("TabChangePassword");
+    public string AccountLabel => Resource("PasswordAccountLabel");
+    public string PasswordTitle => Resource("PasswordTitle");
+    public string PasswordDescription => Resource("PasswordDescription");
+    public string NewPasswordLabel => Resource("PasswordNew");
+    public string ConfirmPasswordLabel => Resource("PasswordConfirm");
+    public string SavePasswordLabel => Resource("PasswordSave");
 
     public string NewPassword
     {
@@ -29,13 +38,13 @@ public sealed partial class ChangePasswordViewModel(
         {
             if (NewPassword.Length < 12)
             {
-                ErrorMessage = "La nueva password debe tener al menos 12 caracteres.";
+                ErrorMessage = LocalizationResourceManager.Instance.GetString("PasswordLengthError");
                 return;
             }
 
             if (NewPassword != ConfirmPassword)
             {
-                ErrorMessage = "Las passwords no coinciden.";
+                ErrorMessage = LocalizationResourceManager.Instance.GetString("PasswordMismatchError");
                 return;
             }
 
@@ -48,11 +57,14 @@ public sealed partial class ChangePasswordViewModel(
             }
 
             await apiClient.ChangePasswordAsync(token, string.Empty, NewPassword);
-            sessionService.MarkPasswordChanged();
             NewPassword = string.Empty;
             ConfirmPassword = string.Empty;
-
-            await Shell.Current.GoToAsync("//main/map");
+            var userId = sessionService.CurrentUserId;
+            await logoutService.ResetContentAsync(userId);
+            sessionService.Clear();
+            await Shell.Current.GoToAsync("//login");
         });
     }
+
+    private static string Resource(string key) => LocalizationResourceManager.Instance.GetString(key);
 }

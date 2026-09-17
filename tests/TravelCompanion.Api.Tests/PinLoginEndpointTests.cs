@@ -84,6 +84,85 @@ public sealed class PinLoginEndpointTests
     }
 
     [Fact]
+    public async Task Pin_login_is_rate_limited_per_origin()
+    {
+        await using var factory = new TravelCompanionApiFactory();
+        await factory.SeedTripsWithPinAsync();
+        using var client = factory.CreateClient();
+
+        for (var attempt = 0; attempt < 8; attempt++)
+        {
+            var response = await client.PostAsJsonAsync(
+                "/api/auth/pin-login",
+                new PinLoginRequestDto("9999"));
+            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        }
+
+        var limited = await client.PostAsJsonAsync(
+            "/api/auth/pin-login",
+            new PinLoginRequestDto("9999"));
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, limited.StatusCode);
+        Assert.True(limited.Headers.RetryAfter?.Delta > TimeSpan.Zero);
+    }
+
+    [Fact]
+    public async Task Password_login_is_rate_limited_per_origin()
+    {
+        await using var factory = new TravelCompanionApiFactory();
+        using var client = factory.CreateClient();
+
+        for (var attempt = 0; attempt < 8; attempt++)
+        {
+            var response = await client.PostAsJsonAsync(
+                "/api/auth/login",
+                new LoginRequestDto("missing@example.test", "invalid-password"));
+            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        }
+
+        var limited = await client.PostAsJsonAsync(
+            "/api/auth/login",
+            new LoginRequestDto("missing@example.test", "invalid-password"));
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, limited.StatusCode);
+        Assert.True(limited.Headers.RetryAfter?.Delta > TimeSpan.Zero);
+    }
+
+    [Fact]
+    public async Task Readiness_reports_database_connectivity()
+    {
+        await using var factory = new TravelCompanionApiFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/health/ready");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Changing_password_revokes_the_current_mobile_session()
+    {
+        await using var factory = new TravelCompanionApiFactory();
+        await factory.SeedTripsWithPinAsync();
+        using var client = factory.CreateClient();
+        var login = await client.PostAsJsonAsync(
+            "/api/auth/pin-login",
+            new PinLoginRequestDto("1908"));
+        login.EnsureSuccessStatusCode();
+        var session = await login.Content.ReadFromJsonAsync<AuthSessionDto>(JsonOptions);
+        Assert.NotNull(session);
+
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", session.Token);
+        var changed = await client.PostAsJsonAsync(
+            "/api/auth/change-password",
+            new ChangePasswordRequestDto(null, "A-new-long-password-2026!"));
+        Assert.Equal(HttpStatusCode.NoContent, changed.StatusCode);
+
+        var afterChange = await client.GetAsync("/api/me/schedule");
+        Assert.Equal(HttpStatusCode.Unauthorized, afterChange.StatusCode);
+    }
+
+    [Fact]
     public async Task Pin_login_ignores_unpublished_trip()
     {
         await using var factory = new TravelCompanionApiFactory();
@@ -121,6 +200,7 @@ public sealed class PinLoginEndpointTests
             using var scope = Services.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<TravelCompanionDbContext>();
             var pinHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher<Trip>>();
+            var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher<AppUser>>();
 
             var user = new AppUser
             {
@@ -130,6 +210,7 @@ public sealed class PinLoginEndpointTests
                 PasswordHash = string.Empty,
                 MustChangePassword = true
             };
+            user.PasswordHash = passwordHasher.HashPassword(user, "Temporary-password-2026!");
             var destination = new Destination
             {
                 Id = Guid.NewGuid(),

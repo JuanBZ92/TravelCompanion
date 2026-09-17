@@ -10,7 +10,7 @@ public sealed class SessionLogoutService(
     MobileDiscoverStore discoverStore,
     MobileTodayStore todayStore,
     FreeMapStore freeMapStore,
-    OfflineMutationQueueService mutationQueue,
+    OfflineSyncCoordinator syncCoordinator,
     PendingItineraryActionStore pendingItineraryActionStore,
     IServiceProvider serviceProvider)
 {
@@ -38,6 +38,7 @@ public sealed class SessionLogoutService(
 
             await ResetContentCoreAsync(userId, preservePendingItineraryAction: false);
             sessionService.Clear();
+            await TryClearAsync(() => syncCoordinator.PublishPendingCountAsync());
         }
         finally
         {
@@ -68,7 +69,7 @@ public sealed class SessionLogoutService(
         await TryClearAsync(() => discoverStore.ClearUserCacheAsync(userId));
         await TryClearAsync(() => todayStore.ClearUserCacheAsync(userId));
         await TryClearAsync(freeMapStore.ClearAsync);
-        await TryClearAsync(mutationQueue.ClearAsync);
+        await TryClearAsync(() => syncCoordinator.PublishPendingCountAsync());
 
         if (!preservePendingItineraryAction)
         {

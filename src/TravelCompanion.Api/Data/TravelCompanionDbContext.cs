@@ -161,6 +161,7 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
         modelBuilder.Entity<Reservation>(entity =>
         {
             entity.HasIndex(reservation => new { reservation.TripId, reservation.ExternalId }).IsUnique();
+            entity.HasIndex(reservation => new { reservation.TripId, reservation.ClientMutationId }).IsUnique();
             entity.HasIndex(reservation => new { reservation.TripId, reservation.Date, reservation.StartsAt });
             entity.HasIndex(reservation => new { reservation.TripId, reservation.Type, reservation.Date, reservation.StartsAt });
             entity.HasIndex(reservation => new { reservation.TripId, reservation.RecommendationId });

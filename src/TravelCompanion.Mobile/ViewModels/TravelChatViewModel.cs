@@ -14,7 +14,8 @@ public sealed partial class TravelChatViewModel(
     AuthSessionService sessionService,
     ILocationService locationService,
     MobileBootstrapStore bootstrapStore,
-    OfflineMutationQueueService mutationQueueService) : ViewModelBase, ISessionStateResettable
+    OfflineMutationQueueService mutationQueueService,
+    OfflineSyncCoordinator syncCoordinator) : ViewModelBase, ISessionStateResettable
 {
     private static readonly TimeSpan TravelChatNetworkTimeout = TimeSpan.FromSeconds(20);
     private string? _conversationId;
@@ -110,21 +111,30 @@ public sealed partial class TravelChatViewModel(
                 return;
             }
 
-            await ReplayPendingMutationsAsync(token, ct);
             var cached = await bootstrapStore.GetCachedAsync(cancellationToken: ct);
             if (cached is not null)
             {
                 ApplyPlanningContext(cached.Value.Schedule);
                 MarkLastUpdated(cached.SavedAt);
+                StatusMessage = string.Format(
+                    CultureInfo.CurrentCulture,
+                    Resource("AssistantOfflineStatusWithCache"),
+                    OfflineCacheService.FormatSavedAt(cached.SavedAt));
 
+                // Yield after applying local state so the cached itinerary can render
+                // before network synchronization starts.
+                await Task.Yield();
+            }
+
+            await ReplayPendingMutationsAsync(token, ct);
+
+            if (cached is not null)
+            {
                 if (bootstrapStore.HasFreshSnapshot())
                 {
-                    StatusMessage = null;
                     _hasLoadedContext = true;
                     return;
                 }
-
-                StatusMessage = $"Mostrando agenda guardada mientras la API responde. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
             }
 
             try
@@ -134,7 +144,7 @@ public sealed partial class TravelChatViewModel(
                 {
                     StatusMessage = cached is null
                         ? Resource("AssistantOfflineStatusNoCache")
-                        : $"Render puede estar despertando. Usando agenda guardada para contextualizar el assistant. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
+                        : string.Format(CultureInfo.CurrentCulture, Resource("AssistantOfflineStatusWithCache"), OfflineCacheService.FormatSavedAt(cached.SavedAt));
                     _hasLoadedContext = true;
                     return;
                 }
@@ -153,7 +163,7 @@ public sealed partial class TravelChatViewModel(
                     return;
                 }
 
-                StatusMessage = $"Render puede estar despertando. Usando agenda guardada para contextualizar el assistant. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
+                StatusMessage = string.Format(CultureInfo.CurrentCulture, Resource("AssistantOfflineStatusWithCache"), OfflineCacheService.FormatSavedAt(cached.SavedAt));
                 _hasLoadedContext = true;
             }
         });
@@ -339,6 +349,7 @@ public sealed partial class TravelChatViewModel(
             return;
         }
 
+        var clientMutationId = Guid.NewGuid();
         try
         {
             IsBusy = true;
@@ -349,7 +360,8 @@ public sealed partial class TravelChatViewModel(
                 card.RecommendationId.Value,
                 DateOnly.FromDateTime(PlanningDate),
                 card.StartsAt.Value,
-                card.EndsAt);
+                card.EndsAt,
+                clientMutationId);
 
             var response = await apiClient.SaveItineraryItemAsync(token, saveRequest);
 
@@ -369,7 +381,7 @@ public sealed partial class TravelChatViewModel(
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
         {
-            await QueueSaveItineraryItemAsync(card, ex.Message);
+            await QueueSaveItineraryItemAsync(card, ex.Message, clientMutationId);
         }
         catch (Exception ex)
         {
@@ -580,7 +592,10 @@ public sealed partial class TravelChatViewModel(
         return false;
     }
 
-    private async Task QueueSaveItineraryItemAsync(TravelChatCardViewModel card, string reason)
+    private async Task QueueSaveItineraryItemAsync(
+        TravelChatCardViewModel card,
+        string reason,
+        Guid? clientMutationId = null)
     {
         if (!card.RecommendationId.HasValue || !card.StartsAt.HasValue)
         {
@@ -593,7 +608,9 @@ public sealed partial class TravelChatViewModel(
                 card.RecommendationId.Value,
                 DateOnly.FromDateTime(PlanningDate),
                 card.StartsAt.Value,
-                card.EndsAt));
+                card.EndsAt,
+                clientMutationId));
+        await syncCoordinator.PublishPendingCountAsync();
         card.IsSaved = true;
         var pendingCount = await mutationQueueService.GetPendingCountAsync();
         StatusMessage = pendingCount == 1
@@ -603,7 +620,7 @@ public sealed partial class TravelChatViewModel(
 
     private async Task ReplayPendingMutationsAsync(string token, CancellationToken cancellationToken)
     {
-        var result = await mutationQueueService.ReplayPendingAsync(token, cancellationToken);
+        var result = await syncCoordinator.SynchronizeAsync(cancellationToken);
         if (result.Total == 0)
         {
             return;
@@ -620,6 +637,10 @@ public sealed partial class TravelChatViewModel(
         if (result.Succeeded > 0)
         {
             StatusMessage = string.Format(CultureInfo.CurrentCulture, Resource("AssistantPendingPartial"), result.Succeeded, result.Failed);
+        }
+        else if (result.PermanentFailures > 0)
+        {
+            StatusMessage = Resource("AssistantPendingNeedsAttention");
         }
     }
 

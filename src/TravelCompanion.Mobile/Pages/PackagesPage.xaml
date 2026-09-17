@@ -41,7 +41,7 @@
                             Style="{StaticResource GhostButton}"
                             FontSize="12"
                             Padding="12,8"
-                            MinimumHeightRequest="34" />
+                            MinimumHeightRequest="44" />
                 </Grid>
             </Border>
         </VerticalStackLayout>

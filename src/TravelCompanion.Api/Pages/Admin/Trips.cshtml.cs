@@ -34,7 +34,7 @@ public sealed class TripsModel(
     public int BasePlanRevision { get; set; }
 
     [BindProperty]
-    [RegularExpression("^$|^[0-9]{4}$", ErrorMessage = "El PIN debe tener exactamente 4 números.")]
+    [RegularExpression("^$|^[0-9]{6}$", ErrorMessage = "El PIN debe tener exactamente 6 números.")]
     public string? NewAccessPin { get; set; }
 
     [TempData]
@@ -213,7 +213,7 @@ public sealed class TripsModel(
         public string TravelerName { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "El PIN es obligatorio.")]
-        [RegularExpression("^[0-9]{4}$", ErrorMessage = "El PIN debe tener exactamente 4 números.")]
+        [RegularExpression("^[0-9]{6}$", ErrorMessage = "El PIN debe tener exactamente 6 números.")]
         public string AccessPin { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "Selecciona un destino.")]

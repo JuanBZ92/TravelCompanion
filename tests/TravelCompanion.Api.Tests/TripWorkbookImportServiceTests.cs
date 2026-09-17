@@ -87,7 +87,7 @@ public sealed class TripWorkbookImportServiceTests
         var service = CreateService(dbContext);
         var workbookBytes = await CreateImportWorkbookAsync(
             service,
-            pin: "2468",
+            pin: "246802",
             travelerName: "Cliente Test",
             rows:
             [
@@ -125,7 +125,7 @@ public sealed class TripWorkbookImportServiceTests
         Assert.NotNull(trip.AccessPinHash);
         Assert.NotEqual(
             PasswordVerificationResult.Failed,
-            new PasswordHasher<Trip>().VerifyHashedPassword(trip, trip.AccessPinHash!, "2468"));
+            new PasswordHasher<Trip>().VerifyHashedPassword(trip, trip.AccessPinHash!, "246802"));
 
         var importedReservations = trip.Reservations
             .Where(reservation => reservation.SourceName == TripWorkbookImportService.SourceName)
@@ -172,7 +172,7 @@ public sealed class TripWorkbookImportServiceTests
         var service = CreateService(dbContext);
         var workbookBytes = await CreateImportWorkbookAsync(
             service,
-            pin: "2468",
+            pin: "246802",
             travelerName: "Cliente Test",
             rows:
             [
@@ -197,7 +197,7 @@ public sealed class TripWorkbookImportServiceTests
         var service = CreateService(dbContext);
         var workbookBytes = await CreateImportWorkbookAsync(
             service,
-            pin: "2468",
+            pin: "246802",
             travelerName: "Cliente Test",
             rows:
             [
@@ -220,7 +220,7 @@ public sealed class TripWorkbookImportServiceTests
         var service = CreateService(dbContext);
         var workbookBytes = await CreateImportWorkbookAsync(
             service,
-            pin: "2468",
+            pin: "246802",
             travelerName: "Cliente Test",
             rows:
             [
@@ -327,7 +327,7 @@ public sealed class TripWorkbookImportServiceTests
         var service = CreateService(dbContext);
         var workbookBytes = await CreateImportWorkbookAsync(
             service,
-            pin: "2468",
+            pin: "246802",
             travelerName: "Cliente Test",
             rows:
             [
