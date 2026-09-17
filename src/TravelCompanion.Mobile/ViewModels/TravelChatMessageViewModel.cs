@@ -10,4 +10,5 @@ public sealed class TravelChatMessageViewModel(
     public bool IsFromAssistant => !IsFromUser;
     public IReadOnlyList<TravelChatCardViewModel> Cards { get; } = cards ?? [];
     public bool HasCards => Cards.Count > 0;
+    public bool ShouldShowText => !HasCards && !string.IsNullOrWhiteSpace(Text);
 }

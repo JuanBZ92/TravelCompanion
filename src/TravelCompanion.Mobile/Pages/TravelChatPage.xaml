@@ -30,13 +30,14 @@
                                  HorizontalOptions="End">
                 <DatePicker Date="{Binding PlanningDate}"
                             FontSize="13"
+                            TextColor="#1A1714"
                             HorizontalOptions="End"
                             WidthRequest="138" />
                 <Label Text="{Binding LastUpdatedMessage}"
                        IsVisible="{Binding HasLastUpdated}"
                        HorizontalTextAlignment="End"
                        FontSize="10"
-                       TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
+                       TextColor="{StaticResource Muted}" />
             </VerticalStackLayout>
         </Grid>
 
@@ -53,7 +54,7 @@
                     <Label Text="{Binding MissingContextMessage}"
                            FontSize="13"
                            LineHeight="1.35"
-                           TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
+                           TextColor="{StaticResource Ink}" />
                     <FlexLayout Direction="Row"
                                 Wrap="Wrap"
                                 AlignItems="Start"
@@ -62,13 +63,15 @@
                             <DataTemplate x:DataType="system:String">
                                 <Border Style="{StaticResource Chip}"
                                         Margin="0,0,8,6"
+                                        BackgroundColor="#F6F1EA"
+                                        Stroke="#D8CFC4"
                                         MaximumWidthRequest="220">
                                     <Border.GestureRecognizers>
                                         <TapGestureRecognizer Tapped="OnSuggestedReplyTapped" />
                                     </Border.GestureRecognizers>
                                     <Label Text="{Binding .}"
                                            FontSize="12"
-                                           TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
+                                           TextColor="{StaticResource Ink}"
                                            LineBreakMode="TailTruncation"
                                            MaxLines="1" />
                                 </Border>
@@ -82,14 +85,14 @@
                     IsVisible="{Binding HasStatus}">
                 <Label Text="{Binding StatusMessage}"
                        FontSize="13"
-                       TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}" />
+                       TextColor="{StaticResource Accent}" />
             </Border>
 
             <Border Style="{StaticResource ErrorPanel}"
                     IsVisible="{Binding HasError}">
                 <Label Text="{Binding ErrorMessage}"
                        FontSize="13"
-                       TextColor="{AppThemeBinding Light={StaticResource Rose}, Dark={StaticResource Paper}}" />
+                       TextColor="{StaticResource Rose}" />
             </Border>
         </VerticalStackLayout>
 
@@ -99,14 +102,14 @@
                   IsVisible="{Binding HasGuidedQuestion}">
                 <BoxView WidthRequest="2"
                          VerticalOptions="Fill"
-                         BackgroundColor="{AppThemeBinding Light={StaticResource Gold}, Dark={StaticResource GoldSoft}}" />
+                         BackgroundColor="{StaticResource Gold}" />
                 <VerticalStackLayout Grid.Column="1" Spacing="16">
                     <Label Text="{Binding GuidedQuestionText}"
                            FontSize="24"
                            FontFamily="serif"
                            LineHeight="1.2"
                            SemanticProperties.HeadingLevel="Level2"
-                           TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
+                           TextColor="{StaticResource Ink}" />
                     <FlexLayout Direction="Row"
                                 Wrap="Wrap"
                                 JustifyContent="Start"
@@ -117,8 +120,9 @@
                                 <Button Text="{Binding Label}"
                                         Clicked="OnGuidedOptionClicked"
                                         FlexLayout.Basis="48%"
-                                        BackgroundColor="{AppThemeBinding Light={StaticResource AccentSoft}, Dark={StaticResource NightSurfaceAlt}}"
-                                        BorderColor="{AppThemeBinding Light=#D8CFC4, Dark={StaticResource NightLine}}"
+                                        TextColor="{StaticResource Ink}"
+                                        BackgroundColor="{StaticResource AccentSoft}"
+                                        BorderColor="#D8CFC4"
                                         BorderWidth="1"
                                         CornerRadius="0"
                                         FontFamily="OpenSansSemibold"
@@ -134,6 +138,7 @@
                                 Command="{Binding GoBackGuidedCommand}"
                                 IsVisible="{Binding CanGoBack}"
                                 SemanticProperties.Description="{Binding BackText}"
+                                TextColor="{StaticResource Accent}"
                                 BackgroundColor="Transparent"
                                 BorderWidth="0"
                                 FontSize="12"
@@ -143,6 +148,7 @@
                                 Command="{Binding RestartGuidedCommand}"
                                 IsVisible="{Binding CanRestartGuided}"
                                 SemanticProperties.Description="{Binding RestartText}"
+                                TextColor="{StaticResource Accent}"
                                 BackgroundColor="Transparent"
                                 BorderWidth="0"
                                 FontSize="12"
@@ -165,18 +171,19 @@
                         <DataTemplate x:DataType="viewModels:TravelChatMessageViewModel">
                             <VerticalStackLayout Spacing="8">
                                 <Border Padding="14,11"
+                                        IsVisible="{Binding ShouldShowText}"
                                         MaximumWidthRequest="620"
                                         HorizontalOptions="Start"
-                                        BackgroundColor="{AppThemeBinding Light={StaticResource Paper}, Dark={StaticResource NightSurface}}"
-                                        Stroke="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
+                                        BackgroundColor="{StaticResource Paper}"
+                                        Stroke="{StaticResource Line}"
                                         StrokeThickness="1">
                                     <Border.Triggers>
                                         <DataTrigger TargetType="Border"
                                                      Binding="{Binding IsFromUser}"
                                                      Value="True">
                                             <Setter Property="HorizontalOptions" Value="End" />
-                                            <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}" />
-                                            <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}" />
+                                            <Setter Property="BackgroundColor" Value="{StaticResource Accent}" />
+                                            <Setter Property="Stroke" Value="{StaticResource Accent}" />
                                         </DataTrigger>
                                     </Border.Triggers>
                                     <Border.StrokeShape>
@@ -185,12 +192,12 @@
                                     <Label Text="{Binding Text}"
                                            FontSize="14"
                                            LineHeight="1.35"
-                                           TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}">
+                                           TextColor="{StaticResource Ink}">
                                         <Label.Triggers>
                                             <DataTrigger TargetType="Label"
                                                          Binding="{Binding IsFromUser}"
                                                          Value="True">
-                                                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Paper}, Dark={StaticResource PrimaryDarkText}}" />
+                                                <Setter Property="TextColor" Value="{StaticResource Paper}" />
                                             </DataTrigger>
                                         </Label.Triggers>
                                     </Label>
@@ -202,7 +209,9 @@
                                     <BindableLayout.ItemTemplate>
                                         <DataTemplate x:DataType="viewModels:TravelChatCardViewModel">
                                             <Border Style="{StaticResource Card}"
-                                                    Padding="14">
+                                                    Padding="14"
+                                                    BackgroundColor="#F6F1EA"
+                                                    Stroke="#D8CFC4">
                                                 <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="6">
                                                     <Label Text="{Binding Title}"
                                                            FontSize="21"
@@ -212,20 +221,20 @@
                                                     <Label Grid.Row="1"
                                                            Text="{Binding Subtitle}"
                                                            FontSize="12"
-                                                           TextColor="{AppThemeBinding Light={StaticResource Gold}, Dark={StaticResource GoldSoft}}"
+                                                           TextColor="{StaticResource Gold}"
                                                            MaxLines="1"
                                                            LineBreakMode="TailTruncation" />
                                                     <Label Grid.Row="2"
                                                            Text="{Binding Description}"
                                                            FontSize="13"
-                                                           TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}"
+                                                           TextColor="{StaticResource InkSoft}"
                                                            MaxLines="2"
                                                            LineBreakMode="TailTruncation" />
                                                     <Label Grid.Row="3"
                                                            Text="{Binding SummaryLine}"
                                                            FontSize="12"
                                                            LineHeight="1.3"
-                                                           TextColor="{AppThemeBinding Light={StaticResource Gold}, Dark={StaticResource GoldSoft}}" />
+                                                           TextColor="{StaticResource Gold}" />
                                                     <FlexLayout Grid.Row="4"
                                                                 Direction="Row"
                                                                 Wrap="Wrap"
@@ -236,13 +245,15 @@
                                                             <DataTemplate x:DataType="viewModels:TravelChatTagActionViewModel">
                                                                 <Border Style="{StaticResource Chip}"
                                                                         Padding="8,5"
+                                                                        BackgroundColor="#F6F1EA"
+                                                                        Stroke="#D8CFC4"
                                                                         Margin="0,0,6,4">
                                                                     <Border.GestureRecognizers>
                                                                         <TapGestureRecognizer Tapped="OnTagActionTapped" />
                                                                     </Border.GestureRecognizers>
                                                                     <Label Text="{Binding Label}"
                                                                            FontSize="11"
-                                                                           TextColor="{AppThemeBinding Light={StaticResource InkSoft}, Dark={StaticResource NightMuted}}"
+                                                                           TextColor="{StaticResource InkSoft}"
                                                                            MaxLines="1"
                                                                            LineBreakMode="TailTruncation" />
                                                                 </Border>
@@ -257,7 +268,7 @@
                                                             <DataTemplate x:DataType="system:String">
                                                                 <Label Text="{Binding ., StringFormat='- {0}'}"
                                                                        FontSize="12"
-                                                                       TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
+                                                                       TextColor="{StaticResource Muted}" />
                                                             </DataTemplate>
                                                         </BindableLayout.ItemTemplate>
                                                     </VerticalStackLayout>
@@ -269,7 +280,7 @@
                                                             <DataTemplate x:DataType="system:String">
                                                                 <Label Text="{Binding .}"
                                                                        FontSize="12"
-                                                                       TextColor="{AppThemeBinding Light={StaticResource Rose}, Dark={StaticResource GoldSoft}}" />
+                                                                       TextColor="{StaticResource Rose}" />
                                                             </DataTemplate>
                                                         </BindableLayout.ItemTemplate>
                                                     </VerticalStackLayout>
@@ -282,6 +293,7 @@
                                                                 Command="{Binding ToggleDetailsCommand}"
                                                                 SemanticProperties.Description="{Binding DetailButtonText}"
                                                                 Style="{StaticResource GhostButton}"
+                                                                TextColor="{StaticResource Ink}"
                                                                 FontSize="20"
                                                                 Padding="8"
                                                                 MinimumWidthRequest="44"
@@ -292,6 +304,8 @@
                                                                 SemanticProperties.Description="{Binding SaveButtonText}"
                                                                 IsEnabled="{Binding CanSave}"
                                                                 IsVisible="{Binding CanEditItinerary, Source={RelativeSource AncestorType={x:Type viewModels:TravelChatViewModel}}, x:DataType=viewModels:TravelChatViewModel}"
+                                                                TextColor="{StaticResource Paper}"
+                                                                BackgroundColor="{StaticResource Accent}"
                                                                 FontSize="18"
                                                                 Padding="8"
                                                                 MinimumWidthRequest="44"
@@ -301,6 +315,7 @@
                                                                 Clicked="OnReplaceRecommendationClicked"
                                                                 SemanticProperties.Description="{Binding ReplaceButtonText}"
                                                                 Style="{StaticResource GhostButton}"
+                                                                TextColor="{StaticResource Ink}"
                                                                 FontSize="22"
                                                                 Padding="8"
                                                                 MinimumWidthRequest="44"
@@ -310,6 +325,7 @@
                                                                 Clicked="OnAdjustGuidedPlanClicked"
                                                                 SemanticProperties.Description="{Binding AdjustButtonText}"
                                                                 Style="{StaticResource GhostButton}"
+                                                                TextColor="{StaticResource Ink}"
                                                                 FontSize="20"
                                                                 Padding="8"
                                                                 MinimumWidthRequest="44"
@@ -319,7 +335,7 @@
                                                     <Label Grid.Row="8"
                                                            Text="{Binding FeedbackStatusMessage}"
                                                            FontSize="12"
-                                                           TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
+                                                           TextColor="{StaticResource Muted}"
                                                            IsVisible="{Binding HasFeedbackStatus}" />
                                                 </Grid>
                                             </Border>
@@ -336,11 +352,12 @@
         <VerticalStackLayout Grid.Row="3" Spacing="8" Padding="0,0,0,10">
             <BoxView HeightRequest="1"
                      HorizontalOptions="Fill"
-                     BackgroundColor="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}" />
+                     BackgroundColor="{StaticResource Line}" />
             <FlexLayout Direction="Row" Wrap="Wrap" AlignItems="Center">
                 <Button Text="{Binding WriteRequestText, StringFormat='✎  {0}'}"
                         Command="{Binding ToggleFreeTextCommand}"
                         SemanticProperties.Description="{Binding WriteRequestText}"
+                        TextColor="{StaticResource Accent}"
                         BackgroundColor="Transparent"
                         BorderWidth="0"
                         FontSize="13"
@@ -350,6 +367,7 @@
                 <Button Text="{Binding MenuText, StringFormat='•••  {0}'}"
                         Command="{Binding ToggleSecondaryMenuCommand}"
                         SemanticProperties.Description="{Binding MenuText}"
+                        TextColor="{StaticResource Accent}"
                         BackgroundColor="Transparent"
                         BorderWidth="0"
                         FontSize="13"
@@ -367,6 +385,7 @@
                         <Button Text="{Binding Label}"
                                 Clicked="OnGuidedOptionClicked"
                                 Style="{StaticResource GhostButton}"
+                                TextColor="{StaticResource Ink}"
                                 FontSize="12"
                                 Padding="12,8"
                                 MinimumHeightRequest="44"
@@ -386,12 +405,16 @@
                     <Entry Text="{Binding MessageText}"
                            Placeholder="{Binding MessagePlaceholder}"
                            ReturnCommand="{Binding SendMessageCommand}"
+                           TextColor="{StaticResource Ink}"
+                           PlaceholderColor="{StaticResource Muted}"
                            FontSize="14" />
                 </Border>
 
                 <Button Grid.Column="1"
                         Text="{Binding SendButtonText}"
                         Command="{Binding SendMessageCommand}"
+                        TextColor="{StaticResource Paper}"
+                        BackgroundColor="{StaticResource Accent}"
                         FontSize="14"
                         Padding="16,10"
                         MinimumWidthRequest="74"
@@ -400,6 +423,7 @@
 
             <ActivityIndicator IsRunning="{Binding IsBusy}"
                                IsVisible="{Binding IsBusy}"
+                               Color="{StaticResource Accent}"
                                WidthRequest="22"
                                HeightRequest="22" />
         </VerticalStackLayout>

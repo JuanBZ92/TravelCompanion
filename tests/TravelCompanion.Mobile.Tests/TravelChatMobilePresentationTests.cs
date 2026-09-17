@@ -76,6 +76,33 @@ public sealed class TravelChatMobilePresentationTests
     }
 
     [Fact]
+    public void Recommendation_message_shows_the_card_without_repeating_the_introductory_text()
+    {
+        var recommendation = new TravelChatCardViewModel(new TravelCardDto(
+            "recommendation",
+            "Local ramen",
+            "10 min caminando",
+            "Una opción local.",
+            "12:00",
+            "13:00",
+            "low",
+            0.8,
+            10,
+            [],
+            [],
+            Guid.NewGuid().ToString(),
+            null));
+
+        var message = new TravelChatMessageViewModel(
+            "Busqué una opción para tu ventana disponible.",
+            isFromUser: false,
+            [recommendation]);
+
+        Assert.True(message.HasCards);
+        Assert.False(message.ShouldShowText);
+    }
+
+    [Fact]
     public void Normalize_travel_chat_response_preserves_safe_guided_question()
     {
         var response = new TravelChatResponse(
