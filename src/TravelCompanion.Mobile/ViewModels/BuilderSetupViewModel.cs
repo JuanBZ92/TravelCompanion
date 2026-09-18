@@ -236,35 +236,60 @@ public sealed partial class BuilderSetupViewModel(
     public async Task SelectHotelAsync(BuilderSegmentViewModel segment, PlaceSuggestionDto suggestion)
     {
         segment.CancelHotelSearch();
-        var query = segment.HotelName;
         var city = segment.City;
         var session = segment.HotelSessionToken;
         using var operation = new CancellationTokenSource();
         segment.HotelSearch = operation;
+
+        ApplyHotelSelection(segment, suggestion.Name, suggestion.Address, null, null, suggestion.PlaceId);
+        segment.HotelSuggestions.Clear();
+        StatusMessage = null;
         try
         {
             var token = await sessionService.GetTokenAsync();
             if (string.IsNullOrWhiteSpace(token)) return;
             var hotel = await apiClient.GetPlaceDetailsAsync(token, new PlaceDetailsRequest(suggestion.PlaceId, session,
                 System.Globalization.CultureInfo.CurrentUICulture.Name), operation.Token);
-            if (operation.IsCancellationRequested || segment.City != city || segment.HotelName != query) return;
-            if (hotel is null) { StatusMessage = "No pudimos cargar el hotel. Puedes completarlo manualmente."; return; }
-            segment.ApplyingHotelSelection = true;
-            segment.HotelName = hotel.Title;
-            segment.HotelAddress = hotel.Neighborhood;
-            segment.HotelLatitude = hotel.Latitude;
-            segment.HotelLongitude = hotel.Longitude;
-            segment.HotelPlaceId = hotel.ProviderPlaceId ?? string.Empty;
-            segment.HotelSuggestions.Clear();
-            StatusMessage = null;
+            if (operation.IsCancellationRequested
+                || segment.City != city
+                || !string.Equals(segment.HotelPlaceId, suggestion.PlaceId, StringComparison.Ordinal)) return;
+            if (hotel is null) return;
+
+            ApplyHotelSelection(segment, hotel.Title, hotel.Neighborhood, hotel.Latitude, hotel.Longitude,
+                hotel.ProviderPlaceId ?? suggestion.PlaceId);
         }
         catch (OperationCanceledException) { }
-        catch (Exception) { StatusMessage = "No pudimos cargar el hotel. Puedes completarlo manualmente."; }
+        catch (Exception) when (!operation.IsCancellationRequested)
+        {
+            StatusMessage = "Hotel seleccionado. La ubicacion exacta se completara cuando este disponible.";
+        }
+        finally
+        {
+            segment.HotelSessionToken = Guid.NewGuid().ToString();
+            if (ReferenceEquals(segment.HotelSearch, operation)) segment.HotelSearch = null;
+        }
+    }
+
+    private static void ApplyHotelSelection(
+        BuilderSegmentViewModel segment,
+        string name,
+        string address,
+        decimal? latitude,
+        decimal? longitude,
+        string placeId)
+    {
+        segment.ApplyingHotelSelection = true;
+        try
+        {
+            segment.HotelName = name;
+            segment.HotelAddress = address;
+            segment.HotelLatitude = latitude;
+            segment.HotelLongitude = longitude;
+            segment.HotelPlaceId = placeId;
+        }
         finally
         {
             segment.ApplyingHotelSelection = false;
-            segment.HotelSessionToken = Guid.NewGuid().ToString();
-            if (ReferenceEquals(segment.HotelSearch, operation)) segment.HotelSearch = null;
         }
     }
 

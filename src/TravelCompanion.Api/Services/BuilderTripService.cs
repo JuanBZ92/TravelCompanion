@@ -288,9 +288,7 @@ public sealed class BuilderTripService(
         {
             if (string.IsNullOrWhiteSpace(segment.HotelPlaceId)
                 || (!string.IsNullOrWhiteSpace(segment.HotelName)
-                    && !string.IsNullOrWhiteSpace(segment.HotelAddress)
-                    && segment.HotelLatitude.HasValue
-                    && segment.HotelLongitude.HasValue))
+                    && !string.IsNullOrWhiteSpace(segment.HotelAddress)))
             {
                 segments.Add(segment);
                 continue;

@@ -274,9 +274,7 @@ public sealed class TodayRecommendationService(
             hotel = new TodayHotelBaseDto(selectedDay.HotelBase, selectedDay.BaseAddress, selectedDay.BaseProviderPlaceId, selectedDay.BaseLatitude, selectedDay.BaseLongitude);
             if (!string.IsNullOrWhiteSpace(selectedDay.BaseProviderPlaceId)
                 && (string.IsNullOrWhiteSpace(selectedDay.HotelBase)
-                    || string.IsNullOrWhiteSpace(selectedDay.BaseAddress)
-                    || !selectedDay.BaseLatitude.HasValue
-                    || !selectedDay.BaseLongitude.HasValue))
+                    || string.IsNullOrWhiteSpace(selectedDay.BaseAddress)))
             {
                 var resolved = googlePlaces is null ? null : await googlePlaces.DetailsAsync(trip.DestinationId,
                     new PlaceDetailsRequest(selectedDay.BaseProviderPlaceId, string.Empty), cancellationToken);
