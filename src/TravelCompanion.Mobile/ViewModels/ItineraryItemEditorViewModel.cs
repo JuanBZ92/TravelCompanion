@@ -343,8 +343,8 @@ public sealed partial class ItineraryItemEditorViewModel(
             ErrorMessage = result?.Message ?? "No se pudo guardar. Comprueba tu conexión.";
             return;
         }
-        if (result.Item is not null) await bootstrapStore.UpsertScheduleItemAsync(result.Item, ct);
         await todayStore.ClearUserCacheAsync(sessionService.CurrentUserId, ct);
+        if (result.Item is not null) await bootstrapStore.UpsertScheduleItemAsync(result.Item, ct);
         mapViewModel.ResetSelection();
         await Shell.Current.Navigation.PopToRootAsync(animated: false);
         await Shell.Current.GoToAsync("//main/schedule");

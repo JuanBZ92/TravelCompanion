@@ -633,7 +633,8 @@ public sealed class TripPlanEditorService(
                     .Take(3)
                     .ToList();
                 block.Items = blockItems
-                    .Where(item => item.PlanningKind != ScheduleItemKind.Recommendation)
+                    .Where(item => item.PlanningKind != ScheduleItemKind.Recommendation
+                        || !item.RecommendationId.HasValue)
                     .Select(ToItemDraft)
                     .ToList();
                 if (string.IsNullOrWhiteSpace(block.CuratedDescription))

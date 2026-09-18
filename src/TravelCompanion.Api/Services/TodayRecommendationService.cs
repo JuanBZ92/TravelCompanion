@@ -225,7 +225,8 @@ public sealed class TodayRecommendationService(
                 }
 
                 var reservations = periodItems
-                    .Where(item => item.PlanningKind != ScheduleItemKind.Recommendation)
+                    .Where(item => item.PlanningKind != ScheduleItemKind.Recommendation
+                        || !item.RecommendationId.HasValue)
                     .Select(ToScheduleItemDto)
                     .ToList();
                 var assignedRecommendations = periodItems
@@ -933,9 +934,9 @@ public sealed class TodayRecommendationService(
         public static IReadOnlyList<TodayPeriod> All { get; } =
         [
             new("morning", "Mañana", new TimeOnly(5, 0), new TimeOnly(12, 0), ["coffee", "cafe", "breakfast", "desayuno", "temple", "shrine", "market", "walk", "culture"]),
-            new("midday", "Medio día", new TimeOnly(12, 0), new TimeOnly(15, 0), ["food", "lunch", "almuerzo", "ramen", "sushi", "restaurant", "shopping", "market"]),
-            new("afternoon", "Tarde", new TimeOnly(15, 0), new TimeOnly(20, 0), ["walk", "culture", "shopping", "museum", "garden", "route", "tea", "cafe"]),
-            new("night", "Noche", new TimeOnly(20, 0), new TimeOnly(5, 0), ["dinner", "cena", "bar", "night", "izakaya", "food", "view", "dance"])
+            new("midday", "Medio día", new TimeOnly(12, 0), new TimeOnly(14, 30), ["food", "lunch", "almuerzo", "ramen", "sushi", "restaurant", "shopping", "market"]),
+            new("afternoon", "Tarde", new TimeOnly(14, 30), new TimeOnly(18, 30), ["walk", "culture", "shopping", "museum", "garden", "route", "tea", "cafe"]),
+            new("night", "Noche", new TimeOnly(18, 30), new TimeOnly(5, 0), ["dinner", "cena", "bar", "night", "izakaya", "food", "view", "dance"])
         ];
 
         public bool Contains(TimeOnly time)

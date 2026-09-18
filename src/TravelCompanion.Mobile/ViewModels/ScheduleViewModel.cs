@@ -829,6 +829,9 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     {
         var stopwatch = Stopwatch.StartNew();
         var sourceItems = schedule.Items ?? [];
+        var previouslySelectedDate = _tripId == schedule.TripId
+            ? _selectedDate
+            : null;
         TripTitle = $"{schedule.DestinationName} for {schedule.TravelerName}";
         TripDates = $"{schedule.StartsOn:MMM d} - {schedule.EndsOn:MMM d, yyyy}";
         _destinationName = schedule.DestinationName;
@@ -839,7 +842,11 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         _allItems.Clear();
         _allItems.AddRange(sourceItems);
         _focusItem = GetFocusItem(_allItems);
-        _selectedDate = GetInitialSelectedDate(schedule, _allItems);
+        _selectedDate = previouslySelectedDate.HasValue
+            && previouslySelectedDate.Value >= schedule.StartsOn
+            && previouslySelectedDate.Value <= schedule.EndsOn
+                ? previouslySelectedDate
+                : GetInitialSelectedDate(schedule, _allItems);
         _today = _selectedDate.HasValue
             ? _todayByDate.GetValueOrDefault(_selectedDate.Value)
             : null;
@@ -1721,10 +1728,57 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
 
     private void OnScheduleCacheUpdated(object? sender, ScheduleCacheUpdatedEventArgs e)
     {
+        _todayByDate.Clear();
         _today = null;
         ApplySchedule(e.Schedule);
+        // Keep the newly saved item visible while Today is regenerated from the server.
+        SetTodayLoading(false);
+        RebuildSelectedDay();
         MarkLastUpdated(e.SavedAt);
         StatusMessage = "Itinerario actualizado.";
+        _ = RefreshTodayAfterScheduleUpdateAsync();
+    }
+
+    private async Task RefreshTodayAfterScheduleUpdateAsync()
+    {
+        try
+        {
+            var token = await _sessionService.GetTokenAsync();
+            if (string.IsNullOrWhiteSpace(token) || !_selectedDate.HasValue)
+            {
+                return;
+            }
+
+            var selectedDate = _selectedDate.Value;
+            var result = await _todayStore.RefreshResultAsync(
+                token,
+                selectedDate,
+                _currentLocation,
+                CancellationToken.None);
+            if (result.IsUnauthorized)
+            {
+                _sessionService.Clear();
+                await Shell.Current.GoToAsync("//login");
+                return;
+            }
+
+            if (result.Value is { } today && _selectedDate == selectedDate)
+            {
+                ApplyToday(today);
+            }
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
+        {
+            _logger.LogWarning(
+                "Today refresh after schedule update failed ({ErrorType}); keeping the updated schedule visible.",
+                ex.GetType().Name);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Unexpected Today refresh failure after schedule update; keeping the updated schedule visible.");
+        }
     }
 
     private void NotifyFocusChanged()

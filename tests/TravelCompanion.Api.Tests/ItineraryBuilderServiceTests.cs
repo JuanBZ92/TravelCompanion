@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using TravelCompanion.Api.Data;
 using TravelCompanion.Api.Models;
 using TravelCompanion.Api.Services;
@@ -154,6 +156,24 @@ public sealed class ItineraryBuilderServiceTests
         Assert.Equal("123 Example, Osaka, Japan", item.Address);
         Assert.Equal(35.0116m, item.Latitude);
         Assert.Equal(135.7681m, item.Longitude);
+
+        var today = await new TodayRecommendationService(
+                dbContext,
+                NullLogger<TodayRecommendationService>.Instance)
+            .GetTodayAsync(user, setup.TripId, startsOn, null, CancellationToken.None);
+        var afternoon = Assert.Single(today!.Sections, section => section.PeriodKey == "afternoon");
+        var visibleItem = Assert.Single(afternoon.Reservations, candidate => candidate.Id == item.Id);
+        Assert.Equal(ItineraryItemSource.GooglePlace, visibleItem.ItemSource);
+
+        var editor = await new TripPlanEditorService(
+                dbContext,
+                new PasswordHasher<Trip>(),
+                NullLogger<TripPlanEditorService>.Instance)
+            .GetEditorAsync(setup.TripId!.Value);
+        var afternoonDraft = Assert.Single(
+            editor!.Payload.Days.Single(day => day.Date == startsOn).Blocks,
+            block => block.PeriodKey == "afternoon");
+        Assert.Contains(afternoonDraft.Items, candidate => candidate.Id == item.Id);
 
         var insight = Assert.Single((await new ExternalPlaceInsightsService(dbContext).GetReportAsync()).Places);
         Assert.Equal("Kyoto", insight.City);
