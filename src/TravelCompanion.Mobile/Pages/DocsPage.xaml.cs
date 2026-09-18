@@ -23,4 +23,10 @@ public partial class DocsPage : ContentPage
             await _viewModel.LoadCommand.ExecuteAsync(null);
         }
     }
+
+    protected override void OnDisappearing()
+    {
+        _viewModel.CancelLoading();
+        base.OnDisappearing();
+    }
 }

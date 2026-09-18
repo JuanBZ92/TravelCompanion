@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -10,6 +11,8 @@ public sealed class OfflineCacheService
     private const string EncryptionKeyStorageKey = "offline_cache_encryption_key_v1";
     private const string EncryptionVersion = "v1";
     private static readonly byte[] EncryptionContext = Encoding.UTF8.GetBytes("travelcompanion-offline-cache");
+    private static readonly ConcurrentDictionary<string, SemaphoreSlim> WriteLocks = new(StringComparer.Ordinal);
+    private static readonly SemaphoreSlim EncryptionKeyLock = new(1, 1);
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
         Converters = { new JsonStringEnumConverter() }
@@ -77,60 +80,38 @@ public sealed class OfflineCacheService
 
     public Task DeleteAsync(string key)
     {
-        var path = GetPath(key);
-        if (File.Exists(path))
-        {
-            File.Delete(path);
-        }
-
-        return Task.CompletedTask;
+        return DeletePathAsync(GetPath(key));
     }
 
-    public Task DeleteByPrefixAndSuffixAsync(string keyPrefix, string keySuffix)
+    public async Task DeleteByPrefixAndSuffixAsync(string keyPrefix, string keySuffix)
     {
-        var directory = CacheRoot;
-        if (!Directory.Exists(directory))
-        {
-            return Task.CompletedTask;
-        }
-
         var safePrefix = SanitizeKey(keyPrefix);
         var safeSuffix = SanitizeKey(keySuffix);
-        foreach (var path in Directory.EnumerateFiles(directory, "*.json", SearchOption.AllDirectories))
+        foreach (var path in GetKnownCachePaths())
         {
             var name = Path.GetFileNameWithoutExtension(path);
             if (name.StartsWith(safePrefix, StringComparison.Ordinal)
                 && name.EndsWith(safeSuffix, StringComparison.Ordinal))
             {
-                File.Delete(path);
+                await DeletePathAsync(path).ConfigureAwait(false);
             }
         }
-
-        return Task.CompletedTask;
     }
 
-    public Task DeleteByPrefixAsync(params string[] keyPrefixes)
+    public async Task DeleteByPrefixAsync(params string[] keyPrefixes)
     {
-        var directory = CacheRoot;
-        if (!Directory.Exists(directory))
-        {
-            return Task.CompletedTask;
-        }
-
         var safePrefixes = keyPrefixes
             .Where(prefix => !string.IsNullOrWhiteSpace(prefix))
             .Select(SanitizeKey)
             .ToList();
-        foreach (var path in Directory.EnumerateFiles(directory, "*.json", SearchOption.AllDirectories))
+        foreach (var path in GetKnownCachePaths())
         {
             var name = Path.GetFileNameWithoutExtension(path);
             if (safePrefixes.Any(prefix => name.StartsWith(prefix, StringComparison.Ordinal)))
             {
-                File.Delete(path);
+                await DeletePathAsync(path).ConfigureAwait(false);
             }
         }
-
-        return Task.CompletedTask;
     }
 
     public static string FormatSavedAt(DateTimeOffset savedAt)
@@ -160,19 +141,54 @@ public sealed class OfflineCacheService
     private static bool IsExpired(DateTimeOffset savedAt, TimeSpan? maxAge) =>
         maxAge.HasValue && DateTimeOffset.UtcNow - savedAt > maxAge.Value;
 
+    private static IReadOnlyList<string> GetKnownCachePaths()
+    {
+        var paths = WriteLocks.Keys.ToHashSet(StringComparer.Ordinal);
+        if (Directory.Exists(CacheRoot))
+        {
+            paths.UnionWith(Directory.EnumerateFiles(CacheRoot, "*.json", SearchOption.AllDirectories));
+        }
+
+        return paths.ToList();
+    }
+
+    private static async Task DeletePathAsync(string path)
+    {
+        var writeLock = WriteLocks.GetOrAdd(path, static _ => new SemaphoreSlim(1, 1));
+        await writeLock.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        finally
+        {
+            writeLock.Release();
+        }
+    }
+
     private async Task SaveEntryEncryptedAsync<T>(
         string cacheKey,
         OfflineCacheEntry<T> entry,
         CancellationToken cancellationToken)
     {
-        var key = await GetOrCreateEncryptionKeyAsync().ConfigureAwait(false);
-        var nonce = RandomNumberGenerator.GetBytes(12);
-        var plaintext = JsonSerializer.SerializeToUtf8Bytes(entry, JsonOptions);
-        var ciphertext = new byte[plaintext.Length];
-        var tag = new byte[16];
+        var path = GetPath(cacheKey);
+        var writeLock = WriteLocks.GetOrAdd(path, static _ => new SemaphoreSlim(1, 1));
+        await writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        string? temporaryPath = null;
+        byte[] plaintext = [];
+        byte[] ciphertext = [];
+        byte[] tag = [];
 
         try
         {
+            var key = await GetOrCreateEncryptionKeyAsync().ConfigureAwait(false);
+            var nonce = RandomNumberGenerator.GetBytes(12);
+            plaintext = JsonSerializer.SerializeToUtf8Bytes(entry, JsonOptions);
+            ciphertext = new byte[plaintext.Length];
+            tag = new byte[16];
             using var aes = new AesGcm(key, tag.Length);
             aes.Encrypt(nonce, plaintext, ciphertext, tag, EncryptionContext);
 
@@ -183,15 +199,22 @@ public sealed class OfflineCacheService
                 Convert.ToBase64String(ciphertext));
 
             var json = JsonSerializer.Serialize(envelope, JsonOptions);
-            var path = GetPath(cacheKey);
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            await File.WriteAllTextAsync(path, json, cancellationToken).ConfigureAwait(false);
+            temporaryPath = $"{path}.{Guid.NewGuid():N}.tmp";
+            await File.WriteAllTextAsync(temporaryPath, json, cancellationToken).ConfigureAwait(false);
+            File.Move(temporaryPath, path, overwrite: true);
+            temporaryPath = null;
         }
         finally
         {
+            if (temporaryPath is not null && File.Exists(temporaryPath))
+            {
+                File.Delete(temporaryPath);
+            }
             CryptographicOperations.ZeroMemory(plaintext);
             CryptographicOperations.ZeroMemory(ciphertext);
             CryptographicOperations.ZeroMemory(tag);
+            writeLock.Release();
         }
     }
 
@@ -236,26 +259,34 @@ public sealed class OfflineCacheService
 
     private static async Task<byte[]> GetOrCreateEncryptionKeyAsync()
     {
-        var encodedKey = await SecureStorage.Default.GetAsync(EncryptionKeyStorageKey).ConfigureAwait(false);
-        if (!string.IsNullOrWhiteSpace(encodedKey))
+        await EncryptionKeyLock.WaitAsync().ConfigureAwait(false);
+        try
         {
-            try
+            var encodedKey = await SecureStorage.Default.GetAsync(EncryptionKeyStorageKey).ConfigureAwait(false);
+            if (!string.IsNullOrWhiteSpace(encodedKey))
             {
-                var existingKey = Convert.FromBase64String(encodedKey);
-                if (existingKey.Length == 32)
+                try
                 {
-                    return existingKey;
+                    var existingKey = Convert.FromBase64String(encodedKey);
+                    if (existingKey.Length == 32)
+                    {
+                        return existingKey;
+                    }
+                }
+                catch
+                {
+                    // Si el valor almacenado esta corrupto, regeneramos.
                 }
             }
-            catch
-            {
-                // Si el valor almacenado esta corrupto, regeneramos.
-            }
-        }
 
-        var newKey = RandomNumberGenerator.GetBytes(32);
-        await SecureStorage.Default.SetAsync(EncryptionKeyStorageKey, Convert.ToBase64String(newKey)).ConfigureAwait(false);
-        return newKey;
+            var newKey = RandomNumberGenerator.GetBytes(32);
+            await SecureStorage.Default.SetAsync(EncryptionKeyStorageKey, Convert.ToBase64String(newKey)).ConfigureAwait(false);
+            return newKey;
+        }
+        finally
+        {
+            EncryptionKeyLock.Release();
+        }
     }
 
     private sealed record OfflineCacheEntry<T>(DateTimeOffset SavedAt, T Value);

@@ -8,6 +8,29 @@ public sealed class LocationService(ILogger<LocationService> logger) : ILocation
     private static readonly TimeSpan LocationTimeout = TimeSpan.FromSeconds(8);
     private static readonly TimeSpan LastKnownMaximumAge = TimeSpan.FromMinutes(5);
 
+    public async Task<GeoPointDto?> GetLastKnownLocationAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var lastKnownLocation = await Geolocation.Default.GetLastKnownLocationAsync();
+            cancellationToken.ThrowIfCancellationRequested();
+            return lastKnownLocation is not null
+                && lastKnownLocation.Timestamp >= DateTimeOffset.UtcNow.Subtract(LastKnownMaximumAge)
+                ? ToGeoPoint(lastKnownLocation)
+                : null;
+        }
+        catch (OperationCanceledException)
+        {
+            return null;
+        }
+        catch (Exception ex) when (ex is FeatureNotSupportedException or FeatureNotEnabledException or PermissionException)
+        {
+            logger.LogInformation(ex, "Last known location is unavailable on this device.");
+            return null;
+        }
+    }
+
     public async Task<GeoPointDto?> GetCurrentLocationAsync(CancellationToken cancellationToken = default)
     {
         try
@@ -31,11 +54,10 @@ public sealed class LocationService(ILogger<LocationService> logger) : ILocation
                 return null;
             }
 
-            var lastKnownLocation = await Geolocation.Default.GetLastKnownLocationAsync();
-            if (lastKnownLocation is not null
-                && lastKnownLocation.Timestamp >= DateTimeOffset.UtcNow.Subtract(LastKnownMaximumAge))
+            var lastKnownLocation = await GetLastKnownLocationAsync(cancellationToken);
+            if (lastKnownLocation is not null)
             {
-                return ToGeoPoint(lastKnownLocation);
+                return lastKnownLocation;
             }
 
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);

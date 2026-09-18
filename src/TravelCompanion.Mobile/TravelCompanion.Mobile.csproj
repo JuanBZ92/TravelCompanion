@@ -68,6 +68,13 @@
 		</AssemblyAttribute>
 	</ItemGroup>
 
+	<ItemGroup Condition="'$(TravelCompanionDiagnosticsEnabled)' != ''">
+		<AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+			<_Parameter1>TravelCompanionDiagnosticsEnabled</_Parameter1>
+			<_Parameter2>$(TravelCompanionDiagnosticsEnabled)</_Parameter2>
+		</AssemblyAttribute>
+	</ItemGroup>
+
 	<ItemGroup>
 		<!-- App Icon -->
 		<MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#18201D" />

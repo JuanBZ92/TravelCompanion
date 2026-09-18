@@ -67,6 +67,12 @@ public partial class RecommendationsPage : ContentPage
         }
     }
 
+    protected override void OnDisappearing()
+    {
+        _viewModel.CancelLoading();
+        base.OnDisappearing();
+    }
+
     private async void OnRecommendationTapped(object? sender, TappedEventArgs e)
     {
         if ((sender as BindableObject)?.BindingContext is RecommendationListItemViewModel recommendation)

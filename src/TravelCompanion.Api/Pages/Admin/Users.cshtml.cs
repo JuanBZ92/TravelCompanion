@@ -17,7 +17,13 @@ public sealed class UsersModel(
     IUserInvitationSender invitationSender,
     UserSessionService sessionService) : PageModel
 {
+    private const int DefaultPageSize = 50;
+    private const int MaximumPageSize = 100;
     public List<UserRow> Users { get; private set; } = [];
+    [BindProperty(SupportsGet = true)] public int PageNumber { get; set; } = 1;
+    [BindProperty(SupportsGet = true)] public int PageSize { get; set; } = DefaultPageSize;
+    public int TotalUsers { get; private set; }
+    public int TotalUserPages => Math.Max(1, (int)Math.Ceiling(TotalUsers / (double)PageSize));
     public List<EntitlementRow> Entitlements { get; private set; } = [];
     public List<SelectListItem> UserOptions { get; private set; } = [];
     public List<SelectListItem> DestinationOptions { get; private set; } = [];
@@ -242,10 +248,18 @@ public sealed class UsersModel(
 
     private async Task LoadPageDataAsync()
     {
-        Users = await dbContext.AppUsers
+        PageSize = Math.Clamp(PageSize, 1, MaximumPageSize);
+        var requestAborted = HttpContext?.RequestAborted ?? CancellationToken.None;
+        var usersQuery = dbContext.AppUsers
             .AsNoTracking()
-            .Include(user => user.Entitlements)
+            .Include(user => user.Entitlements);
+        TotalUsers = await usersQuery.CountAsync(requestAborted);
+        PageNumber = Math.Clamp(PageNumber, 1, TotalUserPages);
+        Users = await usersQuery
             .OrderBy(user => user.Email)
+            .ThenBy(user => user.Id)
+            .Skip((PageNumber - 1) * PageSize)
+            .Take(PageSize)
             .Select(user => new UserRow(
                 user.Id,
                 user.Email,
@@ -253,7 +267,7 @@ public sealed class UsersModel(
                 user.MustChangePassword,
                 user.Entitlements.Count,
                 user.Entitlements.Count(entitlement => entitlement.ExpiresAt == null || entitlement.ExpiresAt > DateTimeOffset.UtcNow)))
-            .ToListAsync();
+            .ToListAsync(requestAborted);
 
         Entitlements = await dbContext.UserEntitlements
             .AsNoTracking()
@@ -273,9 +287,12 @@ public sealed class UsersModel(
                 entitlement.Source))
             .ToListAsync();
 
-        UserOptions = Users
+        UserOptions = await dbContext.AppUsers
+            .AsNoTracking()
+            .OrderBy(user => user.Email)
+            .ThenBy(user => user.Id)
             .Select(user => new SelectListItem($"{user.DisplayName} ({user.Email})", user.Id.ToString()))
-            .ToList();
+            .ToListAsync(requestAborted);
 
         DestinationOptions = await dbContext.Destinations
             .AsNoTracking()

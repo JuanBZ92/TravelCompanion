@@ -58,20 +58,84 @@ public sealed class PlacesController(
         var destinationId = access.TripId.HasValue
             ? await dbContext.Trips.Where(item => item.Id == access.TripId).Select(item => item.DestinationId).SingleAsync(cancellationToken)
             : await dbContext.BuilderAccessGrants.Where(item => item.AppUserId == access.User.Id && item.RevokedAtUtc == null).Select(item => item.DestinationId).FirstAsync(cancellationToken);
-        var yukuEntities = await dbContext.Recommendations.AsNoTracking().Where(item => item.DestinationId == destinationId).ToListAsync(cancellationToken);
-        var yuku = yukuEntities.Select(item => new { Item = item, Score = CatalogSearch.Score(item, request.Query) })
+        var catalogCandidates = await dbContext.Recommendations
+            .AsNoTracking()
+            .Where(item => item.DestinationId == destinationId)
+            .Select(item => new CatalogSearchCandidate(
+                item.Id,
+                item.ProviderPlaceId,
+                item.Title,
+                item.Neighborhood,
+                item.Category,
+                item.RefinedType,
+                item.RefinedTypeEn,
+                item.Tags,
+                item.Description,
+                item.DescriptionEn,
+                item.ExtraDescription,
+                item.ExtraDescriptionEn,
+                item.Latitude,
+                item.Longitude))
+            .ToListAsync(cancellationToken);
+        var score = CatalogSearch.CreateFieldScorer(request.Query);
+        var rankedCatalog = catalogCandidates.Select(item => new
+            {
+                Item = item,
+                Score = score(
+                    item.Title,
+                    $"{item.Neighborhood} {item.Category} {item.RefinedType} {item.RefinedTypeEn} {string.Join(' ', item.Tags)}",
+                    $"{item.Description} {item.DescriptionEn} {item.ExtraDescription} {item.ExtraDescriptionEn}")
+            })
             .Where(candidate => candidate.Score > 0).OrderByDescending(candidate => candidate.Score)
             .ThenBy(candidate => request.Latitude.HasValue && request.Longitude.HasValue
                 ? FreeMapPreviewService.CalculateDistanceKm(request.Latitude.Value, request.Longitude.Value, candidate.Item.Latitude, candidate.Item.Longitude) : 0)
             .ThenBy(candidate => candidate.Item.Title)
-            .Select(candidate => RecommendationPresentation.ToDto(candidate.Item)).ToList();
+            .Select(candidate => candidate.Item)
+            .ToList();
         var google = access.Capabilities.CanSearchGooglePlaces
             ? await googlePlacesService.SearchAsync(destinationId, request, cancellationToken)
             : [];
-        var catalogByPlaceId = yukuEntities.Where(item => !string.IsNullOrWhiteSpace(item.ProviderPlaceId))
-            .ToDictionary(item => item.ProviderPlaceId!, StringComparer.Ordinal);
+        var googlePlaceIds = google
+            .Where(item => !string.IsNullOrWhiteSpace(item.ProviderPlaceId))
+            .Select(item => item.ProviderPlaceId!)
+            .ToHashSet(StringComparer.Ordinal);
+        var catalogIds = rankedCatalog.Select(item => item.Id)
+            .Concat(catalogCandidates
+                .Where(item => item.ProviderPlaceId is not null && googlePlaceIds.Contains(item.ProviderPlaceId))
+                .Select(item => item.Id))
+            .Distinct()
+            .ToList();
+        var catalogDetails = await dbContext.Recommendations
+            .AsNoTracking()
+            .Include(item => item.Packages)
+            .Where(item => catalogIds.Contains(item.Id))
+            .ToDictionaryAsync(item => item.Id, cancellationToken);
+        var yuku = rankedCatalog
+            .Where(item => catalogDetails.ContainsKey(item.Id))
+            .Select(item => RecommendationPresentation.ToDto(catalogDetails[item.Id]))
+            .ToList();
+        var catalogByPlaceId = catalogCandidates
+            .Where(item => !string.IsNullOrWhiteSpace(item.ProviderPlaceId) && catalogDetails.ContainsKey(item.Id))
+            .GroupBy(item => item.ProviderPlaceId!, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => catalogDetails[group.First().Id], StringComparer.Ordinal);
         var results = yuku.Concat(google.Select(item => item.ProviderPlaceId is not null && catalogByPlaceId.TryGetValue(item.ProviderPlaceId, out var curated)
             ? RecommendationPresentation.ToDto(curated) : item));
         return Ok(results.DistinctBy(item => item.SelectionKey).ToList());
     }
+
+    private sealed record CatalogSearchCandidate(
+        Guid Id,
+        string? ProviderPlaceId,
+        string Title,
+        string Neighborhood,
+        string Category,
+        string? RefinedType,
+        string? RefinedTypeEn,
+        List<string> Tags,
+        string Description,
+        string? DescriptionEn,
+        string? ExtraDescription,
+        string? ExtraDescriptionEn,
+        decimal Latitude,
+        decimal Longitude);
 }

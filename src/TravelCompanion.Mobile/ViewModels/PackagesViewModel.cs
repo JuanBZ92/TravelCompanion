@@ -55,17 +55,24 @@ public sealed partial class PackagesViewModel(
 
         try
         {
-            var bootstrap = await bootstrapStore.RefreshAsync(token);
-            if (bootstrap is null)
+            var result = await bootstrapStore.RefreshResultAsync(token);
+            if (result.IsUnauthorized)
             {
                 authSessionService.Clear();
                 await Shell.Current.GoToAsync("//login");
                 return;
             }
 
-            ApplyPackages(bootstrap.Packages);
-            MarkLastUpdated(DateTimeOffset.UtcNow);
-            StatusMessage = null;
+            if (result.Value is { } bootstrap)
+            {
+                ApplyPackages(bootstrap.Packages);
+                MarkLastUpdated(DateTimeOffset.UtcNow);
+                StatusMessage = null;
+            }
+            else if (cached is null)
+            {
+                throw new HttpRequestException("No pudimos cargar los paquetes. Comprueba la conexión e inténtalo de nuevo.");
+            }
         }
         catch
         {

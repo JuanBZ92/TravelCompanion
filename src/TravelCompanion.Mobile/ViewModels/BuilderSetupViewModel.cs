@@ -105,7 +105,14 @@ public sealed partial class BuilderSetupViewModel(
         {
             try
             {
-                bootstrap = await bootstrapStore.RefreshAsync(token, cancellationToken: cancellationToken);
+                var result = await bootstrapStore.RefreshResultAsync(token, cancellationToken: cancellationToken);
+                if (result.IsUnauthorized)
+                {
+                    sessionService.Clear();
+                    await Shell.Current.GoToAsync("//login");
+                    return;
+                }
+                bootstrap = result.Value;
             }
             catch
             {

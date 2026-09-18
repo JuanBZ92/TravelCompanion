@@ -400,17 +400,24 @@ public sealed partial class RecommendationsViewModel(
 
         try
         {
-            var discover = await discoverStore.RefreshAsync(token, cancellationToken: cancellationToken);
-            if (discover is null)
+            var result = await discoverStore.RefreshResultAsync(token, cancellationToken: cancellationToken);
+            if (result.IsUnauthorized)
             {
                 sessionService.Clear();
                 await Shell.Current.GoToAsync("//login");
                 return;
             }
 
-            ApplyDiscover(discover, resetPage);
-            StatusMessage = null;
-            _ = PrimeBootstrapAsync(token);
+            if (result.Value is { } discover)
+            {
+                ApplyDiscover(discover, resetPage);
+                StatusMessage = null;
+                _ = PrimeBootstrapAsync(token);
+            }
+            else if (cached is null)
+            {
+                throw new HttpRequestException("No pudimos cargar las recomendaciones. Comprueba la conexión e inténtalo de nuevo.");
+            }
         }
         catch
         {
@@ -432,7 +439,12 @@ public sealed partial class RecommendationsViewModel(
 
         try
         {
-            await bootstrapStore.RefreshAsync(token).ConfigureAwait(false);
+            var result = await bootstrapStore.RefreshResultAsync(token).ConfigureAwait(false);
+            if (result.IsUnauthorized)
+            {
+                sessionService.Clear();
+                await MainThread.InvokeOnMainThreadAsync(() => Shell.Current.GoToAsync("//login"));
+            }
         }
         catch (Exception ex)
         {

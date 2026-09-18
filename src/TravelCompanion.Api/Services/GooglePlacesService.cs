@@ -122,6 +122,8 @@ public sealed class GooglePlacesService(
 
         try
         {
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeout.CancelAfter(TimeSpan.FromSeconds(5));
             using var message = new HttpRequestMessage(HttpMethod.Post, "https://places.googleapis.com/v1/places:searchText");
             message.Headers.Add("X-Goog-Api-Key", configuration.ApiKey);
             message.Headers.Add("X-Goog-FieldMask", "places.id,places.displayName,places.formattedAddress,places.location,places.primaryType,places.rating");
@@ -133,14 +135,14 @@ public sealed class GooglePlacesService(
                     ? new { circle = new { center = new { latitude = request.Latitude, longitude = request.Longitude }, radius = 15000.0 } }
                     : null
             });
-            using var response = await httpClientFactory.CreateClient().SendAsync(message, cancellationToken);
+            using var response = await httpClientFactory.CreateClient().SendAsync(message, timeout.Token);
             if (!response.IsSuccessStatusCode)
             {
                 logger.LogWarning("Google Places search returned {StatusCode}.", (int)response.StatusCode);
                 return [];
             }
 
-            var payload = await response.Content.ReadFromJsonAsync<GooglePlacesResponse>(cancellationToken: cancellationToken);
+            var payload = await response.Content.ReadFromJsonAsync<GooglePlacesResponse>(cancellationToken: timeout.Token);
             return payload?.Places?.Where(place => place.Location is not null && !string.IsNullOrWhiteSpace(place.Id))
                 .Select(place => new RecommendationDto(
                     Guid.Empty, destinationId, place.DisplayName?.Text ?? "Lugar", place.PrimaryType ?? "place",
@@ -154,7 +156,16 @@ public sealed class GooglePlacesService(
                     IsPriceKnown = false
                 }).ToList() ?? [];
         }
-        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (OperationCanceledException)
+        {
+            logger.LogWarning("Google Places search timed out.");
+            return [];
+        }
+        catch (HttpRequestException)
         {
             logger.LogWarning("Google Places is temporarily unavailable.");
             return [];

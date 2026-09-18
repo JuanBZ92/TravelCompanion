@@ -351,7 +351,7 @@
                 <td>@reservation.ConfirmationCode</td>
                 <td>
                     <div class="row-actions">
-                        <a class="button secondary" asp-page="/Admin/Reservations" asp-route-editId="@reservation.Id">Editar</a>
+                        <a class="button secondary" asp-page="/Admin/Reservations" asp-route-editId="@reservation.Id" asp-route-selectedTripId="@Model.SelectedTripId" asp-route-pageNumber="@Model.PageNumber" asp-route-pageSize="@Model.PageSize">Editar</a>
                         <form method="post" asp-page-handler="Delete" asp-route-id="@reservation.Id" asp-route-selectedTripId="@Model.SelectedTripId">
                             <button class="danger" type="submit">Borrar</button>
                         </form>
@@ -361,4 +361,15 @@
         }
         </tbody>
     </table>
+    <div class="actions">
+        @if (Model.PageNumber > 1)
+        {
+            <a class="button secondary" asp-route-selectedTripId="@Model.SelectedTripId" asp-route-pageNumber="@(Model.PageNumber - 1)" asp-route-pageSize="@Model.PageSize" asp-fragment="reservations-list">Anterior</a>
+        }
+        <span class="muted">Página @Model.PageNumber de @Model.TotalReservationPages · @Model.TotalReservations elementos</span>
+        @if (Model.PageNumber < Model.TotalReservationPages)
+        {
+            <a class="button secondary" asp-route-selectedTripId="@Model.SelectedTripId" asp-route-pageNumber="@(Model.PageNumber + 1)" asp-route-pageSize="@Model.PageSize" asp-fragment="reservations-list">Siguiente</a>
+        }
+    </div>
 </section>

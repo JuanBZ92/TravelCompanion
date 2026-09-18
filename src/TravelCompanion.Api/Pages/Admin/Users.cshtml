@@ -138,7 +138,7 @@
                 </td>
                 <td>
                     <div class="row-actions">
-                        <a class="button secondary" asp-page="/Admin/Users" asp-route-editUserId="@user.Id">Editar</a>
+                        <a class="button secondary" asp-page="/Admin/Users" asp-route-editUserId="@user.Id" asp-route-pageNumber="@Model.PageNumber" asp-route-pageSize="@Model.PageSize">Editar</a>
                         <form method="post" asp-page-handler="ResetPassword" asp-route-id="@user.Id">
                             <button class="secondary" type="submit">Reset password</button>
                         </form>
@@ -151,6 +151,17 @@
         }
         </tbody>
     </table>
+    <div class="actions">
+        @if (Model.PageNumber > 1)
+        {
+            <a class="button secondary" asp-route-pageNumber="@(Model.PageNumber - 1)" asp-route-pageSize="@Model.PageSize">Anterior</a>
+        }
+        <span class="muted">Página @Model.PageNumber de @Model.TotalUserPages · @Model.TotalUsers usuarios</span>
+        @if (Model.PageNumber < Model.TotalUserPages)
+        {
+            <a class="button secondary" asp-route-pageNumber="@(Model.PageNumber + 1)" asp-route-pageSize="@Model.PageSize">Siguiente</a>
+        }
+    </div>
 </section>
 
 <section class="panel" style="margin-top: 18px;">

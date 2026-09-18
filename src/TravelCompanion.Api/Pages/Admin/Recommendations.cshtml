@@ -263,8 +263,8 @@
                     <td><span class="mono">@recommendation.Latitude, @recommendation.Longitude</span></td>
                     <td>
                         <div class="row-actions">
-                            <a class="button secondary" asp-page="/Admin/Recommendations" asp-route-editId="@recommendation.Id">Editar</a>
-                            <form method="post" asp-page-handler="Delete" asp-route-id="@recommendation.Id">
+                            <a class="button secondary" asp-page="/Admin/Recommendations" asp-route-editId="@recommendation.Id" asp-route-pageNumber="@Model.PageNumber" asp-route-pageSize="@Model.PageSize">Editar</a>
+                            <form method="post" asp-page-handler="Delete" asp-route-id="@recommendation.Id" asp-route-pageNumber="@Model.PageNumber" asp-route-pageSize="@Model.PageSize">
                                 <button class="danger" type="submit">Borrar</button>
                             </form>
                         </div>
@@ -273,5 +273,16 @@
             }
             </tbody>
         </table>
+    </div>
+    <div class="actions">
+        @if (Model.PageNumber > 1)
+        {
+            <a class="button secondary" asp-route-pageNumber="@(Model.PageNumber - 1)" asp-route-pageSize="@Model.PageSize">Anterior</a>
+        }
+        <span class="muted">Página @Model.PageNumber de @Model.TotalPages · @Model.TotalRecommendations recomendaciones</span>
+        @if (Model.PageNumber < Model.TotalPages)
+        {
+            <a class="button secondary" asp-route-pageNumber="@(Model.PageNumber + 1)" asp-route-pageSize="@Model.PageSize">Siguiente</a>
+        }
     </div>
 </section>

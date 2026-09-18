@@ -59,23 +59,35 @@ public sealed class TodayRecommendationService(
             .AsNoTracking()
             .FirstOrDefaultAsync(existing => existing.UserId == user.Id, cancellationToken);
         var entitlements = ToEntitlementsDto(user);
-        var recommendations = await dbContext.Recommendations
-            .AsNoTracking()
-            .Include(recommendation => recommendation.Packages)
-            .Where(recommendation => recommendation.DestinationId == trip.DestinationId)
-            .ToListAsync(cancellationToken);
-        var unlocked = recommendations
-            .Where(recommendation => ContentAccessPolicy.IsRecommendationUnlocked(
-                entitlements,
-                recommendation.AccessLevel,
-                recommendation.DestinationId,
-                recommendation.Packages.Select(package => package.Id).ToList()))
-            .ToList();
-
         var tripRecommendationIds = trip.Reservations
             .Where(reservation => reservation.RecommendationId.HasValue)
             .Select(reservation => reservation.RecommendationId!.Value)
             .ToHashSet();
+        var unlockedRows = await dbContext.Recommendations
+            .AsNoTracking()
+            .UnlockedFor(trip.DestinationId, entitlements)
+            .Select(recommendation => new RecommendationWithPackageIds(
+                recommendation,
+                recommendation.Packages.Select(package => package.Id).ToList()))
+            .ToListAsync(cancellationToken);
+        var assignedCatalogRows = tripRecommendationIds.Count == 0
+            ? []
+            : await dbContext.Recommendations
+                .AsNoTracking()
+                .Where(recommendation => tripRecommendationIds.Contains(recommendation.Id))
+                .Select(recommendation => new RecommendationWithPackageIds(
+                    recommendation,
+                    recommendation.Packages.Select(package => package.Id).ToList()))
+                .ToListAsync(cancellationToken);
+        var recommendationRows = unlockedRows
+            .Concat(assignedCatalogRows)
+            .DistinctBy(result => result.Recommendation.Id)
+            .ToList();
+        var recommendations = recommendationRows.Select(result => result.Recommendation).ToList();
+        var unlocked = unlockedRows.Select(result => result.Recommendation).ToList();
+        var packageIdsByRecommendation = recommendationRows.ToDictionary(
+            result => result.Recommendation.Id,
+            result => (IReadOnlyList<Guid>)result.PackageIds);
         var visitedRecommendationIds = await LoadSignalIdsAsync(
             user.Id,
             trip.Id,
@@ -153,6 +165,7 @@ public sealed class TodayRecommendationService(
 
                         automaticSuggestions.Add(CreateAutomaticSuggestion(
                             storedRecommendation,
+                            packageIdsByRecommendation.GetValueOrDefault(storedRecommendation.Id) ?? [],
                             period,
                             allocationCity,
                             profile,
@@ -185,6 +198,7 @@ public sealed class TodayRecommendationService(
                             visitedRecommendationIds,
                             dismissedRecommendationIds,
                             allocatedRecommendationIds,
+                            packageIdsByRecommendation,
                             missingCount);
                         var nextRank = storedForPeriod.Count == 0
                             ? 1
@@ -220,6 +234,7 @@ public sealed class TodayRecommendationService(
                     .Where(recommendation => recommendation is not null)
                     .Select(recommendation => CreateAssignedRecommendation(
                         recommendation!,
+                        packageIdsByRecommendation.GetValueOrDefault(recommendation!.Id) ?? [],
                         period,
                         currentLocation,
                         visitedRecommendationIds))
@@ -256,7 +271,11 @@ public sealed class TodayRecommendationService(
         if (selectedDay is not null && (!string.IsNullOrWhiteSpace(selectedDay.HotelBase) || !string.IsNullOrWhiteSpace(selectedDay.BaseProviderPlaceId)))
         {
             hotel = new TodayHotelBaseDto(selectedDay.HotelBase, selectedDay.BaseAddress, selectedDay.BaseProviderPlaceId, selectedDay.BaseLatitude, selectedDay.BaseLongitude);
-            if (!string.IsNullOrWhiteSpace(selectedDay.BaseProviderPlaceId))
+            if (!string.IsNullOrWhiteSpace(selectedDay.BaseProviderPlaceId)
+                && (string.IsNullOrWhiteSpace(selectedDay.HotelBase)
+                    || string.IsNullOrWhiteSpace(selectedDay.BaseAddress)
+                    || !selectedDay.BaseLatitude.HasValue
+                    || !selectedDay.BaseLongitude.HasValue))
             {
                 var resolved = googlePlaces is null ? null : await googlePlaces.DetailsAsync(trip.DestinationId,
                     new PlaceDetailsRequest(selectedDay.BaseProviderPlaceId, string.Empty), cancellationToken);
@@ -287,20 +306,11 @@ public sealed class TodayRecommendationService(
 
         var recommendation = await dbContext.Recommendations
             .AsNoTracking()
-            .Include(existing => existing.Packages)
+            .UnlockedFor(trip.DestinationId, ToEntitlementsDto(user))
             .FirstOrDefaultAsync(existing => existing.Id == recommendationId, cancellationToken);
         if (recommendation is null || recommendation.DestinationId != trip.DestinationId)
         {
             return new RecommendationSignalResponse(false, "La recomendacion no esta disponible para este viaje.");
-        }
-
-        if (!ContentAccessPolicy.IsRecommendationUnlocked(
-            ToEntitlementsDto(user),
-            recommendation.AccessLevel,
-            recommendation.DestinationId,
-            recommendation.Packages.Select(package => package.Id).ToList()))
-        {
-            return new RecommendationSignalResponse(false, "La recomendacion no esta disponible para tu cuenta.");
         }
 
         dbContext.RecommendationInteractionSignals.Add(new RecommendationInteractionSignal
@@ -333,6 +343,7 @@ public sealed class TodayRecommendationService(
         ISet<Guid> visitedRecommendationIds,
         ISet<Guid> dismissedRecommendationIds,
         ISet<Guid> allocatedRecommendationIds,
+        IReadOnlyDictionary<Guid, IReadOnlyList<Guid>> packageIdsByRecommendation,
         int maxSuggestions = DefaultSuggestionsPerFreePeriod)
     {
         var scored = recommendations
@@ -361,7 +372,10 @@ public sealed class TodayRecommendationService(
 
         return scored
             .Select(candidate => new TodayRecommendationDto(
-                ToRecommendationDto(candidate.Recommendation, candidate.DistanceKm),
+                ToRecommendationDto(
+                    candidate.Recommendation,
+                    packageIdsByRecommendation.GetValueOrDefault(candidate.Recommendation.Id) ?? [],
+                    candidate.DistanceKm),
                 candidate.DistanceKm,
                 candidate.Reason,
                 candidate.IsVisited,
@@ -372,6 +386,7 @@ public sealed class TodayRecommendationService(
 
     private static TodayRecommendationDto CreateAutomaticSuggestion(
         Recommendation recommendation,
+        IReadOnlyList<Guid> packageIds,
         TodayPeriod period,
         string selectedCity,
         TravelPreferenceProfile? profile,
@@ -388,7 +403,7 @@ public sealed class TodayRecommendationService(
             visitedRecommendationIds.Contains(recommendation.Id),
             dismissedRecommendationIds.Contains(recommendation.Id));
         return new TodayRecommendationDto(
-            ToRecommendationDto(recommendation, candidate.DistanceKm),
+            ToRecommendationDto(recommendation, packageIds, candidate.DistanceKm),
             candidate.DistanceKm,
             candidate.Reason,
             candidate.IsVisited,
@@ -398,6 +413,7 @@ public sealed class TodayRecommendationService(
 
     private static TodayRecommendationDto CreateAssignedRecommendation(
         Recommendation recommendation,
+        IReadOnlyList<Guid> packageIds,
         TodayPeriod period,
         GeoPointDto? currentLocation,
         ISet<Guid> visitedRecommendationIds)
@@ -405,7 +421,7 @@ public sealed class TodayRecommendationService(
         var distanceKm = CalculateDistanceKm(currentLocation, recommendation);
         var isVisited = visitedRecommendationIds.Contains(recommendation.Id);
         return new TodayRecommendationDto(
-            ToRecommendationDto(recommendation, distanceKm),
+            ToRecommendationDto(recommendation, packageIds, distanceKm),
             distanceKm,
             "Seleccionada para este bloque",
             isVisited,
@@ -539,6 +555,7 @@ public sealed class TodayRecommendationService(
     {
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var query = dbContext.Trips
+            .AsSplitQuery()
             .Include(trip => trip.Destination)
             .Include(trip => trip.Reservations)
             .Include(trip => trip.DayPlans)
@@ -734,8 +751,15 @@ public sealed class TodayRecommendationService(
             reservation.SortOrder,
             reservation.ProviderPlaceId);
 
-    private static RecommendationDto ToRecommendationDto(Recommendation recommendation, decimal? distanceKm) =>
-        RecommendationPresentation.ToDto(recommendation, distanceKm);
+    private static RecommendationDto ToRecommendationDto(
+        Recommendation recommendation,
+        IReadOnlyList<Guid> packageIds,
+        decimal? distanceKm) =>
+        RecommendationPresentation.ToDto(recommendation, distanceKm) with { PackageIds = packageIds };
+
+    private sealed record RecommendationWithPackageIds(
+        Recommendation Recommendation,
+        List<Guid> PackageIds);
 
     private static string CreateDescription(
         TodayPeriod period,

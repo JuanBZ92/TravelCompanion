@@ -11,14 +11,15 @@ public sealed class MobileBootstrapStore(
     ILogger<MobileBootstrapStore> logger)
 {
     private static readonly TimeSpan DefaultFreshnessWindow = TimeSpan.FromMinutes(2);
-    private static readonly TimeSpan DiskCacheMaxAge = TimeSpan.FromHours(6);
     private MobileBootstrapDto? _current;
     private DateTimeOffset? _currentSavedAt;
     private Guid? _currentUserId;
+    private Guid? _currentTripId;
     private string? _currentLocale;
     private static string Locale => System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
     private readonly object _refreshLock = new();
-    private Task<MobileBootstrapDto?>? _refreshTask;
+    private Task<ApiCallResult<MobileBootstrapDto>>? _refreshTask;
+    private string? _refreshKey;
 
     public event EventHandler<ScheduleCacheUpdatedEventArgs>? ScheduleUpdated;
 
@@ -28,10 +29,12 @@ public sealed class MobileBootstrapStore(
     {
         var stopwatch = Stopwatch.StartNew();
         var currentUserId = sessionService.CurrentUserId;
+        var currentTripId = sessionService.CurrentTripId;
         var cacheScope = NormalizeCacheScope(destinationSlug);
         if (_current is not null
             && _currentLocale == Locale
             && _currentUserId == currentUserId
+            && _currentTripId == currentTripId
             && _currentSavedAt.HasValue
             && IsScopeMatch(cacheScope, _current.Destination.Slug))
         {
@@ -44,9 +47,9 @@ public sealed class MobileBootstrapStore(
         }
 
         var cached = await offlineCacheService.GetAsync<MobileBootstrapDto>(
-            GetCacheKey(currentUserId, cacheScope),
-            DiskCacheMaxAge,
-            cancellationToken).ConfigureAwait(false);
+            GetCacheKey(currentUserId, currentTripId, cacheScope),
+            maxAge: null,
+            cancellationToken: cancellationToken).ConfigureAwait(false);
         stopwatch.Stop();
 
         logger.LogInformation(
@@ -68,6 +71,7 @@ public sealed class MobileBootstrapStore(
             _currentLocale = Locale;
             _currentSavedAt = cached.SavedAt;
             _currentUserId = currentUserId;
+            _currentTripId = currentTripId;
             return new OfflineCacheResult<MobileBootstrapDto>(normalized, cached.SavedAt);
         }
 
@@ -79,12 +83,23 @@ public sealed class MobileBootstrapStore(
         string? destinationSlug = null,
         CancellationToken cancellationToken = default)
     {
-        Task<MobileBootstrapDto?> refreshTask;
+        var result = await RefreshResultAsync(token, destinationSlug, cancellationToken).ConfigureAwait(false);
+        return result.Value;
+    }
+
+    public async Task<ApiCallResult<MobileBootstrapDto>> RefreshResultAsync(
+        string token,
+        string? destinationSlug = null,
+        CancellationToken cancellationToken = default)
+    {
+        var context = CaptureContext(destinationSlug);
+        Task<ApiCallResult<MobileBootstrapDto>> refreshTask;
         lock (_refreshLock)
         {
-            if (_refreshTask is null || _refreshTask.IsCompleted)
+            if (_refreshTask is null || _refreshTask.IsCompleted || !string.Equals(_refreshKey, context.Key, StringComparison.Ordinal))
             {
-                _refreshTask = RefreshCoreAsync(token, destinationSlug, cancellationToken);
+                _refreshKey = context.Key;
+                _refreshTask = RefreshCoreAsync(token, destinationSlug, context, cancellationToken);
             }
             else
             {
@@ -96,7 +111,7 @@ public sealed class MobileBootstrapStore(
 
         try
         {
-            return await refreshTask.ConfigureAwait(false);
+            return await refreshTask.WaitAsync(cancellationToken).ConfigureAwait(false);
         }
         finally
         {
@@ -107,49 +122,71 @@ public sealed class MobileBootstrapStore(
                     if (ReferenceEquals(_refreshTask, refreshTask))
                     {
                         _refreshTask = null;
+                        _refreshKey = null;
                     }
                 }
             }
         }
     }
 
-    private async Task<MobileBootstrapDto?> RefreshCoreAsync(
+    private async Task<ApiCallResult<MobileBootstrapDto>> RefreshCoreAsync(
         string token,
         string? destinationSlug,
+        CacheContext context,
         CancellationToken cancellationToken)
     {
         var stopwatch = Stopwatch.StartNew();
-        var bootstrap = await apiClient.GetMobileBootstrapAsync(token, destinationSlug, cancellationToken).ConfigureAwait(false);
-        if (bootstrap is null)
+        var result = await apiClient.GetMobileBootstrapResultAsync(token, destinationSlug, cancellationToken).ConfigureAwait(false);
+        if (!result.IsSuccess || result.Value is not { } bootstrap)
         {
             stopwatch.Stop();
             logger.LogWarning(
                 "Mobile bootstrap refresh returned no data after {ElapsedMs}ms.",
                 stopwatch.Elapsed.TotalMilliseconds);
-            return null;
+            return result;
         }
 
         var savedAt = DateTimeOffset.UtcNow;
-        var currentUserId = sessionService.CurrentUserId;
+        if (!IsCurrent(context))
+        {
+            logger.LogInformation("Discarded mobile bootstrap response because the session context changed.");
+            return ApiCallResult<MobileBootstrapDto>.TransientFailure();
+        }
+
+        var currentUserId = context.UserId;
         var requestedCacheScope = NormalizeCacheScope(destinationSlug);
         var destinationCacheScope = NormalizeCacheScope(bootstrap.Destination.Slug);
+        var requestedCacheKey = GetCacheKey(currentUserId, context.TripId, requestedCacheScope);
+        var destinationCacheKey = GetCacheKey(currentUserId, context.TripId, destinationCacheScope);
+
+        _current = bootstrap;
+        _currentLocale = context.Locale;
+        _currentSavedAt = savedAt;
+        _currentUserId = currentUserId;
+        _currentTripId = context.TripId;
+
         await offlineCacheService.SaveAsync(
-            GetCacheKey(currentUserId, requestedCacheScope),
+            requestedCacheKey,
             bootstrap,
             cancellationToken).ConfigureAwait(false);
         if (!string.Equals(requestedCacheScope, destinationCacheScope, StringComparison.Ordinal))
         {
             await offlineCacheService.SaveAsync(
-                GetCacheKey(currentUserId, destinationCacheScope),
+                destinationCacheKey,
                 bootstrap,
                 cancellationToken).ConfigureAwait(false);
         }
+        if (!IsCurrent(context))
+        {
+            await offlineCacheService.DeleteAsync(requestedCacheKey).ConfigureAwait(false);
+            if (!string.Equals(requestedCacheKey, destinationCacheKey, StringComparison.Ordinal))
+            {
+                await offlineCacheService.DeleteAsync(destinationCacheKey).ConfigureAwait(false);
+            }
+            logger.LogInformation("Removed mobile bootstrap cache written after the session context changed.");
+            return ApiCallResult<MobileBootstrapDto>.TransientFailure();
+        }
         stopwatch.Stop();
-
-        _current = bootstrap;
-        _currentLocale = Locale;
-        _currentSavedAt = savedAt;
-        _currentUserId = currentUserId;
 
         logger.LogInformation(
             "Mobile bootstrap refreshed and cached in {ElapsedMs}ms. Scope={CacheScope}; Recommendations={RecommendationCount}; Packages={PackageCount}; HasSchedule={HasSchedule}.",
@@ -159,18 +196,20 @@ public sealed class MobileBootstrapStore(
             bootstrap.Packages.Count,
             bootstrap.Schedule is not null);
 
-        return bootstrap;
+        return result;
     }
 
     public bool HasFreshSnapshot(string? destinationSlug = null, TimeSpan? maxAge = null)
     {
         var currentUserId = sessionService.CurrentUserId;
+        var currentTripId = sessionService.CurrentTripId;
         var cacheScope = NormalizeCacheScope(destinationSlug);
         var ageLimit = maxAge ?? DefaultFreshnessWindow;
 
         return _current is not null
             && _currentLocale == Locale
             && _currentUserId == currentUserId
+            && _currentTripId == currentTripId
             && _currentSavedAt.HasValue
             && DateTimeOffset.UtcNow - _currentSavedAt.Value <= ageLimit
             && IsScopeMatch(cacheScope, _current.Destination.Slug);
@@ -181,8 +220,10 @@ public sealed class MobileBootstrapStore(
         CancellationToken cancellationToken = default)
     {
         var currentUserId = sessionService.CurrentUserId;
+        var currentTripId = sessionService.CurrentTripId;
         if (_current is null
             || _currentUserId != currentUserId
+            || _currentTripId != currentTripId
             || _current.Schedule is null)
         {
             logger.LogInformation(
@@ -213,11 +254,11 @@ public sealed class MobileBootstrapStore(
         _currentSavedAt = savedAt;
 
         await offlineCacheService.SaveAsync(
-            GetCacheKey(currentUserId, "auto"),
+            GetCacheKey(currentUserId, currentTripId, "auto"),
             updatedBootstrap,
             cancellationToken).ConfigureAwait(false);
         await offlineCacheService.SaveAsync(
-            GetCacheKey(currentUserId, destinationCacheScope),
+            GetCacheKey(currentUserId, currentTripId, destinationCacheScope),
             updatedBootstrap,
             cancellationToken).ConfigureAwait(false);
 
@@ -238,6 +279,7 @@ public sealed class MobileBootstrapStore(
             _current = null;
             _currentSavedAt = null;
             _currentUserId = null;
+            _currentTripId = null;
         }
 
         await offlineCacheService.DeleteByPrefixAndSuffixAsync(
@@ -245,9 +287,9 @@ public sealed class MobileBootstrapStore(
             GetCacheKeySuffix(userId)).ConfigureAwait(false);
     }
 
-    private static string GetCacheKey(Guid? userId, string cacheScope)
+    private static string GetCacheKey(Guid? userId, Guid? tripId, string cacheScope)
     {
-        return $"mobile-bootstrap-{cacheScope}{GetCacheKeySuffix(userId)}";
+        return $"mobile-bootstrap-{cacheScope}-trip-{tripId?.ToString() ?? "auto"}{GetCacheKeySuffix(userId)}";
     }
 
     private static string GetCacheKeySuffix(Guid? userId) =>
@@ -268,6 +310,24 @@ public sealed class MobileBootstrapStore(
         return requestedScope == "auto"
             || string.Equals(NormalizeCacheScope(destinationSlug), requestedScope, StringComparison.Ordinal);
     }
+
+    private CacheContext CaptureContext(string? destinationSlug)
+    {
+        var userId = sessionService.CurrentUserId;
+        var tripId = sessionService.CurrentTripId;
+        var locale = Locale;
+        var scope = NormalizeCacheScope(destinationSlug);
+        var contextVersion = sessionService.ContextVersion;
+        return new CacheContext(userId, tripId, locale, contextVersion, $"{contextVersion}:{userId}:{tripId}:{locale}:{scope}");
+    }
+
+    private bool IsCurrent(CacheContext context) =>
+        context.UserId == sessionService.CurrentUserId
+        && context.TripId == sessionService.CurrentTripId
+        && context.ContextVersion == sessionService.ContextVersion
+        && string.Equals(context.Locale, Locale, StringComparison.Ordinal);
+
+    private sealed record CacheContext(Guid? UserId, Guid? TripId, string Locale, long ContextVersion, string Key);
 }
 
 public sealed record ScheduleCacheUpdatedEventArgs(

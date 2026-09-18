@@ -1729,10 +1729,10 @@ public sealed class TravelChatServiceTests
                 criteria),
             CancellationToken.None);
 
-        Assert.Single(first.Cards);
-        Assert.Equal("Cheap ramen", first.Cards[0].Title);
-        Assert.Single(second.Cards);
-        Assert.Equal("Local dinner", second.Cards[0].Title);
+        Assert.Equal(2, first.Cards.Count);
+        Assert.Equal(["Cheap ramen", "Local dinner"], first.Cards.Select(card => card.Title));
+        Assert.Empty(second.Cards);
+        Assert.Equal("adjust", second.GuidedQuestion?.Id);
         Assert.Empty(exhausted.Cards);
         Assert.Equal("adjust", exhausted.GuidedQuestion?.Id);
         Assert.Equal(GuidedTravelCategories.Food, exhausted.Criteria?.Category);

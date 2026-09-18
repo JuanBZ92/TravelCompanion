@@ -63,6 +63,12 @@ public static class MauiProgram
         builder.Logging.SetMinimumLevel(LogLevel.Information);
         builder.Logging.AddDebug();
         builder.Logging.AddProvider(new MobileDiagnosticsLoggerProvider());
+#else
+        if (MobileDiagnosticsSettings.IsEnabled)
+        {
+            builder.Logging.SetMinimumLevel(LogLevel.Information);
+            builder.Logging.AddProvider(new MobileDiagnosticsLoggerProvider());
+        }
 #endif
 
         var apiBaseUri = ApiEndpointResolver.Resolve();

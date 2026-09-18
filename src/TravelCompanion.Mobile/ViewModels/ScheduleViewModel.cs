@@ -43,6 +43,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     private IReadOnlyList<ScheduleTodaySectionViewModel> _todaySections = [];
     private IReadOnlyList<ScheduleTodayLoadingSectionViewModel> _todayLoadingSections = [];
     private bool _isTodayLoading;
+    private CancellationTokenSource? _selectedDayLoadCancellation;
     private GeoPointDto? _currentLocation;
     private bool _hasRequestedLocation;
     private readonly HashSet<Guid> _nearbyVisitPrompts = [];
@@ -222,6 +223,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
 
     public void ResetForNewSession()
     {
+        CancelSelectedDayLoading();
         CancelRouteLoading();
         _routeCache.Clear();
         _citiesByDate.Clear();
@@ -547,8 +549,38 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         var token = await _sessionService.GetTokenAsync();
         if (!string.IsNullOrWhiteSpace(token))
         {
-            await LoadTodayForSelectedDateAsync(token, forceRefresh: false, cancellationToken: default);
+            CancelSelectedDayLoading();
+            var loadCancellation = new CancellationTokenSource();
+            _selectedDayLoadCancellation = loadCancellation;
+            try
+            {
+                await LoadTodayForSelectedDateAsync(token, forceRefresh: false, loadCancellation.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected when another date is selected or the page is closed.
+            }
+            finally
+            {
+                if (ReferenceEquals(_selectedDayLoadCancellation, loadCancellation))
+                {
+                    _selectedDayLoadCancellation = null;
+                }
+                loadCancellation.Dispose();
+            }
         }
+    }
+
+    public new void CancelLoading()
+    {
+        base.CancelLoading();
+        CancelSelectedDayLoading();
+    }
+
+    private void CancelSelectedDayLoading()
+    {
+        _selectedDayLoadCancellation?.Cancel();
+        _selectedDayLoadCancellation = null;
     }
 
     private async Task LoadScheduleLocalFirstAsync(
@@ -556,6 +588,8 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         bool forceRefresh,
         CancellationToken cancellationToken = default)
     {
+        var usableContentStopwatch = Stopwatch.StartNew();
+        var usableContentLogged = false;
         if (forceRefresh)
         {
             _hasRequestedLocation = false;
@@ -565,46 +599,61 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         if (cached is not null)
         {
             ApplyBootstrapSchedule(cached.Value);
-            await UpdateLocationAsync(cancellationToken);
-            await LoadTodayForSelectedDateAsync(token, forceRefresh, cancellationToken);
+            HasLoaded = true;
+            _logger.LogInformation(
+                "Schedule usable content available in {ElapsedMs}ms. Source=cache; ForceRefresh={ForceRefresh}.",
+                usableContentStopwatch.Elapsed.TotalMilliseconds,
+                forceRefresh);
+            usableContentLogged = true;
             MarkLastUpdated(cached.SavedAt);
-
-            if (!forceRefresh && _bootstrapStore.HasFreshSnapshot())
-            {
-                StatusMessage = null;
-                return;
-            }
-
             StatusMessage = forceRefresh
                 ? "Actualizando itinerario..."
                 : $"Mostrando tu itinerario guardado mientras recuperamos la conexion. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
         }
 
-        try
+        var shouldRefreshBootstrap = forceRefresh || !_bootstrapStore.HasFreshSnapshot();
+        var bootstrapRefreshed = false;
+        if (shouldRefreshBootstrap)
         {
-            var bootstrap = await _bootstrapStore.RefreshAsync(token, cancellationToken: cancellationToken);
-            if (bootstrap is null)
+            var result = await _bootstrapStore.RefreshResultAsync(token, cancellationToken: cancellationToken);
+            if (result.IsUnauthorized)
             {
                 _sessionService.Clear();
                 await Shell.Current.GoToAsync("//login");
                 return;
             }
 
-            ApplyBootstrapSchedule(bootstrap);
-            await UpdateLocationAsync(cancellationToken);
-            await LoadTodayForSelectedDateAsync(token, forceRefresh: true, cancellationToken);
-            MarkLastUpdated(DateTimeOffset.UtcNow);
-            StatusMessage = null;
-        }
-        catch
-        {
-            if (cached is null)
+            if (result.Value is { } bootstrap)
             {
-                throw;
+                ApplyBootstrapSchedule(bootstrap);
+                if (!usableContentLogged)
+                {
+                    _logger.LogInformation(
+                        "Schedule usable content available in {ElapsedMs}ms. Source=network; ForceRefresh={ForceRefresh}.",
+                        usableContentStopwatch.Elapsed.TotalMilliseconds,
+                        forceRefresh);
+                    usableContentLogged = true;
+                }
+                MarkLastUpdated(DateTimeOffset.UtcNow);
+                bootstrapRefreshed = true;
+                StatusMessage = null;
             }
-
-            StatusMessage = $"Mostrando tu itinerario guardado mientras recuperamos la conexion. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
+            else if (cached is null)
+            {
+                throw new HttpRequestException("No pudimos cargar el itinerario. Comprueba la conexión e inténtalo de nuevo.");
+            }
+            else
+            {
+                StatusMessage = $"Modo offline. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
+            }
         }
+
+        _currentLocation ??= await _locationService.GetLastKnownLocationAsync(cancellationToken);
+        await LoadTodayForSelectedDateAsync(
+            token,
+            forceRefresh: forceRefresh || bootstrapRefreshed,
+            cancellationToken);
+        _ = UpdateLocationAfterContentAsync(cancellationToken);
     }
 
     private async Task RefreshBuilderSetupVersionAsync(string token, CancellationToken cancellationToken)
@@ -643,7 +692,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
 
         var selectedDate = _selectedDate.Value;
         var cached = await _todayStore.GetCachedAsync(selectedDate, cancellationToken);
-        if (cached is not null)
+        if (cached is not null && _selectedDate == selectedDate)
         {
             ApplyToday(cached.Value, includeHotelMetadata: false);
         }
@@ -659,18 +708,22 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
 
         try
         {
-            var today = await _todayStore.RefreshAsync(
+            var result = await _todayStore.RefreshResultAsync(
                 token,
                 selectedDate,
                 _currentLocation,
                 cancellationToken);
-            if (today is not null)
+            if (result.IsUnauthorized)
+            {
+                _sessionService.Clear();
+                await Shell.Current.GoToAsync("//login");
+                return;
+            }
+
+            if (result.Value is { } today && _selectedDate == selectedDate)
             {
                 ApplyToday(today);
-                if (_selectedDate == selectedDate)
-                {
-                    await PromptForNearbyVisitAsync(token, cancellationToken);
-                }
+                await PromptForNearbyVisitAsync(token, cancellationToken);
             }
             else if (cached is null && _selectedDate == selectedDate)
             {
@@ -1326,6 +1379,22 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         if (_currentLocation is not null)
         {
             RebuildSelectedDay();
+        }
+    }
+
+    private async Task UpdateLocationAfterContentAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await UpdateLocationAsync(cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected when leaving the screen or starting another load.
+        }
+        catch (Exception exception)
+        {
+            _logger.LogDebug(exception, "Location refresh after rendering Today failed.");
         }
     }
 

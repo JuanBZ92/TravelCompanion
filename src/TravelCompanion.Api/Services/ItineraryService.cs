@@ -25,6 +25,7 @@ public sealed class ItineraryService(TravelCompanionDbContext dbContext) : IItin
         }
 
         var trip = await dbContext.Trips
+            .AsSplitQuery()
             .Include(existing => existing.Destination)
             .Include(existing => existing.Reservations)
             .Include(existing => existing.DayPlans)

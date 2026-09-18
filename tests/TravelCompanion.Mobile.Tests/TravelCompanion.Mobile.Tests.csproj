@@ -24,7 +24,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="..\..\src\TravelCompanion.Mobile\Services\MobilePayloadNormalizer.cs" Link="MobilePayloadNormalizer.cs" />
+	<Compile Include="..\..\src\TravelCompanion.Mobile\Services\ApiCallResult.cs" Link="ApiCallResult.cs" />
+	<Compile Include="..\..\src\TravelCompanion.Mobile\Services\MobilePayloadNormalizer.cs" Link="MobilePayloadNormalizer.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\LocalizationResourceManager.cs" Link="LocalizationResourceManager.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\ViewModels\TravelChatCardViewModel.cs" Link="TravelChatCardViewModel.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\ViewModels\TravelChatMessageViewModel.cs" Link="TravelChatMessageViewModel.cs" />

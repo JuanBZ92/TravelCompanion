@@ -65,4 +65,10 @@ public partial class PackagesPage : ContentPage
                 _viewModel.HasLoaded);
         }
     }
+
+    protected override void OnDisappearing()
+    {
+        _viewModel.CancelLoading();
+        base.OnDisappearing();
+    }
 }

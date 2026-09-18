@@ -27,6 +27,7 @@ public partial class MapPage : ContentPage
 #if !WINDOWS
     private readonly MauiMap _map;
     private readonly Dictionary<Pin, EventHandler<PinClickedEventArgs>> _pinHandlers = new();
+    private readonly Dictionary<string, RecommendationMapPin> _pinsBySelectionKey = new(StringComparer.Ordinal);
     private bool _isSubscribedToRecommendations;
     private bool _hasRenderedPins;
 #endif
@@ -121,6 +122,7 @@ public partial class MapPage : ContentPage
 
     protected override void OnDisappearing()
     {
+        _viewModel.CancelLoading();
         DismissSearchKeyboard();
         base.OnDisappearing();
 #if !WINDOWS
@@ -188,43 +190,45 @@ public partial class MapPage : ContentPage
     private void RefreshMapPins(bool moveToBounds = true)
     {
         var stopwatch = Stopwatch.StartNew();
-        // Unsubscribe all existing pin event handlers to prevent memory leaks
-        foreach (var (pin, handler) in _pinHandlers)
+        var recommendationsByKey = _viewModel.VisibleNearbyRecommendations
+            .ToDictionary(recommendation => recommendation.SelectionKey, StringComparer.Ordinal);
+        foreach (var staleKey in _pinsBySelectionKey.Keys.Except(recommendationsByKey.Keys, StringComparer.Ordinal).ToList())
         {
-            pin.MarkerClicked -= handler;
+            var stalePin = _pinsBySelectionKey[staleKey];
+            if (_pinHandlers.Remove(stalePin, out var staleHandler))
+            {
+                stalePin.MarkerClicked -= staleHandler;
+            }
+            _map.Pins.Remove(stalePin);
+            _pinsBySelectionKey.Remove(staleKey);
         }
-        _pinHandlers.Clear();
-        _map.Pins.Clear();
 
-        foreach (var recommendation in _viewModel.VisibleNearbyRecommendations)
+        foreach (var (selectionKey, recommendation) in recommendationsByKey)
         {
-            var pin = new RecommendationMapPin
+            if (!_pinsBySelectionKey.TryGetValue(selectionKey, out var pin))
             {
-                Label = recommendation.Title,
-                Address = recommendation.Neighborhood,
-                Type = PinType.Place,
-                Location = new Location((double)recommendation.Latitude, (double)recommendation.Longitude),
-                IsSelected = recommendation.SelectionKey == _viewModel.SelectedRecommendation?.SelectionKey
-            };
-
-            // Store handler reference to enable proper cleanup
-            EventHandler<PinClickedEventArgs> handler = (_, args) =>
-            {
-                args.HideInfoWindow = true;
-                void SelectPin() => _viewModel.SelectRecommendationCommand.Execute(recommendation);
-                if (Dispatcher.IsDispatchRequired)
+                pin = new RecommendationMapPin { Type = PinType.Place };
+                EventHandler<PinClickedEventArgs> handler = (_, args) =>
                 {
-                    Dispatcher.Dispatch(SelectPin);
-                }
-                else
-                {
-                    SelectPin();
-                }
-            };
+                    args.HideInfoWindow = true;
+                    void SelectPin()
+                    {
+                        var current = _viewModel.VisibleNearbyRecommendations
+                            .FirstOrDefault(item => item.SelectionKey == selectionKey);
+                        if (current is not null) _viewModel.SelectRecommendationCommand.Execute(current);
+                    }
+                    if (Dispatcher.IsDispatchRequired) Dispatcher.Dispatch(SelectPin); else SelectPin();
+                };
+                _pinHandlers[pin] = handler;
+                _pinsBySelectionKey[selectionKey] = pin;
+                pin.MarkerClicked += handler;
+                _map.Pins.Add(pin);
+            }
 
-            _pinHandlers[pin] = handler;
-            pin.MarkerClicked += handler;
-            _map.Pins.Add(pin);
+            pin.Label = recommendation.Title;
+            pin.Address = recommendation.Neighborhood;
+            pin.Location = new Location((double)recommendation.Latitude, (double)recommendation.Longitude);
+            pin.IsSelected = selectionKey == _viewModel.SelectedRecommendation?.SelectionKey;
         }
 
         if (moveToBounds)

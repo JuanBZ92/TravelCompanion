@@ -5,6 +5,7 @@ namespace TravelCompanion.Mobile.Services;
 
 public sealed class AuthSessionService
 {
+    private long _contextVersion;
     private const string UserIdKey = "auth_user_id";
     private const string EmailKey = "auth_email";
     private const string DisplayNameKey = "auth_display_name";
@@ -20,6 +21,7 @@ public sealed class AuthSessionService
     private const string TokenKey = "auth_token";
 
     public bool HasSession => CurrentUserId.HasValue;
+    public long ContextVersion => Interlocked.Read(ref _contextVersion);
     public bool MustChangePassword => Preferences.Default.Get(MustChangePasswordKey, false);
     public SessionAccessMode AccessMode
     {
@@ -127,6 +129,7 @@ public sealed class AuthSessionService
             BiometricEnabledKey,
             session.AccessMode != SessionAccessMode.FreeMapPreview && !session.MustChangePassword);
         await SecureStorage.Default.SetAsync(TokenKey, session.Token).ConfigureAwait(false);
+        Interlocked.Increment(ref _contextVersion);
     }
 
     public async Task<string?> GetTokenAsync()
@@ -155,12 +158,14 @@ public sealed class AuthSessionService
         {
             Preferences.Default.Set(DestinationNameKey, destinationName);
         }
+        Interlocked.Increment(ref _contextVersion);
     }
 
     public void MarkTripDeleted()
     {
         Preferences.Default.Remove(TripIdKey);
         Preferences.Default.Set(RequiresTripSetupKey, true);
+        Interlocked.Increment(ref _contextVersion);
     }
 
     public void Clear()
@@ -178,5 +183,6 @@ public sealed class AuthSessionService
         Preferences.Default.Remove(HasCuratedDocsKey);
         Preferences.Default.Remove(RequiresTripSetupKey);
         SecureStorage.Default.Remove(TokenKey);
+        Interlocked.Increment(ref _contextVersion);
     }
 }

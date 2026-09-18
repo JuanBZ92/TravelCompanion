@@ -172,37 +172,23 @@ public sealed class TravelCompanionApiClient
         var url = string.IsNullOrWhiteSpace(destinationSlug)
             ? "api/mobile/bootstrap"
             : $"api/mobile/bootstrap?destinationSlug={Uri.EscapeDataString(destinationSlug)}";
+        return (await GetMobileResultAsync<MobileBootstrapDto>(
+            url,
+            token,
+            "bootstrap",
+            MobilePayloadNormalizer.Normalize,
+            cancellationToken).ConfigureAwait(false)).Value;
+    }
 
-        var stopwatch = Stopwatch.StartNew();
-        using var request = CreateAuthorizedRequest(HttpMethod.Get, url, token);
-        using var response = await _httpClient.SendAsync(
-            request,
-            HttpCompletionOption.ResponseHeadersRead,
-            cancellationToken).ConfigureAwait(false);
-
-        var headersElapsedMs = stopwatch.Elapsed.TotalMilliseconds;
-        if (!response.IsSuccessStatusCode)
-        {
-            _logger.LogWarning(
-                "Mobile bootstrap request failed with {StatusCode} after {ElapsedMs}ms.",
-                (int)response.StatusCode,
-                headersElapsedMs);
-            return null;
-        }
-
-        var bootstrap = await response.Content
-            .ReadFromJsonAsync<MobileBootstrapDto>(JsonOptions, cancellationToken)
-            .ConfigureAwait(false);
-        stopwatch.Stop();
-
-        _logger.LogInformation(
-            "Mobile bootstrap request completed in {ElapsedMs}ms. Headers={HeadersElapsedMs}ms; BodyAndJson={BodyElapsedMs}ms; ServerTiming={ServerTiming}.",
-            stopwatch.Elapsed.TotalMilliseconds,
-            headersElapsedMs,
-            stopwatch.Elapsed.TotalMilliseconds - headersElapsedMs,
-            GetServerTiming(response));
-
-        return MobilePayloadNormalizer.Normalize(bootstrap);
+    public Task<ApiCallResult<MobileBootstrapDto>> GetMobileBootstrapResultAsync(
+        string token,
+        string? destinationSlug = null,
+        CancellationToken cancellationToken = default)
+    {
+        var url = string.IsNullOrWhiteSpace(destinationSlug)
+            ? "api/mobile/bootstrap"
+            : $"api/mobile/bootstrap?destinationSlug={Uri.EscapeDataString(destinationSlug)}";
+        return GetMobileResultAsync<MobileBootstrapDto>(url, token, "bootstrap", MobilePayloadNormalizer.Normalize, cancellationToken);
     }
 
     public async Task<MobileDiscoverDto?> GetMobileDiscoverAsync(
@@ -214,36 +200,23 @@ public sealed class TravelCompanionApiClient
             ? "api/mobile/discover"
             : $"api/mobile/discover?destinationSlug={Uri.EscapeDataString(destinationSlug)}";
 
-        var stopwatch = Stopwatch.StartNew();
-        using var request = CreateAuthorizedRequest(HttpMethod.Get, url, token);
-        using var response = await _httpClient.SendAsync(
-            request,
-            HttpCompletionOption.ResponseHeadersRead,
-            cancellationToken).ConfigureAwait(false);
+        return (await GetMobileResultAsync<MobileDiscoverDto>(
+            url,
+            token,
+            "discover",
+            MobilePayloadNormalizer.Normalize,
+            cancellationToken).ConfigureAwait(false)).Value;
+    }
 
-        var headersElapsedMs = stopwatch.Elapsed.TotalMilliseconds;
-        if (!response.IsSuccessStatusCode)
-        {
-            _logger.LogWarning(
-                "Mobile discover request failed with {StatusCode} after {ElapsedMs}ms.",
-                (int)response.StatusCode,
-                headersElapsedMs);
-            return null;
-        }
-
-        var discover = await response.Content
-            .ReadFromJsonAsync<MobileDiscoverDto>(JsonOptions, cancellationToken)
-            .ConfigureAwait(false);
-        stopwatch.Stop();
-
-        _logger.LogInformation(
-            "Mobile discover request completed in {ElapsedMs}ms. Headers={HeadersElapsedMs}ms; BodyAndJson={BodyElapsedMs}ms; ServerTiming={ServerTiming}.",
-            stopwatch.Elapsed.TotalMilliseconds,
-            headersElapsedMs,
-            stopwatch.Elapsed.TotalMilliseconds - headersElapsedMs,
-            GetServerTiming(response));
-
-        return MobilePayloadNormalizer.Normalize(discover);
+    public Task<ApiCallResult<MobileDiscoverDto>> GetMobileDiscoverResultAsync(
+        string token,
+        string? destinationSlug = null,
+        CancellationToken cancellationToken = default)
+    {
+        var url = string.IsNullOrWhiteSpace(destinationSlug)
+            ? "api/mobile/discover"
+            : $"api/mobile/discover?destinationSlug={Uri.EscapeDataString(destinationSlug)}";
+        return GetMobileResultAsync<MobileDiscoverDto>(url, token, "discover", MobilePayloadNormalizer.Normalize, cancellationToken);
     }
 
     public async Task<TodayDto?> GetMobileTodayAsync(
@@ -268,49 +241,120 @@ public sealed class TravelCompanionApiClient
             ? "api/mobile/today"
             : $"api/mobile/today?{string.Join('&', query)}";
 
-        using var request = CreateAuthorizedRequest(HttpMethod.Get, url, token);
-        using var response = await _httpClient.SendAsync(
-            request,
-            HttpCompletionOption.ResponseHeadersRead,
-            cancellationToken).ConfigureAwait(false);
+        return (await GetMobileResultAsync<TodayDto>(
+            url,
+            token,
+            "today",
+            MobilePayloadNormalizer.Normalize,
+            cancellationToken).ConfigureAwait(false)).Value;
+    }
 
-        if (!response.IsSuccessStatusCode)
+    public Task<ApiCallResult<TodayDto>> GetMobileTodayResultAsync(
+        string token,
+        DateOnly? date = null,
+        GeoPointDto? currentLocation = null,
+        CancellationToken cancellationToken = default)
+    {
+        var query = new List<string>();
+        if (date.HasValue)
         {
-            _logger.LogWarning(
-                "Mobile today request failed with {StatusCode}.",
-                (int)response.StatusCode);
-            return null;
+            query.Add($"date={Uri.EscapeDataString(date.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture))}");
+        }
+        if (currentLocation is not null)
+        {
+            query.Add($"latitude={currentLocation.Latitude.ToString(CultureInfo.InvariantCulture)}");
+            query.Add($"longitude={currentLocation.Longitude.ToString(CultureInfo.InvariantCulture)}");
+        }
+        var url = query.Count == 0 ? "api/mobile/today" : $"api/mobile/today?{string.Join('&', query)}";
+        return GetMobileResultAsync<TodayDto>(url, token, "today", MobilePayloadNormalizer.Normalize, cancellationToken);
+    }
+
+    private async Task<ApiCallResult<T>> GetMobileResultAsync<T>(
+        string url,
+        string token,
+        string operation,
+        Func<T?, T?> normalize,
+        CancellationToken cancellationToken)
+        where T : class
+    {
+        var stopwatch = Stopwatch.StartNew();
+        using var request = CreateAuthorizedRequest(HttpMethod.Get, url, token);
+        HttpResponseMessage response;
+        try
+        {
+            response = await _httpClient.SendAsync(
+                request,
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            _logger.LogWarning("Mobile {Operation} request timed out after {ElapsedMs}ms.", operation, stopwatch.Elapsed.TotalMilliseconds);
+            return ApiCallResult<T>.TransientFailure();
+        }
+        catch (HttpRequestException exception)
+        {
+            _logger.LogWarning(exception, "Mobile {Operation} request failed after {ElapsedMs}ms.", operation, stopwatch.Elapsed.TotalMilliseconds);
+            return ApiCallResult<T>.TransientFailure();
         }
 
-        var today = await response.Content
-            .ReadFromJsonAsync<TodayDto>(JsonOptions, cancellationToken)
-            .ConfigureAwait(false);
+        using (response)
+        {
+            var headersElapsedMs = stopwatch.Elapsed.TotalMilliseconds;
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning(
+                    "Mobile {Operation} request failed with {StatusCode} after {ElapsedMs}ms.",
+                    operation,
+                    (int)response.StatusCode,
+                    headersElapsedMs);
+                return ApiCallResult<T>.FromStatusCode(response.StatusCode);
+            }
 
-        return MobilePayloadNormalizer.Normalize(today);
+            T? payload;
+            try
+            {
+                payload = await response.Content.ReadFromJsonAsync<T>(JsonOptions, cancellationToken).ConfigureAwait(false);
+            }
+            catch (JsonException exception)
+            {
+                _logger.LogWarning(exception, "Mobile {Operation} returned an invalid response.", operation);
+                return ApiCallResult<T>.InvalidResponse(response.StatusCode);
+            }
+
+            var normalized = normalize(payload);
+            stopwatch.Stop();
+            _logger.LogInformation(
+                "Mobile {Operation} request completed in {ElapsedMs}ms. Headers={HeadersElapsedMs}ms; BodyAndJson={BodyElapsedMs}ms; ServerTiming={ServerTiming}; ResponseBytes={ResponseBytes}.",
+                operation,
+                stopwatch.Elapsed.TotalMilliseconds,
+                headersElapsedMs,
+                stopwatch.Elapsed.TotalMilliseconds - headersElapsedMs,
+                GetServerTiming(response),
+                response.Content.Headers.ContentLength);
+
+            return normalized is null
+                ? ApiCallResult<T>.InvalidResponse(response.StatusCode)
+                : ApiCallResult<T>.Success(normalized);
+        }
     }
 
     public async Task<TravelDocsDto?> GetTravelDocsAsync(
         string token,
         CancellationToken cancellationToken = default)
     {
-        using var request = CreateAuthorizedRequest(HttpMethod.Get, "api/mobile/docs", token);
-        using var response = await _httpClient.SendAsync(
-            request,
-            HttpCompletionOption.ResponseHeadersRead,
-            cancellationToken).ConfigureAwait(false);
-
-        if (!response.IsSuccessStatusCode)
-        {
-            _logger.LogWarning(
-                "Travel docs request failed with {StatusCode}.",
-                (int)response.StatusCode);
-            return null;
-        }
-
-        return await response.Content
-            .ReadFromJsonAsync<TravelDocsDto>(JsonOptions, cancellationToken)
-            .ConfigureAwait(false);
+        return (await GetTravelDocsResultAsync(token, cancellationToken).ConfigureAwait(false)).Value;
     }
+
+    public Task<ApiCallResult<TravelDocsDto>> GetTravelDocsResultAsync(
+        string token,
+        CancellationToken cancellationToken = default) =>
+        GetMobileResultAsync<TravelDocsDto>(
+            "api/mobile/docs",
+            token,
+            "docs",
+            static docs => docs,
+            cancellationToken);
 
     public async Task<TravelChatResponse?> SendTravelChatAsync(
         string token,
@@ -463,12 +507,59 @@ public sealed class TravelCompanionApiClient
         PlaceSearchRequest search,
         CancellationToken cancellationToken = default)
     {
+        var result = await SearchPlacesResultAsync(token, search, cancellationToken).ConfigureAwait(false);
+        return result.Value ?? [];
+    }
+
+    public async Task<ApiCallResult<IReadOnlyList<RecommendationDto>>> SearchPlacesResultAsync(
+        string token,
+        PlaceSearchRequest search,
+        CancellationToken cancellationToken = default)
+    {
+        var stopwatch = Stopwatch.StartNew();
         using var request = CreateAuthorizedRequest(HttpMethod.Post, "api/mobile/places/search", token);
         request.Content = JsonContent.Create(search, options: JsonOptions);
-        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
-        return response.IsSuccessStatusCode
-            ? await response.Content.ReadFromJsonAsync<IReadOnlyList<RecommendationDto>>(JsonOptions, cancellationToken).ConfigureAwait(false) ?? []
-            : [];
+        HttpResponseMessage response;
+        try
+        {
+            response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            _logger.LogWarning("Places search timed out after {ElapsedMs}ms.", stopwatch.Elapsed.TotalMilliseconds);
+            return ApiCallResult<IReadOnlyList<RecommendationDto>>.TransientFailure();
+        }
+        catch (HttpRequestException exception)
+        {
+            _logger.LogWarning(exception, "Places search failed after {ElapsedMs}ms.", stopwatch.Elapsed.TotalMilliseconds);
+            return ApiCallResult<IReadOnlyList<RecommendationDto>>.TransientFailure();
+        }
+
+        using (response)
+        {
+            if (!response.IsSuccessStatusCode)
+            {
+                return ApiCallResult<IReadOnlyList<RecommendationDto>>.FromStatusCode(response.StatusCode);
+            }
+
+            try
+            {
+                var places = await response.Content
+                    .ReadFromJsonAsync<IReadOnlyList<RecommendationDto>>(JsonOptions, cancellationToken)
+                    .ConfigureAwait(false) ?? [];
+                _logger.LogInformation(
+                    "Places search completed in {ElapsedMs}ms. Results={ResultCount}; ResponseBytes={ResponseBytes}.",
+                    stopwatch.Elapsed.TotalMilliseconds,
+                    places.Count,
+                    response.Content.Headers.ContentLength);
+                return ApiCallResult<IReadOnlyList<RecommendationDto>>.Success(places);
+            }
+            catch (JsonException exception)
+            {
+                _logger.LogWarning(exception, "Places search returned an invalid response.");
+                return ApiCallResult<IReadOnlyList<RecommendationDto>>.InvalidResponse(response.StatusCode);
+            }
+        }
     }
 
     public async Task<RecommendationDto?> GetMobileRecommendationDetailAsync(

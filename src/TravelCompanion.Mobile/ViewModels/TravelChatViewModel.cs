@@ -178,7 +178,14 @@ public sealed partial class TravelChatViewModel(
 
             try
             {
-                var bootstrap = await bootstrapStore.RefreshAsync(token, cancellationToken: ct);
+                var result = await bootstrapStore.RefreshResultAsync(token, cancellationToken: ct);
+                if (result.IsUnauthorized)
+                {
+                    sessionService.Clear();
+                    await Shell.Current.GoToAsync("//login");
+                    return;
+                }
+                var bootstrap = result.Value;
                 if (bootstrap is null)
                 {
                     StatusMessage = cached is null
@@ -889,8 +896,14 @@ public sealed partial class TravelChatViewModel(
             return recommendation;
         }
 
-        var refreshed = await bootstrapStore.RefreshAsync(token);
-        return refreshed?.Recommendations
+        var result = await bootstrapStore.RefreshResultAsync(token);
+        if (result.IsUnauthorized)
+        {
+            sessionService.Clear();
+            await Shell.Current.GoToAsync("//login");
+            return null;
+        }
+        return result.Value?.Recommendations
             .FirstOrDefault(existing => existing.Id == recommendationId);
     }
 

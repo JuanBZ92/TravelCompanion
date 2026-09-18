@@ -236,6 +236,7 @@ public sealed class MobileController(
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var tripsQuery = dbContext.Trips
             .AsNoTracking()
+            .AsSplitQuery()
             .Include(existingTrip => existingTrip.Destination)
             .Include(existingTrip => existingTrip.Reservations)
             .Include(existingTrip => existingTrip.Documents)
@@ -623,14 +624,21 @@ public sealed class MobileController(
     {
         var recommendations = await dbContext.Recommendations
             .AsNoTracking()
-            .Include(recommendation => recommendation.Packages)
-            .Where(recommendation => recommendation.DestinationId == destinationId)
+            .UnlockedFor(destinationId, entitlements)
             .OrderBy(recommendation => recommendation.Title)
+            .ThenBy(recommendation => recommendation.Id)
+            .Select(recommendation => new
+            {
+                Recommendation = recommendation,
+                PackageIds = recommendation.Packages.Select(package => package.Id).ToList()
+            })
             .ToListAsync(cancellationToken);
 
         return recommendations
-            .Where(recommendation => IsRecommendationUnlocked(recommendation, entitlements))
-            .Select(recommendation => ToRecommendationDto(recommendation, useSummaryDescription: false))
+            .Select(result => ToRecommendationDto(result.Recommendation, useSummaryDescription: false) with
+            {
+                PackageIds = result.PackageIds
+            })
             .ToList();
     }
 

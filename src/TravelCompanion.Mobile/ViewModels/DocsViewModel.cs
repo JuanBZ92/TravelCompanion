@@ -14,8 +14,6 @@ public sealed partial class DocsViewModel(
     AuthSessionService sessionService,
     OfflineCacheService offlineCacheService) : ViewModelBase, ISessionStateResettable
 {
-    private static readonly TimeSpan DocsCacheMaxAge = TimeSpan.FromDays(14);
-
     [ObservableProperty]
     private string title = "Documentos";
 
@@ -52,28 +50,24 @@ public sealed partial class DocsViewModel(
     }
 
     [RelayCommand]
-    public async Task LoadAsync()
-    {
-        if (IsBusy)
-        {
-            return;
-        }
+    public Task LoadAsync() => base.LoadAsync(LoadCoreAsync);
 
+    private async Task LoadCoreAsync(CancellationToken cancellationToken)
+    {
+        var contextVersion = sessionService.ContextVersion;
+        var userId = sessionService.CurrentUserId;
+        var tripId = sessionService.CurrentTripId;
         var token = await sessionService.GetTokenAsync();
         if (string.IsNullOrWhiteSpace(token))
         {
             ErrorMessage = "Inicia sesion para ver tus documentos.";
-            HasLoaded = true;
             return;
         }
 
         try
         {
-            IsBusy = true;
-            ErrorMessage = null;
-            StatusMessage = null;
-            var cacheKey = GetCacheKey(sessionService.CurrentUserId, sessionService.CurrentTripId);
-            var cached = await offlineCacheService.GetAsync<TravelDocsDto>(cacheKey, DocsCacheMaxAge);
+            var cacheKey = GetCacheKey(userId, tripId);
+            var cached = await offlineCacheService.GetAsync<TravelDocsDto>(cacheKey, maxAge: null, cancellationToken);
             if (cached is not null)
             {
                 ApplyDocs(cached.Value);
@@ -81,7 +75,20 @@ public sealed partial class DocsViewModel(
                 StatusMessage = $"Mostrando documentos guardados mientras recuperamos la conexion. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
             }
 
-            var docs = await apiClient.GetTravelDocsAsync(token);
+            var result = await apiClient.GetTravelDocsResultAsync(token, cancellationToken);
+            if (contextVersion != sessionService.ContextVersion
+                || userId != sessionService.CurrentUserId
+                || tripId != sessionService.CurrentTripId)
+            {
+                return;
+            }
+            if (result.IsUnauthorized)
+            {
+                sessionService.Clear();
+                await Shell.Current.GoToAsync("//login");
+                return;
+            }
+            var docs = result.Value;
             if (docs is null)
             {
                 if (cached is null)
@@ -97,17 +104,19 @@ public sealed partial class DocsViewModel(
             else
             {
                 ApplyDocs(docs);
-                await offlineCacheService.SaveAsync(cacheKey, docs);
+                await offlineCacheService.SaveAsync(cacheKey, docs, cancellationToken);
                 MarkLastUpdated(DateTimeOffset.UtcNow);
                 StatusMessage = null;
             }
-
-            HasLoaded = true;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch
         {
             var cacheKey = GetCacheKey(sessionService.CurrentUserId, sessionService.CurrentTripId);
-            var cached = await offlineCacheService.GetAsync<TravelDocsDto>(cacheKey, DocsCacheMaxAge);
+            var cached = await offlineCacheService.GetAsync<TravelDocsDto>(cacheKey, maxAge: null, cancellationToken);
             if (cached is not null)
             {
                 ApplyDocs(cached.Value);
@@ -121,11 +130,6 @@ public sealed partial class DocsViewModel(
             }
 
             ErrorMessage = null;
-            HasLoaded = true;
-        }
-        finally
-        {
-            IsBusy = false;
         }
     }
 

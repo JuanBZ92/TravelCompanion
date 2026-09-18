@@ -14,7 +14,13 @@ public sealed class RecommendationsModel(
     TravelCompanionDbContext dbContext,
     IRecommendationTagCatalogService tagCatalogService) : PageModel
 {
+    private const int DefaultPageSize = 50;
+    private const int MaximumPageSize = 100;
     public List<RecommendationRow> Recommendations { get; private set; } = [];
+    [BindProperty(SupportsGet = true)] public int PageNumber { get; set; } = 1;
+    [BindProperty(SupportsGet = true)] public int PageSize { get; set; } = DefaultPageSize;
+    public int TotalRecommendations { get; private set; }
+    public int TotalPages => Math.Max(1, (int)Math.Ceiling(TotalRecommendations / (double)PageSize));
     public List<SelectListItem> DestinationOptions { get; private set; } = [];
     public List<SelectListItem> PackageOptions { get; private set; } = [];
     public IReadOnlyList<RecommendationTagDto> TagCatalog { get; private set; } = [];
@@ -207,7 +213,9 @@ public sealed class RecommendationsModel(
 
     private async Task LoadPageDataAsync()
     {
-        TagCatalog = await tagCatalogService.GetCatalogAsync(cancellationToken: HttpContext.RequestAborted);
+        PageSize = Math.Clamp(PageSize, 1, MaximumPageSize);
+        var requestAborted = HttpContext?.RequestAborted ?? CancellationToken.None;
+        TagCatalog = await tagCatalogService.GetCatalogAsync(cancellationToken: requestAborted);
 
         DestinationOptions = await dbContext.Destinations
             .AsNoTracking()
@@ -225,12 +233,18 @@ public sealed class RecommendationsModel(
                 package.Id.ToString()))
             .ToListAsync();
 
-        var recommendations = await dbContext.Recommendations
+        var recommendationsQuery = dbContext.Recommendations
             .AsNoTracking()
             .Include(recommendation => recommendation.Destination)
-            .Include(recommendation => recommendation.Packages)
+            .Include(recommendation => recommendation.Packages);
+        TotalRecommendations = await recommendationsQuery.CountAsync(requestAborted);
+        PageNumber = Math.Clamp(PageNumber, 1, TotalPages);
+        var recommendations = await recommendationsQuery
             .OrderBy(recommendation => recommendation.Title)
-            .ToListAsync();
+            .ThenBy(recommendation => recommendation.Id)
+            .Skip((PageNumber - 1) * PageSize)
+            .Take(PageSize)
+            .ToListAsync(requestAborted);
 
         Recommendations = recommendations
             .Select(recommendation => new RecommendationRow(

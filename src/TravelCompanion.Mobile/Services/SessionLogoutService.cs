@@ -10,6 +10,7 @@ public sealed class SessionLogoutService(
     MobileDiscoverStore discoverStore,
     MobileTodayStore todayStore,
     FreeMapStore freeMapStore,
+    OfflineCacheService offlineCacheService,
     OfflineSyncCoordinator syncCoordinator,
     PendingItineraryActionStore pendingItineraryActionStore,
     IServiceProvider serviceProvider)
@@ -69,6 +70,9 @@ public sealed class SessionLogoutService(
         await TryClearAsync(() => discoverStore.ClearUserCacheAsync(userId));
         await TryClearAsync(() => todayStore.ClearUserCacheAsync(userId));
         await TryClearAsync(freeMapStore.ClearAsync);
+        await TryClearAsync(() => offlineCacheService.DeleteByPrefixAndSuffixAsync(
+            "mobile-docs-",
+            $"-{userId?.ToString() ?? "anonymous"}"));
         await TryClearAsync(() => syncCoordinator.PublishPendingCountAsync());
 
         if (!preservePendingItineraryAction)

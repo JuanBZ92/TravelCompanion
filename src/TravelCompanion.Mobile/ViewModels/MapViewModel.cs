@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.Logging;
 using TravelCompanion.Mobile.Pages;
 using TravelCompanion.Mobile.Services;
 using TravelCompanion.Shared;
@@ -10,7 +12,8 @@ public sealed partial class MapViewModel(
     AuthSessionService sessionService,
     MobileBootstrapStore bootstrapStore,
     PendingItineraryActionStore pendingStore,
-    TravelCompanionApiClient apiClient) : ViewModelBase, ISessionStateResettable
+    TravelCompanionApiClient apiClient,
+    ILogger<MapViewModel> logger) : ViewModelBase, ISessionStateResettable
 {
     private const int PageSize = 10;
     private const decimal TokyoStationLatitude = 35.681236m;
@@ -25,6 +28,8 @@ public sealed partial class MapViewModel(
     private IReadOnlyList<RecommendationDto> _visibleNearbyRecommendations = [];
     private string _searchText = string.Empty;
     private string? _activeSearchQuery;
+    private IReadOnlyList<RecommendationDto> _searchResults = [];
+    private string? _searchCacheKey;
 
     public string SearchText { get => _searchText; set => SetProperty(ref _searchText, value); }
 
@@ -171,6 +176,8 @@ public sealed partial class MapViewModel(
         TotalItems = 0;
         SearchText = string.Empty;
         _activeSearchQuery = null;
+        _searchResults = [];
+        _searchCacheKey = null;
         OnPropertyChanged(nameof(CanAddToItinerary));
     }
 
@@ -255,31 +262,65 @@ public sealed partial class MapViewModel(
         if (string.IsNullOrWhiteSpace(SearchText))
         {
             _activeSearchQuery = null;
+            _searchResults = [];
+            _searchCacheKey = null;
             await LoadNearbyRecommendationsLocalFirstAsync(ct);
             return;
         }
-        _activeSearchQuery = SearchText.Trim();
-        await LoadSearchPageAsync(1, ct);
+        var searchQuery = SearchText.Trim();
+        var previousActiveSearchQuery = _activeSearchQuery;
+        _activeSearchQuery = searchQuery;
+        var searchKey = $"{sessionService.ContextVersion}:{sessionService.CurrentUserId}:{sessionService.CurrentTripId}:{System.Globalization.CultureInfo.CurrentUICulture.Name}:{searchQuery}";
+        if (!string.Equals(searchKey, _searchCacheKey, StringComparison.Ordinal))
+        {
+            var token = await sessionService.GetTokenAsync();
+            if (string.IsNullOrWhiteSpace(token)) return;
+            var result = await apiClient.SearchPlacesResultAsync(
+                token,
+                new PlaceSearchRequest(searchQuery),
+                ct);
+            if (result.IsUnauthorized)
+            {
+                sessionService.Clear();
+                await Shell.Current.GoToAsync("//login");
+                return;
+            }
+            if (result.Value is not { } results)
+            {
+                _activeSearchQuery = previousActiveSearchQuery;
+                StatusMessage = "No pudimos actualizar la búsqueda. Inténtalo de nuevo.";
+                return;
+            }
+            var currentSearchKey = $"{sessionService.ContextVersion}:{sessionService.CurrentUserId}:{sessionService.CurrentTripId}:{System.Globalization.CultureInfo.CurrentUICulture.Name}:{SearchText.Trim()}";
+            if (!string.Equals(searchKey, currentSearchKey, StringComparison.Ordinal))
+            {
+                _activeSearchQuery = previousActiveSearchQuery;
+                return;
+            }
+            _searchResults = results;
+            _searchCacheKey = searchKey;
+        }
+        StatusMessage = null;
+        ApplySearchPage(1);
     });
 
-    private async Task LoadSearchPageAsync(int page, CancellationToken cancellationToken)
+    private void ApplySearchPage(int page)
     {
-        var token = await sessionService.GetTokenAsync();
-        if (string.IsNullOrWhiteSpace(token) || _activeSearchQuery is null) return;
-        var result = await apiClient.SearchPlacesPageAsync(token, new PlaceSearchRequest(_activeSearchQuery), page, cancellationToken);
-        if (result is null) return;
         SelectedRecommendation = null;
-        CurrentPage = result.Page;
-        TotalItems = result.TotalItems;
-        TotalPages = result.TotalPages;
-        VisibleNearbyRecommendations = result.Items;
+        TotalItems = _searchResults.Count;
+        TotalPages = Math.Max(1, (int)Math.Ceiling(TotalItems / (double)PageSize));
+        CurrentPage = Math.Clamp(page, 1, TotalPages);
+        VisibleNearbyRecommendations = _searchResults
+            .Skip((CurrentPage - 1) * PageSize)
+            .Take(PageSize)
+            .ToList();
         OnPropertyChanged(nameof(CanBrowseSelectedRecommendations));
         OnPropertyChanged(nameof(SelectedRecommendationPosition));
     }
 
 
     [RelayCommand]
-    private async Task PreviousPageAsync()
+    private void PreviousPage()
     {
         if (!CanGoPrevious)
         {
@@ -287,13 +328,13 @@ public sealed partial class MapViewModel(
         }
 
         SelectedRecommendation = null;
-        if (_activeSearchQuery is not null) { await LoadAsync(ct => LoadSearchPageAsync(CurrentPage - 1, ct)); return; }
+        if (_activeSearchQuery is not null) { ApplySearchPage(CurrentPage - 1); return; }
         CurrentPage--;
         ApplyCurrentPage();
     }
 
     [RelayCommand]
-    private async Task NextPageAsync()
+    private void NextPage()
     {
         if (!CanGoNext)
         {
@@ -301,13 +342,15 @@ public sealed partial class MapViewModel(
         }
 
         SelectedRecommendation = null;
-        if (_activeSearchQuery is not null) { await LoadAsync(ct => LoadSearchPageAsync(CurrentPage + 1, ct)); return; }
+        if (_activeSearchQuery is not null) { ApplySearchPage(CurrentPage + 1); return; }
         CurrentPage++;
         ApplyCurrentPage();
     }
 
     private async Task LoadNearbyRecommendationsLocalFirstAsync(CancellationToken cancellationToken = default)
     {
+        var usableContentStopwatch = Stopwatch.StartNew();
+        var usableContentLogged = false;
         var token = await sessionService.GetTokenAsync();
         if (string.IsNullOrWhiteSpace(token))
         {
@@ -321,6 +364,11 @@ public sealed partial class MapViewModel(
         if (cached is not null)
         {
             ApplyBootstrap(cached.Value, resetPage);
+            logger.LogInformation(
+                "Map usable content available in {ElapsedMs}ms. Source=cache; Items={ItemCount}.",
+                usableContentStopwatch.Elapsed.TotalMilliseconds,
+                VisibleNearbyRecommendations.Count);
+            usableContentLogged = true;
             MarkLastUpdated(cached.SavedAt);
             resetPage = false;
 
@@ -335,17 +383,31 @@ public sealed partial class MapViewModel(
 
         try
         {
-            var bootstrap = await bootstrapStore.RefreshAsync(token, cancellationToken: cancellationToken);
-            if (bootstrap is null)
+            var result = await bootstrapStore.RefreshResultAsync(token, cancellationToken: cancellationToken);
+            if (result.IsUnauthorized)
             {
                 sessionService.Clear();
                 await Shell.Current.GoToAsync("//login");
                 return;
             }
 
-            ApplyBootstrap(bootstrap, resetPage);
-            MarkLastUpdated(DateTimeOffset.UtcNow);
-            StatusMessage = null;
+            if (result.Value is { } bootstrap)
+            {
+                ApplyBootstrap(bootstrap, resetPage);
+                if (!usableContentLogged)
+                {
+                    logger.LogInformation(
+                        "Map usable content available in {ElapsedMs}ms. Source=network; Items={ItemCount}.",
+                        usableContentStopwatch.Elapsed.TotalMilliseconds,
+                        VisibleNearbyRecommendations.Count);
+                }
+                MarkLastUpdated(DateTimeOffset.UtcNow);
+                StatusMessage = null;
+            }
+            else if (cached is null)
+            {
+                throw new HttpRequestException("No pudimos cargar el mapa. Comprueba la conexión e inténtalo de nuevo.");
+            }
         }
         catch
         {
@@ -380,7 +442,7 @@ public sealed partial class MapViewModel(
 
     private void ApplyRecommendations(IReadOnlyList<RecommendationDto> recommendations, bool resetPage)
     {
-        SelectedRecommendation = null;
+        var selectedKey = SelectedRecommendation?.SelectionKey;
         _allNearbyRecommendations.Clear();
         _allNearbyRecommendations.AddRange(recommendations);
         if (resetPage)
@@ -391,6 +453,9 @@ public sealed partial class MapViewModel(
         TotalItems = _allNearbyRecommendations.Count;
         TotalPages = Math.Max(1, (int)Math.Ceiling(TotalItems / (double)PageSize));
         ApplyCurrentPage();
+        SelectedRecommendation = selectedKey is null
+            ? null
+            : VisibleNearbyRecommendations.FirstOrDefault(item => item.SelectionKey == selectedKey);
     }
 
     private void ApplyCurrentPage()

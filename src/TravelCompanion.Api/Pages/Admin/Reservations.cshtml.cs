@@ -14,8 +14,14 @@ public sealed class ReservationsModel(
     TravelCompanionDbContext dbContext,
     IPasswordHasher<Trip>? tripPinHasher = null) : PageModel
 {
+    private const int DefaultPageSize = 50;
+    private const int MaximumPageSize = 100;
     public List<TripRow> Trips { get; private set; } = [];
     public List<ReservationRow> Reservations { get; private set; } = [];
+    [BindProperty(SupportsGet = true)] public int PageNumber { get; set; } = 1;
+    [BindProperty(SupportsGet = true)] public int PageSize { get; set; } = DefaultPageSize;
+    public int TotalReservations { get; private set; }
+    public int TotalReservationPages => Math.Max(1, (int)Math.Ceiling(TotalReservations / (double)PageSize));
     public List<SelectListItem> TripOptions { get; private set; } = [];
     public List<SelectListItem> UserOptions { get; private set; } = [];
     public List<SelectListItem> DestinationOptions { get; private set; } = [];
@@ -298,6 +304,8 @@ public sealed class ReservationsModel(
 
     private async Task LoadPageDataAsync(Guid? selectedTripId)
     {
+        PageSize = Math.Clamp(PageSize, 1, MaximumPageSize);
+        var requestAborted = HttpContext?.RequestAborted ?? CancellationToken.None;
         UserOptions = await dbContext.AppUsers
             .AsNoTracking()
             .OrderBy(user => user.Email)
@@ -364,9 +372,14 @@ public sealed class ReservationsModel(
             reservationsQuery = reservationsQuery.Where(reservation => reservation.TripId == selectedTripId.Value);
         }
 
+        TotalReservations = await reservationsQuery.CountAsync(requestAborted);
+        PageNumber = Math.Clamp(PageNumber, 1, TotalReservationPages);
         Reservations = await reservationsQuery
             .OrderBy(reservation => reservation.Date)
             .ThenBy(reservation => reservation.StartsAt)
+            .ThenBy(reservation => reservation.Id)
+            .Skip((PageNumber - 1) * PageSize)
+            .Take(PageSize)
             .Select(reservation => new ReservationRow(
                 reservation.Id,
                 reservation.ExternalId,
@@ -393,7 +406,7 @@ public sealed class ReservationsModel(
                 reservation.DestinationAirport,
                 reservation.SourceName,
                 reservation.Recommendation != null ? reservation.Recommendation.Title : null))
-            .ToListAsync();
+            .ToListAsync(requestAborted);
     }
 
     private static void MarkPublishedPlanChanged(Trip trip)

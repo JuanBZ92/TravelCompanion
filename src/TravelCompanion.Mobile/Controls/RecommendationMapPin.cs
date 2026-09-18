@@ -4,5 +4,5 @@ namespace TravelCompanion.Mobile.Controls;
 
 public sealed class RecommendationMapPin : Pin
 {
-    public bool IsSelected { get; init; }
+    public bool IsSelected { get; set; }
 }

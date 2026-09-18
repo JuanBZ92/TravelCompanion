@@ -407,7 +407,7 @@ public sealed class TravelChatService(
         }
 
         var ranked = planningResult.RankedRecommendations
-            .Take(isGuidedRequest ? 1 : 3)
+            .Take(isGuidedRequest ? 2 : 3)
             .ToList();
         var cards = ranked.Select(scored => responseComposer.ToRecommendationCard(scored, context) with
         {

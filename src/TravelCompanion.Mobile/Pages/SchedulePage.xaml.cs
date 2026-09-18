@@ -51,6 +51,7 @@ public partial class SchedulePage : ContentPage
 
     protected override void OnDisappearing()
     {
+        _viewModel.CancelLoading();
         _viewModel.CancelRouteLoading();
         base.OnDisappearing();
     }
