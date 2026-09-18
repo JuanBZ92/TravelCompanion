@@ -4,5 +4,15 @@ namespace TravelCompanion.Mobile.Controls;
 
 public sealed class RecommendationMapPin : Pin
 {
-    public bool IsSelected { get; set; }
+    public static readonly BindableProperty IsSelectedProperty = BindableProperty.Create(
+        nameof(IsSelected),
+        typeof(bool),
+        typeof(RecommendationMapPin),
+        false);
+
+    public bool IsSelected
+    {
+        get => (bool)GetValue(IsSelectedProperty);
+        set => SetValue(IsSelectedProperty, value);
+    }
 }

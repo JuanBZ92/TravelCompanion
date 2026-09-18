@@ -21,7 +21,7 @@ public static class MapPinSelectionStyling
 
 #if ANDROID
         MapPinHandler.Mapper.AppendToMapping(
-            "TravelCompanionRecommendationSelection",
+            nameof(RecommendationMapPin.IsSelected),
             (handler, pin) =>
             {
                 if (pin is not RecommendationMapPin recommendationPin)

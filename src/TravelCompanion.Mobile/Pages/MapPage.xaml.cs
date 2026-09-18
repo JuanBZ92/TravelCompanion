@@ -92,7 +92,7 @@ public partial class MapPage : ContentPage
 #if !WINDOWS
             if (!_hasRenderedPins)
             {
-                RefreshMapPins();
+                TryRefreshMapPins();
             }
 #endif
             stopwatch.Stop();
@@ -131,37 +131,59 @@ public partial class MapPage : ContentPage
 #endif
     }
 
-    private async void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(MapViewModel.VisibleNearbyRecommendations))
         {
+            void ApplyRecommendations()
+            {
 #if !WINDOWS
-            RefreshMapPins();
+                TryRefreshMapPins();
 #endif
-            try
-            {
-                await ResultsScroll.ScrollToAsync(0, 0, false);
+                _ = ResetResultsScrollAsync();
             }
-            catch (Exception exception)
+
+            if (Dispatcher.IsDispatchRequired)
             {
-                _logger.LogDebug(exception, "Could not reset the map results scroll position.");
+                Dispatcher.Dispatch(ApplyRecommendations);
+            }
+            else
+            {
+                ApplyRecommendations();
             }
         }
 #if !WINDOWS
         else if (e.PropertyName == nameof(MapViewModel.SelectedRecommendation))
         {
-            DismissSearchKeyboard();
-            try
+            void ApplySelection()
             {
-                RefreshMapPins(moveToBounds: false);
-                FocusRecommendation(_viewModel.SelectedRecommendation);
+                DismissSearchKeyboard();
+                TryRefreshMapPins(moveToBounds: false);
+                TryFocusRecommendation(_viewModel.SelectedRecommendation);
             }
-            catch (Exception exception)
+
+            if (Dispatcher.IsDispatchRequired)
             {
-                _logger.LogDebug(exception, "Could not focus the selected map recommendation.");
+                Dispatcher.Dispatch(ApplySelection);
+            }
+            else
+            {
+                ApplySelection();
             }
         }
 #endif
+    }
+
+    private async Task ResetResultsScrollAsync()
+    {
+        try
+        {
+            await ResultsScroll.ScrollToAsync(0, 0, false);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogDebug(exception, "Could not reset the map results scroll position.");
+        }
     }
 
 #if !WINDOWS
@@ -191,7 +213,8 @@ public partial class MapPage : ContentPage
     {
         var stopwatch = Stopwatch.StartNew();
         var recommendationsByKey = _viewModel.VisibleNearbyRecommendations
-            .ToDictionary(recommendation => recommendation.SelectionKey, StringComparer.Ordinal);
+            .GroupBy(recommendation => recommendation.SelectionKey, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
         foreach (var staleKey in _pinsBySelectionKey.Keys.Except(recommendationsByKey.Keys, StringComparer.Ordinal).ToList())
         {
             var stalePin = _pinsBySelectionKey[staleKey];
@@ -207,7 +230,14 @@ public partial class MapPage : ContentPage
         {
             if (!_pinsBySelectionKey.TryGetValue(selectionKey, out var pin))
             {
-                pin = new RecommendationMapPin { Type = PinType.Place };
+                pin = new RecommendationMapPin
+                {
+                    Label = recommendation.Title,
+                    Address = recommendation.Neighborhood,
+                    Type = PinType.Place,
+                    Location = new Location((double)recommendation.Latitude, (double)recommendation.Longitude),
+                    IsSelected = selectionKey == _viewModel.SelectedRecommendation?.SelectionKey
+                };
                 EventHandler<PinClickedEventArgs> handler = (_, args) =>
                 {
                     args.HideInfoWindow = true;
@@ -224,11 +254,13 @@ public partial class MapPage : ContentPage
                 pin.MarkerClicked += handler;
                 _map.Pins.Add(pin);
             }
-
-            pin.Label = recommendation.Title;
-            pin.Address = recommendation.Neighborhood;
-            pin.Location = new Location((double)recommendation.Latitude, (double)recommendation.Longitude);
-            pin.IsSelected = selectionKey == _viewModel.SelectedRecommendation?.SelectionKey;
+            else
+            {
+                pin.Label = recommendation.Title;
+                pin.Address = recommendation.Neighborhood;
+                pin.Location = new Location((double)recommendation.Latitude, (double)recommendation.Longitude);
+                pin.IsSelected = selectionKey == _viewModel.SelectedRecommendation?.SelectionKey;
+            }
         }
 
         if (moveToBounds)
@@ -242,6 +274,19 @@ public partial class MapPage : ContentPage
             "Map pins refreshed in {ElapsedMs}ms. Pins={PinCount}.",
             stopwatch.Elapsed.TotalMilliseconds,
             _viewModel.VisibleNearbyRecommendations.Count);
+    }
+
+    private void TryRefreshMapPins(bool moveToBounds = true)
+    {
+        try
+        {
+            RefreshMapPins(moveToBounds);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Could not render map pins.");
+            _viewModel.ErrorMessage = "No pudimos mostrar los marcadores del mapa. Inténtalo de nuevo.";
+        }
     }
 
     private void MoveToRecommendationBounds(IReadOnlyCollection<RecommendationDto> recommendations)
@@ -274,6 +319,18 @@ public partial class MapPage : ContentPage
         _map.MoveToRegion(MapSpan.FromCenterAndRadius(
             location,
             Distance.FromKilometers(1.2)));
+    }
+
+    private void TryFocusRecommendation(RecommendationDto? recommendation)
+    {
+        try
+        {
+            FocusRecommendation(recommendation);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogDebug(exception, "Could not focus the selected map recommendation.");
+        }
     }
 
 #if IOS || MACCATALYST
