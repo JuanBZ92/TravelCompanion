@@ -20,6 +20,11 @@ public sealed class GooglePlacesService(
     IOptions<GooglePlacesOptions> options,
     ILogger<GooglePlacesService> logger) : IGooglePlacesService
 {
+    private const double JapanSouthLatitude = 20.0;
+    private const double JapanWestLongitude = 122.0;
+    private const double JapanNorthLatitude = 46.5;
+    private const double JapanEastLongitude = 154.5;
+
     public async Task<IReadOnlyList<PlaceSuggestionDto>> AutocompleteAsync(PlaceAutocompleteRequest request, CancellationToken cancellationToken)
     {
         if (!options.Value.Enabled || string.IsNullOrWhiteSpace(options.Value.ApiKey)) return [];
@@ -64,13 +69,13 @@ public sealed class GooglePlacesService(
             $"https://places.googleapis.com/v1/places/{Uri.EscapeDataString(request.PlaceId)}?languageCode={Language(request.Locale)}"
             + (string.IsNullOrWhiteSpace(request.SessionToken) ? string.Empty : $"&sessionToken={Uri.EscapeDataString(request.SessionToken)}"));
         message.Headers.Add("X-Goog-Api-Key", options.Value.ApiKey);
-        message.Headers.Add("X-Goog-FieldMask", "id,displayName,formattedAddress,location,primaryType");
+        message.Headers.Add("X-Goog-FieldMask", "id,displayName,formattedAddress,addressComponents,location,primaryType");
         try
         {
             using var response = await httpClientFactory.CreateClient().SendAsync(message, timeout.Token);
             if (!response.IsSuccessStatusCode) { logger.LogWarning("Places details returned {StatusCode}.", (int)response.StatusCode); return null; }
             var place = await response.Content.ReadFromJsonAsync<GooglePlace>(cancellationToken: timeout.Token);
-            return place?.Location is null ? null : new RecommendationDto(Guid.Empty, destinationId,
+            return place?.Location is null || !IsInJapan(place) ? null : new RecommendationDto(Guid.Empty, destinationId,
                 place.DisplayName?.Text ?? "Hotel", place.PrimaryType ?? "lodging", place.FormattedAddress ?? string.Empty,
                 string.Empty, [], "medium", (decimal)place.Location.Latitude, (decimal)place.Location.Longitude,
                 60, null, null, ContentAccessLevel.Free, [], null)
@@ -126,14 +131,19 @@ public sealed class GooglePlacesService(
             timeout.CancelAfter(TimeSpan.FromSeconds(5));
             using var message = new HttpRequestMessage(HttpMethod.Post, "https://places.googleapis.com/v1/places:searchText");
             message.Headers.Add("X-Goog-Api-Key", configuration.ApiKey);
-            message.Headers.Add("X-Goog-FieldMask", "places.id,places.displayName,places.formattedAddress,places.location,places.primaryType,places.rating");
+            message.Headers.Add("X-Goog-FieldMask", "places.id,places.displayName,places.formattedAddress,places.addressComponents,places.location,places.primaryType,places.rating");
             message.Content = JsonContent.Create(new
             {
-                textQuery = string.IsNullOrWhiteSpace(request.City) ? request.Query.Trim() : $"{request.Query.Trim()} in {request.City.Trim()}, Japan",
+                textQuery = BuildAutocompleteInput(request.Query, request.City),
                 maxResultCount = Math.Clamp(configuration.MaxResults, 1, 20),
-                locationBias = request.Latitude.HasValue && request.Longitude.HasValue
-                    ? new { circle = new { center = new { latitude = request.Latitude, longitude = request.Longitude }, radius = 15000.0 } }
-                    : null
+                locationRestriction = new
+                {
+                    rectangle = new
+                    {
+                        low = new { latitude = JapanSouthLatitude, longitude = JapanWestLongitude },
+                        high = new { latitude = JapanNorthLatitude, longitude = JapanEastLongitude }
+                    }
+                }
             });
             using var response = await httpClientFactory.CreateClient().SendAsync(message, timeout.Token);
             if (!response.IsSuccessStatusCode)
@@ -143,7 +153,10 @@ public sealed class GooglePlacesService(
             }
 
             var payload = await response.Content.ReadFromJsonAsync<GooglePlacesResponse>(cancellationToken: timeout.Token);
-            return payload?.Places?.Where(place => place.Location is not null && !string.IsNullOrWhiteSpace(place.Id))
+            return payload?.Places?.Where(place =>
+                    place.Location is not null
+                    && !string.IsNullOrWhiteSpace(place.Id)
+                    && IsInJapan(place))
                 .Select(place => new RecommendationDto(
                     Guid.Empty, destinationId, place.DisplayName?.Text ?? "Lugar", place.PrimaryType ?? "place",
                     place.FormattedAddress ?? string.Empty, string.Empty, [], "medium",
@@ -177,9 +190,29 @@ public sealed class GooglePlacesService(
         [property: JsonPropertyName("id")] string Id,
         [property: JsonPropertyName("displayName")] GoogleDisplayName? DisplayName,
         [property: JsonPropertyName("formattedAddress")] string? FormattedAddress,
+        [property: JsonPropertyName("addressComponents")] List<GoogleAddressComponent>? AddressComponents,
         [property: JsonPropertyName("location")] GoogleLocation? Location,
         [property: JsonPropertyName("primaryType")] string? PrimaryType,
         [property: JsonPropertyName("rating")] double? Rating);
     private sealed record GoogleDisplayName([property: JsonPropertyName("text")] string Text);
     private sealed record GoogleLocation([property: JsonPropertyName("latitude")] double Latitude, [property: JsonPropertyName("longitude")] double Longitude);
+    private sealed record GoogleAddressComponent(
+        [property: JsonPropertyName("shortText")] string? ShortText,
+        [property: JsonPropertyName("types")] List<string>? Types);
+
+    private static bool IsInJapan(GooglePlace place)
+    {
+        if (place.Location is null
+            || place.Location.Latitude < JapanSouthLatitude
+            || place.Location.Latitude > JapanNorthLatitude
+            || place.Location.Longitude < JapanWestLongitude
+            || place.Location.Longitude > JapanEastLongitude)
+        {
+            return false;
+        }
+
+        return place.AddressComponents?.Any(component =>
+            component.Types?.Contains("country", StringComparer.Ordinal) == true
+            && string.Equals(component.ShortText, "JP", StringComparison.OrdinalIgnoreCase)) == true;
+    }
 }
