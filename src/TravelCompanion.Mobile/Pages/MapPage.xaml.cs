@@ -26,7 +26,8 @@ public partial class MapPage : ContentPage
 
 #if !WINDOWS
     private readonly MauiMap _map;
-    private readonly Dictionary<Pin, EventHandler<PinClickedEventArgs>> _pinHandlers = new();
+    private readonly Dictionary<Pin, EventHandler<PinClickedEventArgs>> _pinHandlers =
+        new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<string, RecommendationMapPin> _pinsBySelectionKey = new(StringComparer.Ordinal);
     private bool _isSubscribedToRecommendations;
     private bool _hasRenderedPins;
@@ -56,7 +57,7 @@ public partial class MapPage : ContentPage
             new Location(35.681236, 139.767125),
             Distance.FromKilometers(8)))
         {
-            IsShowingUser = true,
+            IsShowingUser = false,
             MapType = MapType.Street
         };
 

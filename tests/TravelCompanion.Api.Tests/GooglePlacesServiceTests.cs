@@ -135,6 +135,33 @@ public sealed class GooglePlacesServiceTests
         Assert.Contains("addressComponents", Assert.Single(handler.FieldMasks));
     }
 
+    [Fact]
+    public async Task Details_accepts_a_place_inside_japan_when_country_component_is_missing()
+    {
+        const string response = """
+            {
+              "id": "hotel-kyoto-1",
+              "displayName": { "text": "Hotel Kyoto" },
+              "formattedAddress": "Kyoto, Japan",
+              "location": { "latitude": 35.0116, "longitude": 135.7681 },
+              "primaryType": "hotel"
+            }
+            """;
+        var service = new GooglePlacesService(
+            new Factory(new Handler(response)),
+            Microsoft.Extensions.Options.Options.Create(new GooglePlacesOptions { Enabled = true, ApiKey = "test" }),
+            NullLogger<GooglePlacesService>.Instance);
+
+        var result = await service.DetailsAsync(
+            Guid.NewGuid(),
+            new PlaceDetailsRequest("hotel-kyoto-1", string.Empty, "es-ES"),
+            CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal("Hotel Kyoto", result.Title);
+        Assert.Equal("hotel-kyoto-1", result.ProviderPlaceId);
+    }
+
     private sealed class Factory(Handler handler) : IHttpClientFactory
     {
         public HttpClient CreateClient(string name) => new(handler, disposeHandler: false);

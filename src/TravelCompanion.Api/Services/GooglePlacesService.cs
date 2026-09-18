@@ -75,7 +75,7 @@ public sealed class GooglePlacesService(
             using var response = await httpClientFactory.CreateClient().SendAsync(message, timeout.Token);
             if (!response.IsSuccessStatusCode) { logger.LogWarning("Places details returned {StatusCode}.", (int)response.StatusCode); return null; }
             var place = await response.Content.ReadFromJsonAsync<GooglePlace>(cancellationToken: timeout.Token);
-            return place?.Location is null || !IsInJapan(place) ? null : new RecommendationDto(Guid.Empty, destinationId,
+            return place?.Location is null || !IsPlaceDetailsInJapan(place) ? null : new RecommendationDto(Guid.Empty, destinationId,
                 place.DisplayName?.Text ?? "Hotel", place.PrimaryType ?? "lodging", place.FormattedAddress ?? string.Empty,
                 string.Empty, [], "medium", (decimal)place.Location.Latitude, (decimal)place.Location.Longitude,
                 60, null, null, ContentAccessLevel.Free, [], null)
@@ -202,11 +202,7 @@ public sealed class GooglePlacesService(
 
     private static bool IsInJapan(GooglePlace place)
     {
-        if (place.Location is null
-            || place.Location.Latitude < JapanSouthLatitude
-            || place.Location.Latitude > JapanNorthLatitude
-            || place.Location.Longitude < JapanWestLongitude
-            || place.Location.Longitude > JapanEastLongitude)
+        if (!IsWithinJapanBounds(place))
         {
             return false;
         }
@@ -215,4 +211,30 @@ public sealed class GooglePlacesService(
             component.Types?.Contains("country", StringComparer.Ordinal) == true
             && string.Equals(component.ShortText, "JP", StringComparison.OrdinalIgnoreCase)) == true;
     }
+
+    private static bool IsPlaceDetailsInJapan(GooglePlace place)
+    {
+        if (!IsWithinJapanBounds(place))
+        {
+            return false;
+        }
+
+        var country = place.AddressComponents?.FirstOrDefault(component =>
+            component.Types?.Contains("country", StringComparer.Ordinal) == true);
+        if (country is not null)
+        {
+            return string.Equals(country.ShortText, "JP", StringComparison.OrdinalIgnoreCase);
+        }
+
+        return place.FormattedAddress?.Contains("Japan", StringComparison.OrdinalIgnoreCase) == true
+            || place.FormattedAddress?.Contains("Japón", StringComparison.OrdinalIgnoreCase) == true
+            || place.FormattedAddress?.Contains("日本", StringComparison.Ordinal) == true;
+    }
+
+    private static bool IsWithinJapanBounds(GooglePlace place) =>
+        place.Location is not null
+        && place.Location.Latitude >= JapanSouthLatitude
+        && place.Location.Latitude <= JapanNorthLatitude
+        && place.Location.Longitude >= JapanWestLongitude
+        && place.Location.Longitude <= JapanEastLongitude;
 }

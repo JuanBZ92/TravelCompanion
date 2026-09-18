@@ -276,6 +276,59 @@ public sealed class ItineraryBuilderServiceTests
     }
 
     [Fact]
+    public async Task Builder_persists_selected_google_hotel_metadata_for_today()
+    {
+        await using var dbContext = CreateDbContext();
+        var destination = CreateDestination();
+        var user = CreateUser();
+        dbContext.AddRange(destination, user, new BuilderAccessGrant
+        {
+            Id = Guid.NewGuid(),
+            AppUserId = user.Id,
+            AppUser = user,
+            DestinationId = destination.Id,
+            Destination = destination,
+            PinHash = "test"
+        });
+        await dbContext.SaveChangesAsync();
+
+        var sessionService = new UserSessionService(dbContext);
+        var (_, token) = await sessionService.CreateSessionAsync(user, accessMode: SessionAccessMode.Builder);
+        var startsOn = new DateOnly(2026, 10, 1);
+        var service = new BuilderTripService(dbContext, sessionService);
+        var setup = await service.SaveAsync(
+            CreateHttpContext(token),
+            new SaveBuilderTripSetupRequest(
+                startsOn,
+                startsOn.AddDays(1),
+                "Asia/Tokyo",
+                0,
+                [new BuilderTripSetupSegmentDto(
+                    "Kyoto",
+                    startsOn,
+                    startsOn.AddDays(1),
+                    "Hotel Kyoto",
+                    "Kyoto, Japan",
+                    35.0116m,
+                    135.7681m,
+                    "hotel-kyoto-1")]));
+
+        var segment = Assert.Single(setup.Segments);
+        Assert.Equal("Hotel Kyoto", segment.HotelName);
+        Assert.Equal("Kyoto, Japan", segment.HotelAddress);
+        Assert.Equal(35.0116m, segment.HotelLatitude);
+        Assert.Equal(135.7681m, segment.HotelLongitude);
+        Assert.All(
+            await dbContext.TripDayPlans.Where(day => day.TripId == setup.TripId).ToListAsync(),
+            day =>
+            {
+                Assert.Equal("Hotel Kyoto", day.HotelBase);
+                Assert.Equal("Kyoto, Japan", day.BaseAddress);
+                Assert.Equal("hotel-kyoto-1", day.BaseProviderPlaceId);
+            });
+    }
+
+    [Fact]
     public async Task Builder_delete_rejects_curated_trip_even_when_grant_points_to_it()
     {
         await using var dbContext = CreateDbContext();

@@ -229,12 +229,11 @@ public sealed class BuilderTripService(
 
             day.DayNumber = date.DayNumber - trip.StartsOn.DayNumber + 1;
             day.City = segment.City.Trim();
-            var externalHotel = !string.IsNullOrWhiteSpace(segment.HotelPlaceId);
-            day.HotelBase = externalHotel ? string.Empty : segment.HotelName?.Trim() ?? string.Empty;
-            day.BaseAddress = externalHotel ? string.Empty : segment.HotelAddress?.Trim() ?? string.Empty;
+            day.HotelBase = segment.HotelName?.Trim() ?? string.Empty;
+            day.BaseAddress = segment.HotelAddress?.Trim() ?? string.Empty;
             day.BaseProviderPlaceId = segment.HotelPlaceId?.Trim();
-            day.BaseLatitude = externalHotel ? null : segment.HotelLatitude;
-            day.BaseLongitude = externalHotel ? null : segment.HotelLongitude;
+            day.BaseLatitude = segment.HotelLatitude;
+            day.BaseLongitude = segment.HotelLongitude;
             foreach (var period in TripPlanPeriods.All)
             {
                 var block = day.Blocks.FirstOrDefault(item => item.PeriodKey == period.Key);
@@ -287,15 +286,28 @@ public sealed class BuilderTripService(
         var resolved = new Dictionary<string, RecommendationDto?>();
         foreach (var segment in dto.Segments)
         {
-            if (string.IsNullOrWhiteSpace(segment.HotelPlaceId)) { segments.Add(segment); continue; }
+            if (string.IsNullOrWhiteSpace(segment.HotelPlaceId)
+                || (!string.IsNullOrWhiteSpace(segment.HotelName)
+                    && !string.IsNullOrWhiteSpace(segment.HotelAddress)
+                    && segment.HotelLatitude.HasValue
+                    && segment.HotelLongitude.HasValue))
+            {
+                segments.Add(segment);
+                continue;
+            }
             if (!resolved.TryGetValue(segment.HotelPlaceId, out var place))
             {
                 place = googlePlaces is null ? null : await googlePlaces.DetailsAsync(trip.DestinationId,
                     new PlaceDetailsRequest(segment.HotelPlaceId, string.Empty), cancellationToken);
                 resolved[segment.HotelPlaceId] = place;
             }
-            segments.Add(segment with { HotelName = place?.Title ?? "Hotel", HotelAddress = place?.Neighborhood,
-                HotelLatitude = place?.Latitude, HotelLongitude = place?.Longitude });
+            segments.Add(segment with
+            {
+                HotelName = place?.Title ?? (string.IsNullOrWhiteSpace(segment.HotelName) ? "Hotel" : segment.HotelName),
+                HotelAddress = place?.Neighborhood ?? segment.HotelAddress,
+                HotelLatitude = place?.Latitude ?? segment.HotelLatitude,
+                HotelLongitude = place?.Longitude ?? segment.HotelLongitude
+            });
         }
         return dto with { Segments = segments };
     }

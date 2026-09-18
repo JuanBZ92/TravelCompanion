@@ -16,7 +16,8 @@ public partial class FreeMapPage : ContentPage
 
 #if !WINDOWS
     private readonly MauiMap _map;
-    private readonly Dictionary<Pin, EventHandler<PinClickedEventArgs>> _pinHandlers = [];
+    private readonly Dictionary<Pin, EventHandler<PinClickedEventArgs>> _pinHandlers =
+        new(ReferenceEqualityComparer.Instance);
     private Circle? _selectionIndicator;
 #endif
 
