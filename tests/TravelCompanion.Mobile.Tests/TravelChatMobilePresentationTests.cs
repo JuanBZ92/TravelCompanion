@@ -103,6 +103,34 @@ public sealed class TravelChatMobilePresentationTests
     }
 
     [Fact]
+    public void Recommendation_message_replaces_only_the_selected_card()
+    {
+        static TravelChatCardViewModel Card(string title) => new(new TravelCardDto(
+            "recommendation",
+            title,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            [],
+            [],
+            Guid.NewGuid().ToString(),
+            null));
+
+        var first = Card("First");
+        var second = Card("Second");
+        var replacement = Card("Replacement");
+        var message = new TravelChatMessageViewModel(string.Empty, false, [first, second]);
+
+        Assert.True(message.ReplaceCard(first, replacement));
+        Assert.Equal(["Replacement", "Second"], message.Cards.Select(card => card.Title));
+        Assert.True(replacement.CanSave);
+    }
+
+    [Fact]
     public void Normalize_travel_chat_response_preserves_safe_guided_question()
     {
         var response = new TravelChatResponse(

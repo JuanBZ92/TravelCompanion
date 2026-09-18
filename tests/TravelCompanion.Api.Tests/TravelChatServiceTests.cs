@@ -1683,9 +1683,11 @@ public sealed class TravelChatServiceTests
         cheapFood.Tags = ["food", "ramen"];
         var mediumFood = CreateRecommendation(destinationId, "Local dinner", "Food", "Dinner in Tokyo.", 60, "medium");
         mediumFood.Tags = ["food", "local"];
+        var premiumFood = CreateRecommendation(destinationId, "Premium dinner", "Food", "Premium dinner in Tokyo.", 60, "high");
+        premiumFood.Tags = ["food", "dinner"];
         var cheapCulture = CreateRecommendation(destinationId, "Free gallery", "Culture", "Culture in Tokyo.", 45, "free");
         cheapCulture.Tags = ["culture", "art"];
-        var user = await SeedPlanningWorldAsync(dbContext, destinationId, cheapFood, mediumFood, cheapCulture);
+        var user = await SeedPlanningWorldAsync(dbContext, destinationId, cheapFood, mediumFood, premiumFood, cheapCulture);
         var service = CreateService(dbContext);
         var criteria = new GuidedPlanCriteriaDto(
             GuidedTravelCategories.Food,
@@ -1713,7 +1715,9 @@ public sealed class TravelChatServiceTests
                 new DateOnly(2026, 10, 6),
                 null,
                 "es-ES",
-                new GuidedTravelActionDto(GuidedTravelActions.Alternative),
+                new GuidedTravelActionDto(
+                    GuidedTravelActions.Alternative,
+                    RecommendationId: first.Cards[0].RecommendationId),
                 criteria),
             CancellationToken.None);
         var exhausted = await service.CreatePlanAsync(
@@ -1731,8 +1735,9 @@ public sealed class TravelChatServiceTests
 
         Assert.Equal(2, first.Cards.Count);
         Assert.Equal(["Cheap ramen", "Local dinner"], first.Cards.Select(card => card.Title));
-        Assert.Empty(second.Cards);
-        Assert.Equal("adjust", second.GuidedQuestion?.Id);
+        var replacement = Assert.Single(second.Cards);
+        Assert.Equal("Premium dinner", replacement.Title);
+        Assert.DoesNotContain(second.Cards, card => card.RecommendationId == first.Cards[1].RecommendationId);
         Assert.Empty(exhausted.Cards);
         Assert.Equal("adjust", exhausted.GuidedQuestion?.Id);
         Assert.Equal(GuidedTravelCategories.Food, exhausted.Criteria?.Category);

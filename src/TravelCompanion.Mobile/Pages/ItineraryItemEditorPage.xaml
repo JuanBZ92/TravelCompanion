@@ -63,7 +63,7 @@
                            TextColor="#6E675F" />
                 </VerticalStackLayout>
                 <Entry Placeholder="Dirección (opcional)" Text="{Binding Address}" />
-                <VerticalStackLayout Spacing="6"><Label Text="DÍA" Style="{StaticResource Eyebrow}"/><DatePicker Date="{Binding Date}" /></VerticalStackLayout>
+                <VerticalStackLayout Spacing="6"><Label Text="DÍA" Style="{StaticResource Eyebrow}"/><DatePicker Date="{Binding Date}" MinimumDate="{Binding MinimumDate}" MaximumDate="{Binding MaximumDate}" /></VerticalStackLayout>
                 <VerticalStackLayout Spacing="6"><Label Text="MOMENTO" Style="{StaticResource Eyebrow}"/><Picker ItemsSource="{Binding Periods}" SelectedItem="{Binding SelectedPeriod}" /></VerticalStackLayout>
                 <Grid ColumnDefinitions="*,Auto" Padding="0,6"><Label Text="Definir hora exacta" VerticalOptions="Center"/><Switch Grid.Column="1" IsToggled="{Binding UseExactTime}" /></Grid>
                 <TimePicker Time="{Binding Time}" IsVisible="{Binding UseExactTime}" />

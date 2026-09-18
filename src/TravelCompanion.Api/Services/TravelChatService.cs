@@ -88,6 +88,12 @@ public sealed class TravelChatService(
             && guidedCriteria is not null;
         var isAlternativeRequest = request.GuidedAction?.Action == GuidedTravelActions.Alternative
             || IsAlternativeRequest(request.Message);
+        var targetedReplacementId = isGuidedRequest
+            && isAlternativeRequest
+            && Guid.TryParse(request.GuidedAction?.RecommendationId, out var replacementId)
+                ? replacementId.ToString()
+                : null;
+        var isTargetedReplacement = targetedReplacementId is not null;
         if (isGuidedRequest)
         {
             request = request with
@@ -303,6 +309,10 @@ public sealed class TravelChatService(
             ? string.IsNullOrWhiteSpace(conversationState.LastResponseMode) ? BalancedMode : conversationState.LastResponseMode
             : actionPlan.ResponseMode;
         var explicitRecommendationIds = ParseRecommendationIds(request.Message);
+        if (targetedReplacementId is not null)
+        {
+            explicitRecommendationIds.Add(targetedReplacementId);
+        }
         var samePlanningContext = conversationState.LastDate == date
             && string.Equals(conversationState.LastCity, city, StringComparison.OrdinalIgnoreCase);
         HashSet<string> previousRecommendationIds = isAlternativeRequest && samePlanningContext
@@ -407,7 +417,7 @@ public sealed class TravelChatService(
         }
 
         var ranked = planningResult.RankedRecommendations
-            .Take(isGuidedRequest ? 2 : 3)
+            .Take(isTargetedReplacement ? 1 : isGuidedRequest ? 2 : 3)
             .ToList();
         var cards = ranked.Select(scored => responseComposer.ToRecommendationCard(scored, context) with
         {

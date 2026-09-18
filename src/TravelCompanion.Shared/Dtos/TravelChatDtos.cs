@@ -26,7 +26,10 @@ public sealed record TravelChatResponse(
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     GuidedPlanCriteriaDto? Criteria = null);
 
-public sealed record GuidedTravelActionDto(string Action, string? OptionId = null);
+public sealed record GuidedTravelActionDto(
+    string Action,
+    string? OptionId = null,
+    string? RecommendationId = null);
 
 public sealed record GuidedPlanCriteriaDto(
     string? Category = null,

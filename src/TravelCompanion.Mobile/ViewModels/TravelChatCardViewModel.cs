@@ -49,7 +49,7 @@ public sealed partial class TravelChatCardViewModel : ObservableObject
     public string RecommendationReference => RecommendationId?.ToString() ?? Title;
     public TimeOnly? StartsAt { get; }
     public TimeOnly? EndsAt { get; }
-    public bool CanSave => RecommendationId.HasValue && StartsAt.HasValue && !IsSaved;
+    public bool CanSave => RecommendationId.HasValue && !IsSaved;
     public string SaveButtonText => IsSaved ? Resource("AssistantSavedButton") : Resource("AssistantSaveButton");
     public string DetailButtonText => Resource("AssistantDetailButton");
     public string NearbyButtonText => Resource("AssistantNearbyButton");

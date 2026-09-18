@@ -16,6 +16,8 @@ public sealed partial class ItineraryItemEditorViewModel(
 {
     private RecommendationDto? _recommendation;
     private DateTime _date = DateTime.Today;
+    private DateTime _minimumDate = DateTime.Today;
+    private DateTime _maximumDate = DateTime.Today.AddYears(2);
     private string _selectedPeriod = "Tarde";
     private bool _useExactTime;
     private TimeSpan _time = new(15, 0, 0);
@@ -76,6 +78,8 @@ public sealed partial class ItineraryItemEditorViewModel(
             }
         }
     }
+    public DateTime MinimumDate { get => _minimumDate; private set => SetProperty(ref _minimumDate, value); }
+    public DateTime MaximumDate { get => _maximumDate; private set => SetProperty(ref _maximumDate, value); }
     public string SelectedPeriod { get => _selectedPeriod; set => SetProperty(ref _selectedPeriod, value); }
     public bool UseExactTime { get => _useExactTime; set => SetProperty(ref _useExactTime, value); }
     public TimeSpan Time { get => _time; set => SetProperty(ref _time, value); }
@@ -95,7 +99,10 @@ public sealed partial class ItineraryItemEditorViewModel(
     public bool HasPlaceSearchMessage => !string.IsNullOrWhiteSpace(PlaceSearchMessage);
     public bool CanSearchPlaces => _recommendation is null;
 
-    public async Task InitializeAsync(RecommendationDto recommendation)
+    public async Task InitializeAsync(
+        RecommendationDto recommendation,
+        DateOnly? initialDate = null,
+        TimeOnly? suggestedStartTime = null)
     {
         CancelPlaceSearch();
         _existingItem = null;
@@ -110,7 +117,27 @@ public sealed partial class ItineraryItemEditorViewModel(
         OnPropertyChanged(nameof(Subtitle));
         OnPropertyChanged(nameof(CanSearchPlaces));
         var setup = await LoadSetupAsync();
-        if (setup is not null) Date = (setup.ArrivalDate ?? DateOnly.FromDateTime(DateTime.Today)).ToDateTime(TimeOnly.MinValue);
+        if (setup is not null)
+        {
+            var fallbackDate = setup.ArrivalDate ?? DateOnly.FromDateTime(DateTime.Today);
+            var selectedDate = initialDate.HasValue
+                && _segments.Any(segment => initialDate.Value >= segment.StartsOn && initialDate.Value <= segment.EndsOn)
+                    ? initialDate.Value
+                    : fallbackDate;
+            Date = selectedDate.ToDateTime(TimeOnly.MinValue);
+        }
+
+        if (suggestedStartTime.HasValue)
+        {
+            Time = suggestedStartTime.Value.ToTimeSpan();
+            SelectedPeriod = suggestedStartTime.Value.Hour switch
+            {
+                < 12 => "Mañana",
+                < 15 => "Medio día",
+                < 19 => "Tarde",
+                _ => "Noche"
+            };
+        }
     }
 
     public async Task InitializeManualAsync(DateOnly date, string periodKey)
@@ -341,6 +368,11 @@ public sealed partial class ItineraryItemEditorViewModel(
         var setup = string.IsNullOrWhiteSpace(token) ? null : await apiClient.GetBuilderTripSetupAsync(token);
         _revision = setup?.Revision ?? 0;
         _segments = setup?.Segments ?? [];
+        if (setup?.ArrivalDate is { } arrivalDate)
+        {
+            MinimumDate = arrivalDate.ToDateTime(TimeOnly.MinValue);
+            MaximumDate = (setup.DepartureDate ?? arrivalDate).ToDateTime(TimeOnly.MinValue);
+        }
         RefreshCurrentCity();
         return setup;
     }

@@ -345,25 +345,28 @@
                                                                             Padding="10,6"
                                                                             MinimumHeightRequest="44"
                                                                             IsVisible="{Binding CanDismiss}" />
-                                                                    <ImageButton Source="action_delete.svg"
-                                                                                 Clicked="OnRemovePersonalRecommendationClicked"
-                                                                                 BackgroundColor="Transparent"
-                                                                                 WidthRequest="44"
-                                                                                 HeightRequest="44"
-                                                                                 Padding="10"
-                                                                                 IsVisible="{Binding CanRemove}"
-                                                                                 SemanticProperties.Description="Quitar del itinerario"
-                                                                                 ToolTipProperties.Text="Quitar del itinerario" />
                                                                 </HorizontalStackLayout>
                                                             </VerticalStackLayout>
-                                                            <Image Grid.Column="1"
-                                                                   Source="tab_map.svg"
-                                                                   WidthRequest="24"
-                                                                   HeightRequest="24"
-                                                                   Opacity="0.78"
-                                                                   VerticalOptions="Center"
-                                                                   InputTransparent="True"
-                                                                   SemanticProperties.Description="Abrir en el mapa" />
+                                                            <VerticalStackLayout Grid.Column="1"
+                                                                                 Spacing="20"
+                                                                                 VerticalOptions="Center">
+                                                                <Image Source="tab_map.svg"
+                                                                       WidthRequest="24"
+                                                                       HeightRequest="24"
+                                                                       Margin="10"
+                                                                       Opacity="0.78"
+                                                                       InputTransparent="True"
+                                                                       SemanticProperties.Description="Abrir en el mapa" />
+                                                                <ImageButton Source="action_delete.svg"
+                                                                             Clicked="OnRemovePersonalRecommendationClicked"
+                                                                             BackgroundColor="Transparent"
+                                                                             WidthRequest="44"
+                                                                             HeightRequest="44"
+                                                                             Padding="10"
+                                                                             IsVisible="{Binding CanRemove}"
+                                                                             SemanticProperties.Description="Quitar del itinerario"
+                                                                             ToolTipProperties.Text="Quitar del itinerario" />
+                                                            </VerticalStackLayout>
                                                             <Grid.GestureRecognizers>
                                                                 <TapGestureRecognizer Tapped="OnTodayLocationTapped" />
                                                             </Grid.GestureRecognizers>

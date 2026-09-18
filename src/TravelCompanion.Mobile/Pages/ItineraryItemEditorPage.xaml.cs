@@ -16,7 +16,14 @@ public partial class ItineraryItemEditorPage : ContentPage, IQueryAttributable
     {
         if (query.TryGetValue("Recommendation", out var value) && value is RecommendationDto recommendation)
         {
-            MainThread.BeginInvokeOnMainThread(async () => await _viewModel.InitializeAsync(recommendation));
+            var initialDate = query.TryGetValue("Date", out var dateValue) && dateValue is DateOnly date
+                ? date
+                : (DateOnly?)null;
+            var suggestedStartTime = query.TryGetValue("SuggestedStartTime", out var timeValue) && timeValue is TimeOnly time
+                ? time
+                : (TimeOnly?)null;
+            MainThread.BeginInvokeOnMainThread(
+                async () => await _viewModel.InitializeAsync(recommendation, initialDate, suggestedStartTime));
         }
         else if (query.TryGetValue("Date", out var dateValue) && dateValue is DateOnly date
             && query.TryGetValue("PeriodKey", out var periodValue) && periodValue is string periodKey)

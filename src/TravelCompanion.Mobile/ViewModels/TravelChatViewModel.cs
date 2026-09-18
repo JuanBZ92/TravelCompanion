@@ -15,7 +15,8 @@ public sealed partial class TravelChatViewModel(
     ILocationService locationService,
     MobileBootstrapStore bootstrapStore,
     OfflineMutationQueueService mutationQueueService,
-    OfflineSyncCoordinator syncCoordinator) : ViewModelBase, ISessionStateResettable
+    OfflineSyncCoordinator syncCoordinator,
+    PendingItineraryActionStore pendingItineraryActionStore) : ViewModelBase, ISessionStateResettable
 {
     private static readonly TimeSpan TravelChatNetworkTimeout = TimeSpan.FromSeconds(20);
     private string? _conversationId;
@@ -31,6 +32,7 @@ public sealed partial class TravelChatViewModel(
     private CancellationTokenSource? _chatRequestCancellationTokenSource;
     private GuidedPlanCriteriaDto? _guidedCriteria;
     private GuidedTravelActionDto? _pendingGuidedAction;
+    private TravelChatCardViewModel? _pendingReplacementCard;
     private string _guidedStep = "category";
     private string _guidedQuestionText = Resource("AssistantGuidedCategoryQuestion");
     private bool _hasGuidedQuestion = true;
@@ -354,6 +356,7 @@ public sealed partial class TravelChatViewModel(
     private void ToggleFreeText()
     {
         _pendingGuidedAction = null;
+        _pendingReplacementCard = null;
         IsFreeTextVisible = !IsFreeTextVisible;
     }
 
@@ -397,13 +400,16 @@ public sealed partial class TravelChatViewModel(
         try
         {
             var isGuidedSubmission = _pendingGuidedAction is not null;
+            var replacementCard = _pendingReplacementCard;
+            var isTargetedReplacement = replacementCard is not null
+                && _pendingGuidedAction?.Action == GuidedTravelActions.Alternative;
             _isExplicitlyCancelled = false;
             IsBusy = true;
             ErrorMessage = null;
             StatusMessage = null;
             ClearMissingContext();
             MessageText = string.Empty;
-            if (isGuidedSubmission)
+            if (isGuidedSubmission && !isTargetedReplacement)
             {
                 Messages.Clear();
                 HasGuidedQuestion = false;
@@ -445,10 +451,25 @@ public sealed partial class TravelChatViewModel(
             _lastIntent = response.Intent;
             _guidedCriteria = response.Criteria ?? _guidedCriteria;
             _pendingGuidedAction = null;
+            _pendingReplacementCard = null;
             var cards = (response.Cards ?? [])
                 .Select(card => new TravelChatCardViewModel(card))
                 .ToList();
-            Messages.Add(new TravelChatMessageViewModel(response.Message, isFromUser: false, cards));
+            if (isTargetedReplacement && replacementCard is not null)
+            {
+                var replacement = cards.FirstOrDefault();
+                var containingMessage = Messages.FirstOrDefault(item => item.Cards.Contains(replacementCard));
+                if (replacement is not null)
+                {
+                    containingMessage?.ReplaceCard(replacementCard, replacement);
+                }
+
+                StatusMessage = response.Message;
+            }
+            else
+            {
+                Messages.Add(new TravelChatMessageViewModel(response.Message, isFromUser: false, cards));
+            }
             SuggestedReplies.Clear();
             foreach (var reply in response.SuggestedReplies ?? [])
             {
@@ -535,27 +556,9 @@ public sealed partial class TravelChatViewModel(
             return;
         }
 
-        if (sessionService.RequiresTripSetup)
-        {
-            MissingContextMessage = "Configura las fechas y ciudades de tu viaje para guardar planes.";
-            MissingContextField = "tripSetup";
-            MissingContextSuggestions.Clear();
-            MissingContextSuggestions.Add("Configurar mi viaje");
-            return;
-        }
-        if (card is null || !card.CanSave || !card.RecommendationId.HasValue || !card.StartsAt.HasValue)
+        if (card is null || !card.CanSave || !card.RecommendationId.HasValue)
         {
             StatusMessage = Resource("AssistantNoReadyPlan");
-            return;
-        }
-
-        var confirmed = await Shell.Current.DisplayAlertAsync(
-            Resource("AssistantSaveTitle"),
-            string.Format(CultureInfo.CurrentCulture, Resource("AssistantSaveMessage"), card.Title),
-            Resource("AssistantSaveButton"),
-            Resource("AssistantCancel"));
-        if (!confirmed)
-        {
             return;
         }
 
@@ -567,39 +570,36 @@ public sealed partial class TravelChatViewModel(
             return;
         }
 
-        var clientMutationId = Guid.NewGuid();
         try
         {
             IsBusy = true;
             ErrorMessage = null;
             StatusMessage = null;
-
-            var saveRequest = new SaveItineraryItemRequest(
-                card.RecommendationId.Value,
-                DateOnly.FromDateTime(PlanningDate),
-                card.StartsAt.Value,
-                card.EndsAt,
-                clientMutationId);
-
-            var response = await apiClient.SaveItineraryItemAsync(token, saveRequest);
-
-            if (response?.Saved == true)
+            var recommendation = await FindRecommendationAsync(card.RecommendationId.Value, token);
+            if (recommendation is null)
             {
-                card.IsSaved = true;
-                StatusMessage = response.Message;
-                if (response.Item is not null)
-                {
-                    await bootstrapStore.UpsertScheduleItemAsync(response.Item);
-                }
-
+                StatusMessage = Resource("AssistantDetailNotFound");
                 return;
             }
 
-            ErrorMessage = response?.Message ?? Resource("AssistantSaveError");
-        }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
-        {
-            await QueueSaveItineraryItemAsync(card, ex.Message, clientMutationId);
+            if (sessionService.RequiresTripSetup)
+            {
+                pendingItineraryActionStore.Set(recommendation);
+                await Shell.Current.GoToAsync(nameof(BuilderSetupPage));
+                return;
+            }
+
+            var parameters = new ShellNavigationQueryParameters
+            {
+                ["Recommendation"] = recommendation,
+                ["Date"] = DateOnly.FromDateTime(PlanningDate)
+            };
+            if (card.StartsAt.HasValue)
+            {
+                parameters["SuggestedStartTime"] = card.StartsAt.Value;
+            }
+
+            await Shell.Current.GoToAsync(nameof(ItineraryItemEditorPage), parameters);
         }
         catch (Exception ex)
         {
@@ -665,7 +665,7 @@ public sealed partial class TravelChatViewModel(
     {
         if (_guidedCriteria is not null)
         {
-            return SendGuidedPlanAsync(alternative: true);
+            return SendGuidedPlanAsync(alternative: true, card);
         }
 
         var reference = card?.RecommendationReference;
@@ -750,7 +750,9 @@ public sealed partial class TravelChatViewModel(
         await SendMessageAsync();
     }
 
-    private async Task SendGuidedPlanAsync(bool alternative)
+    private async Task SendGuidedPlanAsync(
+        bool alternative,
+        TravelChatCardViewModel? replacementCard = null)
     {
         if (_guidedCriteria is null || !GuidedTravelCategories.IsValid(_guidedCriteria.Category))
         {
@@ -759,7 +761,9 @@ public sealed partial class TravelChatViewModel(
         }
 
         _pendingGuidedAction = new GuidedTravelActionDto(
-            alternative ? GuidedTravelActions.Alternative : GuidedTravelActions.Recommend);
+            alternative ? GuidedTravelActions.Alternative : GuidedTravelActions.Recommend,
+            RecommendationId: replacementCard?.RecommendationId?.ToString());
+        _pendingReplacementCard = alternative ? replacementCard : null;
         MessageText = alternative
             ? Resource("AssistantGuidedAnotherRequest")
             : BuildGuidedRequestSummary(_guidedCriteria);
@@ -1095,6 +1099,7 @@ public sealed partial class TravelChatViewModel(
     {
         _guidedCriteria = null;
         _pendingGuidedAction = null;
+        _pendingReplacementCard = null;
         _guidedHistory.Clear();
         IsFreeTextVisible = false;
         IsSecondaryMenuVisible = false;
