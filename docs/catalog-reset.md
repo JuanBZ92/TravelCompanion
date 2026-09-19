@@ -12,6 +12,16 @@ dotnet run --project tools/TravelCompanion.CatalogAdmin -- "C:\path\Base de dato
 
 The tool applies pending migrations and ensures only the minimum technical records needed by the catalog. It then validates the workbook without changing recommendations or traveler data.
 
+## Refresh only the PIN 2222 trip
+
+To replace only the premium demonstration itinerary while preserving the catalog, the other users, and their trips, set `CATALOG_DATABASE_URL` and run:
+
+```powershell
+dotnet run --project tools/TravelCompanion.CatalogAdmin -- --refresh-premium-demo
+```
+
+This command finds the trip that currently authenticates with PIN `2222`, preserves its trip ID and user, and replaces only its itinerary with the 18-day, four-city example. If the demo trip does not exist, it creates it. It aborts without changes if more than one trip matches that PIN.
+
 ## Reset and import
 
 Use a new backup path. The tool refuses to overwrite an existing archive or run the reset without the explicit confirmation flag.
@@ -30,7 +40,7 @@ The reset keeps technical destination and free-map configuration, replaces the r
 
 - `0000`: Free map preview.
 - `1111`: Pago, ready to create a new itinerary.
-- `2222`: Premium, published three-day Tokyo example.
+- `2222`: Premium, published 18-day example across Tokyo, Kyoto, Osaka, and Fukuoka. Every day includes morning, midday, afternoon, and night plans; the itinerary mixes events and confirmed reservations and includes one selected hotel per city.
 
 ## Restore
 

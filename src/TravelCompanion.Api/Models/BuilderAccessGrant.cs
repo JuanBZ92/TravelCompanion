@@ -18,4 +18,10 @@ public sealed class BuilderAccessGrant
     public DateTimeOffset? RedeemedAtUtc { get; set; }
     public DateTimeOffset? ExpiresAtUtc { get; set; }
     public DateTimeOffset? RevokedAtUtc { get; set; }
+    public bool IsTrial { get; set; }
+    public DateTimeOffset? TrialEditingStartedAtUtc { get; set; }
+    public DateTimeOffset? TrialEditingExpiresAtUtc { get; set; }
+    public DateTimeOffset? TrialDraftExpiresAtUtc { get; set; }
+    public int TrialAssistantRequestsUsed { get; set; }
+    public DateTimeOffset? ConvertedAtUtc { get; set; }
 }

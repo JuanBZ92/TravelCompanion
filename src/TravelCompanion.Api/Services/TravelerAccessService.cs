@@ -4,7 +4,9 @@ using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Api.Services;
 
-public sealed class TravelerAccessService(UserSessionService sessionService)
+public sealed class TravelerAccessService(
+    UserSessionService sessionService,
+    FreeTrialAccessService? freeTrialAccessService = null)
 {
     public async Task<TravelerAccessContext?> GetAsync(HttpContext httpContext, CancellationToken cancellationToken = default)
     {
@@ -20,6 +22,25 @@ public sealed class TravelerAccessService(UserSessionService sessionService)
             SessionAccessMode.Builder => ExperienceMode.SelfServiceBuilder,
             _ => ExperienceMode.CuratedPremium
         };
+        if (session.AccessMode == SessionAccessMode.FreeMapPreview)
+        {
+            if (freeTrialAccessService is null)
+            {
+                return new TravelerAccessContext(session, mode, CreateCapabilities(mode, false));
+            }
+            var trial = await freeTrialAccessService.GetStatusAsync(session.User.Id, cancellationToken);
+            return new TravelerAccessContext(
+                session,
+                mode,
+                new TravelerCapabilitiesDto(
+                    CanViewFullMap: false,
+                    CanSearchGooglePlaces: false,
+                    CanEditItinerary: trial.CanEdit,
+                    HasCuratedDocs: false,
+                    RequiresTripSetup: !session.TripId.HasValue,
+                    CanCalculateRoutes: false));
+        }
+
         return new TravelerAccessContext(session, mode, CreateCapabilities(mode, mode == ExperienceMode.SelfServiceBuilder && !session.TripId.HasValue));
     }
 

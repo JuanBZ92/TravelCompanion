@@ -9,7 +9,8 @@ public sealed record TripScheduleDto(
     DateOnly StartsOn,
     DateOnly EndsOn,
     IReadOnlyList<ScheduleItemDto> Items,
-    int Revision = 0);
+    int Revision = 0,
+    IReadOnlyList<DayReviewDto>? DayReviews = null);
 
 public sealed record ScheduleItemDto(
     Guid Id,

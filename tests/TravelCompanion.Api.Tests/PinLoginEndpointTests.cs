@@ -67,6 +67,8 @@ public sealed class PinLoginEndpointTests
         Assert.Equal(seed.PinTripId, schedule.TripId);
         Assert.Equal("PIN Trip Traveler", schedule.TravelerName);
         Assert.Single(schedule.Items);
+        Assert.NotNull(schedule.DayReviews);
+        Assert.NotEmpty(schedule.DayReviews);
     }
 
     [Fact]

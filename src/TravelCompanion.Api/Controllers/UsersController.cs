@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using TravelCompanion.Api.Data;
 using TravelCompanion.Api.Models;
 using TravelCompanion.Api.Services;
+using TravelCompanion.Shared;
 using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Api.Controllers;
@@ -230,44 +231,19 @@ public sealed class UsersController(
 
     private static TripScheduleDto ToScheduleDto(Trip trip)
     {
+        var items = trip.Reservations
+            .OrderBy(reservation => reservation.Date)
+            .ThenBy(reservation => reservation.StartsAt)
+            .Select(TravelerItineraryService.ToDto)
+            .ToList();
         return new TripScheduleDto(
             trip.Id,
             trip.TravelerName,
             trip.Destination!.Name,
             trip.StartsOn,
             trip.EndsOn,
-            trip.Reservations
-                .OrderBy(reservation => reservation.Date)
-                .ThenBy(reservation => reservation.StartsAt)
-                .Select(reservation => new ScheduleItemDto(
-                    reservation.Id,
-                    reservation.RecommendationId,
-                    reservation.Type,
-                    reservation.Date,
-                    reservation.StartsAt,
-                    reservation.EndsOn,
-                    reservation.EndsAt,
-                    reservation.Title,
-                    reservation.City,
-                    reservation.LocationName,
-                    reservation.Address,
-                    reservation.ConfirmationCode,
-                    reservation.Notes,
-                    reservation.Airline,
-                    reservation.FlightNumber,
-                    reservation.OriginName,
-                    reservation.DestinationName,
-                    reservation.OriginAirport,
-                    reservation.DestinationAirport,
-                    reservation.PlanningKind,
-                    reservation.Owner,
-                    reservation.ItemSource,
-                    reservation.TimePrecision,
-                    reservation.SortOrder,
-                    reservation.ProviderPlaceId,
-                    reservation.Latitude,
-                    reservation.Longitude))
-                .ToList(),
-            trip.PlanRevision);
+            items,
+            trip.PlanRevision,
+            ScheduleReviewAnalyzer.Analyze(items, trip.StartsOn, trip.EndsOn));
     }
 }

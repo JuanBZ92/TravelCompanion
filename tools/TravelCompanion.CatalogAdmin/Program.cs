@@ -7,18 +7,29 @@ using TravelCompanion.Api.Data;
 using TravelCompanion.Api.Models;
 using TravelCompanion.Api.Services;
 
-if (args.Length == 0)
+var refreshPremiumDemo = args.Length == 1 && args[0] == "--refresh-premium-demo";
+if (args.Length == 0 || (args[0].StartsWith("--") && !refreshPremiumDemo))
 {
-    Console.Error.WriteLine("Usage: CatalogAdmin <workbook.xlsx> [--reset --backup <new-archive.dump> --confirm-delete-test-data]");
+    Console.Error.WriteLine("Usage:");
+    Console.Error.WriteLine("  CatalogAdmin --refresh-premium-demo");
+    Console.Error.WriteLine("  CatalogAdmin <workbook.xlsx> [--reset --backup <new-archive.dump> --confirm-delete-test-data]");
     return 1;
 }
 var connection = Environment.GetEnvironmentVariable("CATALOG_DATABASE_URL")
     ?? throw new InvalidOperationException("Set CATALOG_DATABASE_URL for the intended database; no default database is used.");
 var settings = ConnectionSettings(connection);
-var bytes = await File.ReadAllBytesAsync(Path.GetFullPath(args[0]));
 await using var db = new TravelCompanionDbContext(new DbContextOptionsBuilder<TravelCompanionDbContext>().UseNpgsql(settings.ConnectionString).Options);
 await db.Database.MigrateAsync();
 await DatabaseSeeder.SeedAsync(db, new PasswordHasher<AppUser>());
+if (refreshPremiumDemo)
+{
+    var refreshed = await new PremiumDemoTripRefreshService(db).RefreshAsync();
+    Console.WriteLine($"PIN 2222 trip {(refreshed.Created ? "created" : "updated")}: {refreshed.TripId}");
+    Console.WriteLine($"{refreshed.StartsOn:yyyy-MM-dd} to {refreshed.EndsOn:yyyy-MM-dd}; {refreshed.DayCount} days, {refreshed.CityCount} cities, {refreshed.BlockCount} periods, {refreshed.ReservationCount} items.");
+    return 0;
+}
+
+var bytes = await File.ReadAllBytesAsync(Path.GetFullPath(args[0]));
 var importer = new YukuJapanRecommendationImportService(db, NullLogger<YukuJapanRecommendationImportService>.Instance);
 using var previewStream = new MemoryStream(bytes, writable: false);
 var preview = await importer.PreviewAsync(previewStream);

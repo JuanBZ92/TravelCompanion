@@ -1,13 +1,15 @@
 using Microsoft.EntityFrameworkCore;
 using TravelCompanion.Api.Data;
 using TravelCompanion.Api.Models;
+using TravelCompanion.Shared;
 using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Api.Services;
 
 public sealed class BuilderTripService(
     TravelCompanionDbContext dbContext,
-    UserSessionService sessionService)
+    UserSessionService sessionService,
+    FreeTrialAccessService? freeTrialAccessService = null)
 {
     private const int MaxTripDays = 91;
 
@@ -22,9 +24,17 @@ public sealed class BuilderTripService(
         }
 
         var grant = await LoadGrantAsync(access.User.Id, cancellationToken);
+        var trialStatus = grant?.IsTrial == true ? freeTrialAccessService?.ToStatus(grant) : null;
+        if (trialStatus?.State == TrialAccessState.Expired)
+        {
+            return EmptySetup(
+                grant?.Destination?.Name ?? "Japan",
+                grant?.Destination?.TimeZoneId ?? "Asia/Tokyo",
+                trialStatus);
+        }
         if (grant?.TripId is null)
         {
-            return EmptySetup(grant?.Destination?.Name ?? "Japan", grant?.Destination?.TimeZoneId ?? "Asia/Tokyo");
+            return EmptySetup(grant?.Destination?.Name ?? "Japan", grant?.Destination?.TimeZoneId ?? "Asia/Tokyo", trialStatus);
         }
 
         var trip = await dbContext.Trips
@@ -36,7 +46,7 @@ public sealed class BuilderTripService(
             .FirstOrDefaultAsync(item => item.Id == grant.TripId && item.AppUserId == access.User.Id, cancellationToken);
         return trip is null || trip.ExperienceMode != ExperienceMode.SelfServiceBuilder
             ? null
-            : ToDto(trip);
+            : ToDto(trip, trialStatus);
     }
 
     public async Task<BuilderTripSetupDto> SaveAsync(
@@ -46,6 +56,10 @@ public sealed class BuilderTripService(
     {
         var access = await GetBuilderAccessAsync(httpContext, cancellationToken)
             ?? throw new UnauthorizedAccessException();
+        var trialStatus = access.Session.AccessMode == TravelCompanion.Shared.SessionAccessMode.FreeMapPreview
+            ? await (freeTrialAccessService?.RequireEditingAsync(access.User.Id, startIfNeeded: true, cancellationToken)
+                ?? throw new UnauthorizedAccessException())
+            : null;
         Validate(request);
 
         var grant = await LoadGrantAsync(access.User.Id, cancellationToken)
@@ -112,7 +126,7 @@ public sealed class BuilderTripService(
         trip.UpdatedAtUtc = DateTimeOffset.UtcNow;
         await dbContext.SaveChangesAsync(cancellationToken);
         await sessionService.BindCurrentSessionToTripAsync(httpContext, trip.Id, cancellationToken);
-        return ToDto(trip);
+        return ToDto(trip, trialStatus);
     }
 
     public async Task<BuilderTripSetupDto> DeleteAsync(
@@ -122,6 +136,11 @@ public sealed class BuilderTripService(
     {
         var access = await GetBuilderAccessAsync(httpContext, cancellationToken)
             ?? throw new UnauthorizedAccessException();
+        if (access.Session.AccessMode == TravelCompanion.Shared.SessionAccessMode.FreeMapPreview)
+        {
+            await (freeTrialAccessService?.RequireEditingAsync(access.User.Id, startIfNeeded: false, cancellationToken)
+                ?? throw new UnauthorizedAccessException());
+        }
         var grant = await LoadGrantAsync(access.User.Id, cancellationToken)
             ?? throw new InvalidOperationException("No active builder access was found.");
         if (grant.TripId != request.TripId)
@@ -167,13 +186,16 @@ public sealed class BuilderTripService(
         dbContext.Trips.Remove(trip);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return EmptySetup(grant.Destination?.Name ?? "Japan", grant.Destination?.TimeZoneId ?? "Asia/Tokyo");
+        return EmptySetup(
+            grant.Destination?.Name ?? "Japan",
+            grant.Destination?.TimeZoneId ?? "Asia/Tokyo",
+            grant.IsTrial ? freeTrialAccessService?.ToStatus(grant) : null);
     }
 
     private async Task<TravelerAccessContext?> GetBuilderAccessAsync(HttpContext context, CancellationToken cancellationToken)
     {
         var session = await sessionService.GetSessionContextAsync(context, cancellationToken);
-        return session?.AccessMode == TravelCompanion.Shared.SessionAccessMode.Builder
+        return session?.AccessMode is TravelCompanion.Shared.SessionAccessMode.Builder or TravelCompanion.Shared.SessionAccessMode.FreeMapPreview
             ? new TravelerAccessContext(session, ExperienceMode.SelfServiceBuilder, TravelerAccessService.CreateCapabilities(ExperienceMode.SelfServiceBuilder, !session.TripId.HasValue))
             : null;
     }
@@ -261,10 +283,13 @@ public sealed class BuilderTripService(
         }
     }
 
-    private static BuilderTripSetupDto EmptySetup(string destination, string timeZoneId) =>
-        new(false, null, 0, null, null, destination, timeZoneId, []);
+    private static BuilderTripSetupDto EmptySetup(
+        string destination,
+        string timeZoneId,
+        TrialAccessStatusDto? trialAccess = null) =>
+        new(false, null, 0, null, null, destination, timeZoneId, [], TrialAccess: trialAccess);
 
-    private static BuilderTripSetupDto ToDto(Trip trip)
+    private static BuilderTripSetupDto ToDto(Trip trip, TrialAccessStatusDto? trialAccess = null)
     {
         var segments = new List<BuilderTripSetupSegmentDto>();
         foreach (var day in trip.DayPlans.OrderBy(item => item.Date))
@@ -281,23 +306,26 @@ public sealed class BuilderTripService(
             }
         }
 
+        var scheduleItems = trip.Reservations
+            .OrderBy(item => item.Date)
+            .ThenBy(item => item.StartsAt)
+            .Select(TravelerItineraryService.ToDto)
+            .ToList();
         var schedule = new TripScheduleDto(
             trip.Id,
             trip.TravelerName,
             trip.Destination?.Name ?? "Japan",
             trip.StartsOn,
             trip.EndsOn,
-            trip.Reservations
-                .OrderBy(item => item.Date)
-                .ThenBy(item => item.StartsAt)
-                .Select(TravelerItineraryService.ToDto)
-                .ToList(),
-            trip.PlanRevision);
+            scheduleItems,
+            trip.PlanRevision,
+            ScheduleReviewAnalyzer.Analyze(scheduleItems, trip.StartsOn, trip.EndsOn));
         return new(
             true, trip.Id, trip.PlanRevision, trip.StartsOn, trip.EndsOn,
             trip.Destination?.Name ?? "Japan", trip.TimeZoneId, segments,
             trip.DayPlans.Select(day => day.Date).Order().ToList(),
-            schedule);
+            schedule,
+            trialAccess);
     }
 
 }

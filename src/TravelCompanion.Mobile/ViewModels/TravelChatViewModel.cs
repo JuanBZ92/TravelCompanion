@@ -223,6 +223,45 @@ public sealed partial class TravelChatViewModel(
         });
     }
 
+    public async Task RequestDayAlternativeAsync(DateOnly date, string? city, string? reviewSummary)
+    {
+        if (IsBusy)
+        {
+            return;
+        }
+
+        PlanningDate = date.ToDateTime(TimeOnly.MinValue);
+        if (!string.IsNullOrWhiteSpace(city))
+        {
+            City = city;
+        }
+
+        var context = string.IsNullOrWhiteSpace(reviewSummary)
+            ? string.Empty
+            : $" La revisión del día indica: {reviewSummary.Trim()}";
+        MessageText = $"Propón un plan mejor para este día.{context} Mantén todas mis reservas confirmadas y usa solamente los espacios libres.";
+        IsFreeTextVisible = true;
+        await SendMessageAsync();
+    }
+
+    public async Task RequestThematicRouteAsync(DateOnly date, string? city, string theme)
+    {
+        if (IsBusy || string.IsNullOrWhiteSpace(theme))
+        {
+            return;
+        }
+
+        PlanningDate = date.ToDateTime(TimeOnly.MinValue);
+        if (!string.IsNullOrWhiteSpace(city))
+        {
+            City = city;
+        }
+
+        MessageText = $"Crea un plan de {theme.Trim()} para este día con varias paradas cercanas entre sí. Mantén todas mis reservas confirmadas y usa solamente los espacios libres.";
+        IsFreeTextVisible = true;
+        await SendMessageAsync();
+    }
+
     public void ResetForNewSession()
     {
         ResetLoadState();
@@ -453,6 +492,10 @@ public sealed partial class TravelChatViewModel(
             }
 
             _lastFailedMessage = null;
+            if (response.TrialAccess is not null)
+            {
+                sessionService.ApplyTrialAccess(response.TrialAccess);
+            }
             _conversationId = response.ConversationId;
             _lastIntent = response.Intent;
             _guidedCriteria = response.Criteria ?? _guidedCriteria;
@@ -535,6 +578,13 @@ public sealed partial class TravelChatViewModel(
             return;
         }
 
+        if (string.Equals(MissingContextField, "upgrade", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(reply.Trim(), "Activar mi pase", StringComparison.OrdinalIgnoreCase))
+        {
+            await RedeemPassAsync();
+            return;
+        }
+
         if (IsRetryReply(reply))
         {
             MessageText = string.IsNullOrWhiteSpace(_lastFailedMessage)
@@ -558,7 +608,9 @@ public sealed partial class TravelChatViewModel(
     {
         if (!sessionService.CanEditItinerary)
         {
-            StatusMessage = "Este viaje curado no se puede modificar desde la app.";
+            StatusMessage = sessionService.IsTrial
+                ? "Tu tiempo de edición terminó. Activa el pase para conservar y seguir editando el viaje."
+                : "Este viaje curado no se puede modificar desde la app.";
             return;
         }
 
@@ -999,6 +1051,49 @@ public sealed partial class TravelChatViewModel(
         MissingContextMessage = null;
         MissingContextField = null;
         MissingContextSuggestions.Clear();
+    }
+
+    private async Task RedeemPassAsync()
+    {
+        if (Uri.TryCreate(sessionService.TrialPurchaseUrl, UriKind.Absolute, out var purchaseUri))
+        {
+            var action = await Shell.Current.DisplayActionSheetAsync(
+                "Pase Japón",
+                "Cancelar",
+                null,
+                $"Comprar · {sessionService.TrialPassPrice:0.00} {sessionService.TrialCurrency}",
+                "Ya tengo código");
+            if (action?.StartsWith("Comprar", StringComparison.Ordinal) == true)
+            {
+                await Launcher.Default.OpenAsync(purchaseUri);
+                return;
+            }
+            if (action != "Ya tengo código") return;
+        }
+        var pin = await Shell.Current.DisplayPromptAsync(
+            "Activar pase Japón",
+            $"Introduce tu código para continuar con el asistente y guardar el viaje ({sessionService.TrialPassPrice:0.00} {sessionService.TrialCurrency}).",
+            "Activar",
+            "Cancelar",
+            keyboard: Keyboard.Numeric,
+            maxLength: 6);
+        if (string.IsNullOrWhiteSpace(pin)) return;
+        var token = await sessionService.GetTokenAsync();
+        var session = string.IsNullOrWhiteSpace(token)
+            ? null
+            : await apiClient.RedeemTravelPassAsync(token, new string(pin.Where(char.IsDigit).ToArray()));
+        if (session is null)
+        {
+            ErrorMessage = "El código no es válido o ya fue utilizado.";
+            return;
+        }
+
+        await sessionService.SaveAsync(session);
+        if (Shell.Current is AppShell shell) shell.ApplySessionTabs(sessionService);
+        ClearMissingContext();
+        SuggestedReplies.Clear();
+        StatusMessage = "Pase activado. Tu itinerario y el asistente ya están desbloqueados.";
+        OnPropertyChanged(nameof(CanEditItinerary));
     }
 
     private bool CanSendMessage()

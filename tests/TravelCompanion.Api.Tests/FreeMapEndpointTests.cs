@@ -25,7 +25,7 @@ public sealed class FreeMapEndpointTests
     };
 
     [Fact]
-    public async Task Pin_0000_returns_preview_session_without_trip_and_blocks_private_endpoints()
+    public async Task Pin_0000_returns_isolated_trial_session_and_only_allows_trial_endpoints()
     {
         await using var factory = new FreeMapApiFactory();
         await factory.SeedMapAsync();
@@ -41,13 +41,13 @@ public sealed class FreeMapEndpointTests
         Assert.False(session.MustChangePassword);
 
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", session.Token);
-        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/mobile/bootstrap")).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/mobile/today")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/mobile/bootstrap")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/api/mobile/today")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/mobile/docs")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/me/schedule")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync("/api/mobile/places/autocomplete", new PlaceAutocompleteRequest("hotel", "Tokyo", Guid.NewGuid().ToString()))).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync("/api/mobile/places/details", new PlaceDetailsRequest("ChIJtest", Guid.NewGuid().ToString()))).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync(
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync(
             "/api/ai/travel-chat",
             new { message = "plan", locale = "es" })).StatusCode);
     }

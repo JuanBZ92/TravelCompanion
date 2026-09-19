@@ -8,7 +8,8 @@ namespace TravelCompanion.Api.Services;
 
 public sealed class TravelerItineraryService(
     TravelCompanionDbContext dbContext,
-    TravelerAccessService accessService)
+    TravelerAccessService accessService,
+    FreeTrialAccessService? freeTrialAccessService = null)
 {
     public async Task<ItineraryItemMutationResponse> CreateAsync(
         HttpContext httpContext,
@@ -16,6 +17,7 @@ public sealed class TravelerItineraryService(
         CancellationToken cancellationToken = default)
     {
         var access = await accessService.GetAsync(httpContext, cancellationToken);
+        await RequireActiveTrialEditingAsync(access, cancellationToken);
         if (access is null || !access.Capabilities.CanEditItinerary || access.TripId is null)
         {
             throw new UnauthorizedAccessException();
@@ -48,6 +50,13 @@ public sealed class TravelerItineraryService(
         if (request.RecommendationId.HasValue && recommendation is null)
         {
             throw new InvalidOperationException("La recomendacion no esta disponible para este viaje.");
+        }
+        if (access.Session.AccessMode == SessionAccessMode.FreeMapPreview
+            && (recommendation is null
+                || freeTrialAccessService is null
+                || !await freeTrialAccessService.IsRecommendationInFreeRadiusAsync(recommendation, cancellationToken)))
+        {
+            throw new InvalidOperationException("En la prueba gratuita solo puedes agregar recomendaciones dentro del radio abierto.");
         }
 
         var period = TripPlanPeriods.Find(periodKey)!;
@@ -107,6 +116,8 @@ public sealed class TravelerItineraryService(
         ItineraryItemMutationRequest request,
         CancellationToken cancellationToken = default)
     {
+        var access = await accessService.GetAsync(httpContext, cancellationToken);
+        await RequireActiveTrialEditingAsync(access, cancellationToken);
         var periodKey = ResolvePeriod(request);
         var (trip, block) = await LoadEditableContextAsync(httpContext, request.Date, periodKey, request.ExpectedRevision, cancellationToken);
         var item = trip.Reservations.SingleOrDefault(existing => existing.Id == id)
@@ -165,6 +176,7 @@ public sealed class TravelerItineraryService(
         CancellationToken cancellationToken = default)
     {
         var access = await accessService.GetAsync(httpContext, cancellationToken);
+        await RequireActiveTrialEditingAsync(access, cancellationToken);
         if (access is null || !access.Capabilities.CanEditItinerary || access.TripId is null)
         {
             throw new UnauthorizedAccessException();
@@ -190,6 +202,7 @@ public sealed class TravelerItineraryService(
         CancellationToken cancellationToken)
     {
         var access = await accessService.GetAsync(httpContext, cancellationToken);
+        await RequireActiveTrialEditingAsync(access, cancellationToken);
         if (access is null || !access.Capabilities.CanEditItinerary || access.TripId is null)
         {
             throw new UnauthorizedAccessException();
@@ -208,6 +221,17 @@ public sealed class TravelerItineraryService(
 
         var block = trip.DayPlans.Single(day => day.Date == date).Blocks.Single(item => item.PeriodKey == period.Key);
         return (trip, block);
+    }
+
+    private async Task RequireActiveTrialEditingAsync(
+        TravelerAccessContext? access,
+        CancellationToken cancellationToken)
+    {
+        if (access?.Session.AccessMode == SessionAccessMode.FreeMapPreview)
+        {
+            await (freeTrialAccessService?.RequireEditingAsync(access.User.Id, startIfNeeded: false, cancellationToken)
+                ?? throw new UnauthorizedAccessException());
+        }
     }
 
     public static ScheduleItemKind ResolveKind(bool exact, bool place) => place

@@ -21,6 +21,13 @@ public sealed class AuthSessionService
     private const string RequiresTripSetupKey = "auth_requires_trip_setup";
     private const string CanCalculateRoutesKey = "auth_can_calculate_routes";
     private const string AccessExpiresAtUtcKey = "auth_access_expires_at_utc";
+    private const string TrialStateKey = "auth_trial_state";
+    private const string TrialEditingExpiresAtUtcKey = "auth_trial_editing_expires_at_utc";
+    private const string TrialDraftExpiresAtUtcKey = "auth_trial_draft_expires_at_utc";
+    private const string TrialAssistantRemainingKey = "auth_trial_assistant_remaining";
+    private const string TrialPassPriceKey = "auth_trial_pass_price";
+    private const string TrialCurrencyKey = "auth_trial_currency";
+    private const string TrialPurchaseUrlKey = "auth_trial_purchase_url";
     private const string TokenKey = "auth_token";
 
     public bool HasSession => CurrentUserId.HasValue;
@@ -45,7 +52,23 @@ public sealed class AuthSessionService
         }
     }
     public bool IsBuilder => ExperienceMode == TravelCompanion.Shared.Dtos.ExperienceMode.SelfServiceBuilder;
-    public bool CanEditItinerary => Preferences.Default.Get(CanEditItineraryKey, IsBuilder);
+    public bool IsTrial => IsFreeMapPreview && Preferences.Default.ContainsKey(TrialStateKey);
+    public TrialAccessState? TrialState => Enum.TryParse<TrialAccessState>(
+        Preferences.Default.Get(TrialStateKey, string.Empty), out var state) ? state : null;
+    public DateTimeOffset? TrialEditingExpiresAtUtc => ReadTimestamp(TrialEditingExpiresAtUtcKey);
+    public DateTimeOffset? TrialDraftExpiresAtUtc => ReadTimestamp(TrialDraftExpiresAtUtcKey);
+    public int TrialAssistantRequestsRemaining => Preferences.Default.Get(TrialAssistantRemainingKey, 0);
+    public decimal TrialPassPrice => decimal.TryParse(
+        Preferences.Default.Get(TrialPassPriceKey, "24.99"),
+        System.Globalization.NumberStyles.Number,
+        System.Globalization.CultureInfo.InvariantCulture,
+        out var price) ? price : 24.99m;
+    public string TrialCurrency => Preferences.Default.Get(TrialCurrencyKey, "EUR");
+    public string? TrialPurchaseUrl => Preferences.Default.Get(TrialPurchaseUrlKey, string.Empty) is { Length: > 0 } url ? url : null;
+    public bool CanEditItinerary => Preferences.Default.Get(CanEditItineraryKey, IsBuilder)
+        && (!IsTrial
+            || TrialState == TrialAccessState.NotStarted
+            || TrialEditingExpiresAtUtc is { } editingExpiry && editingExpiry > DateTimeOffset.UtcNow);
     public bool CanSearchGooglePlaces => Preferences.Default.Get(CanSearchGooglePlacesKey, !IsFreeMapPreview);
     public bool HasCuratedDocs => Preferences.Default.Get(HasCuratedDocsKey, !IsBuilder && !IsFreeMapPreview);
     public bool RequiresTripSetup => Preferences.Default.Get(RequiresTripSetupKey, IsBuilder && !CurrentTripId.HasValue);
@@ -146,6 +169,7 @@ public sealed class AuthSessionService
         Preferences.Default.Set(
             BiometricEnabledKey,
             session.AccessMode != SessionAccessMode.FreeMapPreview && !session.MustChangePassword);
+        ApplyTrialAccess(session.TrialAccess);
         await SecureStorage.Default.SetAsync(TokenKey, session.Token).ConfigureAwait(false);
         Interlocked.Increment(ref _contextVersion);
     }
@@ -181,6 +205,26 @@ public sealed class AuthSessionService
     {
         ApplyCapabilities(state.Capabilities);
         Preferences.Default.Set(AccessExpiresAtUtcKey, state.AccessExpiresAtUtc.ToString("O"));
+        ApplyTrialAccess(state.TrialAccess);
+    }
+
+    public void ApplyTrialAccess(TrialAccessStatusDto? trial)
+    {
+        if (trial is null || !trial.IsTrial)
+        {
+            ClearTrialAccess();
+            return;
+        }
+
+        Preferences.Default.Set(TrialStateKey, trial.State.ToString());
+        SetTimestamp(TrialEditingExpiresAtUtcKey, trial.EditingExpiresAtUtc);
+        SetTimestamp(TrialDraftExpiresAtUtcKey, trial.DraftExpiresAtUtc);
+        Preferences.Default.Set(TrialAssistantRemainingKey, trial.AssistantRequestsRemaining);
+        Preferences.Default.Set(TrialPassPriceKey, trial.PassPrice.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        Preferences.Default.Set(TrialCurrencyKey, trial.Currency);
+        Preferences.Default.Set(TrialPurchaseUrlKey, trial.PurchaseUrl ?? string.Empty);
+        Preferences.Default.Set(CanEditItineraryKey, trial.CanEdit);
+        Interlocked.Increment(ref _contextVersion);
     }
 
     public void MarkTripConfigured(Guid tripId, string? destinationName = null)
@@ -218,7 +262,32 @@ public sealed class AuthSessionService
         Preferences.Default.Remove(RequiresTripSetupKey);
         Preferences.Default.Remove(CanCalculateRoutesKey);
         Preferences.Default.Remove(AccessExpiresAtUtcKey);
+        ClearTrialAccess();
         SecureStorage.Default.Remove(TokenKey);
         Interlocked.Increment(ref _contextVersion);
+    }
+
+    private static DateTimeOffset? ReadTimestamp(string key) =>
+        DateTimeOffset.TryParse(
+            Preferences.Default.Get(key, string.Empty),
+            System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.RoundtripKind,
+            out var value) ? value : null;
+
+    private static void SetTimestamp(string key, DateTimeOffset? value)
+    {
+        if (value.HasValue) Preferences.Default.Set(key, value.Value.ToString("O"));
+        else Preferences.Default.Remove(key);
+    }
+
+    private static void ClearTrialAccess()
+    {
+        Preferences.Default.Remove(TrialStateKey);
+        Preferences.Default.Remove(TrialEditingExpiresAtUtcKey);
+        Preferences.Default.Remove(TrialDraftExpiresAtUtcKey);
+        Preferences.Default.Remove(TrialAssistantRemainingKey);
+        Preferences.Default.Remove(TrialPassPriceKey);
+        Preferences.Default.Remove(TrialCurrencyKey);
+        Preferences.Default.Remove(TrialPurchaseUrlKey);
     }
 }

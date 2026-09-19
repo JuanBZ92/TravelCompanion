@@ -11,6 +11,7 @@ public partial class SchedulePage : ContentPage
     private readonly ScheduleViewModel _viewModel;
     private readonly ILogger<SchedulePage> _logger;
     private bool _isHandlingAppearance;
+    private IDispatcherTimer? _trialTimer;
     public ScheduleViewModel ViewModel => _viewModel;
 
     public SchedulePage()
@@ -47,6 +48,7 @@ public partial class SchedulePage : ContentPage
         }
 
         _isHandlingAppearance = true;
+        StartTrialTimer();
         await Dispatcher.DispatchAsync(HandleAppearingAsync);
     }
 
@@ -54,8 +56,21 @@ public partial class SchedulePage : ContentPage
     {
         _viewModel.CancelLoading();
         _viewModel.CancelRouteLoading();
+        _trialTimer?.Stop();
         base.OnDisappearing();
     }
+
+    private void StartTrialTimer()
+    {
+        _trialTimer ??= Dispatcher.CreateTimer();
+        _trialTimer.Interval = TimeSpan.FromSeconds(1);
+        _trialTimer.Tick -= OnTrialTimerTick;
+        _trialTimer.Tick += OnTrialTimerTick;
+        _viewModel.RefreshTrialCountdown();
+        _trialTimer.Start();
+    }
+
+    private void OnTrialTimerTick(object? sender, EventArgs e) => _viewModel.RefreshTrialCountdown();
 
     private async Task HandleAppearingAsync()
     {
@@ -135,17 +150,27 @@ public partial class SchedulePage : ContentPage
 
     private async void OnItineraryMenuClicked(object? sender, EventArgs e)
     {
-        if (!_viewModel.CanManageItinerary)
+        if (!_viewModel.HasItineraryActions)
         {
             return;
         }
 
+        var actions = new List<string>
+        {
+            "Crear ruta temática",
+            "Guardar para usar sin conexión",
+            "Compartir itinerario"
+        };
+        if (_viewModel.CanManageItinerary)
+        {
+            actions.Insert(0, "Editar itinerario");
+            actions.Add("Eliminar itinerario");
+        }
         var action = await DisplayActionSheetAsync(
             "Mi itinerario",
             "Cancelar",
             null,
-            "Editar itinerario",
-            "Eliminar itinerario");
+            actions.ToArray());
         if (action == "Editar itinerario")
         {
             await _viewModel.EditItineraryCommand.ExecuteAsync(null);
@@ -153,6 +178,30 @@ public partial class SchedulePage : ContentPage
         else if (action == "Eliminar itinerario")
         {
             await _viewModel.DeleteItineraryCommand.ExecuteAsync(null);
+        }
+        else if (action == "Guardar para usar sin conexión")
+        {
+            await _viewModel.DownloadOfflineCommand.ExecuteAsync(null);
+        }
+        else if (action == "Compartir itinerario")
+        {
+            await _viewModel.ShareItineraryCommand.ExecuteAsync(null);
+        }
+        else if (action == "Crear ruta temática")
+        {
+            var theme = await DisplayActionSheetAsync(
+                "¿Qué tipo de ruta quieres?",
+                "Cancelar",
+                null,
+                "Comida local",
+                "Templos e historia",
+                "Arte y diseño",
+                "Naturaleza y jardines",
+                "Barrios y compras");
+            if (!string.IsNullOrWhiteSpace(theme) && theme != "Cancelar")
+            {
+                await _viewModel.OpenThematicRouteCommand.ExecuteAsync(theme);
+            }
         }
     }
 

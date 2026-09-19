@@ -15,6 +15,7 @@ public sealed class MobileController(
     TravelCompanionDbContext dbContext,
     UserSessionService sessionService,
     TravelerAccessService accessService,
+    FreeTrialAccessService freeTrialAccessService,
     ITodayRecommendationService todayRecommendationService,
     ILogger<MobileController> logger) : ControllerBase
 {
@@ -27,9 +28,13 @@ public sealed class MobileController(
             return Unauthorized();
         }
 
-        var trip = access.TripId.HasValue
+        var trialAccess = access.Session.AccessMode == SessionAccessMode.FreeMapPreview
+            ? await freeTrialAccessService.GetStatusAsync(access.User.Id, cancellationToken)
+            : null;
+        var visibleTripId = trialAccess?.State == TrialAccessState.Expired ? null : access.TripId;
+        var trip = visibleTripId.HasValue
             ? await dbContext.Trips.AsNoTracking()
-                .Where(item => item.Id == access.TripId.Value && item.AppUserId == access.User.Id)
+                .Where(item => item.Id == visibleTripId.Value && item.AppUserId == access.User.Id)
                 .Select(item => new { item.Id, item.DestinationId, item.PlanRevision, DestinationSlug = item.Destination!.Slug })
                 .SingleOrDefaultAsync(cancellationToken)
             : null;
@@ -86,7 +91,8 @@ public sealed class MobileController(
             Version(MobileDataVersionScopes.Today(access.User.Id)),
             access.ExperienceMode == ExperienceMode.FreePreview
                 ? Version(MobileDataVersionScopes.FreeCatalogGlobal)
-                : destination is null ? 1 : Version(MobileDataVersionScopes.FreeCatalog(destination.Id)));
+                : destination is null ? 1 : Version(MobileDataVersionScopes.FreeCatalog(destination.Id)),
+            TrialAccess: trialAccess);
         var etag = $"\"m1-{state.TripId:N}-{state.DestinationId:N}-{state.CatalogVersion}-{state.ItineraryVersion}-{state.DocumentsVersion}-{state.TodayPersonalizationVersion}-{state.FreeCatalogVersion}-{state.Capabilities.CanViewFullMap}-{state.Capabilities.CanSearchGooglePlaces}-{state.Capabilities.CanEditItinerary}-{state.Capabilities.HasCuratedDocs}-{state.Capabilities.RequiresTripSetup}-{state.Capabilities.CanCalculateRoutes}-{state.AccessExpiresAtUtc.UtcTicks}\"";
         Response.Headers.ETag = etag;
         if (Request.Headers.IfNoneMatch.Any(value => string.Equals(value, etag, StringComparison.Ordinal)))
@@ -125,7 +131,9 @@ public sealed class MobileController(
 
         var entitlements = ToEntitlementsDto(user);
         var recommendationsStopwatch = Stopwatch.StartNew();
-        var recommendations = await GetUnlockedRecommendationsAsync(destination.Id, entitlements, cancellationToken);
+        var isFreePreview = await sessionService.GetSessionAccessModeAsync(HttpContext, cancellationToken)
+            == SessionAccessMode.FreeMapPreview;
+        var recommendations = await GetUnlockedRecommendationsAsync(destination.Id, entitlements, isFreePreview, cancellationToken);
         recommendationsStopwatch.Stop();
         totalStopwatch.Stop();
 
@@ -164,6 +172,11 @@ public sealed class MobileController(
             ? new GeoPointDto(latitude.Value, longitude.Value)
             : null;
         var sessionTripId = await sessionService.GetSessionTripIdAsync(HttpContext, cancellationToken);
+        if (await sessionService.GetSessionAccessModeAsync(HttpContext, cancellationToken) == SessionAccessMode.FreeMapPreview
+            && (await freeTrialAccessService.GetStatusAsync(user.Id, cancellationToken)).State == TrialAccessState.Expired)
+        {
+            sessionTripId = null;
+        }
         var today = await todayRecommendationService.GetTodayAsync(
             user,
             sessionTripId,
@@ -187,6 +200,11 @@ public sealed class MobileController(
         }
 
         var sessionTripId = await sessionService.GetSessionTripIdAsync(HttpContext, cancellationToken);
+        if (await sessionService.GetSessionAccessModeAsync(HttpContext, cancellationToken) == SessionAccessMode.FreeMapPreview
+            && (await freeTrialAccessService.GetStatusAsync(user.Id, cancellationToken)).State == TrialAccessState.Expired)
+        {
+            sessionTripId = null;
+        }
         var response = await todayRecommendationService.RecordSignalAsync(
             user,
             id,
@@ -213,6 +231,11 @@ public sealed class MobileController(
         }
 
         var sessionTripId = await sessionService.GetSessionTripIdAsync(HttpContext, cancellationToken);
+        if (await sessionService.GetSessionAccessModeAsync(HttpContext, cancellationToken) == SessionAccessMode.FreeMapPreview
+            && (await freeTrialAccessService.GetStatusAsync(user.Id, cancellationToken)).State == TrialAccessState.Expired)
+        {
+            sessionTripId = null;
+        }
         var destinationStopwatch = Stopwatch.StartNew();
         var destination = string.IsNullOrWhiteSpace(destinationSlug) && sessionTripId.HasValue
             ? await FindDestinationForTripAsync(user.Id, sessionTripId.Value, cancellationToken)
@@ -226,7 +249,9 @@ public sealed class MobileController(
 
         var entitlements = ToEntitlementsDto(user);
         var recommendationsStopwatch = Stopwatch.StartNew();
-        var unlockedRecommendations = await GetUnlockedRecommendationsAsync(destination.Id, entitlements, cancellationToken);
+        var isFreePreview = await sessionService.GetSessionAccessModeAsync(HttpContext, cancellationToken)
+            == SessionAccessMode.FreeMapPreview;
+        var unlockedRecommendations = await GetUnlockedRecommendationsAsync(destination.Id, entitlements, isFreePreview, cancellationToken);
         recommendationsStopwatch.Stop();
 
         var packagesStopwatch = Stopwatch.StartNew();
@@ -290,6 +315,11 @@ public sealed class MobileController(
 
         var entitlements = ToEntitlementsDto(user);
         if (!IsRecommendationUnlocked(recommendation, entitlements))
+        {
+            return NotFound();
+        }
+        if (await sessionService.GetSessionAccessModeAsync(HttpContext, cancellationToken) == SessionAccessMode.FreeMapPreview
+            && !await freeTrialAccessService.IsRecommendationInFreeRadiusAsync(recommendation, cancellationToken))
         {
             return NotFound();
         }
@@ -385,47 +415,25 @@ public sealed class MobileController(
             .ThenBy(existingTrip => existingTrip.StartsOn)
             .FirstOrDefaultAsync(cancellationToken);
 
-        return trip is null || trip.Destination is null
-            ? null
-            : new TripScheduleDto(
-                trip.Id,
-                trip.TravelerName,
-                trip.Destination.Name,
-                trip.StartsOn,
-                trip.EndsOn,
-                trip.Reservations
-                    .OrderBy(reservation => reservation.Date)
-                    .ThenBy(reservation => reservation.StartsAt)
-                    .Select(reservation => new ScheduleItemDto(
-                        reservation.Id,
-                        reservation.RecommendationId,
-                        reservation.Type,
-                        reservation.Date,
-                        reservation.StartsAt,
-                        reservation.EndsOn,
-                        reservation.EndsAt,
-                        reservation.Title,
-                        reservation.City,
-                        reservation.LocationName,
-                        reservation.Address,
-                        reservation.ConfirmationCode,
-                        reservation.Notes,
-                        reservation.Airline,
-                        reservation.FlightNumber,
-                        reservation.OriginName,
-                        reservation.DestinationName,
-                        reservation.OriginAirport,
-                        reservation.DestinationAirport,
-                        reservation.PlanningKind,
-                        reservation.Owner,
-                        reservation.ItemSource,
-                        reservation.TimePrecision,
-                        reservation.SortOrder,
-                        reservation.ProviderPlaceId,
-                        reservation.Latitude,
-                        reservation.Longitude))
-                    .ToList(),
-                trip.PlanRevision);
+        if (trip is null || trip.Destination is null)
+        {
+            return null;
+        }
+
+        var items = trip.Reservations
+            .OrderBy(reservation => reservation.Date)
+            .ThenBy(reservation => reservation.StartsAt)
+            .Select(TravelerItineraryService.ToDto)
+            .ToList();
+        return new TripScheduleDto(
+            trip.Id,
+            trip.TravelerName,
+            trip.Destination.Name,
+            trip.StartsOn,
+            trip.EndsOn,
+            items,
+            trip.PlanRevision,
+            ScheduleReviewAnalyzer.Analyze(items, trip.StartsOn, trip.EndsOn));
     }
 
     private static FlightDocsSectionDto? CreateFlightDocsSection(Trip trip)
@@ -703,6 +711,7 @@ public sealed class MobileController(
     private async Task<IReadOnlyList<RecommendationDto>> GetUnlockedRecommendationsAsync(
         Guid destinationId,
         UserEntitlementsDto entitlements,
+        bool freeRadiusOnly,
         CancellationToken cancellationToken)
     {
         var recommendations = await dbContext.Recommendations
@@ -717,10 +726,19 @@ public sealed class MobileController(
             })
             .ToListAsync(cancellationToken);
 
-        return recommendations
-            .Select(result => ToRecommendationDto(result.Recommendation, useSummaryDescription: false) with
+        var visibleRecommendations = freeRadiusOnly
+            ? await freeTrialAccessService.FilterToFreeRadiusAsync(
+                recommendations.Select(result => result.Recommendation),
+                destinationId,
+                cancellationToken)
+            : recommendations.Select(result => result.Recommendation).ToList();
+        var packageIdsByRecommendation = recommendations.ToDictionary(
+            result => result.Recommendation.Id,
+            result => (IReadOnlyList<Guid>)result.PackageIds);
+        return visibleRecommendations
+            .Select(recommendation => ToRecommendationDto(recommendation, useSummaryDescription: false) with
             {
-                PackageIds = result.PackageIds
+                PackageIds = packageIdsByRecommendation.GetValueOrDefault(recommendation.Id, [])
             })
             .ToList();
     }

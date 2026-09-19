@@ -22,7 +22,8 @@ public sealed record BuilderTripSetupDto(
     string TimeZoneId,
     IReadOnlyList<BuilderTripSetupSegmentDto> Segments,
     IReadOnlyList<DateOnly>? AffectedDates = null,
-    TripScheduleDto? Schedule = null);
+    TripScheduleDto? Schedule = null,
+    TrialAccessStatusDto? TrialAccess = null);
 
 public sealed record SaveBuilderTripSetupRequest(
     DateOnly ArrivalDate,

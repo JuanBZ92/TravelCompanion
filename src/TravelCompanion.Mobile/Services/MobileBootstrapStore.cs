@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
+using TravelCompanion.Shared;
 using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Mobile.Services;
@@ -285,10 +286,12 @@ public sealed class MobileBootstrapStore(
     public async Task<bool> RemoveScheduleItemAsync(Guid itemId, int revision, CancellationToken cancellationToken = default)
     {
         if (_current?.Schedule is not { } schedule) return false;
+        var items = schedule.Items.Where(item => item.Id != itemId).ToList();
         var updatedSchedule = schedule with
         {
-            Items = schedule.Items.Where(item => item.Id != itemId).ToList(),
-            Revision = revision
+            Items = items,
+            Revision = revision,
+            DayReviews = ScheduleReviewAnalyzer.Analyze(items, schedule.StartsOn, schedule.EndsOn)
         };
         return await ReplaceScheduleAsync(updatedSchedule, cancellationToken).ConfigureAwait(false);
     }
@@ -336,7 +339,8 @@ public sealed class MobileBootstrapStore(
         var updatedSchedule = schedule with
         {
             Items = items,
-            Revision = revision ?? schedule.Revision
+            Revision = revision ?? schedule.Revision,
+            DayReviews = ScheduleReviewAnalyzer.Analyze(items, schedule.StartsOn, schedule.EndsOn)
         };
         var updatedBootstrap = _current with
         {

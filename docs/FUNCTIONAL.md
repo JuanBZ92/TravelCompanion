@@ -220,6 +220,19 @@ Limitaciones actuales:
 
 Decision vigente: no se implementa sync/delta sync todavia porque el producto mobile actual es principalmente de lectura. Se mantiene el camino preparado para agregarlo cuando existan acciones editables desde la app.
 
+### Prueba gratuita y pase Japon
+
+La experiencia free demuestra el producto antes de pedir el pago:
+
+- cada instalacion tiene una cuenta tecnica propia; no comparte borrador ni cuota con otros visitantes;
+- puede explorar y buscar solamente recomendaciones dentro de los radios gratuitos configurados;
+- puede crear un itinerario y editarlo durante 30 minutos, con contador visible;
+- al terminar el tiempo, el borrador queda en solo lectura y se puede recuperar pagando durante siete dias;
+- dispone de tres consultas del Assistant que produzcan recomendaciones; errores y preguntas para completar contexto no consumen la cuota;
+- el pase convierte el mismo borrador en un viaje Builder, habilita el catalogo completo y dura hasta siete dias despues de la vuelta, con un maximo de un ano desde la activacion.
+
+Mientras no exista checkout nativo, la compra emite un PIN Builder desde el flujo comercial actual. La app valida ese PIN contra el backend; no activa acceso basandose solamente en una confirmacion del cliente.
+
 ## Admin CMS
 
 El admin actual permite operar contenido basico sin tocar la base de datos manualmente.
@@ -306,6 +319,18 @@ Contenido demo actual:
   - `usuariofree@travelcompanion.local` / `PasswordFree`: viaje de 2 semanas por Tokyo, Osaka y Kyoto; solo contenido gratis incluido.
   - `usuariosub@travelcompanion.local` / `PasswordSub`: viaje de mas de 2 semanas por Tokyo, Kyoto, Osaka y Nara; contenido gratis y todos los paquetes de Japon incluidos por suscripcion.
   - `usuariopaid@travelcompanion.local` / `PasswordPAid`: viaje de 3 semanas por Tokyo, Osaka, Kobe, Hiroshima, Miyajima, Sapporo y Otaru; contenido gratis y el paquete Japon Essentials incluido.
+
+## Revisión inteligente del día
+
+La agenda muestra una tarjeta **Revisar mi día** para la fecha seleccionada. Detecta solapamientos confirmados, traslados con poco margen y jornadas con demasiados planes horarios. Cuando el día está equilibrado también lo confirma, para que la función aporte tranquilidad además de alertas.
+
+Desde cada alerta se puede abrir el plan afectado. Los elementos creados por el viajero se abren en el editor; las reservas curadas se abren en modo detalle. La revisión es determinista, funciona con la agenda guardada sin conexión y se actualiza tras cada alta, edición o borrado.
+
+La tarjeta también permite pedir al Assistant una alternativa para la fecha seleccionada. La solicitud lleva la fecha y la ciudad al backend, conserva las reservas confirmadas como límites y busca opciones para los espacios libres. Guardar una sugerencia sigue abriendo el editor antes de modificar el itinerario.
+
+El menú del itinerario permite actualizar una copia offline de la agenda, recomendaciones y contenido de Today para la fecha seleccionada. También permite compartir una versión de texto ordenada por día; se omiten códigos de confirmación y notas privadas.
+
+Desde el mismo menú se puede crear una ruta temática de comida local, historia, arte, naturaleza o compras. La fecha y ciudad seleccionadas se pasan al Assistant, que propone varias paradas cercanas sin mover reservas. Cada parada se puede revisar, cambiar por otra y guardar por separado mediante el editor del Builder.
 
 ## Roadmap funcional sugerido
 

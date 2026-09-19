@@ -6,7 +6,9 @@ using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Api.Services;
 
-public sealed class ItineraryService(TravelCompanionDbContext dbContext) : IItineraryService
+public sealed class ItineraryService(
+    TravelCompanionDbContext dbContext,
+    FreeTrialAccessService? freeTrialAccessService = null) : IItineraryService
 {
     public async Task<SaveItineraryItemResponse> SaveItineraryItemAsync(
         AppUser user,
@@ -22,6 +24,18 @@ public sealed class ItineraryService(TravelCompanionDbContext dbContext) : IItin
         if (recommendation is null || recommendation.Destination is null)
         {
             return new SaveItineraryItemResponse(false, "No encontre esa recomendacion para guardarla.", null);
+        }
+
+        var trialGrant = freeTrialAccessService is null
+            ? null
+            : await freeTrialAccessService.GetGrantAsync(user.Id, cancellationToken);
+        if (trialGrant is not null)
+        {
+            await freeTrialAccessService!.RequireEditingAsync(user.Id, startIfNeeded: false, cancellationToken);
+            if (!await freeTrialAccessService.IsRecommendationInFreeRadiusAsync(recommendation, cancellationToken))
+            {
+                return new SaveItineraryItemResponse(false, "En la prueba gratuita solo puedes guardar lugares dentro del radio abierto.", null);
+            }
         }
 
         var trip = await dbContext.Trips

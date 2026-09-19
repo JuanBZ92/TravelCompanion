@@ -12,7 +12,8 @@ public sealed class AiController(
     ITravelChatIntentClassifier intentClassifier,
     ITravelChatService travelChatService,
     IItineraryService itineraryService,
-    ITravelAssistantFeedbackService feedbackService) : ControllerBase
+    ITravelAssistantFeedbackService feedbackService,
+    FreeTrialAccessService freeTrialAccessService) : ControllerBase
 {
     [HttpPost("travel-chat")]
     public async Task<ActionResult<TravelChatResponse>> TravelChat(
@@ -45,8 +46,32 @@ public sealed class AiController(
                 new MissingContextDto("tripSetup", "Configura las fechas y ciudades de tu viaje para continuar.", ["Configurar mi viaje"])));
         }
 
+        TrialAccessStatusDto? trialStatus = null;
+        if (access?.Session.AccessMode == TravelCompanion.Shared.SessionAccessMode.FreeMapPreview)
+        {
+            try
+            {
+                trialStatus = await freeTrialAccessService.RequireAssistantQuotaAsync(user.Id, cancellationToken);
+            }
+            catch (TrialUpgradeRequiredException exception)
+            {
+                return Ok(new TravelChatResponse(
+                    request.ConversationId ?? Guid.NewGuid().ToString("N"),
+                    "Ya probaste las 3 consultas gratuitas. Activa tu pase para seguir planificando con YUKU.",
+                    "upgrade_required",
+                    [],
+                    ["Activar mi pase"],
+                    new MissingContextDto("upgrade", "Activa tu pase para continuar con el asistente.", ["Activar mi pase"]),
+                    TrialAccess: exception.Status));
+            }
+        }
+
         var response = await travelChatService.CreatePlanAsync(user, request, cancellationToken);
-        return Ok(response);
+        if (trialStatus is not null && response.Cards.Count > 0)
+        {
+            trialStatus = await freeTrialAccessService.RecordSuccessfulAssistantRequestAsync(user.Id, cancellationToken);
+        }
+        return Ok(response with { TrialAccess = trialStatus });
     }
 
     [HttpPost("save-itinerary-item")]
@@ -67,6 +92,18 @@ public sealed class AiController(
         }
 
         var access = await accessService.GetAsync(HttpContext, cancellationToken);
+        if (access?.Session.AccessMode == TravelCompanion.Shared.SessionAccessMode.FreeMapPreview)
+        {
+            try
+            {
+                await freeTrialAccessService.RequireEditingAsync(user.Id, startIfNeeded: false, cancellationToken);
+            }
+            catch (TrialUpgradeRequiredException exception)
+            {
+                return StatusCode(StatusCodes.Status402PaymentRequired,
+                    new SaveItineraryItemResponse(false, exception.Message, null));
+            }
+        }
         if (access is null || !access.Capabilities.CanEditItinerary || access.Capabilities.RequiresTripSetup)
         {
             return StatusCode(StatusCodes.Status403Forbidden, new SaveItineraryItemResponse(false, "Este tipo de viaje no permite editar el itinerario desde la app.", null));

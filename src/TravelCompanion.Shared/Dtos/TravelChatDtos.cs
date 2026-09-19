@@ -24,7 +24,9 @@ public sealed record TravelChatResponse(
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     GuidedQuestionDto? GuidedQuestion = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
-    GuidedPlanCriteriaDto? Criteria = null);
+    GuidedPlanCriteriaDto? Criteria = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    TrialAccessStatusDto? TrialAccess = null);
 
 public sealed record GuidedTravelActionDto(
     string Action,

@@ -1,3 +1,4 @@
+using TravelCompanion.Shared;
 using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Mobile.Services;
@@ -40,11 +41,26 @@ internal static class MobilePayloadNormalizer
             return null;
         }
 
+        var items = schedule.Items ?? [];
         return schedule with
         {
             TravelerName = schedule.TravelerName ?? string.Empty,
             DestinationName = schedule.DestinationName ?? string.Empty,
-            Items = schedule.Items ?? []
+            Items = items,
+            DayReviews = schedule.DayReviews?.Select(review => review with
+            {
+                Status = review.Status ?? DayReviewStatuses.Balanced,
+                Title = review.Title ?? string.Empty,
+                Summary = review.Summary ?? string.Empty,
+                Issues = review.Issues?.Select(issue => issue with
+                {
+                    Kind = issue.Kind ?? string.Empty,
+                    Severity = issue.Severity ?? DayReviewSeverities.Info,
+                    Title = issue.Title ?? string.Empty,
+                    Message = issue.Message ?? string.Empty,
+                    ItemIds = issue.ItemIds ?? []
+                }).ToList() ?? []
+            }).ToList() ?? ScheduleReviewAnalyzer.Analyze(items, schedule.StartsOn, schedule.EndsOn)
         };
     }
 

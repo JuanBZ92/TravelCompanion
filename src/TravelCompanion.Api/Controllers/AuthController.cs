@@ -21,6 +21,7 @@ public sealed class AuthController(
     IPasswordHasher<BuilderAccessGrant> builderPinHasher,
     UserSessionService sessionService,
     FreePreviewAccountService freePreviewAccountService,
+    FreeTrialAccessService freeTrialAccessService,
     IOptions<FreePreviewOptions> freePreviewOptions) : ControllerBase
 {
     [HttpPost("login")]
@@ -73,20 +74,32 @@ public sealed class AuthController(
         if (freePreviewOptions.Value.Enabled
             && string.Equals(pin, freePreviewOptions.Value.Pin, StringComparison.Ordinal))
         {
-            var previewAccount = await freePreviewAccountService.GetOrCreateAsync(cancellationToken);
+            var previewAccount = await freePreviewAccountService.GetOrCreateAsync(request.ClientInstanceId, cancellationToken);
+            var trialGrant = await freeTrialAccessService.GetGrantAsync(previewAccount.Id, cancellationToken);
+            var trialStatus = freeTrialAccessService.ToStatus(trialGrant);
             var lifetimeDays = Math.Clamp(freePreviewOptions.Value.SessionLifetimeDays, 1, 30);
             var (_, previewToken) = await sessionService.CreateSessionAsync(
                 previewAccount,
                 cancellationToken,
+                trialGrant?.TripId,
                 accessMode: SessionAccessMode.FreeMapPreview,
                 lifetime: TimeSpan.FromDays(lifetimeDays));
             return Ok(ToSessionDto(
                 previewAccount,
                 previewToken,
                 mustChangePassword: false,
+                tripId: trialGrant?.TripId,
+                destinationName: trialGrant?.Destination?.Name,
                 accessMode: SessionAccessMode.FreeMapPreview,
-                experienceMode: ExperienceMode.FreePreview,
-                capabilities: TravelerAccessService.CreateCapabilities(ExperienceMode.FreePreview, false)));
+                experienceMode: ExperienceMode.SelfServiceBuilder,
+                capabilities: new TravelerCapabilitiesDto(
+                    CanViewFullMap: false,
+                    CanSearchGooglePlaces: false,
+                    CanEditItinerary: trialStatus.CanEdit,
+                    HasCuratedDocs: false,
+                    RequiresTripSetup: !trialGrant?.TripId.HasValue ?? true,
+                    CanCalculateRoutes: false),
+                trialAccess: trialStatus));
         }
 
         // Access mode belongs to the matched grant, not to the PIN length.
@@ -238,7 +251,8 @@ public sealed class AuthController(
         string? destinationName = null,
         SessionAccessMode accessMode = SessionAccessMode.Trip,
         ExperienceMode experienceMode = ExperienceMode.CuratedPremium,
-        TravelerCapabilitiesDto? capabilities = null)
+        TravelerCapabilitiesDto? capabilities = null,
+        TrialAccessStatusDto? trialAccess = null)
     {
         return new AuthSessionDto(
             user.Id,
@@ -250,6 +264,7 @@ public sealed class AuthController(
             destinationName,
             accessMode,
             experienceMode,
-            capabilities ?? TravelerAccessService.CreateCapabilities(experienceMode, false));
+            capabilities ?? TravelerAccessService.CreateCapabilities(experienceMode, false),
+            trialAccess);
     }
 }

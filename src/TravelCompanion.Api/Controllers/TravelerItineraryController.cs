@@ -35,6 +35,11 @@ public sealed class TravelerItineraryController(TravelerItineraryService service
         {
             return Conflict(new ItineraryItemMutationResponse(false, exception.Message, exception.CurrentRevision));
         }
+        catch (TrialUpgradeRequiredException exception)
+        {
+            return StatusCode(StatusCodes.Status402PaymentRequired,
+                new { message = exception.Message, trialAccess = exception.Status });
+        }
         catch (KeyNotFoundException)
         {
             return NotFound();

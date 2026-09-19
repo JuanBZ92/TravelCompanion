@@ -55,7 +55,9 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     private readonly Dictionary<DateOnly, string> _citiesByDate = [];
     private readonly Dictionary<DateOnly, TodayHotelBaseDto> _hotelsByDate = [];
     private readonly Dictionary<DateOnly, TodayDto> _todayByDate = [];
+    private readonly Dictionary<DateOnly, DayReviewDto> _dayReviewsByDate = [];
     private TodayHotelBaseDto? _selectedHotelBase;
+    private DayReviewViewModel? _selectedDayReview;
     private string _destinationName = "Tu viaje";
 
     public void CancelRouteLoading() => _routeLoad?.Cancel();
@@ -162,11 +164,93 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         private set => SetProperty(ref _todayLoadingSections, value);
     }
 
+    public DayReviewViewModel? SelectedDayReview
+    {
+        get => _selectedDayReview;
+        private set
+        {
+            if (SetProperty(ref _selectedDayReview, value))
+            {
+                OnPropertyChanged(nameof(ShowDayReview));
+            }
+        }
+    }
+
+    public bool ShowDayReview => SelectedDayReview is not null;
+
     public bool HasScheduleItems => _allItems.Count > 0;
+    public bool HasItineraryActions => _tripId.HasValue;
     public bool CanManageItinerary => _sessionService.IsBuilder
         && _sessionService.CanEditItinerary
         && !_sessionService.RequiresTripSetup
         && _tripStartsOn.HasValue;
+    public bool ShowTrialBanner => _sessionService.IsTrial;
+    public string TrialBannerText
+    {
+        get
+        {
+            if (!_sessionService.IsTrial) return string.Empty;
+            if (_sessionService.TrialState == TrialAccessState.NotStarted)
+                return "La prueba de 30 minutos comenzará al crear el itinerario.";
+            if (_sessionService.TrialEditingExpiresAtUtc is { } editingExpiry && editingExpiry > DateTimeOffset.UtcNow)
+            {
+                var remaining = editingExpiry - DateTimeOffset.UtcNow;
+                return $"Prueba gratuita · {Math.Max(0, (int)remaining.TotalMinutes):00}:{Math.Max(0, remaining.Seconds):00} para editar";
+            }
+            if (_sessionService.TrialDraftExpiresAtUtc is { } draftExpiry && draftExpiry > DateTimeOffset.UtcNow)
+                return $"Borrador protegido hasta {draftExpiry.ToLocalTime():d MMM}. Activa el pase para seguir editando.";
+            return "La prueba terminó. Activa el pase para recuperar tu itinerario.";
+        }
+    }
+
+    public void RefreshTrialCountdown()
+    {
+        OnPropertyChanged(nameof(ShowTrialBanner));
+        OnPropertyChanged(nameof(TrialBannerText));
+        OnPropertyChanged(nameof(CanManageItinerary));
+    }
+
+    [RelayCommand]
+    private async Task RedeemPassAsync()
+    {
+        if (Uri.TryCreate(_sessionService.TrialPurchaseUrl, UriKind.Absolute, out var purchaseUri))
+        {
+            var action = await Shell.Current.DisplayActionSheetAsync(
+                "Pase Japón",
+                "Cancelar",
+                null,
+                $"Comprar · {_sessionService.TrialPassPrice:0.00} {_sessionService.TrialCurrency}",
+                "Ya tengo código");
+            if (action?.StartsWith("Comprar", StringComparison.Ordinal) == true)
+            {
+                await Launcher.Default.OpenAsync(purchaseUri);
+                return;
+            }
+            if (action != "Ya tengo código") return;
+        }
+        var pin = await Shell.Current.DisplayPromptAsync(
+            "Activar pase Japón",
+            $"Introduce tu código para guardar el viaje y desbloquear el catálogo completo ({_sessionService.TrialPassPrice:0.00} {_sessionService.TrialCurrency}).",
+            "Activar",
+            "Cancelar",
+            keyboard: Keyboard.Numeric,
+            maxLength: 6);
+        if (string.IsNullOrWhiteSpace(pin)) return;
+        var token = await _sessionService.GetTokenAsync();
+        var session = string.IsNullOrWhiteSpace(token)
+            ? null
+            : await _apiClient.RedeemTravelPassAsync(token, new string(pin.Where(char.IsDigit).ToArray()));
+        if (session is null)
+        {
+            ErrorMessage = "El código no es válido o ya fue utilizado.";
+            return;
+        }
+
+        await _sessionService.SaveAsync(session);
+        if (Shell.Current is AppShell shell) shell.ApplySessionTabs(_sessionService);
+        RefreshTrialCountdown();
+        await RefreshScheduleCommand.ExecuteAsync(null);
+    }
     public bool HasSelectedDayItems => TodaySections.Any(section => section.HasContent);
     public bool HasFocusItem => _focusItem is not null;
     public bool ShowInitialLoading => IsBusy && DayFilters.Count == 0;
@@ -271,6 +355,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         _citiesByDate.Clear();
         _hotelsByDate.Clear();
         _todayByDate.Clear();
+        _dayReviewsByDate.Clear();
         ResetLoadState();
         _allItems.Clear();
         _recommendations.Clear();
@@ -297,6 +382,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         _focusItem = null;
         _today = null;
         _selectedHotelBase = null;
+        SelectedDayReview = null;
         _destinationName = "Tu viaje";
         _currentLocation = null;
         _hasRequestedLocation = false;
@@ -307,6 +393,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         NotifySelectedDayChanged();
         NotifyFocusChanged();
         OnPropertyChanged(nameof(CanManageItinerary));
+        OnPropertyChanged(nameof(HasItineraryActions));
     }
 
     [RelayCommand]
@@ -472,6 +559,65 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     }
 
     [RelayCommand]
+    private Task DownloadOfflineAsync()
+    {
+        return LoadAsync(async ct =>
+        {
+            var token = await _sessionService.GetTokenAsync();
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                _sessionService.Clear();
+                await Shell.Current.GoToAsync("//login");
+                return;
+            }
+
+            var bootstrapResult = await _bootstrapStore.RefreshResultAsync(token, cancellationToken: ct);
+            if (bootstrapResult.IsUnauthorized)
+            {
+                _sessionService.Clear();
+                await Shell.Current.GoToAsync("//login");
+                return;
+            }
+            if (!bootstrapResult.IsSuccess || bootstrapResult.Value is not { } bootstrap)
+            {
+                ErrorMessage = "No pudimos actualizar la copia offline. Inténtalo cuando tengas conexión.";
+                return;
+            }
+
+            ApplyBootstrapSchedule(bootstrap);
+            if (_selectedDate is { } date)
+            {
+                var todayResult = await _todayStore.RefreshResultAsync(token, date, null, ct);
+                if (todayResult.Value is { } today)
+                {
+                    ApplyToday(today);
+                }
+            }
+            StatusMessage = "Viaje guardado para consultar sin conexión.";
+        });
+    }
+
+    [RelayCommand]
+    private async Task ShareItineraryAsync()
+    {
+        if (!_tripStartsOn.HasValue || !_tripEndsOn.HasValue || _allItems.Count == 0)
+        {
+            return;
+        }
+
+        var text = ItineraryShareFormatter.Format(
+            _destinationName,
+            _tripStartsOn.Value,
+            _tripEndsOn.Value,
+            _allItems);
+        await Share.Default.RequestAsync(new ShareTextRequest
+        {
+            Title = $"Mi viaje a {_destinationName}",
+            Text = text
+        });
+    }
+
+    [RelayCommand]
     private async Task DeleteItineraryAsync()
     {
         if (!CanManageItinerary)
@@ -535,6 +681,63 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     {
         if (reservation is null || !reservation.Item.IsTravelerOwned) return Task.CompletedTask;
         return Shell.Current.GoToAsync(nameof(ItineraryItemEditorPage), new Dictionary<string, object> { ["ScheduleItem"] = reservation.Item });
+    }
+
+    [RelayCommand]
+    private Task OpenReviewIssueAsync(DayReviewIssueViewModel? issue)
+    {
+        if (issue is null || !issue.CanOpenPlan)
+        {
+            return Task.CompletedTask;
+        }
+
+        var candidates = issue.ItemIds
+            .Select(id => _allItems.FirstOrDefault(candidate => candidate.Id == id))
+            .Where(candidate => candidate is not null)
+            .Cast<ScheduleItemDto>()
+            .ToList();
+        var item = candidates.LastOrDefault(candidate => candidate.IsTravelerOwned && CanManageItinerary)
+            ?? candidates.LastOrDefault();
+        if (item is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        return item.IsTravelerOwned && CanManageItinerary
+            ? Shell.Current.GoToAsync(nameof(ItineraryItemEditorPage), new Dictionary<string, object> { ["ScheduleItem"] = item })
+            : Shell.Current.GoToAsync(nameof(ScheduleItemDetailPage), new Dictionary<string, object> { ["ScheduleItem"] = item });
+    }
+
+    [RelayCommand]
+    private Task AskAssistantAboutDayAsync()
+    {
+        if (_selectedDate is null || SelectedDayReview is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        return Shell.Current.GoToAsync("//main/assistant", new ShellNavigationQueryParameters
+        {
+            ["ReviewDate"] = _selectedDate.Value,
+            ["ReviewCity"] = SelectedCity,
+            ["ReviewSummary"] = SelectedDayReview.Summary
+        });
+    }
+
+    [RelayCommand]
+    private Task OpenThematicRouteAsync(string? theme)
+    {
+        if (_selectedDate is null || string.IsNullOrWhiteSpace(theme))
+        {
+            return Task.CompletedTask;
+        }
+
+        return Shell.Current.GoToAsync("//main/assistant", new ShellNavigationQueryParameters
+        {
+            ["RouteDate"] = _selectedDate.Value,
+            ["RouteCity"] = SelectedCity,
+            ["RouteTheme"] = theme.Trim()
+        });
     }
 
     [RelayCommand]
@@ -890,8 +1093,15 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         _tripEndsOn = schedule.EndsOn;
         _tripId = schedule.TripId;
         OnPropertyChanged(nameof(CanManageItinerary));
+        OnPropertyChanged(nameof(HasItineraryActions));
         _allItems.Clear();
         _allItems.AddRange(sourceItems);
+        _dayReviewsByDate.Clear();
+        var dayReviews = schedule.DayReviews ?? ScheduleReviewAnalyzer.Analyze(sourceItems, schedule.StartsOn, schedule.EndsOn);
+        foreach (var review in dayReviews)
+        {
+            _dayReviewsByDate[review.Date] = review;
+        }
         _focusItem = GetFocusItem(_allItems);
         _selectedDate = previouslySelectedDate.HasValue
             && previouslySelectedDate.Value >= schedule.StartsOn
@@ -944,7 +1154,10 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         _citiesByDate.Clear();
         _hotelsByDate.Clear();
         _todayByDate.Clear();
+        _dayReviewsByDate.Clear();
+        SelectedDayReview = null;
         OnPropertyChanged(nameof(CanManageItinerary));
+        OnPropertyChanged(nameof(HasItineraryActions));
         _selectedDate = null;
         _selectedCity = "Tu viaje";
         PreviewMessage = null;
@@ -993,11 +1206,15 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
             TodaySections = [];
             TodayLoadingSections = [];
             ActiveDays = [];
+            SelectedDayReview = null;
             NotifySelectedDayChanged();
             return;
         }
 
         var selectedDate = _selectedDate.Value;
+        SelectedDayReview = _dayReviewsByDate.TryGetValue(selectedDate, out var review)
+            ? new DayReviewViewModel(review)
+            : null;
         _selectedCity = GetCityForDate(selectedDate, _destinationName);
         _selectedHotelBase = _hotelsByDate.GetValueOrDefault(selectedDate);
         _selectedHotelBase ??= _today?.Date == selectedDate ? _today.HotelBase : null;
@@ -1781,6 +1998,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         _isTodayLoading = value;
         OnPropertyChanged(nameof(ShowTodayLoading));
         OnPropertyChanged(nameof(ShowTodayContent));
+        OnPropertyChanged(nameof(ShowDayReview));
     }
 
     private void OnScheduleCacheUpdated(object? sender, ScheduleCacheUpdatedEventArgs e)

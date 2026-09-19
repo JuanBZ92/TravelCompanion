@@ -24,10 +24,7 @@ public partial class AppShell : Shell
         {
             FreeMapTab.Content ??= MauiProgram.Services.GetRequiredService<FreeMapPage>();
         }
-        else
-        {
-            ApplySessionTabs(sessionService);
-        }
+        ApplySessionTabs(sessionService);
 
         if (sessionService.HasSession)
         {
@@ -45,9 +42,10 @@ public partial class AppShell : Shell
 
     public void ApplySessionTabs(AuthSessionService sessionService)
     {
+        FreeMapTab.IsVisible = sessionService.IsFreeMapPreview;
         MapTab.IsVisible = !sessionService.IsFreeMapPreview;
-        ScheduleTab.IsVisible = !sessionService.IsFreeMapPreview;
-        AssistantTab.IsVisible = !sessionService.IsFreeMapPreview;
+        ScheduleTab.IsVisible = sessionService.IsBuilder;
+        AssistantTab.IsVisible = sessionService.IsBuilder;
         DocsTab.IsVisible = sessionService.HasCuratedDocs;
         LogoutTab.IsVisible = sessionService.HasSession && !sessionService.IsFreeMapPreview;
     }

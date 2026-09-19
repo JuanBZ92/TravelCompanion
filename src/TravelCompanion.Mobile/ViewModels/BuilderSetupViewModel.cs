@@ -90,6 +90,7 @@ public sealed partial class BuilderSetupViewModel(
             return;
         }
         Segments.Clear();
+        sessionService.ApplyTrialAccess(setup.TrialAccess);
         SetTripId(setup.TripId);
         _revision = setup.Revision;
         ArrivalDate = setup.ArrivalDate?.ToDateTime(TimeOnly.MinValue) ?? DateTime.Today;
@@ -395,6 +396,7 @@ public sealed partial class BuilderSetupViewModel(
         }
 
         _revision = result.Revision;
+        sessionService.ApplyTrialAccess(result.TrialAccess);
         SetTripId(result.TripId);
         sessionService.MarkTripConfigured(result.TripId.Value, result.Destination);
         await builderTripStore.SaveAsync(result, ct);

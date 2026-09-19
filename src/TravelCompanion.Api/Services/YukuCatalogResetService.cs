@@ -53,42 +53,18 @@ public sealed class YukuCatalogResetService(TravelCompanionDbContext db, YukuJap
         grant.PinHash = new PasswordHasher<BuilderAccessGrant>().HashPassword(grant, "1111");
         db.BuilderAccessGrants.Add(grant);
         var firstDate = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTimeOffset.UtcNow, "Asia/Tokyo").DateTime).AddDays(7);
-        var trip = new Trip
-        {
-            Id = Guid.NewGuid(), AppUserId = premium.Id, DestinationId = japan.Id, TravelerName = premium.DisplayName,
-            StartsOn = firstDate, EndsOn = firstDate.AddDays(2), TimeZoneId = "Asia/Tokyo",
-            PublicationStatus = TripPublicationStatus.Published, ExperienceMode = ExperienceMode.CuratedPremium,
-            PublishedAtUtc = DateTimeOffset.UtcNow, PlanRevision = 1
-        };
+        var citySlugs = PremiumDemoTripFactory.CitySlugs;
+        var recommendations = await db.Recommendations
+            .Where(recommendation => recommendation.DestinationId == japan.Id
+                && recommendation.CitySlug != null
+                && citySlugs.Contains(recommendation.CitySlug))
+            .OrderBy(recommendation => recommendation.CitySlug)
+            .ThenBy(recommendation => recommendation.Title)
+            .ToListAsync(cancellationToken);
+        var trip = PremiumDemoTripFactory.Create(premium.Id, premium.DisplayName, japan.Id, firstDate, recommendations);
         trip.AccessPinHash = new PasswordHasher<Trip>().HashPassword(trip, "2222");
         trip.AccessPinUpdatedAt = DateTimeOffset.UtcNow;
         db.Trips.Add(trip);
-        var recommendations = await db.Recommendations.Where(r => r.DestinationId == japan.Id && r.CitySlug == "tokyo")
-            .OrderBy(r => r.Title).Take(3).ToListAsync(cancellationToken);
-        if (recommendations.Count != 3) throw new InvalidOperationException("Premium example requires three Tokyo recommendations.");
-        for (var index = 0; index < 3; index++)
-        {
-            var day = new TripDayPlan { Id = Guid.NewGuid(), TripId = trip.Id, Date = firstDate.AddDays(index), DayNumber = index + 1, City = "Tokyo" };
-            db.TripDayPlans.Add(day);
-            foreach (var period in TripPlanPeriods.All)
-            {
-                var block = new TripDayBlock { Id = Guid.NewGuid(), TripDayPlanId = day.Id, PeriodKey = period.Key, SortOrder = period.SortOrder, AutofillEnabled = false };
-                db.TripDayBlocks.Add(block);
-                if (period.Key != "night") continue;
-                var recommendation = recommendations[index];
-                db.Reservations.Add(new Reservation
-                {
-                    Id = Guid.NewGuid(), TripId = trip.Id, TripDayBlockId = block.Id, RecommendationId = recommendation.Id,
-                    Type = ReservationType.Event, PlanningKind = ScheduleItemKind.Recommendation, Owner = ItineraryItemOwner.Yuku,
-                    ItemSource = ItineraryItemSource.YukuRecommendation, TimePrecision = ItineraryTimePrecision.PeriodOnly,
-                    Date = day.Date, StartsAt = period.StartsAt, Title = recommendation.Title, City = "Tokyo",
-                    LocationName = recommendation.Title, Address = recommendation.Neighborhood, ConfirmationCode = string.Empty,
-                    Notes = recommendation.Description, Latitude = recommendation.Latitude, Longitude = recommendation.Longitude,
-                    ProviderPlaceId = recommendation.ProviderPlaceId, TimeZoneId = "Asia/Tokyo", SourceName = recommendation.SourceName,
-                    SourceUrl = recommendation.SourceUrl
-                });
-            }
-        }
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return result;

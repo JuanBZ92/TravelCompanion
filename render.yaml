@@ -31,6 +31,8 @@ services:
         sync: false
       - key: FreePreview__MarkerObfuscationKey
         generateValue: true
+      - key: FreePreview__PurchaseUrl
+        sync: false
       - key: GooglePlaces__Enabled
         value: "true"
       - key: GooglePlaces__ApiKey

@@ -288,6 +288,7 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
         modelBuilder.Entity<BuilderAccessGrant>(entity =>
         {
             entity.HasIndex(grant => new { grant.Status, grant.ExpiresAtUtc });
+            entity.HasIndex(grant => new { grant.AppUserId, grant.IsTrial });
             entity.HasIndex(grant => grant.TripId).IsUnique();
             entity.Property(grant => grant.PinHash).HasMaxLength(512);
             entity.Property(grant => grant.OrderReference).HasMaxLength(120);

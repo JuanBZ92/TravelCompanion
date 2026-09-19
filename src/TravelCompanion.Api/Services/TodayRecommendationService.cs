@@ -25,7 +25,8 @@ public interface ITodayRecommendationService
 
 public sealed class TodayRecommendationService(
     TravelCompanionDbContext dbContext,
-    ILogger<TodayRecommendationService> logger) : ITodayRecommendationService
+    ILogger<TodayRecommendationService> logger,
+    FreeTrialAccessService? freeTrialAccessService = null) : ITodayRecommendationService
 {
     private const string AutomaticSuggestionSourcePrefix = "today_auto:";
     private const int DefaultSuggestionsPerFreePeriod = 2;
@@ -69,6 +70,17 @@ public sealed class TodayRecommendationService(
                 recommendation,
                 recommendation.Packages.Select(package => package.Id).ToList()))
             .ToListAsync(cancellationToken);
+        if (freeTrialAccessService is not null
+            && await freeTrialAccessService.GetGrantAsync(user.Id, cancellationToken) is { } trialGrant)
+        {
+            var allowed = (await freeTrialAccessService.FilterToFreeRadiusAsync(
+                    unlockedRows.Select(row => row.Recommendation),
+                    trialGrant.DestinationId,
+                    cancellationToken))
+                .Select(recommendation => recommendation.Id)
+                .ToHashSet();
+            unlockedRows = unlockedRows.Where(row => allowed.Contains(row.Recommendation.Id)).ToList();
+        }
         var assignedCatalogRows = tripRecommendationIds.Count == 0
             ? []
             : await dbContext.Recommendations
@@ -299,6 +311,12 @@ public sealed class TodayRecommendationService(
         if (recommendation is null || recommendation.DestinationId != trip.DestinationId)
         {
             return new RecommendationSignalResponse(false, "La recomendacion no esta disponible para este viaje.");
+        }
+        if (freeTrialAccessService is not null
+            && await freeTrialAccessService.GetGrantAsync(user.Id, cancellationToken) is not null
+            && !await freeTrialAccessService.IsRecommendationInFreeRadiusAsync(recommendation, cancellationToken))
+        {
+            return new RecommendationSignalResponse(false, "La recomendacion no esta disponible en la prueba gratuita.");
         }
 
         dbContext.RecommendationInteractionSignals.Add(new RecommendationInteractionSignal

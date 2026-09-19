@@ -63,7 +63,8 @@ public sealed class PlacesController(
     public async Task<ActionResult<IReadOnlyList<RecommendationDto>>> Search(PlaceSearchRequest request, CancellationToken cancellationToken)
     {
         var access = await accessService.GetAsync(HttpContext, cancellationToken);
-        if (access is null || !access.Capabilities.CanViewFullMap) return Forbid();
+        if (access is null || (!access.Capabilities.CanViewFullMap
+            && access.Session.AccessMode != TravelCompanion.Shared.SessionAccessMode.FreeMapPreview)) return Forbid();
         if (string.IsNullOrWhiteSpace(request.Query) || request.Query.Trim().Length < 2) return Ok(Array.Empty<RecommendationDto>());
 
         var now = DateTimeOffset.UtcNow;
@@ -119,6 +120,20 @@ public sealed class PlacesController(
                 item.Latitude,
                 item.Longitude))
             .ToListAsync(cancellationToken);
+        if (access.Session.AccessMode == TravelCompanion.Shared.SessionAccessMode.FreeMapPreview)
+        {
+            var freeCities = await dbContext.FreeMapCities.AsNoTracking()
+                .Where(city => city.IsEnabled && city.DestinationId == destinationId)
+                .ToListAsync(cancellationToken);
+            catalogCandidates = catalogCandidates
+                .Where(candidate => freeCities.Any(city =>
+                    FreeMapPreviewService.CalculateDistanceKm(
+                        city.CenterLatitude,
+                        city.CenterLongitude,
+                        candidate.Latitude,
+                        candidate.Longitude) <= city.FreeRadiusKm))
+                .ToList();
+        }
         var score = CatalogSearch.CreateFieldScorer(request.Query);
         var rankedCatalog = catalogCandidates.Select(item => new
             {

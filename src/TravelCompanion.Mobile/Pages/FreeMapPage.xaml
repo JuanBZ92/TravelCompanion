@@ -144,12 +144,24 @@
                             <Button Grid.Column="1" Text="Ya tengo PIN" Command="{Binding UseAnotherPinCommand}" Style="{StaticResource GhostButton}" CornerRadius="0" />
                         </Grid>
                         <Button Text="Ya tengo PIN" Command="{Binding UseAnotherPinCommand}" Style="{StaticResource GhostButton}" CornerRadius="0" IsVisible="{Binding ShowPinOnlyAction}" />
+                        <Button Text="Crear mi itinerario gratis" Command="{Binding StartFreeBuilderCommand}" BackgroundColor="#3D3329" TextColor="White" CornerRadius="0" />
+                        <Button Text="Activar pase" Command="{Binding RedeemPassCommand}" Style="{StaticResource GhostButton}" CornerRadius="0" />
                     </VerticalStackLayout>
 
                     <VerticalStackLayout Grid.Row="1" Spacing="4" IsVisible="{Binding ShowMapSummary}">
                         <Label Text="RADIO GRATUITO" CharacterSpacing="3" FontSize="10" FontAttributes="Bold" TextColor="#9B9288" />
                         <Label Text="{Binding MapSummary}" FontFamily="serif" FontSize="20" TextColor="#1A1714" />
                         <Label Text="Toca un pin para explorar." FontSize="13" TextColor="#6E675F" />
+                        <Button Text="Crear mi itinerario gratis · 30 min"
+                                Command="{Binding StartFreeBuilderCommand}"
+                                Margin="0,8,0,0"
+                                BackgroundColor="#3D3329"
+                                TextColor="White"
+                                CornerRadius="0" />
+                        <Button Text="Ya compré el pase"
+                                Command="{Binding RedeemPassCommand}"
+                                Style="{StaticResource GhostButton}"
+                                CornerRadius="0" />
                     </VerticalStackLayout>
 
                     <Grid Grid.Row="2" ColumnDefinitions="40,*,40" ColumnSpacing="8" HeightRequest="44" IsVisible="{Binding HasSelection}">

@@ -74,9 +74,16 @@ public sealed class TravelCompanionApiClient
 
     public async Task<AuthSessionDto?> LoginWithPinAsync(string pin, CancellationToken cancellationToken = default)
     {
+        const string clientInstanceKey = "free_trial_client_instance_id";
+        var clientInstanceId = Preferences.Default.Get(clientInstanceKey, string.Empty);
+        if (string.IsNullOrWhiteSpace(clientInstanceId))
+        {
+            clientInstanceId = Guid.NewGuid().ToString("N");
+            Preferences.Default.Set(clientInstanceKey, clientInstanceId);
+        }
         using var response = await _httpClient.PostAsJsonAsync(
             "api/auth/pin-login",
-            new PinLoginRequestDto(pin),
+            new PinLoginRequestDto(pin, clientInstanceId),
             JsonOptions,
             cancellationToken).ConfigureAwait(false);
 
@@ -86,6 +93,22 @@ public sealed class TravelCompanionApiClient
         }
 
         response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<AuthSessionDto>(JsonOptions, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<AuthSessionDto?> RedeemTravelPassAsync(
+        string token,
+        string pin,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Post, "api/mobile/pass/redeem", token);
+        request.Content = JsonContent.Create(new RedeemTravelPassRequest(pin), options: JsonOptions);
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+        {
+            return null;
+        }
+
         return await response.Content.ReadFromJsonAsync<AuthSessionDto>(JsonOptions, cancellationToken).ConfigureAwait(false);
     }
 

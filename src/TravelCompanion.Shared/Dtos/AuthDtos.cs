@@ -14,7 +14,8 @@ public sealed record LoginRequestDto(
 public sealed record PinLoginRequestDto(
     [param: Required]
     [param: RegularExpression(@"^(\d{4}|\d{6})$")]
-    string Pin);
+    string Pin,
+    [param: MaxLength(128)] string? ClientInstanceId = null);
 
 public enum ExperienceMode
 {
@@ -42,7 +43,36 @@ public sealed record MobileSyncStateDto(
     long DocumentsVersion,
     long TodayPersonalizationVersion,
     long FreeCatalogVersion,
-    int CacheFormatVersion = 1);
+    int CacheFormatVersion = 1,
+    TrialAccessStatusDto? TrialAccess = null);
+
+public enum TrialAccessState
+{
+    NotStarted,
+    Editing,
+    ReadOnly,
+    Expired,
+    Paid
+}
+
+public sealed record TrialAccessStatusDto(
+    bool IsTrial,
+    TrialAccessState State,
+    DateTimeOffset? EditingExpiresAtUtc,
+    DateTimeOffset? DraftExpiresAtUtc,
+    int AssistantRequestsRemaining,
+    decimal PassPrice,
+    string Currency,
+    string? PurchaseUrl)
+{
+    public bool CanEdit => State is TrialAccessState.NotStarted or TrialAccessState.Editing or TrialAccessState.Paid;
+    public bool CanUseAssistant => State == TrialAccessState.Paid || AssistantRequestsRemaining > 0;
+}
+
+public sealed record RedeemTravelPassRequest(
+    [param: Required]
+    [param: RegularExpression(@"^(\d{4}|\d{6})$")]
+    string Pin);
 
 public sealed record ChangePasswordRequestDto(
     [param: MaxLength(256)]
@@ -62,4 +92,5 @@ public sealed record AuthSessionDto(
     string? DestinationName = null,
     SessionAccessMode AccessMode = SessionAccessMode.Trip,
     ExperienceMode ExperienceMode = ExperienceMode.CuratedPremium,
-    TravelerCapabilitiesDto? Capabilities = null);
+    TravelerCapabilitiesDto? Capabilities = null,
+    TrialAccessStatusDto? TrialAccess = null);

@@ -32,7 +32,8 @@ public sealed record TravelRecommendationPlanningResult(
 
 public sealed class TravelRecommendationPlanningService(
     TravelCompanionDbContext dbContext,
-    IRecommendationRanker ranker) : ITravelRecommendationPlanningService
+    IRecommendationRanker ranker,
+    FreeTrialAccessService? freeTrialAccessService = null) : ITravelRecommendationPlanningService
 {
     public async Task<TravelRecommendationPlanningResult> RankAsync(
         AppUser user,
@@ -169,6 +170,16 @@ public sealed class TravelRecommendationPlanningService(
                 recommendation.DestinationId,
                 recommendation.Packages.Select(package => package.Id).ToList()))
             .ToList();
+        var trialGrant = freeTrialAccessService is null
+            ? null
+            : await freeTrialAccessService.GetGrantAsync(user.Id, cancellationToken);
+        if (trialGrant is not null)
+        {
+            unlocked = (await freeTrialAccessService!.FilterToFreeRadiusAsync(
+                unlocked,
+                trialGrant.DestinationId,
+                cancellationToken)).ToList();
+        }
         var cityMatches = unlocked
             .Where(recommendation =>
                 recommendation.Neighborhood.Contains(city, StringComparison.OrdinalIgnoreCase)

@@ -26,6 +26,7 @@
   <ItemGroup>
 	<Compile Include="..\..\src\TravelCompanion.Mobile\Services\ApiCallResult.cs" Link="ApiCallResult.cs" />
 	<Compile Include="..\..\src\TravelCompanion.Mobile\Services\MobilePayloadNormalizer.cs" Link="MobilePayloadNormalizer.cs" />
+	<Compile Include="..\..\src\TravelCompanion.Mobile\Services\ItineraryShareFormatter.cs" Link="ItineraryShareFormatter.cs" />
 	<Compile Include="..\..\src\TravelCompanion.Mobile\Services\StraightLineDistanceCache.cs" Link="StraightLineDistanceCache.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\LocalizationResourceManager.cs" Link="LocalizationResourceManager.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\ViewModels\TravelChatCardViewModel.cs" Link="TravelChatCardViewModel.cs" />

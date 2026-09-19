@@ -30,6 +30,10 @@ public sealed class BuilderTripController(BuilderTripService service) : Controll
         {
             return Conflict(new { message = exception.Message, currentRevision = exception.CurrentRevision });
         }
+        catch (TrialUpgradeRequiredException exception)
+        {
+            return StatusCode(StatusCodes.Status402PaymentRequired, exception.Status);
+        }
         catch (ArgumentException exception)
         {
             return BadRequest(new { message = exception.Message });
@@ -56,6 +60,10 @@ public sealed class BuilderTripController(BuilderTripService service) : Controll
         catch (BuilderRevisionConflictException exception)
         {
             return Conflict(new { message = exception.Message, currentRevision = exception.CurrentRevision });
+        }
+        catch (TrialUpgradeRequiredException exception)
+        {
+            return StatusCode(StatusCodes.Status402PaymentRequired, exception.Status);
         }
         catch (InvalidOperationException exception)
         {

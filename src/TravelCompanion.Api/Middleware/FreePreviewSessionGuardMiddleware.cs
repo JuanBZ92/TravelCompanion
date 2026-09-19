@@ -34,6 +34,28 @@ public sealed class FreePreviewSessionGuardMiddleware(RequestDelegate next)
             return true;
         }
 
+        if (request.Path.StartsWithSegments("/api/mobile/builder/setup")
+            || request.Path.StartsWithSegments("/api/mobile/itinerary")
+            || request.Path.StartsWithSegments("/api/mobile/places/search")
+            || request.Path.StartsWithSegments("/api/mobile/pass")
+            || request.Path.StartsWithSegments("/api/ai/travel-chat")
+            || request.Path.StartsWithSegments("/api/ai/save-itinerary-item")
+            || request.Path.StartsWithSegments("/api/ai/save_itinerary_item")
+            || request.Path.StartsWithSegments("/api/ai/feedback")
+            || request.Path.StartsWithSegments("/api/me/travel-preference-profile"))
+        {
+            return true;
+        }
+
+        if (HttpMethods.IsGet(request.Method)
+            && (request.Path.StartsWithSegments("/api/mobile/sync-state")
+                || request.Path.StartsWithSegments("/api/mobile/bootstrap")
+                || request.Path.StartsWithSegments("/api/mobile/today")
+                || request.Path.StartsWithSegments("/api/mobile/recommendations")))
+        {
+            return true;
+        }
+
         return HttpMethods.IsGet(request.Method)
             && request.Path.StartsWithSegments("/api/mobile/free-map");
     }
