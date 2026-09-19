@@ -20,7 +20,9 @@ public sealed record BuilderTripSetupDto(
     DateOnly? DepartureDate,
     string Destination,
     string TimeZoneId,
-    IReadOnlyList<BuilderTripSetupSegmentDto> Segments);
+    IReadOnlyList<BuilderTripSetupSegmentDto> Segments,
+    IReadOnlyList<DateOnly>? AffectedDates = null,
+    TripScheduleDto? Schedule = null);
 
 public sealed record SaveBuilderTripSetupRequest(
     DateOnly ArrivalDate,
@@ -57,4 +59,5 @@ public sealed record ItineraryItemMutationResponse(
     string Message,
     int Revision,
     ScheduleItemDto? Item = null,
-    bool HasOverlap = false);
+    bool HasOverlap = false,
+    Guid? DeletedItemId = null);

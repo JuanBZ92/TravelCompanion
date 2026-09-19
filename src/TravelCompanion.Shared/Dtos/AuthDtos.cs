@@ -28,7 +28,21 @@ public sealed record TravelerCapabilitiesDto(
     bool CanSearchGooglePlaces,
     bool CanEditItinerary,
     bool HasCuratedDocs,
-    bool RequiresTripSetup);
+    bool RequiresTripSetup,
+    bool CanCalculateRoutes = false);
+
+public sealed record MobileSyncStateDto(
+    TravelerCapabilitiesDto Capabilities,
+    DateTimeOffset AccessExpiresAtUtc,
+    Guid? TripId,
+    Guid? DestinationId,
+    string? DestinationSlug,
+    long CatalogVersion,
+    int ItineraryVersion,
+    long DocumentsVersion,
+    long TodayPersonalizationVersion,
+    long FreeCatalogVersion,
+    int CacheFormatVersion = 1);
 
 public sealed record ChangePasswordRequestDto(
     [param: MaxLength(256)]

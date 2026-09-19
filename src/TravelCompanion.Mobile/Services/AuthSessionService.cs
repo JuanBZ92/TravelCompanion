@@ -16,8 +16,11 @@ public sealed class AuthSessionService
     private const string AccessModeKey = "auth_access_mode";
     private const string ExperienceModeKey = "auth_experience_mode";
     private const string CanEditItineraryKey = "auth_can_edit_itinerary";
+    private const string CanSearchGooglePlacesKey = "auth_can_search_google_places";
     private const string HasCuratedDocsKey = "auth_has_curated_docs";
     private const string RequiresTripSetupKey = "auth_requires_trip_setup";
+    private const string CanCalculateRoutesKey = "auth_can_calculate_routes";
+    private const string AccessExpiresAtUtcKey = "auth_access_expires_at_utc";
     private const string TokenKey = "auth_token";
 
     public bool HasSession => CurrentUserId.HasValue;
@@ -43,8 +46,21 @@ public sealed class AuthSessionService
     }
     public bool IsBuilder => ExperienceMode == TravelCompanion.Shared.Dtos.ExperienceMode.SelfServiceBuilder;
     public bool CanEditItinerary => Preferences.Default.Get(CanEditItineraryKey, IsBuilder);
+    public bool CanSearchGooglePlaces => Preferences.Default.Get(CanSearchGooglePlacesKey, !IsFreeMapPreview);
     public bool HasCuratedDocs => Preferences.Default.Get(HasCuratedDocsKey, !IsBuilder && !IsFreeMapPreview);
     public bool RequiresTripSetup => Preferences.Default.Get(RequiresTripSetupKey, IsBuilder && !CurrentTripId.HasValue);
+    public bool CanCalculateRoutes => Preferences.Default.Get(CanCalculateRoutesKey, !IsFreeMapPreview);
+    public DateTimeOffset? KnownAccessExpiresAtUtc
+    {
+        get
+        {
+            var value = Preferences.Default.Get(AccessExpiresAtUtcKey, string.Empty);
+            return DateTimeOffset.TryParse(value, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.RoundtripKind, out var expiresAt)
+                ? expiresAt
+                : null;
+        }
+    }
+    public bool HasKnownValidAccess => KnownAccessExpiresAtUtc is not { } expiresAt || expiresAt > DateTimeOffset.UtcNow;
     public bool IsBiometricEnabled
     {
         get => Preferences.Default.Get(BiometricEnabledKey, false);
@@ -123,8 +139,10 @@ public sealed class AuthSessionService
         Preferences.Default.Set(AccessModeKey, session.AccessMode.ToString());
         Preferences.Default.Set(ExperienceModeKey, session.ExperienceMode.ToString());
         Preferences.Default.Set(CanEditItineraryKey, session.Capabilities?.CanEditItinerary ?? session.AccessMode == SessionAccessMode.Builder);
+        Preferences.Default.Set(CanSearchGooglePlacesKey, session.Capabilities?.CanSearchGooglePlaces ?? session.AccessMode != SessionAccessMode.FreeMapPreview);
         Preferences.Default.Set(HasCuratedDocsKey, session.Capabilities?.HasCuratedDocs ?? session.AccessMode == SessionAccessMode.Trip);
         Preferences.Default.Set(RequiresTripSetupKey, session.Capabilities?.RequiresTripSetup ?? false);
+        Preferences.Default.Set(CanCalculateRoutesKey, session.Capabilities?.CanCalculateRoutes ?? session.AccessMode != SessionAccessMode.FreeMapPreview);
         Preferences.Default.Set(
             BiometricEnabledKey,
             session.AccessMode != SessionAccessMode.FreeMapPreview && !session.MustChangePassword);
@@ -148,6 +166,21 @@ public sealed class AuthSessionService
     {
         Preferences.Default.Set(MustChangePasswordKey, false);
         Preferences.Default.Set(BiometricEnabledKey, true);
+    }
+
+    public void ApplyCapabilities(TravelerCapabilitiesDto capabilities)
+    {
+        Preferences.Default.Set(CanEditItineraryKey, capabilities.CanEditItinerary);
+        Preferences.Default.Set(CanSearchGooglePlacesKey, capabilities.CanSearchGooglePlaces);
+        Preferences.Default.Set(HasCuratedDocsKey, capabilities.HasCuratedDocs);
+        Preferences.Default.Set(RequiresTripSetupKey, capabilities.RequiresTripSetup);
+        Preferences.Default.Set(CanCalculateRoutesKey, capabilities.CanCalculateRoutes);
+    }
+
+    public void ApplySyncState(MobileSyncStateDto state)
+    {
+        ApplyCapabilities(state.Capabilities);
+        Preferences.Default.Set(AccessExpiresAtUtcKey, state.AccessExpiresAtUtc.ToString("O"));
     }
 
     public void MarkTripConfigured(Guid tripId, string? destinationName = null)
@@ -180,8 +213,11 @@ public sealed class AuthSessionService
         Preferences.Default.Remove(AccessModeKey);
         Preferences.Default.Remove(ExperienceModeKey);
         Preferences.Default.Remove(CanEditItineraryKey);
+        Preferences.Default.Remove(CanSearchGooglePlacesKey);
         Preferences.Default.Remove(HasCuratedDocsKey);
         Preferences.Default.Remove(RequiresTripSetupKey);
+        Preferences.Default.Remove(CanCalculateRoutesKey);
+        Preferences.Default.Remove(AccessExpiresAtUtcKey);
         SecureStorage.Default.Remove(TokenKey);
         Interlocked.Increment(ref _contextVersion);
     }

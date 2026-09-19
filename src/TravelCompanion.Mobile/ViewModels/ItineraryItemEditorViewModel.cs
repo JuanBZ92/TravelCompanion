@@ -12,7 +12,9 @@ public sealed partial class ItineraryItemEditorViewModel(
     AuthSessionService sessionService,
     MobileBootstrapStore bootstrapStore,
     MobileTodayStore todayStore,
-    MapViewModel mapViewModel) : ViewModelBase
+    MobileSyncStateStore syncStateStore,
+    MapViewModel mapViewModel,
+    BuilderTripStore builderTripStore) : ViewModelBase
 {
     private RecommendationDto? _recommendation;
     private DateTime _date = DateTime.Today;
@@ -37,6 +39,7 @@ public sealed partial class ItineraryItemEditorViewModel(
     private string _fallbackCity = string.Empty;
     private string? _placeSearchMessage;
     private bool _applyingPlaceSelection;
+    private readonly Dictionary<string, IReadOnlyList<PlaceSuggestionDto>> _placeSuggestionCache = new(StringComparer.Ordinal);
 
     public IReadOnlyList<string> Periods { get; } = ["Mañana", "Medio día", "Tarde", "Noche"];
     public ObservableCollection<PlaceSuggestionDto> PlaceSuggestions { get; } = [];
@@ -196,22 +199,64 @@ public sealed partial class ItineraryItemEditorViewModel(
 
         var query = NormalizeSearchText(LocationName);
         var city = CurrentCity.Trim();
-        if (query.Length < 3 || string.IsNullOrWhiteSpace(city)) return;
+        if (query.Length < 2 || string.IsNullOrWhiteSpace(city)) return;
 
         var operation = new CancellationTokenSource();
         _placeSearch = operation;
         var sessionToken = _placeSessionToken;
         try
         {
+            var cached = await bootstrapStore.GetCachedAsync(cancellationToken: operation.Token);
+            if (operation.IsCancellationRequested
+                || !ReferenceEquals(_placeSearch, operation)
+                || !string.Equals(NormalizeSearchText(LocationName), query, StringComparison.Ordinal)
+                || !string.Equals(CurrentCity.Trim(), city, StringComparison.Ordinal)) return;
+
+            var score = CatalogSearch.CreateFieldScorer(query);
+            var matches = cached?.Value.Recommendations
+                .Select(item => new
+                {
+                    Item = item,
+                    Score = score(item.Title,
+                        $"{item.Neighborhood} {item.Category} {item.RefinedType} {string.Join(' ', item.Tags)}",
+                        item.Description)
+                })
+                .Where(candidate => candidate.Score > 0 && TextContains(candidate.Item.Neighborhood, city))
+                .OrderByDescending(candidate => candidate.Score)
+                .ThenBy(candidate => candidate.Item.Title)
+                .Take(8)
+                .Select(candidate => candidate.Item)
+                .Select(item => new PlaceSuggestionDto(
+                    $"yuku:{item.Id:N}", item.Title, item.Neighborhood, item.Provider,
+                    item.Id, item.Latitude, item.Longitude))
+                .ToList() ?? [];
+            foreach (var match in matches) PlaceSuggestions.Add(match);
+            if (matches.Count > 0)
+            {
+                return;
+            }
+
+            if (query.Length < 3 || !sessionService.CanSearchGooglePlaces)
+            {
+                PlaceSearchMessage = "No encontramos coincidencias. Puedes completar el lugar manualmente.";
+                return;
+            }
+
             await Task.Delay(350, operation.Token);
-            var token = await sessionService.GetTokenAsync();
-            if (string.IsNullOrWhiteSpace(token)) return;
-            var results = await apiClient.AutocompletePlacesAsync(token, new PlaceAutocompleteRequest(
-                query,
-                city,
-                sessionToken,
-                CultureInfo.CurrentUICulture.Name,
-                PlaceAutocompleteMode.Place), operation.Token);
+            var cacheKey = $"{sessionService.ContextVersion}:{CultureInfo.CurrentUICulture.Name}:place:{city.ToUpperInvariant()}:{query.ToUpperInvariant()}";
+            if (!_placeSuggestionCache.TryGetValue(cacheKey, out var results))
+            {
+                var token = await sessionService.GetTokenAsync();
+                if (string.IsNullOrWhiteSpace(token)) return;
+                results = await apiClient.AutocompletePlacesAsync(token, new PlaceAutocompleteRequest(
+                    query,
+                    city,
+                    sessionToken,
+                    CultureInfo.CurrentUICulture.Name,
+                    PlaceAutocompleteMode.Place), operation.Token);
+                if (_placeSuggestionCache.Count >= 20) _placeSuggestionCache.Remove(_placeSuggestionCache.Keys.First());
+                _placeSuggestionCache[cacheKey] = results;
+            }
             if (operation.IsCancellationRequested
                 || !ReferenceEquals(_placeSearch, operation)
                 || !string.Equals(NormalizeSearchText(LocationName), query, StringComparison.Ordinal)
@@ -241,6 +286,21 @@ public sealed partial class ItineraryItemEditorViewModel(
     public async Task SelectPlaceAsync(PlaceSuggestionDto suggestion)
     {
         CancelPlaceSearch(clearSuggestions: false);
+        if (suggestion.Provider.Equals("YUKU", StringComparison.OrdinalIgnoreCase)
+            || suggestion.RecommendationId.HasValue)
+        {
+            _applyingPlaceSelection = true;
+            LocationName = suggestion.Name;
+            Address = suggestion.Address;
+            _applyingPlaceSelection = false;
+            _selectedGooglePlaceId = null;
+            _selectedLatitude = suggestion.Latitude;
+            _selectedLongitude = suggestion.Longitude;
+            if (string.IsNullOrWhiteSpace(TitleText)) TitleText = suggestion.Name;
+            PlaceSuggestions.Clear();
+            PlaceSearchMessage = null;
+            return;
+        }
         var query = NormalizeSearchText(LocationName);
         var city = CurrentCity.Trim();
         var sessionToken = _placeSessionToken;
@@ -340,11 +400,22 @@ public sealed partial class ItineraryItemEditorViewModel(
 
         if (result is null || !result.Success)
         {
+            if (result is not null && result.Revision != _revision)
+            {
+                var currentSchedule = await apiClient.GetScheduleAsync(token, ct);
+                if (currentSchedule is not null)
+                {
+                    await bootstrapStore.ReplaceScheduleAsync(currentSchedule, ct);
+                }
+                _revision = result.Revision;
+                await builderTripStore.UpdateRevisionAsync(result.Revision, ct);
+            }
             ErrorMessage = result?.Message ?? "No se pudo guardar. Comprueba tu conexión.";
             return;
         }
-        await todayStore.ClearUserCacheAsync(sessionService.CurrentUserId, ct);
-        if (result.Item is not null) await bootstrapStore.UpsertScheduleItemAsync(result.Item, ct);
+        await todayStore.InvalidateAllAsync();
+        if (result.Item is not null) await bootstrapStore.UpsertScheduleItemAsync(result.Item, result.Revision, ct);
+        await syncStateStore.AcknowledgeItineraryVersionAsync(result.Revision, ct);
         mapViewModel.ResetSelection();
         await Shell.Current.Navigation.PopToRootAsync(animated: false);
         await Shell.Current.GoToAsync("//main/schedule");
@@ -365,7 +436,7 @@ public sealed partial class ItineraryItemEditorViewModel(
     private async Task<BuilderTripSetupDto?> LoadSetupAsync()
     {
         var token = await sessionService.GetTokenAsync();
-        var setup = string.IsNullOrWhiteSpace(token) ? null : await apiClient.GetBuilderTripSetupAsync(token);
+        var setup = string.IsNullOrWhiteSpace(token) ? null : await builderTripStore.GetAsync(token);
         _revision = setup?.Revision ?? 0;
         _segments = setup?.Segments ?? [];
         if (setup?.ArrivalDate is { } arrivalDate)
@@ -401,4 +472,8 @@ public sealed partial class ItineraryItemEditorViewModel(
 
     private static string NormalizeSearchText(string value) =>
         string.Join(' ', value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
+    private static bool TextContains(string value, string query) =>
+        CultureInfo.InvariantCulture.CompareInfo.IndexOf(
+            value, query, CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace) >= 0;
 }

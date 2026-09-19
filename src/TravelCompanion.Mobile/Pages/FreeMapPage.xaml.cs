@@ -46,13 +46,8 @@ public partial class FreeMapPage : ContentPage
     {
         base.OnAppearing();
         _viewModel.PropertyChanged += OnViewModelPropertyChanged;
-        if (_viewModel.HasLoaded)
-        {
-            RefreshMap();
-            return;
-        }
-
         await _viewModel.LoadCommand.ExecuteAsync(null);
+        RefreshMap();
     }
 
     protected override void OnDisappearing()

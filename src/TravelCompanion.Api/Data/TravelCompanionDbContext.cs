@@ -26,9 +26,16 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
     public DbSet<RecommendationInteractionSignal> RecommendationInteractionSignals => Set<RecommendationInteractionSignal>();
     public DbSet<NotificationDeviceRegistration> NotificationDeviceRegistrations => Set<NotificationDeviceRegistration>();
     public DbSet<NotificationOutboxItem> NotificationOutboxItems => Set<NotificationOutboxItem>();
+    public DbSet<MobileDataVersion> MobileDataVersions => Set<MobileDataVersion>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<MobileDataVersion>(entity =>
+        {
+            entity.HasKey(version => version.Scope);
+            entity.Property(version => version.Scope).HasMaxLength(160);
+        });
+
         modelBuilder.Entity<Destination>(entity =>
         {
             entity.HasIndex(destination => destination.Slug).IsUnique();

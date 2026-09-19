@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Collections.Concurrent;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Options;
@@ -24,10 +25,22 @@ public sealed class GooglePlacesService(
     private const double JapanWestLongitude = 122.0;
     private const double JapanNorthLatitude = 46.5;
     private const double JapanEastLongitude = 154.5;
+    private long _backoffUntilUtcTicks;
+    private readonly ConcurrentDictionary<string, Lazy<Task<IReadOnlyList<RecommendationDto>>>> _pendingSearches = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, Lazy<Task<IReadOnlyList<PlaceSuggestionDto>>>> _pendingAutocomplete = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, Lazy<Task<RecommendationDto?>>> _pendingDetails = new(StringComparer.Ordinal);
 
     public async Task<IReadOnlyList<PlaceSuggestionDto>> AutocompleteAsync(PlaceAutocompleteRequest request, CancellationToken cancellationToken)
     {
-        if (!options.Value.Enabled || string.IsNullOrWhiteSpace(options.Value.ApiKey)) return [];
+        var key = $"{request.Mode}:{Language(request.Locale)}:{NormalizeSearchText(request.Query)}:{NormalizeSearchText(request.City ?? string.Empty)}:{request.SessionToken}";
+        var pending = _pendingAutocomplete.GetOrAdd(key,
+            _ => new Lazy<Task<IReadOnlyList<PlaceSuggestionDto>>>(() => AutocompleteCoreAsync(request, cancellationToken)));
+        return await AwaitSharedAsync(_pendingAutocomplete, key, pending, cancellationToken);
+    }
+
+    private async Task<IReadOnlyList<PlaceSuggestionDto>> AutocompleteCoreAsync(PlaceAutocompleteRequest request, CancellationToken cancellationToken)
+    {
+        if (!options.Value.Enabled || string.IsNullOrWhiteSpace(options.Value.ApiKey) || IsBackedOff()) return [];
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(TimeSpan.FromSeconds(5));
         using var message = new HttpRequestMessage(HttpMethod.Post, "https://places.googleapis.com/v1/places:autocomplete");
@@ -48,7 +61,7 @@ public sealed class GooglePlacesService(
         try
         {
             using var response = await httpClientFactory.CreateClient().SendAsync(message, timeout.Token);
-            if (!response.IsSuccessStatusCode) { logger.LogWarning("Places autocomplete returned {StatusCode}.", (int)response.StatusCode); return []; }
+            if (!response.IsSuccessStatusCode) { RegisterBackoff(response); logger.LogWarning("Places autocomplete returned {StatusCode}.", (int)response.StatusCode); return []; }
             var payload = await response.Content.ReadFromJsonAsync<AutocompleteResponse>(cancellationToken: timeout.Token);
             return payload?.Suggestions?.Where(s => !string.IsNullOrWhiteSpace(s.PlacePrediction?.PlaceId))
                 .Take(5).Select(s => new PlaceSuggestionDto(s.PlacePrediction!.PlaceId,
@@ -62,7 +75,15 @@ public sealed class GooglePlacesService(
 
     public async Task<RecommendationDto?> DetailsAsync(Guid destinationId, PlaceDetailsRequest request, CancellationToken cancellationToken)
     {
-        if (!options.Value.Enabled || string.IsNullOrWhiteSpace(options.Value.ApiKey)) return null;
+        var key = $"{destinationId:N}:{Language(request.Locale)}:{request.PlaceId}:{request.SessionToken}";
+        var pending = _pendingDetails.GetOrAdd(key,
+            _ => new Lazy<Task<RecommendationDto?>>(() => DetailsCoreAsync(destinationId, request, cancellationToken)));
+        return await AwaitSharedAsync(_pendingDetails, key, pending, cancellationToken);
+    }
+
+    private async Task<RecommendationDto?> DetailsCoreAsync(Guid destinationId, PlaceDetailsRequest request, CancellationToken cancellationToken)
+    {
+        if (!options.Value.Enabled || string.IsNullOrWhiteSpace(options.Value.ApiKey) || IsBackedOff()) return null;
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(TimeSpan.FromSeconds(5));
         using var message = new HttpRequestMessage(HttpMethod.Get,
@@ -73,7 +94,7 @@ public sealed class GooglePlacesService(
         try
         {
             using var response = await httpClientFactory.CreateClient().SendAsync(message, timeout.Token);
-            if (!response.IsSuccessStatusCode) { logger.LogWarning("Places details returned {StatusCode}.", (int)response.StatusCode); return null; }
+            if (!response.IsSuccessStatusCode) { RegisterBackoff(response); logger.LogWarning("Places details returned {StatusCode}.", (int)response.StatusCode); return null; }
             var place = await response.Content.ReadFromJsonAsync<GooglePlace>(cancellationToken: timeout.Token);
             return place?.Location is null || !IsPlaceDetailsInJapan(place) ? null : new RecommendationDto(Guid.Empty, destinationId,
                 place.DisplayName?.Text ?? "Hotel", place.PrimaryType ?? "lodging", place.FormattedAddress ?? string.Empty,
@@ -120,10 +141,20 @@ public sealed class GooglePlacesService(
     public async Task<IReadOnlyList<RecommendationDto>> SearchAsync(Guid destinationId, PlaceSearchRequest request, CancellationToken cancellationToken)
     {
         var configuration = options.Value;
-        if (!configuration.Enabled || string.IsNullOrWhiteSpace(configuration.ApiKey) || request.Query.Trim().Length < 3)
+        if (!configuration.Enabled || string.IsNullOrWhiteSpace(configuration.ApiKey) || request.Query.Trim().Length < 3 || IsBackedOff())
         {
             return [];
         }
+
+        var key = $"{destinationId:N}:{Language(null)}:{NormalizeSearchText(request.Query)}:{NormalizeSearchText(request.City ?? string.Empty)}";
+        var pending = _pendingSearches.GetOrAdd(key,
+            _ => new Lazy<Task<IReadOnlyList<RecommendationDto>>>(() => SearchCoreAsync(destinationId, request, cancellationToken)));
+        return await AwaitSharedAsync(_pendingSearches, key, pending, cancellationToken);
+    }
+
+    private async Task<IReadOnlyList<RecommendationDto>> SearchCoreAsync(Guid destinationId, PlaceSearchRequest request, CancellationToken cancellationToken)
+    {
+        var configuration = options.Value;
 
         try
         {
@@ -148,6 +179,7 @@ public sealed class GooglePlacesService(
             using var response = await httpClientFactory.CreateClient().SendAsync(message, timeout.Token);
             if (!response.IsSuccessStatusCode)
             {
+                RegisterBackoff(response);
                 logger.LogWarning("Google Places search returned {StatusCode}.", (int)response.StatusCode);
                 return [];
             }
@@ -183,6 +215,38 @@ public sealed class GooglePlacesService(
             logger.LogWarning("Google Places is temporarily unavailable.");
             return [];
         }
+    }
+
+    private bool IsBackedOff() => DateTimeOffset.UtcNow.UtcTicks < Interlocked.Read(ref _backoffUntilUtcTicks);
+
+    private static async Task<T> AwaitSharedAsync<T>(
+        ConcurrentDictionary<string, Lazy<Task<T>>> requests,
+        string key,
+        Lazy<Task<T>> pending,
+        CancellationToken cancellationToken)
+    {
+        var task = pending.Value;
+        _ = task.ContinueWith(
+            completedTask =>
+            {
+                if (requests.TryGetValue(key, out var current) && ReferenceEquals(current, pending))
+                {
+                    requests.TryRemove(key, out _);
+                }
+            },
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+        return await task.WaitAsync(cancellationToken);
+    }
+
+    private void RegisterBackoff(HttpResponseMessage response)
+    {
+        if (response.StatusCode != System.Net.HttpStatusCode.TooManyRequests) return;
+        var retryAt = response.Headers.RetryAfter?.Date
+            ?? DateTimeOffset.UtcNow.Add(response.Headers.RetryAfter?.Delta ?? TimeSpan.FromMinutes(1));
+        Interlocked.Exchange(ref _backoffUntilUtcTicks, retryAt.UtcTicks);
+        logger.LogWarning("Google Places throttled requests until {RetryAtUtc}.", retryAt);
     }
 
     private sealed record GooglePlacesResponse([property: JsonPropertyName("places")] List<GooglePlace>? Places);

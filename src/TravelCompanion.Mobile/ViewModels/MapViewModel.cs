@@ -19,6 +19,9 @@ public sealed partial class MapViewModel(
     private const decimal TokyoStationLatitude = 35.681236m;
     private const decimal TokyoStationLongitude = 139.767125m;
     private readonly List<RecommendationDto> _allNearbyRecommendations = [];
+    private readonly List<RecommendationDto> _mapRecommendations = [];
+    private readonly List<CatalogSearchEntry> _catalogSearchIndex = [];
+    private string? _temporaryMapRecommendationKey;
     private UserEntitlementsDto? _entitlements;
     private RecommendationDto? _selectedRecommendation;
     private int _currentPage = 1;
@@ -29,9 +32,11 @@ public sealed partial class MapViewModel(
     private string _searchText = string.Empty;
     private string? _activeSearchQuery;
     private IReadOnlyList<RecommendationDto> _searchResults = [];
-    private string? _searchCacheKey;
+    private readonly Dictionary<string, IReadOnlyList<RecommendationDto>> _externalSearchCache = new(StringComparer.Ordinal);
+    private CancellationTokenSource? _searchCancellation;
 
     public string SearchText { get => _searchText; set => SetProperty(ref _searchText, value); }
+    public bool CanSearchGoogle => sessionService.CanSearchGooglePlaces;
 
     public IReadOnlyList<RecommendationDto> VisibleNearbyRecommendations
     {
@@ -56,6 +61,8 @@ public sealed partial class MapViewModel(
             }
         }
     }
+
+    public IReadOnlyList<RecommendationDto> MapRecommendations => _mapRecommendations;
 
     public bool HasSelectedRecommendation => SelectedRecommendation is not null;
     public bool ShowRecommendationBrowser => !HasSelectedRecommendation;
@@ -167,6 +174,9 @@ public sealed partial class MapViewModel(
     {
         ResetLoadState();
         _allNearbyRecommendations.Clear();
+        _mapRecommendations.Clear();
+        _catalogSearchIndex.Clear();
+        _temporaryMapRecommendationKey = null;
         VisibleNearbyRecommendations = [];
         _entitlements = null;
         SelectedRecommendation = null;
@@ -177,7 +187,9 @@ public sealed partial class MapViewModel(
         SearchText = string.Empty;
         _activeSearchQuery = null;
         _searchResults = [];
-        _searchCacheKey = null;
+        CancelSearch();
+        _externalSearchCache.Clear();
+        OnPropertyChanged(nameof(MapRecommendations));
         OnPropertyChanged(nameof(CanAddToItinerary));
     }
 
@@ -193,11 +205,34 @@ public sealed partial class MapViewModel(
     [RelayCommand]
     private async Task SelectRecommendationAsync(RecommendationDto? recommendation)
     {
-        if (recommendation is null || !VisibleNearbyRecommendations.Any(item => item.SelectionKey == recommendation.SelectionKey))
+        if (recommendation is null)
         {
             return;
         }
 
+        var browseRecommendations = _activeSearchQuery is null
+            ? _allNearbyRecommendations
+            : _searchResults;
+        var mapIndex = browseRecommendations
+            .Select((item, index) => new { item.SelectionKey, Index = index })
+            .FirstOrDefault(item => item.SelectionKey == recommendation.SelectionKey)?.Index ?? -1;
+        if (mapIndex < 0) return;
+
+        var targetPage = mapIndex / PageSize + 1;
+        if (targetPage != CurrentPage)
+        {
+            if (_activeSearchQuery is null)
+            {
+                CurrentPage = targetPage;
+                ApplyCurrentPage();
+            }
+            else
+            {
+                ApplySearchPage(targetPage);
+            }
+        }
+
+        SetTemporaryMapRecommendation(recommendation);
         IsSelectedRecommendationLoading = recommendation.Id != Guid.Empty;
         SelectedRecommendation = recommendation;
         await LoadSelectedRecommendationDetailAsync(recommendation);
@@ -213,6 +248,7 @@ public sealed partial class MapViewModel(
     {
         SelectedRecommendation = null;
         IsSelectedRecommendationLoading = false;
+        SetTemporaryMapRecommendation(null);
     }
 
     [RelayCommand]
@@ -256,29 +292,48 @@ public sealed partial class MapViewModel(
         }
     }
 
-    [RelayCommand]
-    private Task SearchAsync() => LoadAsync(async ct =>
+    [RelayCommand(AllowConcurrentExecutions = true)]
+    private async Task SearchAsync()
     {
+        CancelSearch();
         if (string.IsNullOrWhiteSpace(SearchText))
         {
             _activeSearchQuery = null;
             _searchResults = [];
-            _searchCacheKey = null;
-            await LoadNearbyRecommendationsLocalFirstAsync(ct);
+            ApplyCurrentPage();
             return;
         }
+
         var searchQuery = SearchText.Trim();
-        var previousActiveSearchQuery = _activeSearchQuery;
         _activeSearchQuery = searchQuery;
-        var searchKey = $"{sessionService.ContextVersion}:{sessionService.CurrentUserId}:{sessionService.CurrentTripId}:{System.Globalization.CultureInfo.CurrentUICulture.Name}:{searchQuery}";
-        if (!string.Equals(searchKey, _searchCacheKey, StringComparison.Ordinal))
+        _searchResults = SearchCatalog(searchQuery);
+        StatusMessage = null;
+        ApplySearchPage(1);
+
+        if (_searchResults.Count > 0 || !CanSearchGoogle || searchQuery.Length < 3)
+        {
+            return;
+        }
+
+        var searchKey = $"google:{sessionService.ContextVersion}:{sessionService.CurrentUserId}:{sessionService.CurrentTripId}:{System.Globalization.CultureInfo.CurrentUICulture.Name}:{searchQuery}";
+        if (_externalSearchCache.TryGetValue(searchKey, out var cachedResults))
+        {
+            _searchResults = cachedResults;
+            ApplySearchPage(1);
+            return;
+        }
+
+        var operation = new CancellationTokenSource();
+        _searchCancellation = operation;
+        var contextVersion = sessionService.ContextVersion;
+        try
         {
             var token = await sessionService.GetTokenAsync();
             if (string.IsNullOrWhiteSpace(token)) return;
             var result = await apiClient.SearchPlacesResultAsync(
                 token,
-                new PlaceSearchRequest(searchQuery),
-                ct);
+                new PlaceSearchRequest(searchQuery, IncludeGoogle: true),
+                operation.Token);
             if (result.IsUnauthorized)
             {
                 sessionService.Clear();
@@ -287,25 +342,69 @@ public sealed partial class MapViewModel(
             }
             if (result.Value is not { } results)
             {
-                _activeSearchQuery = previousActiveSearchQuery;
-                StatusMessage = "No pudimos actualizar la búsqueda. Inténtalo de nuevo.";
+                StatusMessage = "Google no está disponible. Conservamos los resultados del catálogo.";
                 return;
             }
-            var currentSearchKey = $"{sessionService.ContextVersion}:{sessionService.CurrentUserId}:{sessionService.CurrentTripId}:{System.Globalization.CultureInfo.CurrentUICulture.Name}:{SearchText.Trim()}";
-            if (!string.Equals(searchKey, currentSearchKey, StringComparison.Ordinal))
-            {
-                _activeSearchQuery = previousActiveSearchQuery;
-                return;
-            }
+            if (operation.IsCancellationRequested
+                || !ReferenceEquals(_searchCancellation, operation)
+                || sessionService.ContextVersion != contextVersion
+                || !string.Equals(SearchText.Trim(), searchQuery, StringComparison.Ordinal)) return;
             _searchResults = results;
-            _searchCacheKey = searchKey;
+            if (_externalSearchCache.Count >= 20)
+            {
+                _externalSearchCache.Remove(_externalSearchCache.Keys.First());
+            }
+            _externalSearchCache[searchKey] = results;
+            StatusMessage = results.Count == 0 ? "No encontramos lugares con esa búsqueda." : null;
+            ApplySearchPage(1);
         }
-        StatusMessage = null;
-        ApplySearchPage(1);
-    });
+        catch (OperationCanceledException)
+        {
+            // Expected while the user keeps typing or leaves the page.
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "Map place search failed for query {Query}.", searchQuery);
+            StatusMessage = "No pudimos completar la búsqueda. Inténtalo nuevamente.";
+        }
+        finally
+        {
+            if (ReferenceEquals(_searchCancellation, operation))
+            {
+                _searchCancellation = null;
+            }
+            operation.Dispose();
+        }
+    }
+
+    public void CancelSearch()
+    {
+        var operation = Interlocked.Exchange(ref _searchCancellation, null);
+        operation?.Cancel();
+    }
+
+    private IReadOnlyList<RecommendationDto> SearchCatalog(string query)
+    {
+        var score = CatalogSearch.CreateNormalizedFieldScorer(query);
+        return _catalogSearchIndex
+            .Select(entry => new
+            {
+                entry.Item,
+                Score = score(
+                    entry.NormalizedTitle,
+                    entry.NormalizedMetadata,
+                    entry.NormalizedDescription)
+            })
+            .Where(candidate => candidate.Score > 0)
+            .OrderByDescending(candidate => candidate.Score)
+            .ThenBy(candidate => candidate.Item.Title)
+            .Select(candidate => candidate.Item)
+            .ToList();
+    }
 
     private void ApplySearchPage(int page)
     {
+        SetTemporaryMapRecommendation(null);
         SelectedRecommendation = null;
         TotalItems = _searchResults.Count;
         TotalPages = Math.Max(1, (int)Math.Ceiling(TotalItems / (double)PageSize));
@@ -445,14 +544,36 @@ public sealed partial class MapViewModel(
         var selectedKey = SelectedRecommendation?.SelectionKey;
         _allNearbyRecommendations.Clear();
         _allNearbyRecommendations.AddRange(recommendations);
+        _mapRecommendations.Clear();
+        _mapRecommendations.AddRange(recommendations);
+        _temporaryMapRecommendationKey = null;
+        if (SelectedRecommendation is { Id: var selectedId } selected && selectedId == Guid.Empty)
+        {
+            _mapRecommendations.Add(selected);
+            _temporaryMapRecommendationKey = selected.SelectionKey;
+        }
+        _catalogSearchIndex.Clear();
+        _catalogSearchIndex.AddRange(recommendations.Select(recommendation => new CatalogSearchEntry(
+            recommendation,
+            CatalogSearch.Normalize(recommendation.Title),
+            CatalogSearch.Normalize($"{recommendation.Neighborhood} {recommendation.Category} {recommendation.RefinedType} {string.Join(' ', recommendation.Tags)}"),
+            CatalogSearch.Normalize(recommendation.Description))));
+        OnPropertyChanged(nameof(MapRecommendations));
         if (resetPage)
         {
             CurrentPage = 1;
         }
 
-        TotalItems = _allNearbyRecommendations.Count;
-        TotalPages = Math.Max(1, (int)Math.Ceiling(TotalItems / (double)PageSize));
-        ApplyCurrentPage();
+        if (_activeSearchQuery is null)
+        {
+            TotalItems = _allNearbyRecommendations.Count;
+            TotalPages = Math.Max(1, (int)Math.Ceiling(TotalItems / (double)PageSize));
+            ApplyCurrentPage();
+        }
+        else
+        {
+            ApplySearchPage(resetPage ? 1 : CurrentPage);
+        }
         SelectedRecommendation = selectedKey is null
             ? null
             : VisibleNearbyRecommendations.FirstOrDefault(item => item.SelectionKey == selectedKey);
@@ -473,6 +594,30 @@ public sealed partial class MapViewModel(
             .ToList();
         OnPropertyChanged(nameof(CanBrowseSelectedRecommendations));
         OnPropertyChanged(nameof(SelectedRecommendationPosition));
+    }
+
+    private void SetTemporaryMapRecommendation(RecommendationDto? recommendation)
+    {
+        var changed = false;
+        if (_temporaryMapRecommendationKey is not null)
+        {
+            changed = _mapRecommendations.RemoveAll(item =>
+                string.Equals(item.SelectionKey, _temporaryMapRecommendationKey, StringComparison.Ordinal)) > 0;
+            _temporaryMapRecommendationKey = null;
+        }
+
+        if (recommendation is { Id: var id } && id == Guid.Empty
+            && _mapRecommendations.All(item => item.SelectionKey != recommendation.SelectionKey))
+        {
+            _mapRecommendations.Add(recommendation);
+            _temporaryMapRecommendationKey = recommendation.SelectionKey;
+            changed = true;
+        }
+
+        if (changed)
+        {
+            OnPropertyChanged(nameof(MapRecommendations));
+        }
     }
 
     private async Task SelectAdjacentRecommendationAsync(int offset)
@@ -594,4 +739,10 @@ public sealed partial class MapViewModel(
         OnPropertyChanged(nameof(ShowInitialLoading));
         OnPropertyChanged(nameof(ShowEmptyState));
     }
+
+    private sealed record CatalogSearchEntry(
+        RecommendationDto Item,
+        string NormalizedTitle,
+        string NormalizedMetadata,
+        string NormalizedDescription);
 }

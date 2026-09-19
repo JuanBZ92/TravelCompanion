@@ -50,11 +50,7 @@ public sealed class GoogleRoutesService(IHttpClientFactory clients, IOptions<Goo
         {
             await _gate.WaitAsync(timeout.Token);
             entered = true;
-            var first = await QueryAsync(origin, destination, mode, arrival, null, timeout.Token);
-            if (first is null || mode != "DRIVE") return first;
-            // Routes supports arrivalTime only for transit. Refine driving once at its estimated departure.
-            return await QueryAsync(origin, destination, mode, arrival,
-                first.LeaveAt > DateTimeOffset.UtcNow ? first.LeaveAt : DateTimeOffset.UtcNow, timeout.Token) ?? first;
+            return await QueryAsync(origin, destination, mode, arrival, null, timeout.Token);
         }
         catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or JsonException or FormatException)
         {

@@ -39,14 +39,10 @@ public partial class RecommendationsPage : ContentPage
         var stopwatch = Stopwatch.StartNew();
         base.OnAppearing();
 
-        if (_viewModel.HasLoaded)
+        var wasLoaded = _viewModel.HasLoaded;
+        if (wasLoaded)
         {
             _viewModel.RefreshFavoriteState();
-            stopwatch.Stop();
-            _logger.LogInformation(
-                "Recommendations page appeared from warm state in {ElapsedMs}ms.",
-                stopwatch.Elapsed.TotalMilliseconds);
-            return;
         }
 
         try
@@ -61,8 +57,9 @@ public partial class RecommendationsPage : ContentPage
         {
             stopwatch.Stop();
             _logger.LogInformation(
-                "Recommendations page appeared after initial load in {ElapsedMs}ms. HasLoaded={HasLoaded}.",
+                "Recommendations page appeared in {ElapsedMs}ms. WarmState={WarmState}; HasLoaded={HasLoaded}.",
                 stopwatch.Elapsed.TotalMilliseconds,
+                wasLoaded,
                 _viewModel.HasLoaded);
         }
     }

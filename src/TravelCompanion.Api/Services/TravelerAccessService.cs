@@ -25,9 +25,9 @@ public sealed class TravelerAccessService(UserSessionService sessionService)
 
     public static TravelerCapabilitiesDto CreateCapabilities(ExperienceMode mode, bool requiresTripSetup) => mode switch
     {
-        ExperienceMode.FreePreview => new(false, false, false, false, false),
-        ExperienceMode.SelfServiceBuilder => new(true, true, true, false, requiresTripSetup),
-        _ => new(true, true, false, true, false)
+        ExperienceMode.FreePreview => new(false, false, false, false, false, false),
+        ExperienceMode.SelfServiceBuilder => new(true, true, true, false, requiresTripSetup, true),
+        _ => new(true, true, false, true, false, true)
     };
 }
 

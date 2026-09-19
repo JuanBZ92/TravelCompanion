@@ -21,8 +21,13 @@ namespace TravelCompanion.Mobile.Pages;
 
 public partial class MapPage : ContentPage
 {
+    private const double CollapsedSearchPanelHeight = 300;
+    private const double MinimumExpandedSearchPanelHeight = 340;
+    private const double MaximumExpandedSearchPanelHeight = 520;
     private readonly MapViewModel _viewModel;
     private readonly ILogger<MapPage> _logger;
+    private CancellationTokenSource? _searchDebounce;
+    private bool _isSearchPanelExpanded;
 
 #if !WINDOWS
     private readonly MauiMap _map;
@@ -31,6 +36,7 @@ public partial class MapPage : ContentPage
     private readonly Dictionary<string, RecommendationMapPin> _pinsBySelectionKey = new(StringComparer.Ordinal);
     private bool _isSubscribedToRecommendations;
     private bool _hasRenderedPins;
+    private bool _mapPinsRefreshPending;
 #endif
 
     public MapPage()
@@ -88,7 +94,8 @@ public partial class MapPage : ContentPage
         SubscribeToRecommendations();
 #endif
 
-        if (_viewModel.HasLoaded)
+        var wasLoaded = _viewModel.HasLoaded;
+        if (wasLoaded)
         {
 #if !WINDOWS
             if (!_hasRenderedPins)
@@ -96,11 +103,6 @@ public partial class MapPage : ContentPage
                 TryRefreshMapPins();
             }
 #endif
-            stopwatch.Stop();
-            _logger.LogInformation(
-                "Map page appeared from warm state in {ElapsedMs}ms.",
-                stopwatch.Elapsed.TotalMilliseconds);
-            return;
         }
 
         try
@@ -115,14 +117,17 @@ public partial class MapPage : ContentPage
         {
             stopwatch.Stop();
             _logger.LogInformation(
-                "Map page appeared after initial load in {ElapsedMs}ms. HasLoaded={HasLoaded}.",
+                "Map page appeared in {ElapsedMs}ms. WarmState={WarmState}; HasLoaded={HasLoaded}.",
                 stopwatch.Elapsed.TotalMilliseconds,
+                wasLoaded,
                 _viewModel.HasLoaded);
         }
     }
 
     protected override void OnDisappearing()
     {
+        CancelSearchDebounce();
+        _viewModel.CancelSearch();
         _viewModel.CancelLoading();
         DismissSearchKeyboard();
         base.OnDisappearing();
@@ -138,9 +143,6 @@ public partial class MapPage : ContentPage
         {
             void ApplyRecommendations()
             {
-#if !WINDOWS
-                TryRefreshMapPins();
-#endif
                 _ = ResetResultsScrollAsync();
             }
 
@@ -154,6 +156,26 @@ public partial class MapPage : ContentPage
             }
         }
 #if !WINDOWS
+        else if (e.PropertyName == nameof(MapViewModel.MapRecommendations))
+        {
+            if (PlaceSearch.IsFocused)
+            {
+                // Updating hundreds of native map annotations while the user types blocks
+                // the UI thread. The result list is already visible above the keyboard, so
+                // keep the current pins stable and synchronize them once search ends.
+                _mapPinsRefreshPending = true;
+                return;
+            }
+
+            if (Dispatcher.IsDispatchRequired)
+            {
+                Dispatcher.Dispatch(() => TryRefreshMapPins());
+            }
+            else
+            {
+                TryRefreshMapPins();
+            }
+        }
         else if (e.PropertyName == nameof(MapViewModel.SelectedRecommendation))
         {
             void ApplySelection()
@@ -213,7 +235,7 @@ public partial class MapPage : ContentPage
     private void RefreshMapPins(bool moveToBounds = true)
     {
         var stopwatch = Stopwatch.StartNew();
-        var recommendationsByKey = _viewModel.VisibleNearbyRecommendations
+        var recommendationsByKey = _viewModel.MapRecommendations
             .GroupBy(recommendation => recommendation.SelectionKey, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
         foreach (var staleKey in _pinsBySelectionKey.Keys.Except(recommendationsByKey.Keys, StringComparer.Ordinal).ToList())
@@ -244,7 +266,7 @@ public partial class MapPage : ContentPage
                     args.HideInfoWindow = true;
                     void SelectPin()
                     {
-                        var current = _viewModel.VisibleNearbyRecommendations
+                        var current = _viewModel.MapRecommendations
                             .FirstOrDefault(item => item.SelectionKey == selectionKey);
                         if (current is not null) _viewModel.SelectRecommendationCommand.Execute(current);
                     }
@@ -266,7 +288,7 @@ public partial class MapPage : ContentPage
 
         if (moveToBounds)
         {
-            MoveToRecommendationBounds(_viewModel.VisibleNearbyRecommendations);
+            MoveToRecommendationBounds(_viewModel.MapRecommendations);
         }
 
         _hasRenderedPins = true;
@@ -274,7 +296,7 @@ public partial class MapPage : ContentPage
         _logger.LogInformation(
             "Map pins refreshed in {ElapsedMs}ms. Pins={PinCount}.",
             stopwatch.Elapsed.TotalMilliseconds,
-            _viewModel.VisibleNearbyRecommendations.Count);
+            _viewModel.MapRecommendations.Count);
     }
 
     private void TryRefreshMapPins(bool moveToBounds = true)
@@ -363,6 +385,11 @@ public partial class MapPage : ContentPage
 
         annotationView.Annotation = annotation;
         annotationView.CanShowCallout = false;
+        // MapKit normally hides colliding annotations as the user zooms out.
+        // These pins are the catalog itself, so keep every marker visible and
+        // prevent MapKit from grouping them under a clustering identifier.
+        annotationView.DisplayPriority = MKFeatureDisplayPriority.Required;
+        annotationView.ClusteringIdentifier = null;
         annotationView.MarkerTintColor = pin?.IsSelected == true
             ? UIColor.FromRGB(197, 157, 62)
             : UIColor.SystemRed;
@@ -383,8 +410,132 @@ public partial class MapPage : ContentPage
 
     private async void OnSearchSubmitted(object? sender, EventArgs e)
     {
-        DismissSearchKeyboard();
-        await _viewModel.SearchCommand.ExecuteAsync(null);
+        try
+        {
+            CancelSearchDebounce();
+            DismissSearchKeyboard();
+            await _viewModel.SearchCommand.ExecuteAsync(null);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Map search submission failed.");
+            _viewModel.StatusMessage = "No pudimos completar la búsqueda. Inténtalo nuevamente.";
+        }
+    }
+
+    private async void OnSearchTextChanged(object? sender, TextChangedEventArgs e)
+    {
+        CancelSearchDebounce();
+        if (!PlaceSearch.IsFocused)
+        {
+            return;
+        }
+
+        var expectedText = e.NewTextValue ?? string.Empty;
+        var debounce = new CancellationTokenSource();
+        _searchDebounce = debounce;
+        try
+        {
+            await Task.Delay(250, debounce.Token);
+            if (!debounce.IsCancellationRequested
+                && PlaceSearch.IsFocused
+                && string.Equals(PlaceSearch.Text ?? string.Empty, expectedText, StringComparison.Ordinal))
+            {
+                await _viewModel.SearchCommand.ExecuteAsync(null);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected while the user continues typing or leaves the page.
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Map search failed while typing.");
+            _viewModel.StatusMessage = "No pudimos completar la búsqueda. Inténtalo nuevamente.";
+        }
+        finally
+        {
+            if (ReferenceEquals(_searchDebounce, debounce))
+            {
+                _searchDebounce = null;
+            }
+            debounce.Dispose();
+        }
+    }
+
+    private void OnSearchFocused(object? sender, FocusEventArgs e)
+    {
+        _isSearchPanelExpanded = true;
+        UpdateSearchPanelLayout();
+    }
+
+    private void OnSearchUnfocused(object? sender, FocusEventArgs e)
+    {
+        _isSearchPanelExpanded = false;
+        UpdateSearchPanelLayout();
+#if !WINDOWS
+        if (_mapPinsRefreshPending)
+        {
+            _mapPinsRefreshPending = false;
+            TryRefreshMapPins();
+        }
+#endif
+    }
+
+    private void OnPageLayoutSizeChanged(object? sender, EventArgs e)
+    {
+        if (_isSearchPanelExpanded)
+        {
+            UpdateSearchPanelLayout();
+        }
+    }
+
+    private void UpdateSearchPanelLayout()
+    {
+        if (_isSearchPanelExpanded)
+        {
+            if (Grid.GetRow(RecommendationBrowser) != 0)
+            {
+                Grid.SetRow(RecommendationBrowser, 0);
+                Grid.SetRowSpan(RecommendationBrowser, 2);
+                RecommendationBrowser.VerticalOptions = LayoutOptions.Start;
+            }
+            var availableHeight = RootLayout.Height > 0 ? RootLayout.Height : Height;
+            var desiredHeight = Math.Clamp(
+                availableHeight * 0.68,
+                MinimumExpandedSearchPanelHeight,
+                MaximumExpandedSearchPanelHeight);
+            var expandedHeight = Math.Min(
+                desiredHeight,
+                Math.Max(260, availableHeight - 8));
+            if (Math.Abs(RecommendationBrowser.HeightRequest - expandedHeight) > 1)
+            {
+                RecommendationBrowser.HeightRequest = expandedHeight;
+            }
+            return;
+        }
+
+        if (Grid.GetRow(RecommendationBrowser) != 1)
+        {
+            Grid.SetRow(RecommendationBrowser, 1);
+            Grid.SetRowSpan(RecommendationBrowser, 1);
+            RecommendationBrowser.VerticalOptions = LayoutOptions.Fill;
+        }
+        if (Math.Abs(RecommendationBrowser.HeightRequest - CollapsedSearchPanelHeight) > 1)
+        {
+            RecommendationBrowser.HeightRequest = CollapsedSearchPanelHeight;
+        }
+    }
+
+    private void CancelSearchDebounce()
+    {
+        var debounce = Interlocked.Exchange(ref _searchDebounce, null);
+        if (debounce is null)
+        {
+            return;
+        }
+
+        debounce.Cancel();
     }
 
     private async void DismissSearchKeyboard()

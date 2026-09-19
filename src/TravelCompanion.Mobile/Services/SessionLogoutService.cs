@@ -9,6 +9,8 @@ public sealed class SessionLogoutService(
     MobileBootstrapStore bootstrapStore,
     MobileDiscoverStore discoverStore,
     MobileTodayStore todayStore,
+    MobileSyncStateStore syncStateStore,
+    BuilderTripStore builderTripStore,
     FreeMapStore freeMapStore,
     OfflineCacheService offlineCacheService,
     OfflineSyncCoordinator syncCoordinator,
@@ -69,6 +71,8 @@ public sealed class SessionLogoutService(
         await TryClearAsync(() => bootstrapStore.ClearUserCacheAsync(userId));
         await TryClearAsync(() => discoverStore.ClearUserCacheAsync(userId));
         await TryClearAsync(() => todayStore.ClearUserCacheAsync(userId));
+        await TryClearAsync(syncStateStore.ClearAsync);
+        await TryClearAsync(builderTripStore.ClearAsync);
         await TryClearAsync(freeMapStore.ClearAsync);
         await TryClearAsync(() => offlineCacheService.DeleteByPrefixAndSuffixAsync(
             "mobile-docs-",

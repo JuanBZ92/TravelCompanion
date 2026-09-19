@@ -162,9 +162,81 @@ public sealed class GooglePlacesServiceTests
         Assert.Equal("hotel-kyoto-1", result.ProviderPlaceId);
     }
 
+    [Fact]
+    public async Task Equivalent_searches_share_one_google_request()
+    {
+        var handler = new BlockingHandler();
+        var service = new GooglePlacesService(
+            new BlockingFactory(handler),
+            Microsoft.Extensions.Options.Options.Create(new GooglePlacesOptions { Enabled = true, ApiKey = "test" }),
+            NullLogger<GooglePlacesService>.Instance);
+        var destinationId = Guid.NewGuid();
+        var request = new PlaceSearchRequest("ramen");
+
+        var first = service.SearchAsync(destinationId, request, CancellationToken.None);
+        await handler.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        var second = service.SearchAsync(destinationId, request, CancellationToken.None);
+        handler.Release.TrySetResult();
+
+        await Task.WhenAll(first, second);
+        Assert.Equal(1, handler.CallCount);
+    }
+
+    [Fact]
+    public async Task Search_cancellation_reaches_the_google_http_request()
+    {
+        var handler = new BlockingHandler();
+        var service = new GooglePlacesService(
+            new BlockingFactory(handler),
+            Microsoft.Extensions.Options.Options.Create(new GooglePlacesOptions { Enabled = true, ApiKey = "test" }),
+            NullLogger<GooglePlacesService>.Instance);
+        using var cancellation = new CancellationTokenSource();
+
+        var search = service.SearchAsync(Guid.NewGuid(), new PlaceSearchRequest("ramen"), cancellation.Token);
+        await handler.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        cancellation.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => search);
+        await handler.Canceled.Task.WaitAsync(TimeSpan.FromSeconds(2));
+    }
+
     private sealed class Factory(Handler handler) : IHttpClientFactory
     {
         public HttpClient CreateClient(string name) => new(handler, disposeHandler: false);
+    }
+
+    private sealed class BlockingFactory(BlockingHandler handler) : IHttpClientFactory
+    {
+        public HttpClient CreateClient(string name) => new(handler, disposeHandler: false);
+    }
+
+    private sealed class BlockingHandler : HttpMessageHandler
+    {
+        private int _callCount;
+        public int CallCount => Volatile.Read(ref _callCount);
+        public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Canceled { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Interlocked.Increment(ref _callCount);
+            Started.TrySetResult();
+            try
+            {
+                await Release.Task.WaitAsync(cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                Canceled.TrySetResult();
+                throw;
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("""{"places":[]}""")
+            };
+        }
     }
 
     private sealed class Handler(string? responseContent = null) : HttpMessageHandler

@@ -58,6 +58,12 @@ public sealed class BuilderSetupEndpointTests
             Neighborhood = "Tokyo", Description = "Cafe y pasteleria", DescriptionEn = "Coffee and donuts",
             Latitude = 35, Longitude = 139, PriceLevel = "low", ProviderPlaceId = $"ChIJ{index}"
         });
+        db.Recommendations.Add(new Recommendation
+        {
+            Id = Guid.NewGuid(), DestinationId = destination.Id, Title = "Hidden donuts", Category = "Food",
+            Neighborhood = "Tokyo", Description = "Donuts reserved for administrators",
+            Latitude = 35, Longitude = 139, PriceLevel = "high", AccessLevel = ContentAccessLevel.AdminOnly
+        });
         await db.SaveChangesAsync();
         client.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US");
         var response = await client.PostAsJsonAsync("/api/mobile/places/search-page?page=2", new PlaceSearchRequest("DONUTS"));
@@ -68,6 +74,46 @@ public sealed class BuilderSetupEndpointTests
         Assert.Equal(12, page.TotalItems);
         Assert.Equal(2, page.Items.Count);
         Assert.All(page.Items, item => Assert.Equal("Coffee and donuts", item.Description));
+    }
+
+    [Fact]
+    public async Task Place_search_uses_google_only_when_the_authorized_catalog_has_no_matches()
+    {
+        await using var factory = new BuilderApiFactory();
+        var token = await factory.SeedBuilderAsync();
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<TravelCompanionDbContext>();
+            var destination = await db.Destinations.SingleAsync();
+            db.Recommendations.Add(new Recommendation
+            {
+                Id = Guid.NewGuid(), DestinationId = destination.Id, Title = "Kyoto Design Museum",
+                Category = "Museum", Neighborhood = "Kyoto", Description = "Japanese design collection",
+                Latitude = 35, Longitude = 135, PriceLevel = "low"
+            });
+            await db.SaveChangesAsync();
+        }
+
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var catalogResponse = await client.PostAsJsonAsync(
+            "/api/mobile/places/search",
+            new PlaceSearchRequest("Design Museum", IncludeGoogle: true));
+        catalogResponse.EnsureSuccessStatusCode();
+        Assert.Equal(0, factory.GooglePlaces.SearchCount);
+
+        var googleResponse = await client.PostAsJsonAsync(
+            "/api/mobile/places/search",
+            new PlaceSearchRequest("Unlisted ramen", IncludeGoogle: true));
+        googleResponse.EnsureSuccessStatusCode();
+        var results = await googleResponse.Content.ReadFromJsonAsync<List<RecommendationDto>>(
+            new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web)
+            {
+                Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+            });
+        Assert.Equal(1, factory.GooglePlaces.SearchCount);
+        Assert.Single(results!);
+        Assert.Equal("Google fallback", results![0].Title);
     }
 
     [Fact]
@@ -115,6 +161,7 @@ public sealed class BuilderSetupEndpointTests
     private sealed class BuilderApiFactory : WebApplicationFactory<Program>
     {
         private readonly string databaseName = $"builder-endpoint-{Guid.NewGuid():N}";
+        public FakeGooglePlacesService GooglePlaces { get; } = new();
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
@@ -124,6 +171,8 @@ public sealed class BuilderSetupEndpointTests
                 services.RemoveAll<DbContextOptions<TravelCompanionDbContext>>();
                 services.RemoveAll<IDbContextOptionsConfiguration<TravelCompanionDbContext>>();
                 services.AddDbContext<TravelCompanionDbContext>(options => options.UseInMemoryDatabase(databaseName));
+                services.RemoveAll<IGooglePlacesService>();
+                services.AddSingleton<IGooglePlacesService>(GooglePlaces);
             });
         }
 
@@ -162,6 +211,31 @@ public sealed class BuilderSetupEndpointTests
             var sessionService = scope.ServiceProvider.GetRequiredService<UserSessionService>();
             var (_, token) = await sessionService.CreateSessionAsync(user, accessMode: SessionAccessMode.Builder);
             return token;
+        }
+    }
+
+    private sealed class FakeGooglePlacesService : IGooglePlacesService
+    {
+        public int SearchCount { get; private set; }
+
+        public Task<IReadOnlyList<RecommendationDto>> SearchAsync(
+            Guid destinationId,
+            PlaceSearchRequest request,
+            CancellationToken cancellationToken)
+        {
+            SearchCount++;
+            IReadOnlyList<RecommendationDto> result =
+            [
+                new RecommendationDto(
+                    Guid.Empty, destinationId, "Google fallback", "Restaurant", "Tokyo, Japan",
+                    "External result", [], "unknown", 35.6m, 139.7m, 60, null, null,
+                    ContentAccessLevel.Free, [], null)
+                {
+                    Provider = "Google",
+                    ProviderPlaceId = "google-fallback"
+                }
+            ];
+            return Task.FromResult(result);
         }
     }
 }

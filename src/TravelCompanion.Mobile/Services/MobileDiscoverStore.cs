@@ -8,9 +8,11 @@ public sealed class MobileDiscoverStore(
     TravelCompanionApiClient apiClient,
     AuthSessionService sessionService,
     OfflineCacheService offlineCacheService,
+    MobileSyncStateStore syncStateStore,
     ILogger<MobileDiscoverStore> logger)
 {
-    private static readonly TimeSpan DefaultFreshnessWindow = TimeSpan.FromMinutes(2);
+    private bool _invalidated;
+    private long _generation;
     private MobileDiscoverDto? _current;
     private DateTimeOffset? _currentSavedAt;
     private Guid? _currentUserId;
@@ -20,11 +22,13 @@ public sealed class MobileDiscoverStore(
     private readonly object _refreshLock = new();
     private Task<ApiCallResult<MobileDiscoverDto>>? _refreshTask;
     private string? _refreshKey;
+    private CancellationTokenSource? _refreshCancellation;
 
     public async Task<OfflineCacheResult<MobileDiscoverDto>?> GetCachedAsync(
         string? destinationSlug = null,
         CancellationToken cancellationToken = default)
     {
+        if (!sessionService.HasKnownValidAccess) return null;
         var stopwatch = Stopwatch.StartNew();
         var currentUserId = sessionService.CurrentUserId;
         var currentTripId = sessionService.CurrentTripId;
@@ -96,8 +100,10 @@ public sealed class MobileDiscoverStore(
         {
             if (_refreshTask is null || _refreshTask.IsCompleted || !string.Equals(_refreshKey, context.Key, StringComparison.Ordinal))
             {
+                _refreshCancellation?.Dispose();
+                _refreshCancellation = new CancellationTokenSource();
                 _refreshKey = context.Key;
-                _refreshTask = RefreshCoreAsync(token, destinationSlug, context, cancellationToken);
+                _refreshTask = RefreshCoreAsync(token, destinationSlug, context, _refreshCancellation.Token);
             }
             else
             {
@@ -120,6 +126,8 @@ public sealed class MobileDiscoverStore(
                     {
                         _refreshTask = null;
                         _refreshKey = null;
+                        _refreshCancellation?.Dispose();
+                        _refreshCancellation = null;
                     }
                 }
             }
@@ -157,32 +165,32 @@ public sealed class MobileDiscoverStore(
         var destinationCacheKey = GetCacheKey(currentUserId, context.TripId, destinationCacheScope);
 
         _current = discover;
+        _invalidated = false;
         _currentSavedAt = savedAt;
         _currentUserId = currentUserId;
         _currentTripId = context.TripId;
         _currentLocale = context.Locale;
+        var metadata = await syncStateStore.CreateCacheMetadataAsync(
+            "catalog",
+            $"downloaded:{savedAt.UtcTicks}",
+            discover.Destination.Id,
+            discover.Destination.Slug,
+            cancellationToken).ConfigureAwait(false);
 
         await offlineCacheService.SaveAsync(
             requestedCacheKey,
             discover,
+            metadata,
             cancellationToken).ConfigureAwait(false);
         if (!string.Equals(requestedCacheScope, destinationCacheScope, StringComparison.Ordinal))
         {
             await offlineCacheService.SaveAsync(
                 destinationCacheKey,
                 discover,
+                metadata,
                 cancellationToken).ConfigureAwait(false);
         }
-        if (!IsCurrent(context))
-        {
-            await offlineCacheService.DeleteAsync(requestedCacheKey).ConfigureAwait(false);
-            if (!string.Equals(requestedCacheKey, destinationCacheKey, StringComparison.Ordinal))
-            {
-                await offlineCacheService.DeleteAsync(destinationCacheKey).ConfigureAwait(false);
-            }
-            logger.LogInformation("Removed mobile discover cache written after the session context changed.");
-            return ApiCallResult<MobileDiscoverDto>.TransientFailure();
-        }
+        if (!IsCurrent(context)) return ApiCallResult<MobileDiscoverDto>.TransientFailure();
         stopwatch.Stop();
 
         logger.LogInformation(
@@ -196,17 +204,23 @@ public sealed class MobileDiscoverStore(
 
     public bool HasFreshSnapshot(string? destinationSlug = null, TimeSpan? maxAge = null)
     {
+        if (!sessionService.HasKnownValidAccess) return false;
         var currentUserId = sessionService.CurrentUserId;
         var cacheScope = NormalizeCacheScope(destinationSlug);
-        var ageLimit = maxAge ?? DefaultFreshnessWindow;
-
         return _current is not null
             && _currentLocale == Locale
             && _currentUserId == currentUserId
             && _currentTripId == sessionService.CurrentTripId
             && _currentSavedAt.HasValue
-            && DateTimeOffset.UtcNow - _currentSavedAt.Value <= ageLimit
+            && !_invalidated
             && IsScopeMatch(cacheScope, _current.Destination.Slug);
+    }
+
+    public void Invalidate()
+    {
+        CancelActiveRefresh();
+        Interlocked.Increment(ref _generation);
+        _invalidated = true;
     }
 
     public async Task ClearUserCacheAsync(Guid? userId, CancellationToken cancellationToken = default)
@@ -218,6 +232,8 @@ public sealed class MobileDiscoverStore(
             _currentUserId = null;
             _currentTripId = null;
             _currentLocale = null;
+            _invalidated = false;
+            Interlocked.Increment(ref _generation);
         }
 
         await offlineCacheService.DeleteByPrefixAndSuffixAsync(
@@ -256,14 +272,24 @@ public sealed class MobileDiscoverStore(
         var locale = Locale;
         var scope = NormalizeCacheScope(destinationSlug);
         var contextVersion = sessionService.ContextVersion;
-        return new CacheContext(userId, tripId, locale, contextVersion, $"{contextVersion}:{userId}:{tripId}:{locale}:{scope}");
+        var generation = Interlocked.Read(ref _generation);
+        return new CacheContext(userId, tripId, locale, contextVersion, generation, $"{contextVersion}:{generation}:{userId}:{tripId}:{locale}:{scope}");
     }
 
     private bool IsCurrent(CacheContext context) =>
         context.UserId == sessionService.CurrentUserId
         && context.TripId == sessionService.CurrentTripId
         && context.ContextVersion == sessionService.ContextVersion
+        && context.Generation == Interlocked.Read(ref _generation)
         && string.Equals(context.Locale, Locale, StringComparison.Ordinal);
 
-    private sealed record CacheContext(Guid? UserId, Guid? TripId, string Locale, long ContextVersion, string Key);
+    private void CancelActiveRefresh()
+    {
+        lock (_refreshLock)
+        {
+            _refreshCancellation?.Cancel();
+        }
+    }
+
+    private sealed record CacheContext(Guid? UserId, Guid? TripId, string Locale, long ContextVersion, long Generation, string Key);
 }

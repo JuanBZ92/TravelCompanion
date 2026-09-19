@@ -25,8 +25,7 @@ public interface ITodayRecommendationService
 
 public sealed class TodayRecommendationService(
     TravelCompanionDbContext dbContext,
-    ILogger<TodayRecommendationService> logger,
-    IGooglePlacesService? googlePlaces = null) : ITodayRecommendationService
+    ILogger<TodayRecommendationService> logger) : ITodayRecommendationService
 {
     private const string AutomaticSuggestionSourcePrefix = "today_auto:";
     private const int DefaultSuggestionsPerFreePeriod = 2;
@@ -272,16 +271,6 @@ public sealed class TodayRecommendationService(
         if (selectedDay is not null && (!string.IsNullOrWhiteSpace(selectedDay.HotelBase) || !string.IsNullOrWhiteSpace(selectedDay.BaseProviderPlaceId)))
         {
             hotel = new TodayHotelBaseDto(selectedDay.HotelBase, selectedDay.BaseAddress, selectedDay.BaseProviderPlaceId, selectedDay.BaseLatitude, selectedDay.BaseLongitude);
-            if (!string.IsNullOrWhiteSpace(selectedDay.BaseProviderPlaceId)
-                && (string.IsNullOrWhiteSpace(selectedDay.HotelBase)
-                    || string.IsNullOrWhiteSpace(selectedDay.BaseAddress)))
-            {
-                var resolved = googlePlaces is null ? null : await googlePlaces.DetailsAsync(trip.DestinationId,
-                    new PlaceDetailsRequest(selectedDay.BaseProviderPlaceId, string.Empty), cancellationToken);
-                hotel = hotel with { Name = resolved?.Title ?? (string.IsNullOrWhiteSpace(hotel.Name) ? "Hotel" : hotel.Name),
-                    Address = resolved?.Neighborhood ?? hotel.Address, Latitude = resolved?.Latitude ?? hotel.Latitude,
-                    Longitude = resolved?.Longitude ?? hotel.Longitude, Attribution = "Google Maps" };
-            }
         }
         return new TodayDto(DateTimeOffset.UtcNow, selectedDate, currentLocation, sections)
         {
@@ -748,7 +737,9 @@ public sealed class TodayRecommendationService(
             reservation.ItemSource,
             reservation.TimePrecision,
             reservation.SortOrder,
-            reservation.ProviderPlaceId);
+            reservation.ProviderPlaceId,
+            reservation.Latitude,
+            reservation.Longitude);
 
     private static RecommendationDto ToRecommendationDto(
         Recommendation recommendation,

@@ -191,6 +191,49 @@ public sealed class TravelCompanionApiClient
         return GetMobileResultAsync<MobileBootstrapDto>(url, token, "bootstrap", MobilePayloadNormalizer.Normalize, cancellationToken);
     }
 
+    public async Task<MobileSyncCheckResult> GetMobileSyncStateAsync(
+        string token,
+        string? etag,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Get, "api/mobile/sync-state", token);
+        if (!string.IsNullOrWhiteSpace(etag))
+        {
+            request.Headers.TryAddWithoutValidation("If-None-Match", etag);
+        }
+
+        try
+        {
+            using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            var responseEtag = response.Headers.ETag?.ToString() ?? etag;
+            if (response.StatusCode == System.Net.HttpStatusCode.NotModified)
+            {
+                return new MobileSyncCheckResult(ApiCallStatus.Success, null, responseEtag, true);
+            }
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MobileSyncCheckResult(
+                    ApiCallResult<MobileSyncStateDto>.FromStatusCode(response.StatusCode).Status,
+                    null,
+                    responseEtag,
+                    false);
+            }
+
+            var state = await response.Content.ReadFromJsonAsync<MobileSyncStateDto>(JsonOptions, cancellationToken).ConfigureAwait(false);
+            return state is null
+                ? new MobileSyncCheckResult(ApiCallStatus.InvalidResponse, null, responseEtag, false)
+                : new MobileSyncCheckResult(ApiCallStatus.Success, state, responseEtag, false);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MobileSyncCheckResult(ApiCallStatus.TransientFailure, null, etag, false);
+        }
+        catch (HttpRequestException)
+        {
+            return new MobileSyncCheckResult(ApiCallStatus.TransientFailure, null, etag, false);
+        }
+    }
+
     public async Task<MobileDiscoverDto?> GetMobileDiscoverAsync(
         string token,
         string? destinationSlug = null,
@@ -795,3 +838,9 @@ public sealed class TravelCompanionApiClient
             : "none";
     }
 }
+
+public sealed record MobileSyncCheckResult(
+    ApiCallStatus Status,
+    MobileSyncStateDto? State,
+    string? ETag,
+    bool NotModified);

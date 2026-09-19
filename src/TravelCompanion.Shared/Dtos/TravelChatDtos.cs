@@ -106,7 +106,8 @@ public sealed record SaveItineraryItemRequest(
 public sealed record SaveItineraryItemResponse(
     bool Saved,
     string Message,
-    ScheduleItemDto? Item);
+    ScheduleItemDto? Item,
+    int? Revision = null);
 
 public enum TravelAssistantFeedbackSignal
 {

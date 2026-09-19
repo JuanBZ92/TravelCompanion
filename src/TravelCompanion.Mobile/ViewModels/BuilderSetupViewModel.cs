@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using TravelCompanion.Mobile.Pages;
 using TravelCompanion.Mobile.Services;
+using TravelCompanion.Shared;
 using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Mobile.ViewModels;
@@ -11,13 +12,16 @@ public sealed partial class BuilderSetupViewModel(
     TravelCompanionApiClient apiClient,
     AuthSessionService sessionService,
     PendingItineraryActionStore pendingStore,
-    SessionLogoutService logoutService,
-    MobileBootstrapStore bootstrapStore) : ViewModelBase
+    MobileBootstrapStore bootstrapStore,
+    MobileTodayStore todayStore,
+    MobileSyncStateStore syncStateStore,
+    BuilderTripStore builderTripStore) : ViewModelBase
 {
     private DateTime _arrivalDate = DateTime.Today;
     private DateTime _departureDate = DateTime.Today.AddDays(6);
     private int _revision;
     private Guid? _tripId;
+    private readonly Dictionary<string, IReadOnlyList<PlaceSuggestionDto>> _hotelSearchCache = new(StringComparer.Ordinal);
 
     public ObservableCollection<BuilderSegmentViewModel> Segments { get; } = [];
     public ObservableCollection<string> SuggestedCities { get; } = [];
@@ -73,7 +77,7 @@ public sealed partial class BuilderSetupViewModel(
             return;
         }
 
-        var setup = await apiClient.GetBuilderTripSetupAsync(token, ct);
+        var setup = await builderTripStore.GetAsync(token, cancellationToken: ct);
         await LoadSuggestedCitiesAsync(token, ct);
         if (setup is null)
         {
@@ -197,10 +201,9 @@ public sealed partial class BuilderSetupViewModel(
         Segments.RemoveAt(index);
     }
 
-    [RelayCommand]
-    private async Task SearchHotelAsync(BuilderSegmentViewModel? segment)
+    public async Task SearchHotelSuggestionsAsync(BuilderSegmentViewModel segment)
     {
-        if (segment is null || segment.ApplyingHotelSelection) return;
+        if (segment.ApplyingHotelSelection) return;
         foreach (var other in Segments.Where(item => !ReferenceEquals(item, segment)))
         {
             other.CancelHotelSearch();
@@ -208,18 +211,65 @@ public sealed partial class BuilderSetupViewModel(
         }
         segment.CancelHotelSearch();
         segment.HotelSuggestions.Clear();
-        if (segment.HotelName.Trim().Length < 3 || string.IsNullOrWhiteSpace(segment.City)) return;
-        using var operation = new CancellationTokenSource();
-        segment.HotelSearch = operation;
         var query = NormalizeSearchText(segment.HotelName);
         var city = segment.City.Trim();
+        if (query.Length < 2 || string.IsNullOrWhiteSpace(city)) return;
+
+        var operation = new CancellationTokenSource();
+        segment.HotelSearch = operation;
         try
         {
+            var cached = await bootstrapStore.GetCachedAsync(cancellationToken: operation.Token);
+            if (operation.IsCancellationRequested
+                || !ReferenceEquals(segment.HotelSearch, operation)
+                || !string.Equals(segment.City.Trim(), city, StringComparison.Ordinal)
+                || !string.Equals(NormalizeSearchText(segment.HotelName), query, StringComparison.Ordinal)) return;
+
+            var score = CatalogSearch.CreateFieldScorer(query);
+            var matches = cached?.Value.Recommendations
+                .Select(item => new
+                {
+                    Item = item,
+                    Score = score(item.Title,
+                        $"{item.Neighborhood} {item.Category} {item.RefinedType} {string.Join(' ', item.Tags)}",
+                        item.Description)
+                })
+                .Where(candidate => candidate.Score > 0
+                    && TextContains(candidate.Item.Neighborhood, city)
+                    && (TextContains(candidate.Item.Category, "hotel")
+                        || candidate.Item.Tags.Any(tag => TextContains(tag, "hotel") || TextContains(tag, "alojamiento"))))
+                .OrderByDescending(candidate => candidate.Score)
+                .ThenBy(candidate => candidate.Item.Title)
+                .Take(8)
+                .Select(candidate => candidate.Item)
+                .Select(item => new PlaceSuggestionDto(
+                    $"yuku:{item.Id:N}", item.Title, item.Neighborhood, item.Provider,
+                    item.Id, item.Latitude, item.Longitude))
+                .ToList() ?? [];
+            foreach (var match in matches) segment.HotelSuggestions.Add(match);
+            if (matches.Count > 0)
+            {
+                StatusMessage = null;
+                return;
+            }
+
+            if (query.Length < 3 || !sessionService.CanSearchGooglePlaces)
+            {
+                StatusMessage = "No hay hoteles coincidentes. Puedes completarlo manualmente.";
+                return;
+            }
+
             await Task.Delay(350, operation.Token);
-            var token = await sessionService.GetTokenAsync();
-            if (string.IsNullOrWhiteSpace(token)) return;
-            var results = await apiClient.AutocompleteHotelsAsync(token, new PlaceAutocompleteRequest(query, city,
-                segment.HotelSessionToken, System.Globalization.CultureInfo.CurrentUICulture.Name), operation.Token);
+            var cacheKey = $"{sessionService.ContextVersion}:{System.Globalization.CultureInfo.CurrentUICulture.Name}:hotel:{city.ToUpperInvariant()}:{query.ToUpperInvariant()}";
+            if (!_hotelSearchCache.TryGetValue(cacheKey, out var results))
+            {
+                var token = await sessionService.GetTokenAsync();
+                if (string.IsNullOrWhiteSpace(token)) return;
+                results = await apiClient.AutocompleteHotelsAsync(token, new PlaceAutocompleteRequest(query, city,
+                    segment.HotelSessionToken, System.Globalization.CultureInfo.CurrentUICulture.Name), operation.Token);
+                if (_hotelSearchCache.Count >= 20) _hotelSearchCache.Remove(_hotelSearchCache.Keys.First());
+                _hotelSearchCache[cacheKey] = results;
+            }
             if (operation.IsCancellationRequested
                 || !string.Equals(segment.City.Trim(), city, StringComparison.Ordinal)
                 || !string.Equals(NormalizeSearchText(segment.HotelName), query, StringComparison.Ordinal)) return;
@@ -228,10 +278,12 @@ public sealed partial class BuilderSetupViewModel(
         }
         catch (OperationCanceledException) { }
         catch (Exception) { if (!operation.IsCancellationRequested) StatusMessage = "Busqueda no disponible. Puedes escribir el hotel y direccion manualmente."; }
-        finally { if (ReferenceEquals(segment.HotelSearch, operation)) segment.HotelSearch = null; }
+        finally
+        {
+            if (ReferenceEquals(segment.HotelSearch, operation)) segment.HotelSearch = null;
+            operation.Dispose();
+        }
     }
-
-    public Task SearchHotelSuggestionsAsync(BuilderSegmentViewModel segment) => SearchHotelAsync(segment);
 
     public async Task SelectHotelAsync(BuilderSegmentViewModel segment, PlaceSuggestionDto suggestion)
     {
@@ -241,9 +293,16 @@ public sealed partial class BuilderSetupViewModel(
         using var operation = new CancellationTokenSource();
         segment.HotelSearch = operation;
 
-        ApplyHotelSelection(segment, suggestion.Name, suggestion.Address, null, null, suggestion.PlaceId);
+        ApplyHotelSelection(segment, suggestion.Name, suggestion.Address, suggestion.Latitude, suggestion.Longitude, suggestion.PlaceId);
         segment.HotelSuggestions.Clear();
         StatusMessage = null;
+        if (suggestion.Provider.Equals("YUKU", StringComparison.OrdinalIgnoreCase)
+            || suggestion.Latitude.HasValue && suggestion.Longitude.HasValue)
+        {
+            segment.HotelSessionToken = Guid.NewGuid().ToString();
+            segment.HotelSearch = null;
+            return;
+        }
         try
         {
             var token = await sessionService.GetTokenAsync();
@@ -301,6 +360,11 @@ public sealed partial class BuilderSetupViewModel(
     private static string NormalizeSearchText(string value) =>
         string.Join(' ', value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
+    private static bool TextContains(string value, string query) =>
+        System.Globalization.CultureInfo.InvariantCulture.CompareInfo.IndexOf(
+            value, query,
+            System.Globalization.CompareOptions.IgnoreCase | System.Globalization.CompareOptions.IgnoreNonSpace) >= 0;
+
     [RelayCommand]
     private Task SaveSetupAsync() => LoadAsync(async ct =>
     {
@@ -333,9 +397,14 @@ public sealed partial class BuilderSetupViewModel(
         _revision = result.Revision;
         SetTripId(result.TripId);
         sessionService.MarkTripConfigured(result.TripId.Value, result.Destination);
-        await logoutService.ResetContentAsync(
-            sessionService.CurrentUserId,
-            preservePendingItineraryAction: true);
+        await builderTripStore.SaveAsync(result, ct);
+        await todayStore.InvalidateAllAsync();
+        var schedule = result.Schedule ?? await apiClient.GetScheduleAsync(token!, ct);
+        if (schedule is not null)
+        {
+            await bootstrapStore.RebindTripAsync(schedule, ct);
+            await syncStateStore.AcknowledgeItineraryVersionAsync(schedule.Revision, ct);
+        }
         if (Shell.Current is AppShell shell) shell.ApplySessionTabs(sessionService);
         var pending = pendingStore.Take();
         if (pending is not null)

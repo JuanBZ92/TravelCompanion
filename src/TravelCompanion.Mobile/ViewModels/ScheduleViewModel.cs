@@ -19,6 +19,9 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     private readonly TravelCompanionApiClient _apiClient;
     private readonly ILocationService _locationService;
     private readonly SessionLogoutService _sessionLogoutService;
+    private readonly BuilderTripStore _builderTripStore;
+    private readonly OfflineSyncCoordinator _syncCoordinator;
+    private readonly MobileSyncStateStore _syncStateStore;
     private readonly ILogger<ScheduleViewModel> _logger;
     private readonly List<ScheduleItemDto> _allItems = [];
     private readonly List<RecommendationDto> _recommendations = [];
@@ -93,6 +96,39 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
             catch (HttpRequestException) { result = null; }
             catch (TaskCanceledException) when (!load.IsCancellationRequested) { result = null; }
             load.Token.ThrowIfCancellationRequested();
+            if (result is not null) _routeCache[key] = (DateTimeOffset.UtcNow, result);
+        }
+        route.Apply(result);
+    }
+
+    [RelayCommand]
+    private async Task CalculateRouteAsync(ItineraryRouteViewModel? route)
+    {
+        if (route is null || route.ItemId == Guid.Empty || !_sessionService.CanCalculateRoutes) return;
+        var token = await _sessionService.GetTokenAsync();
+        if (string.IsNullOrWhiteSpace(token)) return;
+        route.MarkLoading();
+        GeoPointDto? origin = null;
+        if (route.UseCurrentLocation)
+        {
+            origin = await _locationService.GetCurrentLocationAsync(CancellationToken.None);
+            if (origin is null)
+            {
+                route.Apply(null);
+                return;
+            }
+        }
+        var request = new ItineraryRouteRequest(route.Mode, origin?.Latitude, origin?.Longitude);
+        var key = $"{route.ItemId}:{route.Mode}:{origin?.Latitude:0.####}:{origin?.Longitude:0.####}";
+        ItineraryRouteDto? result;
+        if (_routeCache.TryGetValue(key, out var cached)
+            && DateTimeOffset.UtcNow - cached.SavedAt < TimeSpan.FromMinutes(5))
+        {
+            result = cached.Value;
+        }
+        else
+        {
+            result = await _apiClient.GetItineraryRouteAsync(token, route.ItemId, request, CancellationToken.None);
             if (result is not null) _routeCache[key] = (DateTimeOffset.UtcNow, result);
         }
         route.Apply(result);
@@ -191,6 +227,9 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         TravelCompanionApiClient apiClient,
         ILocationService locationService,
         SessionLogoutService sessionLogoutService,
+        BuilderTripStore builderTripStore,
+        OfflineSyncCoordinator syncCoordinator,
+        MobileSyncStateStore syncStateStore,
         ILogger<ScheduleViewModel> logger)
     {
         _sessionService = sessionService;
@@ -199,6 +238,9 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         _apiClient = apiClient;
         _locationService = locationService;
         _sessionLogoutService = sessionLogoutService;
+        _builderTripStore = builderTripStore;
+        _syncCoordinator = syncCoordinator;
+        _syncStateStore = syncStateStore;
         _logger = logger;
         _bootstrapStore.ScheduleUpdated += OnScheduleCacheUpdated;
     }
@@ -298,7 +340,8 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
                 return;
             }
 
-            await LoadScheduleLocalFirstAsync(token, forceRefresh: true, ct);
+            await _syncCoordinator.SynchronizeVersionsAsync(token, force: true, ct);
+            await LoadScheduleLocalFirstAsync(token, forceRefresh: false, ct);
             await RefreshBuilderSetupVersionAsync(token, ct);
         });
     }
@@ -459,7 +502,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
             var expectedRevision = _builderRevision;
             if (!tripId.HasValue || !expectedRevision.HasValue)
             {
-                var setup = await _apiClient.GetBuilderTripSetupAsync(token, ct);
+                var setup = await _builderTripStore.GetAsync(token, cancellationToken: ct);
                 if (setup?.TripId is null || (tripId.HasValue && setup.TripId != tripId))
                 {
                     ErrorMessage = "El itinerario ya no existe o fue reemplazado en otro dispositivo. Actualiza Today antes de continuar.";
@@ -474,6 +517,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
                 token,
                 new DeleteBuilderTripSetupRequest(tripId.Value, expectedRevision.Value),
                 ct);
+            await _builderTripStore.ClearAsync();
             var userId = _sessionService.CurrentUserId;
             _sessionService.MarkTripDeleted();
             await _sessionLogoutService.ResetContentAsync(userId);
@@ -513,16 +557,23 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         if (!confirmed) return;
         var token = await _sessionService.GetTokenAsync();
         if (string.IsNullOrWhiteSpace(token)) return;
-        var setup = await _apiClient.GetBuilderTripSetupAsync(token);
-        if (setup is null) return;
-        var result = await _apiClient.DeleteItineraryItemAsync(token, item.Id, setup.Revision);
+        var revision = _builderRevision;
+        if (!revision.HasValue)
+        {
+            var setup = await _builderTripStore.GetAsync(token);
+            revision = setup?.Revision;
+        }
+        if (!revision.HasValue) return;
+        var result = await _apiClient.DeleteItineraryItemAsync(token, item.Id, revision.Value);
         if (result?.Success != true)
         {
             ErrorMessage = result?.Message ?? "No se pudo eliminar el plan.";
             return;
         }
-        await _todayStore.ClearUserCacheAsync(_sessionService.CurrentUserId);
-        await LoadScheduleLocalFirstAsync(token, forceRefresh: true, CancellationToken.None);
+        _builderRevision = result.Revision;
+        await _todayStore.InvalidateAllAsync();
+        await _bootstrapStore.RemoveScheduleItemAsync(item.Id, result.Revision);
+        await _syncStateStore.AcknowledgeItineraryVersionAsync(result.Revision);
     }
 
     [RelayCommand]
@@ -608,7 +659,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
             MarkLastUpdated(cached.SavedAt);
             StatusMessage = forceRefresh
                 ? "Actualizando itinerario..."
-                : $"Mostrando tu itinerario guardado mientras recuperamos la conexion. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
+                : null;
         }
 
         var shouldRefreshBootstrap = forceRefresh || !_bootstrapStore.HasFreshSnapshot();
@@ -644,7 +695,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
             }
             else
             {
-                StatusMessage = $"Modo offline. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
+                StatusMessage = null;
             }
         }
 
@@ -666,7 +717,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
 
         try
         {
-            var setup = await _apiClient.GetBuilderTripSetupAsync(token, cancellationToken);
+            var setup = await _builderTripStore.GetAsync(token, cancellationToken: cancellationToken);
             _builderRevision = setup?.TripId == _tripId ? setup.Revision : null;
             if (setup?.TripId == _tripId)
             {
@@ -694,7 +745,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         var cached = await _todayStore.GetCachedAsync(selectedDate, cancellationToken);
         if (cached is not null && _selectedDate == selectedDate)
         {
-            ApplyToday(cached.Value, includeHotelMetadata: false);
+            ApplyToday(cached.Value);
         }
 
         if (!forceRefresh && _todayStore.HasFreshSnapshot(selectedDate))
@@ -711,7 +762,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
             var result = await _todayStore.RefreshResultAsync(
                 token,
                 selectedDate,
-                _currentLocation,
+                null,
                 cancellationToken);
             if (result.IsUnauthorized)
             {
@@ -739,7 +790,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
 
             if (cached is not null)
             {
-                StatusMessage = $"Mostrando Today guardado mientras recuperamos la conexion. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
+                StatusMessage = null;
             }
             else
             {
@@ -979,7 +1030,6 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
             : [new ScheduleDayViewModel(selectedDate, selectedItems)];
 
         NotifySelectedDayChanged();
-        _ = LoadRoutesAsync();
     }
 
     [RelayCommand]
@@ -1133,11 +1183,15 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
                         FindTravelerAssignedItem(
                             today.Date,
                             section.PeriodKey,
-                            recommendation.Recommendation.Id)))
+                            recommendation.Recommendation.Id),
+                        CalculateDistanceKm(_currentLocation, recommendation.Recommendation)))
                     .ToList(),
                 section.Reservations
                     .OrderBy(reservation => reservation.StartsAt)
-                    .Select(reservation => new TodayReservationViewModel(reservation))
+                    .Select(reservation => new TodayReservationViewModel(
+                        reservation,
+                        _hotelsByDate.GetValueOrDefault(today.Date),
+                        _sessionService.CanCalculateRoutes))
                     .ToList(),
                 _sessionService.CanEditItinerary))
             .ToList();
@@ -1162,7 +1216,10 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
                     .ToList();
                 var reservations = periodItems
                     .Where(item => item.PlanningKind != ScheduleItemKind.Recommendation)
-                    .Select(item => new TodayReservationViewModel(item))
+                    .Select(item => new TodayReservationViewModel(
+                        item,
+                        _hotelsByDate.GetValueOrDefault(selectedDate),
+                        _sessionService.CanCalculateRoutes))
                     .ToList();
                 var assignedLocations = periodItems
                     .Where(item => item.PlanningKind == ScheduleItemKind.Recommendation && item.RecommendationId.HasValue)
@@ -1753,7 +1810,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
             var result = await _todayStore.RefreshResultAsync(
                 token,
                 selectedDate,
-                _currentLocation,
+                null,
                 CancellationToken.None);
             if (result.IsUnauthorized)
             {

@@ -19,8 +19,8 @@
                            Placeholder="Lugar (opcional)"
                            Text="{Binding LocationName}"
                            TextChanged="OnPlaceTextChanged"
-                           SemanticProperties.Hint="Escribe tres letras para buscar lugares en Google Maps" />
-                    <Label Text="Elige una sugerencia de Google Maps o escribe el lugar manualmente."
+                           SemanticProperties.Hint="Escribe un lugar para ver sugerencias" />
+                    <Label Text="Buscamos primero en el catálogo y ampliamos los resultados automáticamente cuando es necesario."
                            IsVisible="{Binding CanSearchPlaces}"
                            FontSize="12"
                            TextColor="#6E675F" />
@@ -52,6 +52,9 @@
                                                TextColor="#6E675F"
                                                LineBreakMode="TailTruncation"
                                                MaxLines="2" />
+                                        <Label Text="{Binding Provider}"
+                                               FontSize="10"
+                                               TextColor="#8E867D" />
                                     </VerticalStackLayout>
                                 </Border>
                             </DataTemplate>

@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:shapes="clr-namespace:Microsoft.Maui.Controls.Shapes;assembly=Microsoft.Maui.Controls"
              xmlns:viewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
+             xmlns:pages="clr-namespace:TravelCompanion.Mobile.Pages"
              x:Class="TravelCompanion.Mobile.Pages.SchedulePage"
              x:Name="PageRoot"
              x:DataType="viewModels:ScheduleViewModel"
@@ -442,10 +443,19 @@
                                                                        IsVisible="{Binding HasConfirmation}"
                                                                        LineBreakMode="TailTruncation"
                                                                        MaxLines="1" />
+                                                                <Label Text="{Binding DistanceFromHotelLabel}"
+                                                                       FontSize="11"
+                                                                       TextColor="#8A8078"
+                                                                       IsVisible="{Binding HasDistanceFromHotel}"
+                                                                       Margin="0,3,0,0" />
                                                                 <FlexLayout Direction="Row" Wrap="NoWrap" AlignItems="Start" IsVisible="{Binding HasRoutes}" BindableLayout.ItemsSource="{Binding Routes}" Margin="0,10,0,0">
                                                                     <BindableLayout.ItemTemplate>
                                                                         <DataTemplate x:DataType="viewModels:ItineraryRouteViewModel">
                                                                             <VerticalStackLayout FlexLayout.Basis="33.33%" Padding="3,0" Spacing="4">
+                                                                                <VerticalStackLayout.GestureRecognizers>
+                                                                                    <TapGestureRecognizer Command="{Binding ViewModel.CalculateRouteCommand, Source={x:Reference PageRoot}, x:DataType={x:Type pages:SchedulePage}}"
+                                                                                                          CommandParameter="{Binding .}" />
+                                                                                </VerticalStackLayout.GestureRecognizers>
                                                                                 <Image Source="{Binding Icon}" WidthRequest="22" HeightRequest="22" HorizontalOptions="Start" SemanticProperties.Description="{Binding Label}" />
                                                                                 <Label Text="{Binding Label}" FontSize="11" TextColor="#6E675F" />
                                                                                 <Label Text="{Binding Duration}" FontSize="12" TextColor="#1A1714" />
@@ -454,7 +464,21 @@
                                                                         </DataTemplate>
                                                                     </BindableLayout.ItemTemplate>
                                                                 </FlexLayout>
-                                                                <Label Text="Google Maps · (H) hotel · (U) ubicación actual · llegada 10 min antes"
+                                                                <Border IsVisible="{Binding HasRoutes}"
+                                                                        Padding="10,8"
+                                                                        Margin="0,8,0,0"
+                                                                        BackgroundColor="Transparent"
+                                                                        Stroke="#D8CFC4"
+                                                                        StrokeThickness="1">
+                                                                    <Border.GestureRecognizers>
+                                                                        <TapGestureRecognizer Command="{Binding ViewModel.CalculateRouteCommand, Source={x:Reference PageRoot}, x:DataType={x:Type pages:SchedulePage}}"
+                                                                                              CommandParameter="{Binding CurrentLocationRoute}" />
+                                                                    </Border.GestureRecognizers>
+                                                                    <Label Text="{Binding CurrentLocationRoute.Duration, StringFormat='Desde mi ubicación · {0}'}"
+                                                                           FontSize="11"
+                                                                           TextColor="#6E675F" />
+                                                                </Border>
+                                                                <Label Text="Toca un modo para calcular · origen: hotel · llegada 10 min antes"
                                                                        IsVisible="{Binding HasRoutes}"
                                                                        FontSize="10"
                                                                        TextColor="#6E675F"

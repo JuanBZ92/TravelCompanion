@@ -11,7 +11,7 @@ public sealed class GoogleRoutesServiceTests
 {
     [Theory]
     [InlineData("WALK", 1)]
-    [InlineData("DRIVE", 2)]
+    [InlineData("DRIVE", 1)]
     [InlineData("TRANSIT", 1)]
     public async Task Uses_place_id_and_correct_time_parameter(string mode, int calls)
     {

@@ -12,6 +12,35 @@ namespace TravelCompanion.Api.Tests;
 
 public sealed class ItineraryBuilderServiceTests
 {
+    [Theory]
+    [InlineData(SessionAccessMode.Trip)]
+    [InlineData(SessionAccessMode.FreeMapPreview)]
+    public async Task Read_only_profiles_cannot_create_itinerary_items(SessionAccessMode accessMode)
+    {
+        await using var dbContext = CreateDbContext();
+        var destination = CreateDestination();
+        var user = CreateUser();
+        var startsOn = new DateOnly(2026, 10, 1);
+        var trip = new Trip
+        {
+            Id = Guid.NewGuid(), AppUserId = user.Id, DestinationId = destination.Id,
+            TravelerName = user.DisplayName, StartsOn = startsOn, EndsOn = startsOn.AddDays(1),
+            ExperienceMode = ExperienceMode.CuratedPremium, PublicationStatus = TripPublicationStatus.Published
+        };
+        dbContext.AddRange(destination, user, trip);
+        await dbContext.SaveChangesAsync();
+        var sessionService = new UserSessionService(dbContext);
+        var (_, token) = await sessionService.CreateSessionAsync(user, tripId: trip.Id, accessMode: accessMode);
+        var service = new TravelerItineraryService(dbContext, new TravelerAccessService(sessionService));
+        var request = new ItineraryItemMutationRequest(
+            null, null, "Intento", startsOn, "morning", false, null, null,
+            "Tokyo", "Intento", "Tokyo, Japan", null, null, null, 0, "readonly-test");
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            service.CreateAsync(CreateHttpContext(token), request));
+        Assert.Empty(await dbContext.Reservations.ToListAsync());
+    }
+
     [Fact]
     public async Task Builder_setup_creates_blank_blocks_and_traveler_can_add_yuku_item()
     {

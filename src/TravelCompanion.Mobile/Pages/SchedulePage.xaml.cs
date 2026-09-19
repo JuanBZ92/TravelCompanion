@@ -11,6 +11,7 @@ public partial class SchedulePage : ContentPage
     private readonly ScheduleViewModel _viewModel;
     private readonly ILogger<SchedulePage> _logger;
     private bool _isHandlingAppearance;
+    public ScheduleViewModel ViewModel => _viewModel;
 
     public SchedulePage()
         : this(
@@ -24,11 +25,11 @@ public partial class SchedulePage : ContentPage
         ILogger<SchedulePage> logger)
     {
         var stopwatch = Stopwatch.StartNew();
+        _viewModel = viewModel;
+        _logger = logger;
         InitializeComponent();
         stopwatch.Stop();
         BindingContext = viewModel;
-        _viewModel = viewModel;
-        _logger = logger;
 
         _logger.LogInformation(
             "Schedule page initialized in {ElapsedMs}ms. HasLoaded={HasLoaded}.",

@@ -8,6 +8,8 @@ public sealed class OfflineMutationQueueService(
     OfflineCacheService offlineCacheService,
     TravelCompanionApiClient apiClient,
     MobileBootstrapStore bootstrapStore,
+    MobileTodayStore todayStore,
+    MobileSyncStateStore syncStateStore,
     AuthSessionService sessionService,
     ILogger<OfflineMutationQueueService> logger)
 {
@@ -154,9 +156,16 @@ public sealed class OfflineMutationQueueService(
                         succeeded++;
                         if (response.Item is not null)
                         {
+                            await todayStore.InvalidateAllAsync().ConfigureAwait(false);
                             await bootstrapStore
-                                .UpsertScheduleItemAsync(response.Item, cancellationToken)
+                                .UpsertScheduleItemAsync(response.Item, response.Revision, cancellationToken)
                                 .ConfigureAwait(false);
+                            if (response.Revision.HasValue)
+                            {
+                                await syncStateStore
+                                    .AcknowledgeItineraryVersionAsync(response.Revision.Value, cancellationToken)
+                                    .ConfigureAwait(false);
+                            }
                         }
 
                         continue;
@@ -219,7 +228,16 @@ public sealed class OfflineMutationQueueService(
             return;
         }
 
-        await offlineCacheService.SaveAsync(QueueCacheKey, queue, cancellationToken).ConfigureAwait(false);
+        var newestMutation = queue.Items.Max(item => item.CreatedAt.UtcTicks);
+        var metadata = await syncStateStore.CreateCacheMetadataAsync(
+            "offline-mutations",
+            $"count:{queue.Items.Count};latest:{newestMutation}",
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        await offlineCacheService.SaveAsync(
+            QueueCacheKey,
+            queue,
+            metadata with { Language = "neutral" },
+            cancellationToken).ConfigureAwait(false);
     }
 
     private bool IsForCurrentSession(OfflineMutationItem item)

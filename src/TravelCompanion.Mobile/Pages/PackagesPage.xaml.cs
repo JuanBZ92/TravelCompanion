@@ -39,14 +39,7 @@ public partial class PackagesPage : ContentPage
         var stopwatch = Stopwatch.StartNew();
         base.OnAppearing();
 
-        if (_viewModel.HasLoaded)
-        {
-            stopwatch.Stop();
-            _logger.LogInformation(
-                "Packages page appeared from warm state in {ElapsedMs}ms.",
-                stopwatch.Elapsed.TotalMilliseconds);
-            return;
-        }
+        var wasLoaded = _viewModel.HasLoaded;
 
         try
         {
@@ -60,8 +53,9 @@ public partial class PackagesPage : ContentPage
         {
             stopwatch.Stop();
             _logger.LogInformation(
-                "Packages page appeared after initial load in {ElapsedMs}ms. HasLoaded={HasLoaded}.",
+                "Packages page appeared in {ElapsedMs}ms. WarmState={WarmState}; HasLoaded={HasLoaded}.",
                 stopwatch.Elapsed.TotalMilliseconds,
+                wasLoaded,
                 _viewModel.HasLoaded);
         }
     }

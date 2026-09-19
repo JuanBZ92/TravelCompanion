@@ -12,7 +12,9 @@ namespace TravelCompanion.Mobile.ViewModels;
 public sealed partial class DocsViewModel(
     TravelCompanionApiClient apiClient,
     AuthSessionService sessionService,
-    OfflineCacheService offlineCacheService) : ViewModelBase, ISessionStateResettable
+    OfflineCacheService offlineCacheService,
+    OfflineSyncCoordinator syncCoordinator,
+    MobileSyncStateStore syncStateStore) : ViewModelBase, ISessionStateResettable
 {
     [ObservableProperty]
     private string title = "Documentos";
@@ -54,6 +56,12 @@ public sealed partial class DocsViewModel(
 
     private async Task LoadCoreAsync(CancellationToken cancellationToken)
     {
+        if (!sessionService.HasKnownValidAccess)
+        {
+            sessionService.Clear();
+            await Shell.Current.GoToAsync("//login");
+            return;
+        }
         var contextVersion = sessionService.ContextVersion;
         var userId = sessionService.CurrentUserId;
         var tripId = sessionService.CurrentTripId;
@@ -72,7 +80,8 @@ public sealed partial class DocsViewModel(
             {
                 ApplyDocs(cached.Value);
                 MarkLastUpdated(cached.SavedAt);
-                StatusMessage = $"Mostrando documentos guardados mientras recuperamos la conexion. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
+                StatusMessage = OfflineCacheService.FormatSavedAt(cached.SavedAt);
+                return;
             }
 
             var result = await apiClient.GetTravelDocsResultAsync(token, cancellationToken);
@@ -104,7 +113,11 @@ public sealed partial class DocsViewModel(
             else
             {
                 ApplyDocs(docs);
-                await offlineCacheService.SaveAsync(cacheKey, docs, cancellationToken);
+                var metadata = await syncStateStore.CreateCacheMetadataAsync(
+                    "documents",
+                    $"downloaded:{DateTimeOffset.UtcNow.UtcTicks}",
+                    cancellationToken: cancellationToken);
+                await offlineCacheService.SaveAsync(cacheKey, docs, metadata, cancellationToken);
                 MarkLastUpdated(DateTimeOffset.UtcNow);
                 StatusMessage = null;
             }
@@ -134,7 +147,15 @@ public sealed partial class DocsViewModel(
     }
 
     [RelayCommand]
-    private Task RefreshAsync() => LoadAsync();
+    private Task RefreshAsync() => base.LoadAsync(async cancellationToken =>
+    {
+        var token = await sessionService.GetTokenAsync();
+        if (!string.IsNullOrWhiteSpace(token))
+        {
+            await syncCoordinator.SynchronizeVersionsAsync(token, force: true, cancellationToken);
+        }
+        await LoadCoreAsync(cancellationToken);
+    });
 
     [RelayCommand]
     private void SelectJourney(FlightJourneyItemViewModel journey)

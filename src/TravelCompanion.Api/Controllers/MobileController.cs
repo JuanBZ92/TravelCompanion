@@ -14,9 +14,89 @@ namespace TravelCompanion.Api.Controllers;
 public sealed class MobileController(
     TravelCompanionDbContext dbContext,
     UserSessionService sessionService,
+    TravelerAccessService accessService,
     ITodayRecommendationService todayRecommendationService,
     ILogger<MobileController> logger) : ControllerBase
 {
+    [HttpGet("sync-state")]
+    public async Task<ActionResult<MobileSyncStateDto>> GetSyncState(CancellationToken cancellationToken = default)
+    {
+        var access = await accessService.GetAsync(HttpContext, cancellationToken);
+        if (access is null)
+        {
+            return Unauthorized();
+        }
+
+        var trip = access.TripId.HasValue
+            ? await dbContext.Trips.AsNoTracking()
+                .Where(item => item.Id == access.TripId.Value && item.AppUserId == access.User.Id)
+                .Select(item => new { item.Id, item.DestinationId, item.PlanRevision, DestinationSlug = item.Destination!.Slug })
+                .SingleOrDefaultAsync(cancellationToken)
+            : null;
+
+        var destination = trip is not null
+            ? new { Id = trip.DestinationId, Slug = trip.DestinationSlug }
+            : await dbContext.BuilderAccessGrants.AsNoTracking()
+                .Where(grant => grant.AppUserId == access.User.Id
+                    && grant.Status == BuilderAccessStatus.Active
+                    && grant.RevokedAtUtc == null
+                    && (!grant.ExpiresAtUtc.HasValue || grant.ExpiresAtUtc > DateTimeOffset.UtcNow))
+                .OrderByDescending(grant => grant.CreatedAtUtc)
+                .Select(grant => new { Id = grant.DestinationId, Slug = grant.Destination!.Slug })
+                .FirstOrDefaultAsync(cancellationToken);
+
+        if (destination is null && access.ExperienceMode == ExperienceMode.FreePreview)
+        {
+            destination = await dbContext.FreeMapCities.AsNoTracking()
+                .Where(city => city.IsEnabled)
+                .OrderBy(city => city.SortOrder)
+                .Select(city => new { Id = city.DestinationId, Slug = city.Destination!.Slug })
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+
+        var scopes = new List<string> { MobileDataVersionScopes.Today(access.User.Id) };
+        if (access.ExperienceMode == ExperienceMode.FreePreview)
+        {
+            scopes.Add(MobileDataVersionScopes.FreeCatalogGlobal);
+        }
+        if (destination is not null)
+        {
+            scopes.Add(MobileDataVersionScopes.Catalog(destination.Id));
+            scopes.Add(MobileDataVersionScopes.FreeCatalog(destination.Id));
+        }
+        if (trip is not null)
+        {
+            scopes.Add(MobileDataVersionScopes.Documents(trip.Id));
+        }
+
+        var versions = await dbContext.MobileDataVersions.AsNoTracking()
+            .Where(version => scopes.Contains(version.Scope))
+            .ToDictionaryAsync(version => version.Scope, version => version.Version, cancellationToken);
+        long Version(string scope) => versions.GetValueOrDefault(scope, 1);
+
+        var state = new MobileSyncStateDto(
+            access.Capabilities,
+            access.Session.ExpiresAt,
+            trip?.Id,
+            destination?.Id,
+            destination?.Slug,
+            destination is null ? 1 : Version(MobileDataVersionScopes.Catalog(destination.Id)),
+            trip?.PlanRevision ?? 0,
+            trip is null ? 1 : Version(MobileDataVersionScopes.Documents(trip.Id)),
+            Version(MobileDataVersionScopes.Today(access.User.Id)),
+            access.ExperienceMode == ExperienceMode.FreePreview
+                ? Version(MobileDataVersionScopes.FreeCatalogGlobal)
+                : destination is null ? 1 : Version(MobileDataVersionScopes.FreeCatalog(destination.Id)));
+        var etag = $"\"m1-{state.TripId:N}-{state.DestinationId:N}-{state.CatalogVersion}-{state.ItineraryVersion}-{state.DocumentsVersion}-{state.TodayPersonalizationVersion}-{state.FreeCatalogVersion}-{state.Capabilities.CanViewFullMap}-{state.Capabilities.CanSearchGooglePlaces}-{state.Capabilities.CanEditItinerary}-{state.Capabilities.HasCuratedDocs}-{state.Capabilities.RequiresTripSetup}-{state.Capabilities.CanCalculateRoutes}-{state.AccessExpiresAtUtc.UtcTicks}\"";
+        Response.Headers.ETag = etag;
+        if (Request.Headers.IfNoneMatch.Any(value => string.Equals(value, etag, StringComparison.Ordinal)))
+        {
+            return StatusCode(StatusCodes.Status304NotModified);
+        }
+
+        return Ok(state);
+    }
+
     [HttpGet("discover")]
     public async Task<ActionResult<MobileDiscoverDto>> GetDiscover(
         [FromQuery] string? destinationSlug = null,
@@ -341,8 +421,11 @@ public sealed class MobileController(
                         reservation.ItemSource,
                         reservation.TimePrecision,
                         reservation.SortOrder,
-                        reservation.ProviderPlaceId))
-                    .ToList());
+                        reservation.ProviderPlaceId,
+                        reservation.Latitude,
+                        reservation.Longitude))
+                    .ToList(),
+                trip.PlanRevision);
     }
 
     private static FlightDocsSectionDto? CreateFlightDocsSection(Trip trip)

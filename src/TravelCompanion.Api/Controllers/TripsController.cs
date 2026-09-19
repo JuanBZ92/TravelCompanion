@@ -79,8 +79,16 @@ public sealed class TripsController(
                     reservation.DestinationName,
                     reservation.OriginAirport,
                     reservation.DestinationAirport,
-                    reservation.PlanningKind))
-                .ToList());
+                    reservation.PlanningKind,
+                    reservation.Owner,
+                    reservation.ItemSource,
+                    reservation.TimePrecision,
+                    reservation.SortOrder,
+                    reservation.ProviderPlaceId,
+                    reservation.Latitude,
+                    reservation.Longitude))
+                .ToList(),
+            trip.PlanRevision);
 
         return Ok(response);
     }

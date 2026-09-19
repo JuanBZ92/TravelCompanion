@@ -7,8 +7,7 @@ namespace TravelCompanion.Api.Services;
 
 public sealed class BuilderTripService(
     TravelCompanionDbContext dbContext,
-    UserSessionService sessionService,
-    IGooglePlacesService? googlePlaces = null)
+    UserSessionService sessionService)
 {
     private const int MaxTripDays = 91;
 
@@ -30,12 +29,14 @@ public sealed class BuilderTripService(
 
         var trip = await dbContext.Trips
             .AsNoTracking()
+            .AsSplitQuery()
             .Include(item => item.DayPlans)
+            .Include(item => item.Reservations)
             .Include(item => item.Destination)
             .FirstOrDefaultAsync(item => item.Id == grant.TripId && item.AppUserId == access.User.Id, cancellationToken);
         return trip is null || trip.ExperienceMode != ExperienceMode.SelfServiceBuilder
             ? null
-            : await ResolveHotelsAsync(trip, cancellationToken);
+            : ToDto(trip);
     }
 
     public async Task<BuilderTripSetupDto> SaveAsync(
@@ -53,6 +54,7 @@ public sealed class BuilderTripService(
         if (grant.TripId.HasValue)
         {
             trip = await dbContext.Trips
+                .AsSplitQuery()
                 .Include(item => item.DayPlans).ThenInclude(day => day.Blocks)
                 .Include(item => item.Reservations)
                 .Include(item => item.Destination)
@@ -110,7 +112,7 @@ public sealed class BuilderTripService(
         trip.UpdatedAtUtc = DateTimeOffset.UtcNow;
         await dbContext.SaveChangesAsync(cancellationToken);
         await sessionService.BindCurrentSessionToTripAsync(httpContext, trip.Id, cancellationToken);
-        return await ResolveHotelsAsync(trip, cancellationToken);
+        return ToDto(trip);
     }
 
     public async Task<BuilderTripSetupDto> DeleteAsync(
@@ -178,7 +180,10 @@ public sealed class BuilderTripService(
 
     private Task<BuilderAccessGrant?> LoadGrantAsync(Guid userId, CancellationToken cancellationToken) => dbContext.BuilderAccessGrants
         .Include(item => item.Destination)
-        .Where(item => item.AppUserId == userId && item.Status == TravelCompanion.Shared.BuilderAccessStatus.Active && item.RevokedAtUtc == null)
+        .Where(item => item.AppUserId == userId
+            && item.Status == TravelCompanion.Shared.BuilderAccessStatus.Active
+            && item.RevokedAtUtc == null
+            && (!item.ExpiresAtUtc.HasValue || item.ExpiresAtUtc > DateTimeOffset.UtcNow))
         .OrderByDescending(item => item.CreatedAtUtc)
         .FirstOrDefaultAsync(cancellationToken);
 
@@ -276,39 +281,25 @@ public sealed class BuilderTripService(
             }
         }
 
-        return new(true, trip.Id, trip.PlanRevision, trip.StartsOn, trip.EndsOn, trip.Destination?.Name ?? "Japan", trip.TimeZoneId, segments);
+        var schedule = new TripScheduleDto(
+            trip.Id,
+            trip.TravelerName,
+            trip.Destination?.Name ?? "Japan",
+            trip.StartsOn,
+            trip.EndsOn,
+            trip.Reservations
+                .OrderBy(item => item.Date)
+                .ThenBy(item => item.StartsAt)
+                .Select(TravelerItineraryService.ToDto)
+                .ToList(),
+            trip.PlanRevision);
+        return new(
+            true, trip.Id, trip.PlanRevision, trip.StartsOn, trip.EndsOn,
+            trip.Destination?.Name ?? "Japan", trip.TimeZoneId, segments,
+            trip.DayPlans.Select(day => day.Date).Order().ToList(),
+            schedule);
     }
 
-    private async Task<BuilderTripSetupDto> ResolveHotelsAsync(Trip trip, CancellationToken cancellationToken)
-    {
-        var dto = ToDto(trip);
-        var segments = new List<BuilderTripSetupSegmentDto>();
-        var resolved = new Dictionary<string, RecommendationDto?>();
-        foreach (var segment in dto.Segments)
-        {
-            if (string.IsNullOrWhiteSpace(segment.HotelPlaceId)
-                || (!string.IsNullOrWhiteSpace(segment.HotelName)
-                    && !string.IsNullOrWhiteSpace(segment.HotelAddress)))
-            {
-                segments.Add(segment);
-                continue;
-            }
-            if (!resolved.TryGetValue(segment.HotelPlaceId, out var place))
-            {
-                place = googlePlaces is null ? null : await googlePlaces.DetailsAsync(trip.DestinationId,
-                    new PlaceDetailsRequest(segment.HotelPlaceId, string.Empty), cancellationToken);
-                resolved[segment.HotelPlaceId] = place;
-            }
-            segments.Add(segment with
-            {
-                HotelName = place?.Title ?? (string.IsNullOrWhiteSpace(segment.HotelName) ? "Hotel" : segment.HotelName),
-                HotelAddress = place?.Neighborhood ?? segment.HotelAddress,
-                HotelLatitude = place?.Latitude ?? segment.HotelLatitude,
-                HotelLongitude = place?.Longitude ?? segment.HotelLongitude
-            });
-        }
-        return dto with { Segments = segments };
-    }
 }
 
 public sealed class BuilderRevisionConflictException(int currentRevision) : Exception("El itinerario cambió en otro dispositivo. Actualízalo antes de continuar.")

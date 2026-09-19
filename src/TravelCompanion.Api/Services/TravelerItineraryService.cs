@@ -179,7 +179,7 @@ public sealed class TravelerItineraryService(
         trip.PlanRevision++;
         trip.UpdatedAtUtc = DateTimeOffset.UtcNow;
         await dbContext.SaveChangesAsync(cancellationToken);
-        return new(true, "Item eliminado.", trip.PlanRevision);
+        return new(true, "Item eliminado.", trip.PlanRevision, DeletedItemId: id);
     }
 
     private async Task<(Trip Trip, TripDayBlock Block)> LoadEditableContextAsync(
@@ -242,5 +242,5 @@ public sealed class TravelerItineraryService(
         item.Title, item.City, item.LocationName, item.Address, item.ConfirmationCode, item.Notes,
         item.Airline, item.FlightNumber, item.OriginName, item.DestinationName, item.OriginAirport,
         item.DestinationAirport, item.PlanningKind, item.Owner, item.ItemSource, item.TimePrecision,
-        item.SortOrder, item.ProviderPlaceId);
+        item.SortOrder, item.ProviderPlaceId, item.Latitude, item.Longitude);
 }

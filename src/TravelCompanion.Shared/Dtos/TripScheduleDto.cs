@@ -8,7 +8,8 @@ public sealed record TripScheduleDto(
     string DestinationName,
     DateOnly StartsOn,
     DateOnly EndsOn,
-    IReadOnlyList<ScheduleItemDto> Items);
+    IReadOnlyList<ScheduleItemDto> Items,
+    int Revision = 0);
 
 public sealed record ScheduleItemDto(
     Guid Id,
@@ -35,7 +36,9 @@ public sealed record ScheduleItemDto(
     ItineraryItemSource ItemSource = ItineraryItemSource.Manual,
     ItineraryTimePrecision TimePrecision = ItineraryTimePrecision.Exact,
     int SortOrder = 0,
-    string? ProviderPlaceId = null)
+    string? ProviderPlaceId = null,
+    decimal? Latitude = null,
+    decimal? Longitude = null)
 {
     public string TypeLabel => Type switch
     {

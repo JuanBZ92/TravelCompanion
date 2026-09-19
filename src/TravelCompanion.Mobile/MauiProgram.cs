@@ -85,6 +85,8 @@ public static class MauiProgram
         builder.Services.AddSingleton<MobileBootstrapStore>();
         builder.Services.AddSingleton<MobileDiscoverStore>();
         builder.Services.AddSingleton<MobileTodayStore>();
+        builder.Services.AddSingleton<MobileSyncStateStore>();
+        builder.Services.AddSingleton<BuilderTripStore>();
         builder.Services.AddSingleton<OfflineMutationQueueService>();
         builder.Services.AddSingleton<OfflineSyncCoordinator>();
         builder.Services.AddSingleton<FavoritesService>();

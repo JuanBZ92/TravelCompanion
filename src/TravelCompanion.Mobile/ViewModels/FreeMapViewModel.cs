@@ -8,7 +8,8 @@ namespace TravelCompanion.Mobile.ViewModels;
 public sealed partial class FreeMapViewModel(
     AuthSessionService sessionService,
     TravelCompanionApiClient apiClient,
-    FreeMapStore freeMapStore) : ViewModelBase, ISessionStateResettable
+    FreeMapStore freeMapStore,
+    OfflineSyncCoordinator syncCoordinator) : ViewModelBase, ISessionStateResettable
 {
     private FreeMapCityDto? _selectedCity;
     private FreeMapPreviewDto? _preview;
@@ -36,6 +37,7 @@ public sealed partial class FreeMapViewModel(
             if (SetProperty(ref _preview, value))
             {
                 OnPropertyChanged(nameof(HasPreview));
+                OnPropertyChanged(nameof(ShowMapSummary));
                 OnPropertyChanged(nameof(MapSummary));
                 OnPropertyChanged(nameof(HasContactUrl));
                 OnPropertyChanged(nameof(ShowPinOnlyAction));
@@ -115,10 +117,8 @@ public sealed partial class FreeMapViewModel(
         return LoadAsync(async cancellationToken =>
         {
             var token = await RequireTokenAsync();
-            var cities = await freeMapStore.RefreshCitiesAsync(token, cancellationToken)
-                ?? throw new InvalidOperationException("No pudimos actualizar las ciudades.");
-            ApplyCities(cities, SelectedCity?.Slug);
-            await RefreshSelectedCityAsync(token, cancellationToken, allowCacheFallback: true);
+            await syncCoordinator.SynchronizeVersionsAsync(token, force: true, cancellationToken);
+            await LoadInitialAsync(cancellationToken);
         });
     }
 
@@ -179,7 +179,8 @@ public sealed partial class FreeMapViewModel(
         {
             ApplyCities(cachedCities.Value, SelectedCity?.Slug);
             await ApplyCachedSelectedCityAsync(cancellationToken);
-            StatusMessage = $"Mostrando mapa guardado. {OfflineCacheService.FormatSavedAt(cachedCities.SavedAt)}";
+            StatusMessage = null;
+            return;
         }
 
         try
@@ -219,7 +220,8 @@ public sealed partial class FreeMapViewModel(
             if (cached is not null)
             {
                 Preview = cached.Value;
-                StatusMessage = $"Actualizando {city.Name}...";
+                StatusMessage = null;
+                return;
             }
 
             try
@@ -312,6 +314,12 @@ public sealed partial class FreeMapViewModel(
 
     private async Task<string> RequireTokenAsync()
     {
+        if (!sessionService.HasKnownValidAccess)
+        {
+            sessionService.Clear();
+            await Shell.Current.GoToAsync("//login");
+            throw new OperationCanceledException();
+        }
         var token = await sessionService.GetTokenAsync();
         if (!string.IsNullOrWhiteSpace(token))
         {

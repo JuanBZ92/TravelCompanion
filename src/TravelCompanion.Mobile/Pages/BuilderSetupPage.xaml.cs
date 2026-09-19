@@ -20,6 +20,7 @@ public partial class BuilderSetupPage : ContentPage
 
     private async void OnHotelTextChanged(object? sender, TextChangedEventArgs e)
     {
+        await Task.Yield();
         if ((sender as BindableObject)?.BindingContext is BuilderSegmentViewModel segment)
             await _viewModel.SearchHotelSuggestionsAsync(segment);
     }

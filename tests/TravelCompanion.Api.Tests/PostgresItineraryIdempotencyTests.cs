@@ -11,6 +11,58 @@ namespace TravelCompanion.Api.Tests;
 public sealed class PostgresItineraryIdempotencyTests
 {
     [PostgresFact]
+    public async Task Catalog_mutations_increment_persistent_mobile_versions()
+    {
+        var baseConnectionString = Environment.GetEnvironmentVariable("TRAVELCOMPANION_TEST_POSTGRES")!;
+        var schema = $"tc_versions_{Guid.NewGuid():N}";
+        var builder = new NpgsqlConnectionStringBuilder(baseConnectionString) { SearchPath = schema };
+        await using var administrationConnection = new NpgsqlConnection(baseConnectionString);
+        await administrationConnection.OpenAsync();
+        await using (var createSchema = administrationConnection.CreateCommand())
+        {
+            createSchema.CommandText = $"CREATE SCHEMA \"{schema}\"";
+            await createSchema.ExecuteNonQueryAsync();
+        }
+
+        try
+        {
+            var options = new DbContextOptionsBuilder<TravelCompanionDbContext>()
+                .UseNpgsql(builder.ConnectionString).Options;
+            await using var db = new TravelCompanionDbContext(options);
+            await db.Database.MigrateAsync();
+            var destination = new Destination
+            {
+                Id = Guid.NewGuid(), Name = "Japan", Slug = $"versions-{schema}", Country = "Japan",
+                HeroImageUrl = string.Empty, ShortDescription = "Version trigger test"
+            };
+            db.Destinations.Add(destination);
+            await db.SaveChangesAsync();
+            var catalogScope = MobileDataVersionScopes.Catalog(destination.Id);
+            var initialCatalog = await db.MobileDataVersions.SingleAsync(item => item.Scope == catalogScope);
+
+            db.Recommendations.Add(new Recommendation
+            {
+                Id = Guid.NewGuid(), DestinationId = destination.Id, Title = "Versioned place",
+                Category = "Culture", Neighborhood = "Tokyo", Description = "Test",
+                Latitude = 35.6m, Longitude = 139.7m, SuggestedDurationMinutes = 60,
+                AccessLevel = ContentAccessLevel.Free
+            });
+            await db.SaveChangesAsync();
+            db.ChangeTracker.Clear();
+
+            var updatedCatalog = await db.MobileDataVersions.SingleAsync(item => item.Scope == catalogScope);
+            Assert.True(updatedCatalog.Version > initialCatalog.Version);
+            Assert.True(await db.MobileDataVersions.AnyAsync(item => item.Scope == MobileDataVersionScopes.FreeCatalogGlobal));
+        }
+        finally
+        {
+            await using var dropSchema = administrationConnection.CreateCommand();
+            dropSchema.CommandText = $"DROP SCHEMA IF EXISTS \"{schema}\" CASCADE";
+            await dropSchema.ExecuteNonQueryAsync();
+        }
+    }
+
+    [PostgresFact]
     public async Task Concurrent_retries_commit_one_reservation_and_one_analytics_signal()
     {
         var baseConnectionString = Environment.GetEnvironmentVariable("TRAVELCOMPANION_TEST_POSTGRES")!;

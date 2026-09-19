@@ -38,10 +38,8 @@ public partial class ItineraryItemEditorPage : ContentPage, IQueryAttributable
 
     private async void OnPlaceTextChanged(object? sender, TextChangedEventArgs e)
     {
-        if (sender is Entry { IsFocused: true })
-        {
-            await _viewModel.SearchPlaceSuggestionsAsync();
-        }
+        await Task.Yield();
+        await _viewModel.SearchPlaceSuggestionsAsync();
     }
 
     private async void OnPlaceSuggestionTapped(object? sender, TappedEventArgs e)

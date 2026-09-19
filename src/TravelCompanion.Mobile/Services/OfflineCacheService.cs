@@ -10,6 +10,7 @@ public sealed class OfflineCacheService
 {
     private const string EncryptionKeyStorageKey = "offline_cache_encryption_key_v1";
     private const string EncryptionVersion = "v1";
+    public const int CurrentCacheFormatVersion = 2;
     private static readonly byte[] EncryptionContext = Encoding.UTF8.GetBytes("travelcompanion-offline-cache");
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> WriteLocks = new(StringComparer.Ordinal);
     private static readonly SemaphoreSlim EncryptionKeyLock = new(1, 1);
@@ -20,7 +21,27 @@ public sealed class OfflineCacheService
 
     public async Task SaveAsync<T>(string key, T value, CancellationToken cancellationToken = default)
     {
-        var entry = new OfflineCacheEntry<T>(DateTimeOffset.UtcNow, value);
+        await SaveAsync(key, value, OfflineCacheMetadata.Unscoped(), cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task SaveAsync<T>(
+        string key,
+        T value,
+        OfflineCacheMetadata metadata,
+        CancellationToken cancellationToken = default)
+    {
+        var normalizedMetadata = metadata with
+        {
+            Language = string.IsNullOrWhiteSpace(metadata.Language)
+                ? System.Globalization.CultureInfo.CurrentUICulture.Name
+                : metadata.Language,
+            CacheFormatVersion = CurrentCacheFormatVersion
+        };
+        var entry = new OfflineCacheEntry<T>(
+            DateTimeOffset.UtcNow,
+            value,
+            CurrentCacheFormatVersion,
+            normalizedMetadata);
         await SaveEntryEncryptedAsync(key, entry, cancellationToken).ConfigureAwait(false);
     }
 
@@ -40,7 +61,7 @@ public sealed class OfflineCacheService
             var json = await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false);
 
             var encryptedEntry = await TryReadEncryptedEntryAsync<T>(json, cancellationToken).ConfigureAwait(false);
-            if (encryptedEntry is not null)
+            if (encryptedEntry is not null && encryptedEntry.FormatVersion == CurrentCacheFormatVersion)
             {
                 if (IsExpired(encryptedEntry.SavedAt, maxAge))
                 {
@@ -48,12 +69,37 @@ public sealed class OfflineCacheService
                     return null;
                 }
 
-                return new OfflineCacheResult<T>(encryptedEntry.Value, encryptedEntry.SavedAt);
+                return new OfflineCacheResult<T>(encryptedEntry.Value, encryptedEntry.SavedAt, encryptedEntry.Metadata);
+            }
+
+            if (encryptedEntry is not null && encryptedEntry.FormatVersion == 1)
+            {
+                if (IsExpired(encryptedEntry.SavedAt, maxAge))
+                {
+                    await DeleteAsync(key).ConfigureAwait(false);
+                    return null;
+                }
+
+                var upgradedMetadata = OfflineCacheMetadata.Unscoped() with
+                {
+                    DataScope = "legacy",
+                    DataVersion = $"legacy:{encryptedEntry.SavedAt.UtcTicks}"
+                };
+                var upgradedEntry = new OfflineCacheEntry<T>(
+                    encryptedEntry.SavedAt,
+                    encryptedEntry.Value,
+                    CurrentCacheFormatVersion,
+                    upgradedMetadata);
+                await SaveEntryEncryptedAsync(key, upgradedEntry, cancellationToken).ConfigureAwait(false);
+                return new OfflineCacheResult<T>(
+                    upgradedEntry.Value,
+                    upgradedEntry.SavedAt,
+                    upgradedEntry.Metadata);
             }
 
             // Compatibilidad con caches legacy en texto plano; se migran automaticamente a cifrado.
             var legacyEntry = JsonSerializer.Deserialize<OfflineCacheEntry<T>>(json, JsonOptions);
-            if (legacyEntry is null)
+            if (legacyEntry is null || legacyEntry.FormatVersion != CurrentCacheFormatVersion)
             {
                 return null;
             }
@@ -65,7 +111,7 @@ public sealed class OfflineCacheService
             }
 
             await SaveEntryEncryptedAsync(key, legacyEntry, cancellationToken).ConfigureAwait(false);
-            return new OfflineCacheResult<T>(legacyEntry.Value, legacyEntry.SavedAt);
+            return new OfflineCacheResult<T>(legacyEntry.Value, legacyEntry.SavedAt, legacyEntry.Metadata);
         }
         catch
         {
@@ -289,8 +335,35 @@ public sealed class OfflineCacheService
         }
     }
 
-    private sealed record OfflineCacheEntry<T>(DateTimeOffset SavedAt, T Value);
+    private sealed record OfflineCacheEntry<T>(
+        DateTimeOffset SavedAt,
+        T Value,
+        int FormatVersion = CurrentCacheFormatVersion,
+        OfflineCacheMetadata? Metadata = null);
     private sealed record OfflineCacheEnvelope(string Version, string Nonce, string Tag, string Ciphertext);
 }
 
-public sealed record OfflineCacheResult<T>(T Value, DateTimeOffset SavedAt);
+public sealed record OfflineCacheResult<T>(
+    T Value,
+    DateTimeOffset SavedAt,
+    OfflineCacheMetadata? Metadata = null);
+
+public sealed record OfflineCacheMetadata(
+    Guid? UserId,
+    Guid? TripId,
+    Guid? DestinationId,
+    string? DestinationSlug,
+    string Language,
+    string DataScope,
+    string DataVersion,
+    int CacheFormatVersion = OfflineCacheService.CurrentCacheFormatVersion)
+{
+    public static OfflineCacheMetadata Unscoped() => new(
+        null,
+        null,
+        null,
+        null,
+        System.Globalization.CultureInfo.CurrentUICulture.Name,
+        "local",
+        $"local-{DateTimeOffset.UtcNow.UtcTicks}");
+}

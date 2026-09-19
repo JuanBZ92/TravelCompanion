@@ -4,7 +4,8 @@ namespace TravelCompanion.Mobile.Services;
 
 public sealed class FreeMapStore(
     TravelCompanionApiClient apiClient,
-    OfflineCacheService offlineCacheService)
+    OfflineCacheService offlineCacheService,
+    MobileSyncStateStore syncStateStore)
 {
     private const string CitiesCacheKey = "free-map-cities";
     private const string CityCachePrefix = "free-map-city-";
@@ -25,7 +26,11 @@ public sealed class FreeMapStore(
         var cities = await apiClient.GetFreeMapCitiesAsync(token, cancellationToken);
         if (cities is not null)
         {
-            await offlineCacheService.SaveAsync(CitiesCacheKey, cities, cancellationToken);
+            var metadata = await syncStateStore.CreateCacheMetadataAsync(
+                "free-catalog",
+                $"downloaded:{DateTimeOffset.UtcNow.UtcTicks}",
+                cancellationToken: cancellationToken);
+            await offlineCacheService.SaveAsync(CitiesCacheKey, cities, metadata, cancellationToken);
         }
 
         return cities;
@@ -39,7 +44,12 @@ public sealed class FreeMapStore(
         var preview = await apiClient.GetFreeMapCityAsync(token, citySlug, cancellationToken);
         if (preview is not null)
         {
-            await offlineCacheService.SaveAsync(GetCityCacheKey(citySlug), preview, cancellationToken);
+            var metadata = await syncStateStore.CreateCacheMetadataAsync(
+                "free-catalog",
+                $"downloaded:{DateTimeOffset.UtcNow.UtcTicks}",
+                destinationSlug: preview.City.Slug,
+                cancellationToken: cancellationToken);
+            await offlineCacheService.SaveAsync(GetCityCacheKey(citySlug), preview, metadata, cancellationToken);
         }
 
         return preview;

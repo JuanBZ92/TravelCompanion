@@ -141,6 +141,12 @@ public sealed partial class TravelChatViewModel(
         EnsureLocalizationSubscription();
         if (_hasLoadedContext)
         {
+            var cached = await bootstrapStore.GetCachedAsync();
+            if (cached is not null)
+            {
+                ApplyPlanningContext(cached.Value.Schedule);
+                MarkLastUpdated(cached.SavedAt);
+            }
             return;
         }
 

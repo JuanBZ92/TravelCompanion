@@ -54,7 +54,7 @@ public sealed class ItineraryService(TravelCompanionDbContext dbContext) : IItin
                 reservation.ClientMutationId == request.ClientMutationId);
             if (replayedReservation is not null)
             {
-                return AlreadySaved(replayedReservation);
+                return AlreadySaved(replayedReservation, trip.PlanRevision);
             }
         }
 
@@ -69,7 +69,8 @@ public sealed class ItineraryService(TravelCompanionDbContext dbContext) : IItin
             return new SaveItineraryItemResponse(
                 true,
                 "Ese plan ya estaba guardado en tu itinerario.",
-                ToDto(existingReservation));
+                ToDto(existingReservation),
+                trip.PlanRevision);
         }
 
         var endsAt = request.EndsAt
@@ -118,13 +119,14 @@ public sealed class ItineraryService(TravelCompanionDbContext dbContext) : IItin
             dbContext.ChangeTracker.Clear();
             var committedReservation = await dbContext.Reservations
                 .AsNoTracking()
+                .Include(existing => existing.Trip)
                 .FirstOrDefaultAsync(existing =>
                     existing.TripId == trip.Id
                     && existing.ClientMutationId == request.ClientMutationId,
                     cancellationToken);
             if (committedReservation is not null)
             {
-                return AlreadySaved(committedReservation);
+                return AlreadySaved(committedReservation, committedReservation.Trip?.PlanRevision);
             }
 
             throw;
@@ -133,11 +135,12 @@ public sealed class ItineraryService(TravelCompanionDbContext dbContext) : IItin
         return new SaveItineraryItemResponse(
             true,
             "Plan guardado en tu itinerario.",
-            ToDto(reservation));
+            ToDto(reservation),
+            trip.PlanRevision);
     }
 
-    private static SaveItineraryItemResponse AlreadySaved(Reservation reservation) =>
-        new(true, "Ese plan ya estaba guardado en tu itinerario.", ToDto(reservation));
+    private static SaveItineraryItemResponse AlreadySaved(Reservation reservation, int? revision) =>
+        new(true, "Ese plan ya estaba guardado en tu itinerario.", ToDto(reservation), revision);
 
     private static bool CanAccessRecommendation(AppUser user, Recommendation recommendation)
     {
@@ -212,7 +215,7 @@ public sealed class ItineraryService(TravelCompanionDbContext dbContext) : IItin
             reservation.OriginAirport,
             reservation.DestinationAirport,
             reservation.PlanningKind, reservation.Owner, reservation.ItemSource, reservation.TimePrecision,
-            reservation.SortOrder, reservation.ProviderPlaceId);
+            reservation.SortOrder, reservation.ProviderPlaceId, reservation.Latitude, reservation.Longitude);
     }
 
     private static RecommendationInteractionSignal CreateSavedSignal(

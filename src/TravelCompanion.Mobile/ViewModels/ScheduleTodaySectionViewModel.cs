@@ -1,4 +1,5 @@
 using TravelCompanion.Shared.Dtos;
+using TravelCompanion.Mobile.Services;
 
 namespace TravelCompanion.Mobile.ViewModels;
 
@@ -122,10 +123,11 @@ public sealed class TodayLocationViewModel
 
     public TodayLocationViewModel(
         TodayRecommendationDto todayRecommendation,
-        ScheduleItemDto? assignedItem = null)
+        ScheduleItemDto? assignedItem = null,
+        decimal? distanceOverrideKm = null)
         : this(
             todayRecommendation.Recommendation,
-            todayRecommendation.DistanceKm,
+            distanceOverrideKm ?? todayRecommendation.DistanceKm,
             todayRecommendation.IsAssigned,
             assignedItem)
     {
@@ -179,7 +181,10 @@ public sealed class TodayLocationViewModel
 
 public sealed class TodayReservationViewModel
 {
-    public TodayReservationViewModel(ScheduleItemDto item)
+    public TodayReservationViewModel(
+        ScheduleItemDto item,
+        TodayHotelBaseDto? hotelBase = null,
+        bool canCalculateRoutes = false)
     {
         Item = item;
         TimeLabel = item.HasEnd
@@ -195,6 +200,16 @@ public sealed class TodayReservationViewModel
         Confirmation = string.IsNullOrWhiteSpace(item.ConfirmationCode)
             ? string.Empty
             : $"Codigo: {item.ConfirmationCode}";
+        DistanceFromHotelLabel = CalculateDistanceLabel(hotelBase, item);
+        HasRoutes = canCalculateRoutes && item.HasExactTime
+            && (!string.IsNullOrWhiteSpace(item.ProviderPlaceId) || item.Latitude.HasValue && item.Longitude.HasValue);
+        Routes =
+        [
+            new("WALK", "A pie", "route_walk.svg", item.Id),
+            new("TRANSIT", "Transporte", "route_bus.svg", item.Id),
+            new("DRIVE", "Auto", "route_car.svg", item.Id)
+        ];
+        CurrentLocationRoute = new("WALK", "Desde mi ubicación", "route_walk.svg", item.Id, useCurrentLocation: true);
     }
 
     public ScheduleItemDto Item { get; }
@@ -206,25 +221,53 @@ public sealed class TodayReservationViewModel
         && !string.Equals(Place.Trim(), Title.Trim(), StringComparison.OrdinalIgnoreCase);
     public string Confirmation { get; }
     public bool HasConfirmation => !string.IsNullOrWhiteSpace(Confirmation);
+    public string DistanceFromHotelLabel { get; }
+    public bool HasDistanceFromHotel => !string.IsNullOrWhiteSpace(DistanceFromHotelLabel);
     public bool CanEdit => Item.IsTravelerOwned;
-    public bool HasRoutes => Item.IsTravelerOwned && Item.HasExactTime
-        && Item.ItemSource is TravelCompanion.Shared.ItineraryItemSource.YukuRecommendation
-            or TravelCompanion.Shared.ItineraryItemSource.GooglePlace;
-    public IReadOnlyList<ItineraryRouteViewModel> Routes { get; } =
-        [new("DRIVE", "Auto", "route_car.svg"), new("TRANSIT", "Transporte", "route_bus.svg"), new("WALK", "A pie", "route_walk.svg")];
+    public bool HasRoutes { get; }
+    public IReadOnlyList<ItineraryRouteViewModel> Routes { get; }
+    public ItineraryRouteViewModel CurrentLocationRoute { get; }
+
+    private static string CalculateDistanceLabel(TodayHotelBaseDto? hotel, ScheduleItemDto item)
+    {
+        if (hotel?.Latitude is null || hotel.Longitude is null || item.Latitude is null || item.Longitude is null)
+        {
+            return string.Empty;
+        }
+
+        var distance = StraightLineDistanceCache.GetOrCalculate(
+            hotel.Latitude.Value,
+            hotel.Longitude.Value,
+            item.Latitude.Value,
+            item.Longitude.Value);
+        return $"≈ {distance:0.0} km en línea recta desde el hotel";
+    }
 }
 
-public sealed class ItineraryRouteViewModel(string mode, string label, string icon) : CommunityToolkit.Mvvm.ComponentModel.ObservableObject
+public sealed class ItineraryRouteViewModel(
+    string mode,
+    string label,
+    string icon,
+    Guid itemId = default,
+    bool useCurrentLocation = false) : CommunityToolkit.Mvvm.ComponentModel.ObservableObject
 {
+    public Guid ItemId { get; } = itemId;
+    public bool UseCurrentLocation { get; } = useCurrentLocation;
     public string Mode { get; } = mode;
     public string Label { get; } = label;
     public string Icon { get; } = icon;
-    private string _duration = "Calculando...";
+    private string _duration = "Tocar para calcular";
     private string _departure = "";
     private string _origin = "";
     public string Duration { get => _duration; private set => SetProperty(ref _duration, value); }
     public string Departure { get => _departure; private set => SetProperty(ref _departure, value); }
     public string Origin { get => _origin; private set => SetProperty(ref _origin, value); }
+    public void MarkLoading()
+    {
+        Duration = "Calculando...";
+        Departure = string.Empty;
+        Origin = string.Empty;
+    }
     public void Apply(ItineraryRouteDto? route)
     {
         var originMarker = route?.OriginKind switch

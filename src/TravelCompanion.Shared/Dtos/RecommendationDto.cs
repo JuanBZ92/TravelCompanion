@@ -39,7 +39,8 @@ public sealed record PlaceSearchRequest(
     string Query,
     decimal? Latitude = null,
     decimal? Longitude = null,
-    string? City = null);
+    string? City = null,
+    bool IncludeGoogle = false);
 
 public enum PlaceAutocompleteMode
 {
@@ -53,7 +54,14 @@ public sealed record PlaceAutocompleteRequest(
     string SessionToken,
     string? Locale = null,
     PlaceAutocompleteMode Mode = PlaceAutocompleteMode.Hotel);
-public sealed record PlaceSuggestionDto(string PlaceId, string Name, string Address);
+public sealed record PlaceSuggestionDto(
+    string PlaceId,
+    string Name,
+    string Address,
+    string Provider = "Google",
+    Guid? RecommendationId = null,
+    decimal? Latitude = null,
+    decimal? Longitude = null);
 public sealed record PlaceDetailsRequest(string PlaceId, string SessionToken, string? Locale = null);
 
 public sealed record RecommendationTagDto(

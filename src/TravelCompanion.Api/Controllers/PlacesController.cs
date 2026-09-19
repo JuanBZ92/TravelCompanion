@@ -41,9 +41,20 @@ public sealed class PlacesController(
         var access = await accessService.GetAsync(HttpContext, cancellationToken);
         if (access?.Capabilities.CanSearchGooglePlaces != true) return Forbid();
         if (string.IsNullOrWhiteSpace(request.PlaceId) || request.PlaceId.Length > 256 || !Guid.TryParse(request.SessionToken, out _)) return BadRequest();
+        var now = DateTimeOffset.UtcNow;
         var destinationId = access.TripId.HasValue
-            ? await dbContext.Trips.Where(t => t.Id == access.TripId).Select(t => t.DestinationId).SingleAsync(cancellationToken)
-            : await dbContext.BuilderAccessGrants.Where(g => g.AppUserId == access.User.Id && g.RevokedAtUtc == null).Select(g => g.DestinationId).FirstAsync(cancellationToken);
+            ? await dbContext.Trips
+                .Where(trip => trip.Id == access.TripId && trip.AppUserId == access.User.Id)
+                .Select(trip => trip.DestinationId)
+                .SingleAsync(cancellationToken)
+            : await dbContext.BuilderAccessGrants
+                .Where(grant => grant.AppUserId == access.User.Id
+                    && grant.Status == TravelCompanion.Shared.BuilderAccessStatus.Active
+                    && grant.RevokedAtUtc == null
+                    && (!grant.ExpiresAtUtc.HasValue || grant.ExpiresAtUtc > now))
+                .OrderByDescending(grant => grant.CreatedAtUtc)
+                .Select(grant => grant.DestinationId)
+                .FirstAsync(cancellationToken);
         var place = await googlePlacesService.DetailsAsync(destinationId, request, cancellationToken);
         return place is null ? NotFound() : Ok(place);
     }
@@ -55,12 +66,43 @@ public sealed class PlacesController(
         if (access is null || !access.Capabilities.CanViewFullMap) return Forbid();
         if (string.IsNullOrWhiteSpace(request.Query) || request.Query.Trim().Length < 2) return Ok(Array.Empty<RecommendationDto>());
 
+        var now = DateTimeOffset.UtcNow;
         var destinationId = access.TripId.HasValue
-            ? await dbContext.Trips.Where(item => item.Id == access.TripId).Select(item => item.DestinationId).SingleAsync(cancellationToken)
-            : await dbContext.BuilderAccessGrants.Where(item => item.AppUserId == access.User.Id && item.RevokedAtUtc == null).Select(item => item.DestinationId).FirstAsync(cancellationToken);
+            ? await dbContext.Trips
+                .Where(trip => trip.Id == access.TripId && trip.AppUserId == access.User.Id)
+                .Select(trip => trip.DestinationId)
+                .SingleAsync(cancellationToken)
+            : await dbContext.BuilderAccessGrants
+                .Where(grant => grant.AppUserId == access.User.Id
+                    && grant.Status == TravelCompanion.Shared.BuilderAccessStatus.Active
+                    && grant.RevokedAtUtc == null
+                    && (!grant.ExpiresAtUtc.HasValue || grant.ExpiresAtUtc > now))
+                .OrderByDescending(grant => grant.CreatedAtUtc)
+                .Select(grant => grant.DestinationId)
+                .FirstAsync(cancellationToken);
+        var activeEntitlements = access.User.Entitlements
+            .Where(entitlement => entitlement.ExpiresAt is null || entitlement.ExpiresAt > now)
+            .ToList();
+        var entitlements = new UserEntitlementsDto(
+            access.User.Id,
+            access.User.Email,
+            access.User.DisplayName,
+            activeEntitlements.Select(entitlement => entitlement.AccessLevel).Distinct().ToList(),
+            activeEntitlements.Where(entitlement => entitlement.DestinationId.HasValue)
+                .Select(entitlement => entitlement.DestinationId!.Value).Distinct().ToList(),
+            activeEntitlements.Where(entitlement => entitlement.TravelPackageId.HasValue)
+                .Select(entitlement => entitlement.TravelPackageId!.Value).Distinct().ToList(),
+            activeEntitlements.Select(entitlement => new UserEntitlementDto(
+                entitlement.Id,
+                entitlement.AccessLevel,
+                entitlement.DestinationId,
+                entitlement.TravelPackageId,
+                entitlement.GrantedAt,
+                entitlement.ExpiresAt,
+                entitlement.Source)).ToList());
         var catalogCandidates = await dbContext.Recommendations
             .AsNoTracking()
-            .Where(item => item.DestinationId == destinationId)
+            .UnlockedFor(destinationId, entitlements)
             .Select(item => new CatalogSearchCandidate(
                 item.Id,
                 item.ProviderPlaceId,
@@ -92,7 +134,9 @@ public sealed class PlacesController(
             .ThenBy(candidate => candidate.Item.Title)
             .Select(candidate => candidate.Item)
             .ToList();
-        var google = access.Capabilities.CanSearchGooglePlaces
+        var google = request.IncludeGoogle
+            && rankedCatalog.Count == 0
+            && access.Capabilities.CanSearchGooglePlaces
             ? await googlePlacesService.SearchAsync(destinationId, request, cancellationToken)
             : [];
         var googlePlaceIds = google

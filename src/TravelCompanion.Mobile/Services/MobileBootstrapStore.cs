@@ -8,9 +8,11 @@ public sealed class MobileBootstrapStore(
     TravelCompanionApiClient apiClient,
     AuthSessionService sessionService,
     OfflineCacheService offlineCacheService,
+    MobileSyncStateStore syncStateStore,
     ILogger<MobileBootstrapStore> logger)
 {
-    private static readonly TimeSpan DefaultFreshnessWindow = TimeSpan.FromMinutes(2);
+    private bool _invalidated;
+    private long _generation;
     private MobileBootstrapDto? _current;
     private DateTimeOffset? _currentSavedAt;
     private Guid? _currentUserId;
@@ -20,6 +22,7 @@ public sealed class MobileBootstrapStore(
     private readonly object _refreshLock = new();
     private Task<ApiCallResult<MobileBootstrapDto>>? _refreshTask;
     private string? _refreshKey;
+    private CancellationTokenSource? _refreshCancellation;
 
     public event EventHandler<ScheduleCacheUpdatedEventArgs>? ScheduleUpdated;
 
@@ -27,6 +30,7 @@ public sealed class MobileBootstrapStore(
         string? destinationSlug = null,
         CancellationToken cancellationToken = default)
     {
+        if (!sessionService.HasKnownValidAccess) return null;
         var stopwatch = Stopwatch.StartNew();
         var currentUserId = sessionService.CurrentUserId;
         var currentTripId = sessionService.CurrentTripId;
@@ -98,8 +102,10 @@ public sealed class MobileBootstrapStore(
         {
             if (_refreshTask is null || _refreshTask.IsCompleted || !string.Equals(_refreshKey, context.Key, StringComparison.Ordinal))
             {
+                _refreshCancellation?.Dispose();
+                _refreshCancellation = new CancellationTokenSource();
                 _refreshKey = context.Key;
-                _refreshTask = RefreshCoreAsync(token, destinationSlug, context, cancellationToken);
+                _refreshTask = RefreshCoreAsync(token, destinationSlug, context, _refreshCancellation.Token);
             }
             else
             {
@@ -123,6 +129,8 @@ public sealed class MobileBootstrapStore(
                     {
                         _refreshTask = null;
                         _refreshKey = null;
+                        _refreshCancellation?.Dispose();
+                        _refreshCancellation = null;
                     }
                 }
             }
@@ -160,32 +168,28 @@ public sealed class MobileBootstrapStore(
         var destinationCacheKey = GetCacheKey(currentUserId, context.TripId, destinationCacheScope);
 
         _current = bootstrap;
+        _invalidated = false;
         _currentLocale = context.Locale;
         _currentSavedAt = savedAt;
         _currentUserId = currentUserId;
         _currentTripId = context.TripId;
 
+        var metadata = await CreateMetadataAsync(bootstrap, cancellationToken).ConfigureAwait(false);
+
         await offlineCacheService.SaveAsync(
             requestedCacheKey,
             bootstrap,
+            metadata,
             cancellationToken).ConfigureAwait(false);
         if (!string.Equals(requestedCacheScope, destinationCacheScope, StringComparison.Ordinal))
         {
             await offlineCacheService.SaveAsync(
                 destinationCacheKey,
                 bootstrap,
+                metadata,
                 cancellationToken).ConfigureAwait(false);
         }
-        if (!IsCurrent(context))
-        {
-            await offlineCacheService.DeleteAsync(requestedCacheKey).ConfigureAwait(false);
-            if (!string.Equals(requestedCacheKey, destinationCacheKey, StringComparison.Ordinal))
-            {
-                await offlineCacheService.DeleteAsync(destinationCacheKey).ConfigureAwait(false);
-            }
-            logger.LogInformation("Removed mobile bootstrap cache written after the session context changed.");
-            return ApiCallResult<MobileBootstrapDto>.TransientFailure();
-        }
+        if (!IsCurrent(context)) return ApiCallResult<MobileBootstrapDto>.TransientFailure();
         stopwatch.Stop();
 
         logger.LogInformation(
@@ -204,19 +208,106 @@ public sealed class MobileBootstrapStore(
         var currentUserId = sessionService.CurrentUserId;
         var currentTripId = sessionService.CurrentTripId;
         var cacheScope = NormalizeCacheScope(destinationSlug);
-        var ageLimit = maxAge ?? DefaultFreshnessWindow;
-
         return _current is not null
             && _currentLocale == Locale
             && _currentUserId == currentUserId
             && _currentTripId == currentTripId
             && _currentSavedAt.HasValue
-            && DateTimeOffset.UtcNow - _currentSavedAt.Value <= ageLimit
+            && !_invalidated
             && IsScopeMatch(cacheScope, _current.Destination.Slug);
+    }
+
+    public void Invalidate()
+    {
+        CancelActiveRefresh();
+        Interlocked.Increment(ref _generation);
+        _invalidated = true;
+    }
+
+    public async Task<bool> ApplyDiscoverAsync(MobileDiscoverDto discover, CancellationToken cancellationToken = default)
+    {
+        if (_current is null || _current.Destination.Id != discover.Destination.Id) return false;
+        CancelActiveRefresh();
+        Interlocked.Increment(ref _generation);
+        await SaveCurrentAsync(_current with
+        {
+            Destination = discover.Destination,
+            Recommendations = discover.Recommendations
+        }, cancellationToken).ConfigureAwait(false);
+        return true;
+    }
+
+    public async Task<bool> ApplyCatalogAsync(
+        MobileDiscoverDto discover,
+        IReadOnlyList<TravelPackageDto> packages,
+        CancellationToken cancellationToken = default)
+    {
+        if (_current is null || _current.Destination.Id != discover.Destination.Id) return false;
+        CancelActiveRefresh();
+        Interlocked.Increment(ref _generation);
+        await SaveCurrentAsync(_current with
+        {
+            Destination = discover.Destination,
+            Recommendations = discover.Recommendations,
+            Packages = packages
+        }, cancellationToken).ConfigureAwait(false);
+        return true;
+    }
+
+    public async Task<bool> ReplaceScheduleAsync(TripScheduleDto schedule, CancellationToken cancellationToken = default)
+    {
+        if (_current is null || _current.Schedule?.TripId != schedule.TripId) return false;
+        CancelActiveRefresh();
+        Interlocked.Increment(ref _generation);
+        var updated = _current with { Schedule = schedule };
+        await SaveCurrentAsync(updated, cancellationToken).ConfigureAwait(false);
+        MainThread.BeginInvokeOnMainThread(() =>
+            ScheduleUpdated?.Invoke(this, new ScheduleCacheUpdatedEventArgs(schedule, _currentSavedAt!.Value)));
+        return true;
+    }
+
+    public async Task<bool> RebindTripAsync(TripScheduleDto schedule, CancellationToken cancellationToken = default)
+    {
+        var currentUserId = sessionService.CurrentUserId;
+        var currentTripId = sessionService.CurrentTripId;
+        if (_current is null || _currentUserId != currentUserId || currentTripId != schedule.TripId) return false;
+
+        CancelActiveRefresh();
+        Interlocked.Increment(ref _generation);
+        _currentTripId = currentTripId;
+        var updated = _current with { Schedule = schedule };
+        await SaveCurrentAsync(updated, cancellationToken).ConfigureAwait(false);
+        MainThread.BeginInvokeOnMainThread(() =>
+            ScheduleUpdated?.Invoke(this, new ScheduleCacheUpdatedEventArgs(schedule, _currentSavedAt!.Value)));
+        return true;
+    }
+
+    public async Task<bool> RemoveScheduleItemAsync(Guid itemId, int revision, CancellationToken cancellationToken = default)
+    {
+        if (_current?.Schedule is not { } schedule) return false;
+        var updatedSchedule = schedule with
+        {
+            Items = schedule.Items.Where(item => item.Id != itemId).ToList(),
+            Revision = revision
+        };
+        return await ReplaceScheduleAsync(updatedSchedule, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task SaveCurrentAsync(MobileBootstrapDto updated, CancellationToken cancellationToken)
+    {
+        var savedAt = DateTimeOffset.UtcNow;
+        _current = updated;
+        _currentSavedAt = savedAt;
+        _invalidated = false;
+        var scope = NormalizeCacheScope(updated.Destination.Slug);
+        var metadata = await CreateMetadataAsync(updated, cancellationToken).ConfigureAwait(false);
+        await offlineCacheService.SaveAsync(GetCacheKey(_currentUserId, _currentTripId, "auto"), updated, metadata, cancellationToken).ConfigureAwait(false);
+        await offlineCacheService.SaveAsync(GetCacheKey(_currentUserId, _currentTripId, scope), updated, metadata, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<bool> UpsertScheduleItemAsync(
         ScheduleItemDto item,
+        int? revision = null,
         CancellationToken cancellationToken = default)
     {
         var currentUserId = sessionService.CurrentUserId;
@@ -232,6 +323,9 @@ public sealed class MobileBootstrapStore(
             return false;
         }
 
+        CancelActiveRefresh();
+        Interlocked.Increment(ref _generation);
+
         var schedule = _current.Schedule;
         var items = schedule.Items
             .Where(existing => existing.Id != item.Id)
@@ -241,7 +335,8 @@ public sealed class MobileBootstrapStore(
             .ToList();
         var updatedSchedule = schedule with
         {
-            Items = items
+            Items = items,
+            Revision = revision ?? schedule.Revision
         };
         var updatedBootstrap = _current with
         {
@@ -252,14 +347,17 @@ public sealed class MobileBootstrapStore(
 
         _current = updatedBootstrap;
         _currentSavedAt = savedAt;
+        var metadata = await CreateMetadataAsync(updatedBootstrap, cancellationToken).ConfigureAwait(false);
 
         await offlineCacheService.SaveAsync(
             GetCacheKey(currentUserId, currentTripId, "auto"),
             updatedBootstrap,
+            metadata,
             cancellationToken).ConfigureAwait(false);
         await offlineCacheService.SaveAsync(
             GetCacheKey(currentUserId, currentTripId, destinationCacheScope),
             updatedBootstrap,
+            metadata,
             cancellationToken).ConfigureAwait(false);
 
         MainThread.BeginInvokeOnMainThread(() =>
@@ -280,6 +378,8 @@ public sealed class MobileBootstrapStore(
             _currentSavedAt = null;
             _currentUserId = null;
             _currentTripId = null;
+            _invalidated = false;
+            Interlocked.Increment(ref _generation);
         }
 
         await offlineCacheService.DeleteByPrefixAndSuffixAsync(
@@ -318,16 +418,36 @@ public sealed class MobileBootstrapStore(
         var locale = Locale;
         var scope = NormalizeCacheScope(destinationSlug);
         var contextVersion = sessionService.ContextVersion;
-        return new CacheContext(userId, tripId, locale, contextVersion, $"{contextVersion}:{userId}:{tripId}:{locale}:{scope}");
+        var generation = Interlocked.Read(ref _generation);
+        return new CacheContext(userId, tripId, locale, contextVersion, generation, $"{contextVersion}:{generation}:{userId}:{tripId}:{locale}:{scope}");
     }
 
     private bool IsCurrent(CacheContext context) =>
         context.UserId == sessionService.CurrentUserId
         && context.TripId == sessionService.CurrentTripId
         && context.ContextVersion == sessionService.ContextVersion
+        && context.Generation == Interlocked.Read(ref _generation)
         && string.Equals(context.Locale, Locale, StringComparison.Ordinal);
 
-    private sealed record CacheContext(Guid? UserId, Guid? TripId, string Locale, long ContextVersion, string Key);
+    private void CancelActiveRefresh()
+    {
+        lock (_refreshLock)
+        {
+            _refreshCancellation?.Cancel();
+        }
+    }
+
+    private Task<OfflineCacheMetadata> CreateMetadataAsync(
+        MobileBootstrapDto bootstrap,
+        CancellationToken cancellationToken) =>
+        syncStateStore.CreateCacheMetadataAsync(
+            "bootstrap",
+            $"itinerary:{bootstrap.Schedule?.Revision ?? 0}",
+            bootstrap.Destination.Id,
+            bootstrap.Destination.Slug,
+            cancellationToken);
+
+    private sealed record CacheContext(Guid? UserId, Guid? TripId, string Locale, long ContextVersion, long Generation, string Key);
 }
 
 public sealed record ScheduleCacheUpdatedEventArgs(

@@ -7,9 +7,13 @@
              x:DataType="viewModels:MapViewModel"
              Title="Map"
              Shell.NavBarIsVisible="False"
+             SafeAreaEdges="All"
              BackgroundColor="#F8F3ED">
 
-    <Grid RowDefinitions="*,Auto" RowSpacing="0">
+    <Grid x:Name="RootLayout"
+          RowDefinitions="*,Auto"
+          RowSpacing="0"
+          SizeChanged="OnPageLayoutSizeChanged">
         <!-- Map Section -->
         <Grid Grid.Row="0">
             <Border x:Name="MapHost"
@@ -68,16 +72,21 @@
         </Grid>
 
         <!-- Nearby Places List -->
-        <Grid Grid.Row="1"
+        <Grid x:Name="RecommendationBrowser"
+              Grid.Row="1"
               Padding="18,10,18,0"
               HeightRequest="300"
+              BackgroundColor="#F8F3ED"
               RowDefinitions="Auto,*"
               RowSpacing="6"
               IsVisible="{Binding ShowRecommendationBrowser}">
             <SearchBar x:Name="PlaceSearch" Grid.Row="0"
                        Placeholder="Buscar restaurante, café o lugar"
                        Text="{Binding SearchText}"
+                       TextChanged="OnSearchTextChanged"
                        SearchButtonPressed="OnSearchSubmitted"
+                       Focused="OnSearchFocused"
+                       Unfocused="OnSearchUnfocused"
                        HeightRequest="44"
                        FontSize="13"
                        BackgroundColor="#F8F3ED"
