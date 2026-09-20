@@ -111,7 +111,7 @@
   <data name="PasswordSave" xml:space="preserve"><value>Save password</value></data>
   <data name="PasswordLengthError" xml:space="preserve"><value>Your new password must contain at least 12 characters.</value></data>
   <data name="PasswordMismatchError" xml:space="preserve"><value>The passwords do not match.</value></data>
-  <data name="AssistantGuidedCategoryQuestion" xml:space="preserve"><value>What kind of plan would you like?</value></data>
+  <data name="AssistantGuidedCategoryQuestion" xml:space="preserve"><value>What are you interested in?</value></data>
   <data name="AssistantGuidedMoreQuestion" xml:space="preserve"><value>What else sounds good?</value></data>
   <data name="AssistantGuidedPriorityQuestion" xml:space="preserve"><value>What would you like to prioritize?</value></data>
   <data name="AssistantGuidedBudgetQuestion" xml:space="preserve"><value>What budget should I use?</value></data>
@@ -148,6 +148,7 @@
   <data name="AssistantGuidedMenu" xml:space="preserve"><value>More</value></data>
   <data name="AssistantGuidedAnotherRequest" xml:space="preserve"><value>Show me another option</value></data>
   <data name="AssistantGuidedRequestSummary" xml:space="preserve"><value>Find me a {0} plan</value></data>
+  <data name="AssistantGuidedFullDayRequestSummary" xml:space="preserve"><value>Build my full day with coffee, a morning visit, lunch, an afternoon outing, and dinner.</value></data>
   <data name="AssistantGuidedAdjust" xml:space="preserve"><value>Adjust</value></data>
   <data name="AssistantGuidedEstimated" xml:space="preserve"><value>estimated</value></data>
   <data name="AssistantGuidedOfflineQuestion" xml:space="preserve"><value>Your choices are saved. Try the recommendation again when you have a connection.</value></data>

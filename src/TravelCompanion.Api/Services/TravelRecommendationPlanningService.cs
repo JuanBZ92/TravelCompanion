@@ -97,13 +97,14 @@ public sealed class TravelRecommendationPlanningService(
         IEnumerable<ScoredRecommendation> ranked,
         GuidedPlanCriteriaDto? criteria)
     {
-        if (criteria is null || !GuidedTravelCategories.IsValid(criteria.Category))
+        if (criteria is null)
         {
             return ranked;
         }
 
-        var matches = ranked.Where(candidate =>
-            MatchesGuidedCategory(candidate.Recommendation, criteria.Category!));
+        var matches = GuidedTravelCategories.IsValid(criteria.Category)
+            ? ranked.Where(candidate => MatchesGuidedCategory(candidate.Recommendation, criteria.Category!))
+            : ranked;
 
         if (criteria.MaxWalkingMinutes.HasValue)
         {

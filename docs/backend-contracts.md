@@ -140,7 +140,9 @@ POST /api/ai/travel-chat
 }
 ```
 
-Guided actions and options use stable codes rather than localized labels. Categories are `food`, `relax`, `culture`, `walk`, `dance`, `nature`, `shopping`, `viewpoint`, and `nightlife`. Priorities are `direct`, `budget`, `distance`, and `duration`. A guided response returns one recommendation. Sending `guidedAction.action = alternative` keeps the criteria and excludes all recommendations already shown in the conversation.
+Guided actions and options use stable codes rather than localized labels. Categories are `food`, `relax`, `culture`, `walk`, `dance`, `nature`, `shopping`, `viewpoint`, and `nightlife`. The mobile flow asks for category, budget, and maximum walking distance in that order. Sending `guidedAction.action = alternative` keeps the criteria and excludes all recommendations already shown in the conversation.
+
+`guidedAction.action = full_day` requests a complete five-slot day. `guidedAction.optionId` is a per-request opaque seed so retries return the same selection while a new request can produce another combination. The response uses distinct real catalog recommendations at 09:00 (coffee), 10:30 (morning visit), 13:00 (lunch), 15:30 (afternoon outing), and 19:30 (dinner). When the accessible catalog cannot fill a suitable slot, the response returns fewer cards and says so instead of inventing a place. Budget, walking distance, access permissions, and the selected interest remain server-enforced.
 
 If the authenticated user does not have minimum preference context, the chat returns no cards and sets `missingContext`:
 
@@ -158,6 +160,8 @@ If the authenticated user does not have minimum preference context, the chat ret
   }
 }
 ```
+
+The mobile client renders this `preferences` response as the direct category → budget → distance selector and does not render the same message again as an Assistant bubble.
 
 Saving a plan is not performed by chat text. The MAUI app must ask the user for confirmation and then call the explicit backend action:
 

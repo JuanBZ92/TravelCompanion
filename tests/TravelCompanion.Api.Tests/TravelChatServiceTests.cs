@@ -1745,6 +1745,46 @@ public sealed class TravelChatServiceTests
     }
 
     [Fact]
+    public async Task Full_day_plan_returns_five_distinct_timed_stops()
+    {
+        await using var dbContext = CreateDbContext();
+        var destinationId = Guid.NewGuid();
+        var cafe = CreateRecommendation(destinationId, "Kissa morning cafe", "Food", "Coffee and breakfast in Tokyo.", 60, "low");
+        cafe.Tags = ["food", "cafe", "breakfast"];
+        var temple = CreateRecommendation(destinationId, "Historic temple", "Culture", "Temple and history in Tokyo.", 90, "free");
+        temple.Tags = ["culture", "temple", "history"];
+        var lunch = CreateRecommendation(destinationId, "Local ramen lunch", "Food", "Ramen lunch in Tokyo.", 60, "medium");
+        lunch.Tags = ["food", "lunch", "ramen"];
+        var neighborhood = CreateRecommendation(destinationId, "Yanaka neighborhood walk", "Culture", "A cultural neighborhood walk in Tokyo.", 120, "free");
+        neighborhood.Tags = ["culture", "walk", "neighborhood"];
+        var dinner = CreateRecommendation(destinationId, "Izakaya dinner", "Food", "Izakaya dinner in Tokyo.", 90, "medium");
+        dinner.Tags = ["food", "dinner", "izakaya"];
+        var user = await SeedPlanningWorldAsync(dbContext, destinationId, cafe, temple, lunch, neighborhood, dinner);
+        var service = CreateService(dbContext);
+
+        var response = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest(
+                "full day",
+                null,
+                "Tokyo",
+                new DateOnly(2026, 10, 6),
+                null,
+                "es-ES",
+                new GuidedTravelActionDto(GuidedTravelActions.FullDay, OptionId: "fixed-test-seed"),
+                new GuidedPlanCriteriaDto(GuidedTravelCategories.Culture, Budget: "medium")),
+            CancellationToken.None);
+
+        Assert.Null(response.MissingContext);
+        Assert.Equal(5, response.Cards.Count);
+        Assert.Equal(5, response.Cards.Select(card => card.RecommendationId).Distinct().Count());
+        Assert.Equal(["09:00", "10:30", "13:00", "15:30", "19:30"], response.Cards.Select(card => card.StartTime));
+        Assert.Contains("Café de mañana", response.Cards[0].Subtitle);
+        Assert.Contains("Almuerzo", response.Cards[2].Subtitle);
+        Assert.Contains("Cena", response.Cards[4].Subtitle);
+    }
+
+    [Fact]
     public async Task Guided_plan_does_not_require_saved_preferences()
     {
         await using var dbContext = CreateDbContext();

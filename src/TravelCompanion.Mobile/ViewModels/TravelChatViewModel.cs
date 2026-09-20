@@ -39,6 +39,7 @@ public sealed partial class TravelChatViewModel(
     private bool _isFreeTextVisible;
     private bool _isSecondaryMenuVisible;
     private bool _isExplicitlyCancelled;
+    private bool _isFullDayFlow;
     private readonly Stack<string> _guidedHistory = new();
 
     public ObservableCollection<TravelChatMessageViewModel> Messages { get; } = [];
@@ -223,11 +224,11 @@ public sealed partial class TravelChatViewModel(
         });
     }
 
-    public async Task RequestDayAlternativeAsync(DateOnly date, string? city, string? reviewSummary)
+    public Task RequestDayAlternativeAsync(DateOnly date, string? city, string? reviewSummary)
     {
         if (IsBusy)
         {
-            return;
+            return Task.CompletedTask;
         }
 
         PlanningDate = date.ToDateTime(TimeOnly.MinValue);
@@ -236,12 +237,23 @@ public sealed partial class TravelChatViewModel(
             City = city;
         }
 
-        var context = string.IsNullOrWhiteSpace(reviewSummary)
-            ? string.Empty
-            : $" La revisión del día indica: {reviewSummary.Trim()}";
-        MessageText = $"Propón un plan mejor para este día.{context} Mantén todas mis reservas confirmadas y usa solamente los espacios libres.";
-        IsFreeTextVisible = true;
-        await SendMessageAsync();
+        _isFullDayFlow = true;
+        _guidedCriteria = null;
+        _pendingGuidedAction = null;
+        _pendingReplacementCard = null;
+        _guidedHistory.Clear();
+        MessageText = string.Empty;
+        ErrorMessage = null;
+        StatusMessage = null;
+        ClearMissingContext();
+        IsFreeTextVisible = false;
+        IsSecondaryMenuVisible = false;
+        ShowGuidedStep(
+            "category",
+            Resource("AssistantGuidedCategoryQuestion"),
+            CreateCategoryOptions(includeMore: true),
+            addHistory: false);
+        return Task.CompletedTask;
     }
 
     public async Task RequestThematicRouteAsync(DateOnly date, string? city, string theme)
@@ -303,7 +315,7 @@ public sealed partial class TravelChatViewModel(
             }
 
             _guidedCriteria = new GuidedPlanCriteriaDto(Category: category);
-            ShowGuidedStep("priority", Resource("AssistantGuidedPriorityQuestion"), CreatePriorityOptions());
+            ShowGuidedStep("budget", Resource("AssistantGuidedBudgetQuestion"), CreateBudgetOptions());
             return;
         }
 
@@ -329,7 +341,7 @@ public sealed partial class TravelChatViewModel(
             case "budget.medium":
             case "budget.high":
                 _guidedCriteria = _guidedCriteria! with { Budget = id["budget.".Length..] };
-                await SendGuidedPlanAsync(alternative: false);
+                ShowGuidedStep("distance", Resource("AssistantGuidedDistanceQuestion"), CreateDistanceOptions());
                 return;
             case "distance.15":
             case "distance.30":
@@ -464,7 +476,8 @@ public sealed partial class TravelChatViewModel(
                 Messages.Add(new TravelChatMessageViewModel(message, isFromUser: true));
             }
             OnMessagesChanged();
-            var currentLocation = ShouldAttachLocation(message)
+            var currentLocation = (_pendingGuidedAction is not null && _guidedCriteria?.MaxWalkingMinutes is not null)
+                || ShouldAttachLocation(message)
                 ? await locationService.GetCurrentLocationAsync()
                 : null;
 
@@ -515,7 +528,7 @@ public sealed partial class TravelChatViewModel(
 
                 StatusMessage = response.Message;
             }
-            else
+            else if (!DuplicatesMissingContext(response))
             {
                 Messages.Add(new TravelChatMessageViewModel(response.Message, isFromUser: false, cards));
             }
@@ -526,7 +539,8 @@ public sealed partial class TravelChatViewModel(
             }
 
             ApplyMissingContext(response.MissingContext);
-            if (response.MissingContext is not null)
+            if (response.MissingContext is not null
+                && !string.Equals(response.MissingContext.Field, "preferences", StringComparison.OrdinalIgnoreCase))
             {
                 HasGuidedQuestion = false;
             }
@@ -818,12 +832,17 @@ public sealed partial class TravelChatViewModel(
         }
 
         _pendingGuidedAction = new GuidedTravelActionDto(
-            alternative ? GuidedTravelActions.Alternative : GuidedTravelActions.Recommend,
+            alternative
+                ? GuidedTravelActions.Alternative
+                : _isFullDayFlow ? GuidedTravelActions.FullDay : GuidedTravelActions.Recommend,
+            OptionId: !alternative && _isFullDayFlow ? Guid.NewGuid().ToString("N") : null,
             RecommendationId: replacementCard?.RecommendationId?.ToString());
         _pendingReplacementCard = alternative ? replacementCard : null;
         MessageText = alternative
             ? Resource("AssistantGuidedAnotherRequest")
-            : BuildGuidedRequestSummary(_guidedCriteria);
+            : _isFullDayFlow
+                ? Resource("AssistantGuidedFullDayRequestSummary")
+                : BuildGuidedRequestSummary(_guidedCriteria);
         IsFreeTextVisible = false;
         IsSecondaryMenuVisible = false;
         await SendMessageAsync();
@@ -1030,6 +1049,20 @@ public sealed partial class TravelChatViewModel(
 
     private void ApplyMissingContext(MissingContextDto? missingContext)
     {
+        if (string.Equals(missingContext?.Field, "preferences", StringComparison.OrdinalIgnoreCase))
+        {
+            ClearMissingContext();
+            _isFullDayFlow = false;
+            _guidedCriteria = null;
+            _guidedHistory.Clear();
+            ShowGuidedStep(
+                "category",
+                Resource("AssistantGuidedCategoryQuestion"),
+                CreateCategoryOptions(includeMore: true),
+                addHistory: false);
+            return;
+        }
+
         MissingContextMessage = missingContext?.Message;
         MissingContextField = missingContext?.Field;
         MissingContextSuggestions.Clear();
@@ -1156,6 +1189,7 @@ public sealed partial class TravelChatViewModel(
 
     private void RestartGuidedFlow()
     {
+        _isFullDayFlow = false;
         _guidedCriteria = null;
         _pendingGuidedAction = null;
         _pendingReplacementCard = null;
@@ -1302,6 +1336,16 @@ public sealed partial class TravelChatViewModel(
             _ => string.Empty
         };
         return string.Format(CultureInfo.CurrentCulture, Resource("AssistantGuidedRequestSummary"), category);
+    }
+
+    private static bool DuplicatesMissingContext(TravelChatResponse response)
+    {
+        return response.MissingContext is not null
+            && (response.Cards?.Count ?? 0) == 0
+            && string.Equals(
+                response.Message?.Trim(),
+                response.MissingContext.Message?.Trim(),
+                StringComparison.Ordinal);
     }
 
     private void ResetDefaultSuggestedReplies()

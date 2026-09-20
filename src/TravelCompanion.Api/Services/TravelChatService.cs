@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -84,7 +86,10 @@ public sealed class TravelChatService(
 
         var conversationState = conversationStateService.ReadState(conversation);
         var guidedCriteria = NormalizeGuidedCriteria(request.Criteria ?? conversationState.GuidedCriteria);
-        var isGuidedRequest = request.GuidedAction?.Action is GuidedTravelActions.Recommend or GuidedTravelActions.Alternative
+        var isFullDayRequest = request.GuidedAction?.Action == GuidedTravelActions.FullDay;
+        var isGuidedRequest = request.GuidedAction?.Action is GuidedTravelActions.Recommend
+                or GuidedTravelActions.Alternative
+                or GuidedTravelActions.FullDay
             && guidedCriteria is not null;
         var isAlternativeRequest = request.GuidedAction?.Action == GuidedTravelActions.Alternative
             || IsAlternativeRequest(request.Message);
@@ -98,7 +103,9 @@ public sealed class TravelChatService(
         {
             request = request with
             {
-                Message = CreateGuidedPlanningMessage(guidedCriteria!, isAlternativeRequest, locale),
+                Message = isFullDayRequest
+                    ? CreateFullDayPlanningMessage(locale)
+                    : CreateGuidedPlanningMessage(guidedCriteria!, isAlternativeRequest, locale),
                 Criteria = guidedCriteria
             };
         }
@@ -303,7 +310,9 @@ public sealed class TravelChatService(
                 promptVersion: promptVersion);
         }
 
-        var responseMode = isGuidedRequest
+        var responseMode = isFullDayRequest
+            ? BalancedMode
+            : isGuidedRequest
             ? ResolveGuidedResponseMode(guidedCriteria!.Category)
             : isAlternativeRequest
             ? string.IsNullOrWhiteSpace(conversationState.LastResponseMode) ? BalancedMode : conversationState.LastResponseMode
@@ -371,7 +380,7 @@ public sealed class TravelChatService(
             reservations,
             context,
             responseMode,
-            guidedCriteria,
+            isFullDayRequest ? guidedCriteria! with { Category = null } : guidedCriteria,
             excludedRecommendationIds,
             cancellationToken);
 
@@ -416,27 +425,59 @@ public sealed class TravelChatService(
                 promptVersion: promptVersion);
         }
 
-        var ranked = planningResult.RankedRecommendations
-            .Take(isTargetedReplacement ? 1 : isGuidedRequest ? 2 : 3)
-            .ToList();
-        var cards = ranked.Select(scored => responseComposer.ToRecommendationCard(scored, context) with
-        {
-            Description = RecommendationPresentation.ToDto(scored.Recommendation, locale: locale).DisplayDescription
-        }).ToList();
+        var fullDayStops = isFullDayRequest
+            ? SelectFullDayStops(
+                planningResult.RankedRecommendations,
+                guidedCriteria!,
+                request.GuidedAction?.OptionId ?? conversationId,
+                locale)
+            : [];
+        var ranked = isFullDayRequest
+            ? fullDayStops.Select(stop => stop.Recommendation).ToList()
+            : planningResult.RankedRecommendations
+                .Take(isTargetedReplacement ? 1 : isGuidedRequest ? 2 : 3)
+                .ToList();
+        var cards = isFullDayRequest
+            ? fullDayStops.Select(stop =>
+            {
+                var cardContext = context with
+                {
+                    WindowStart = stop.StartsAt,
+                    WindowEnd = stop.StartsAt.AddMinutes(stop.Recommendation.Recommendation.SuggestedDurationMinutes),
+                    AvailableMinutes = stop.Recommendation.Recommendation.SuggestedDurationMinutes
+                };
+                var card = responseComposer.ToRecommendationCard(stop.Recommendation, cardContext);
+                return card with
+                {
+                    Subtitle = $"{stop.Label} · {card.Subtitle}",
+                    Description = RecommendationPresentation.ToDto(
+                        stop.Recommendation.Recommendation,
+                        locale: locale).DisplayDescription
+                };
+            }).ToList()
+            : ranked.Select(scored => responseComposer.ToRecommendationCard(scored, context) with
+            {
+                Description = RecommendationPresentation.ToDto(scored.Recommendation, locale: locale).DisplayDescription
+            }).ToList();
         var defaultSuggestedReplies = responseComposer.CreateSuggestedReplies(responseMode, locale);
-        var defaultMessage = responseComposer.CreateAssistantMessage(city, planningWindow.Value, ranked, responseMode, locale);
-        var modelResult = await CreateModelResponseAsync(
-            conversationId,
-            request,
-            profile,
-            context,
-            reservations,
-            cards,
-            defaultSuggestedReplies,
-            promptVersion,
-            cancellationToken);
+        var defaultMessage = isFullDayRequest
+            ? CreateFullDayResponseMessage(cards.Count, locale)
+            : responseComposer.CreateAssistantMessage(city, planningWindow.Value, ranked, responseMode, locale);
+        var modelResult = isFullDayRequest
+            ? null
+            : await CreateModelResponseAsync(
+                conversationId,
+                request,
+                profile,
+                context,
+                reservations,
+                cards,
+                defaultSuggestedReplies,
+                promptVersion,
+                cancellationToken);
 
-        var useModelResponse = responseMode == BalancedMode
+        var useModelResponse = !isFullDayRequest
+            && responseMode == BalancedMode
             && modelResult is not null
             && !string.IsNullOrWhiteSpace(modelResult.Message)
             && !MentionsSavedState(modelResult.Message);
@@ -1090,6 +1131,152 @@ public sealed class TravelChatService(
             ? IsEnglish(locale) ? $"Another option for {category}" : $"Otra opción de {category}"
             : $"{(IsEnglish(locale) ? "Plan for" : "Plan para")} {category}";
     }
+
+    private static string CreateFullDayPlanningMessage(string locale)
+    {
+        return IsEnglish(locale)
+            ? "Build a full day with morning coffee, a visit, lunch, an afternoon outing, and dinner"
+            : "Armá un día completo con café por la mañana, una visita, almuerzo, un recorrido por la tarde y cena";
+    }
+
+    private static string CreateFullDayResponseMessage(int stopCount, string locale)
+    {
+        if (IsEnglish(locale))
+        {
+            return stopCount == 5
+                ? "I built a full day with five different stops. Review each place before adding it to your itinerary."
+                : $"I found {stopCount} compatible stops for this day. I left out slots without a suitable place.";
+        }
+
+        return stopCount == 5
+            ? "Te armé un día completo con cinco paradas diferentes. Revisá cada lugar antes de sumarlo al itinerario."
+            : $"Encontré {stopCount} paradas compatibles para este día. Dejé libres los momentos sin un lugar adecuado.";
+    }
+
+    private static List<FullDayStop> SelectFullDayStops(
+        IReadOnlyList<ScoredRecommendation> ranked,
+        GuidedPlanCriteriaDto criteria,
+        string requestSeed,
+        string locale)
+    {
+        var english = IsEnglish(locale);
+        var used = new HashSet<Guid>();
+        var stops = new List<FullDayStop>(5);
+
+        AddFullDayStop(stops, used, ranked, requestSeed, "coffee", new TimeOnly(9, 0),
+            english ? "Morning coffee" : "Café de mañana",
+            recommendation => ContainsRecommendationTerms(recommendation, "cafe", "café", "coffee", "cafeteria", "breakfast", "desayuno"),
+            IsFoodRecommendation);
+        AddFullDayStop(stops, used, ranked, requestSeed, "visit", new TimeOnly(10, 30),
+            english ? "Morning visit" : "Visita de mañana",
+            recommendation => !IsFoodRecommendation(recommendation) && MatchesInterest(recommendation, criteria.Category),
+            recommendation => !IsFoodRecommendation(recommendation) && IsSightseeingRecommendation(recommendation));
+        AddFullDayStop(stops, used, ranked, requestSeed, "lunch", new TimeOnly(13, 0),
+            english ? "Lunch" : "Almuerzo",
+            recommendation => IsFoodRecommendation(recommendation)
+                && ContainsRecommendationTerms(recommendation, "lunch", "almuerzo", "ramen", "sushi"),
+            IsFoodRecommendation);
+        AddFullDayStop(stops, used, ranked, requestSeed, "afternoon", new TimeOnly(15, 30),
+            english ? "Afternoon outing" : "Recorrido de tarde",
+            recommendation => !IsFoodRecommendation(recommendation) && MatchesInterest(recommendation, criteria.Category),
+            recommendation => !IsFoodRecommendation(recommendation));
+        AddFullDayStop(stops, used, ranked, requestSeed, "dinner", new TimeOnly(19, 30),
+            english ? "Dinner" : "Cena",
+            recommendation => IsFoodRecommendation(recommendation)
+                && ContainsRecommendationTerms(recommendation, "dinner", "cena", "izakaya", "yakitori", "omakase"),
+            IsFoodRecommendation);
+
+        return stops.OrderBy(stop => stop.StartsAt).ToList();
+    }
+
+    private static void AddFullDayStop(
+        ICollection<FullDayStop> stops,
+        ISet<Guid> used,
+        IReadOnlyList<ScoredRecommendation> ranked,
+        string requestSeed,
+        string slotId,
+        TimeOnly startsAt,
+        string label,
+        Func<Recommendation, bool> preferred,
+        Func<Recommendation, bool> fallback)
+    {
+        var available = ranked.Where(candidate => !used.Contains(candidate.Recommendation.Id)).ToList();
+        var candidate = ChooseStableRandom(available.Where(item => preferred(item.Recommendation)), requestSeed, slotId)
+            ?? ChooseStableRandom(available.Where(item => fallback(item.Recommendation)), requestSeed, slotId)
+            ?? ChooseStableRandom(available, requestSeed, slotId);
+        if (candidate is null)
+        {
+            return;
+        }
+
+        used.Add(candidate.Recommendation.Id);
+        stops.Add(new FullDayStop(candidate, startsAt, label));
+    }
+
+    private static ScoredRecommendation? ChooseStableRandom(
+        IEnumerable<ScoredRecommendation> candidates,
+        string requestSeed,
+        string slotId)
+    {
+        return candidates
+            .Take(20)
+            .OrderBy(candidate => StableRandomOrder(requestSeed, slotId, candidate.Recommendation.Id))
+            .FirstOrDefault();
+    }
+
+    private static ulong StableRandomOrder(string seed, string slotId, Guid recommendationId)
+    {
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes($"{seed}|{slotId}|{recommendationId:N}"));
+        return BitConverter.ToUInt64(bytes, 0);
+    }
+
+    private static bool IsFoodRecommendation(Recommendation recommendation)
+    {
+        return ContainsRecommendationTerms(
+            recommendation,
+            "food", "comida", "restaurant", "restaurante", "cafe", "café", "coffee", "ramen", "sushi",
+            "izakaya", "yakitori", "omakase", "breakfast", "desayuno", "lunch", "almuerzo", "dinner", "cena");
+    }
+
+    private static bool IsSightseeingRecommendation(Recommendation recommendation)
+    {
+        return ContainsRecommendationTerms(
+            recommendation,
+            "culture", "cultura", "museum", "museo", "temple", "templo", "shrine", "santuario", "garden",
+            "jardin", "park", "parque", "history", "historia", "art", "arte", "viewpoint", "mirador",
+            "neighborhood", "barrio", "market", "mercado", "shopping", "compras", "walk", "paseo");
+    }
+
+    private static bool MatchesInterest(Recommendation recommendation, string? category)
+    {
+        return category switch
+        {
+            GuidedTravelCategories.Food => IsFoodRecommendation(recommendation),
+            GuidedTravelCategories.Relax => ContainsRecommendationTerms(recommendation, "relax", "spa", "onsen", "quiet", "tranquilo", "garden", "jardin"),
+            GuidedTravelCategories.Culture => ContainsRecommendationTerms(recommendation, "culture", "cultura", "museum", "museo", "temple", "templo", "history", "historia", "art", "arte"),
+            GuidedTravelCategories.Walk => ContainsRecommendationTerms(recommendation, "walk", "walking", "paseo", "neighborhood", "barrio"),
+            GuidedTravelCategories.Dance => ContainsRecommendationTerms(recommendation, "dance", "baile", "club", "music", "musica"),
+            GuidedTravelCategories.Nature => ContainsRecommendationTerms(recommendation, "nature", "naturaleza", "garden", "jardin", "park", "parque", "river", "rio"),
+            GuidedTravelCategories.Shopping => ContainsRecommendationTerms(recommendation, "shopping", "compras", "shop", "tienda", "market", "mercado"),
+            GuidedTravelCategories.Viewpoint => ContainsRecommendationTerms(recommendation, "viewpoint", "mirador", "view", "vista", "observatory", "observatorio"),
+            GuidedTravelCategories.Nightlife => ContainsRecommendationTerms(recommendation, "nightlife", "noche", "bar", "karaoke", "club", "music", "musica"),
+            _ => IsSightseeingRecommendation(recommendation)
+        };
+    }
+
+    private static bool ContainsRecommendationTerms(Recommendation recommendation, params string[] terms)
+    {
+        var searchable = string.Join(' ',
+            recommendation.Title,
+            recommendation.Category,
+            recommendation.RefinedType,
+            recommendation.Description,
+            recommendation.DescriptionEn,
+            string.Join(' ', recommendation.Tags)).ToLowerInvariant();
+        return terms.Any(term => searchable.Contains(term, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private sealed record FullDayStop(ScoredRecommendation Recommendation, TimeOnly StartsAt, string Label);
 
     private static GuidedQuestionDto CreateAdjustQuestion(string locale)
     {

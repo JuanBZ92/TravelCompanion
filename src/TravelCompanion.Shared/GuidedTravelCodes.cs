@@ -4,6 +4,7 @@ public static class GuidedTravelActions
 {
     public const string Recommend = "recommend";
     public const string Alternative = "alternative";
+    public const string FullDay = "full_day";
 }
 
 public static class GuidedTravelCategories
