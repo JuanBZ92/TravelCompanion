@@ -217,6 +217,7 @@
   <data name="CommonContinue" xml:space="preserve"><value>Continuar</value></data>
   <data name="AssistantFullDaySaved" xml:space="preserve"><value>Se agregaron {0} planes directamente a este día.</value></data>
   <data name="AssistantFullDayPartiallySaved" xml:space="preserve"><value>Se agregaron {0} de {1} planes. Volvé a intentar para completar el día sin duplicados.</value></data>
+  <data name="TodayImproveDay" xml:space="preserve"><value>Mejorar el día</value></data>
   <data name="AssistantFullDayPreparing" xml:space="preserve"><value>Armando tu día...</value></data>
   <data name="AssistantFullDayProgress" xml:space="preserve"><value>{0} de {1} planes listos.</value></data>
   <data name="CommonSave" xml:space="preserve"><value>Guardar</value></data>

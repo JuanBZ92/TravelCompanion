@@ -177,6 +177,19 @@
                         </CollectionView.ItemTemplate>
                     </CollectionView>
 
+                    <Button Text="{Binding ImproveDayLabel}"
+                            Command="{Binding ImproveDayCommand}"
+                            IsVisible="{Binding ShowImproveDay}"
+                            IsEnabled="{Binding IsNotBusy}"
+                            SemanticProperties.Description="{Binding ImproveDayLabel}"
+                            HorizontalOptions="Fill"
+                            BackgroundColor="{StaticResource Gold}"
+                            TextColor="White"
+                            CornerRadius="0"
+                            FontSize="14"
+                            Padding="16,12"
+                            MinimumHeightRequest="48" />
+
                     <Border Padding="18,16"
                             BackgroundColor="{Binding SelectedDayReview.BackgroundColor}"
                             Stroke="{Binding SelectedDayReview.AccentColor}"
@@ -219,6 +232,7 @@
                                        LineHeight="1.3"
                                        TextColor="#6A625B" />
                                 <Button Text="{Binding SelectedDayReview.AssistantActionLabel}"
+                                        IsVisible="{Binding SelectedDayReview.HasIssues}"
                                         Command="{Binding AskAssistantAboutDayCommand}"
                                         HorizontalOptions="Start"
                                         BackgroundColor="{Binding SelectedDayReview.AccentColor}"

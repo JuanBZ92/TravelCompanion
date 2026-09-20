@@ -1,0 +1,18 @@
+# Local TravelCompanion overrides; global installation remains unchanged.
+# See docs/codex-context.md for reactivation and limitations.
+
+[plugins."documents@openai-primary-runtime"]
+enabled = false
+
+[plugins."presentations@openai-primary-runtime"]
+enabled = false
+
+[plugins."pdf@openai-primary-runtime"]
+enabled = false
+
+[plugins."template-creator@openai-primary-runtime"]
+enabled = false
+
+[plugins."google-drive@openai-curated"]
+enabled = false
+

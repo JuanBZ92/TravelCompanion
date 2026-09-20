@@ -179,6 +179,8 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     }
 
     public bool ShowDayReview => !ShowTodayLoading && SelectedDayReview is not null;
+    public bool ShowImproveDay => _selectedDate.HasValue && _tripId.HasValue;
+    public string ImproveDayLabel => LocalizationResourceManager.Instance["TodayImproveDay"];
     public bool HasFreshVisibleData => _bootstrapStore.HasFreshSnapshot()
         && (!_selectedDate.HasValue || _todayStore.HasFreshSnapshot(_selectedDate.Value));
 
@@ -677,6 +679,18 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         return item.IsTravelerOwned && CanManageItinerary
             ? Shell.Current.GoToAsync(nameof(ItineraryItemEditorPage), new Dictionary<string, object> { ["ScheduleItem"] = item })
             : Shell.Current.GoToAsync(nameof(ScheduleItemDetailPage), new Dictionary<string, object> { ["ScheduleItem"] = item });
+    }
+
+    [RelayCommand]
+    private Task ImproveDayAsync()
+    {
+        if (!ShowImproveDay || IsBusy) return Task.CompletedTask;
+
+        return Shell.Current.GoToAsync("//main/assistant", new ShellNavigationQueryParameters
+        {
+            ["ReviewDate"] = _selectedDate!.Value,
+            ["ReviewCity"] = SelectedCity
+        });
     }
 
     [RelayCommand]
@@ -2144,6 +2158,8 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     {
         OnPropertyChanged(nameof(SelectedCity));
         OnPropertyChanged(nameof(SelectedDateLabel));
+        OnPropertyChanged(nameof(ShowImproveDay));
+        OnPropertyChanged(nameof(ImproveDayLabel));
         OnPropertyChanged(nameof(AmbientGlyph));
         OnPropertyChanged(nameof(HasPreviewMessage));
         OnPropertyChanged(nameof(HasStayCard));
