@@ -15,10 +15,13 @@ public partial class App : Application
 		var syncCoordinator = MauiProgram.Services.GetRequiredService<TravelCompanion.Mobile.Services.OfflineSyncCoordinator>();
 		var purchaseRecovery = MauiProgram.Services.GetRequiredService<TravelCompanion.Mobile.Services.StorePurchaseRecoveryService>();
 		syncCoordinator.Start();
+		var reminders = MauiProgram.Services.GetRequiredService<TravelCompanion.Mobile.Services.ReservationReminderService>();
+		reminders.Start();
 		window.Activated += async (_, _) =>
 		{
 			syncCoordinator.TriggerSynchronize();
 			await purchaseRecovery.RecoverAsync();
+			reminders.Refresh();
 		};
 		return window;
 	}

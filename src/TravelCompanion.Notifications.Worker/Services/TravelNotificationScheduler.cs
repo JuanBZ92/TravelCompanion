@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using TravelCompanion.Api.Data;
 using TravelCompanion.Api.Models;
 using TravelCompanion.Notifications.Worker.Options;
+using TravelCompanion.Shared;
 
 namespace TravelCompanion.Notifications.Worker.Services;
 
@@ -40,6 +41,8 @@ public sealed class TravelNotificationScheduler(
         var added = 0;
         foreach (var reservation in reservations)
         {
+            if (!ReservationReminderPolicy.IsEligible(reservation.Type, reservation.TimePrecision,
+                reservation.PlanningKind, reservation.Flexibility)) continue;
             var userId = reservation.Trip!.AppUserId!.Value;
             var timeZone = ResolveReservationTimeZone(reservation, fallbackTimeZone);
             var reservationStartUtc = ToUtc(reservation.Date, reservation.StartsAt, timeZone);
@@ -48,7 +51,8 @@ public sealed class TravelNotificationScheduler(
                 continue;
             }
 
-            foreach (var leadMinutes in workerOptions.ReservationReminderLeadMinutes.Distinct().Where(value => value > 0))
+            foreach (var leadMinutes in workerOptions.ReservationReminderLeadMinutes
+                .Intersect(ReservationReminderPolicy.LeadMinutes(reservation.Type)))
             {
                 var scheduledForUtc = reservationStartUtc.AddMinutes(-leadMinutes);
                 if (scheduledForUtc < staleBefore || scheduledForUtc > now.AddHours(workerOptions.LookAheadHours))
@@ -56,7 +60,7 @@ public sealed class TravelNotificationScheduler(
                     continue;
                 }
 
-                var deduplicationKey = $"schedule:{reservation.Id}:lead:{leadMinutes}";
+                var deduplicationKey = $"schedule:{reservation.Id}:lead:{leadMinutes}:at:{reservationStartUtc.UtcTicks}";
                 var exists = await dbContext.NotificationOutboxItems
                     .AnyAsync(notification => notification.DeduplicationKey == deduplicationKey, cancellationToken);
                 if (exists)
@@ -120,6 +124,27 @@ public sealed class TravelNotificationScheduler(
         var sentOrSkipped = 0;
         foreach (var notification in notifications)
         {
+            if (notification.Kind == ScheduleReminderKind)
+            {
+                var reservation = await dbContext.Reservations.AsNoTracking().Include(item => item.Trip)
+                    .FirstOrDefaultAsync(item => item.Id == notification.ReservationId, cancellationToken);
+                var stillValid = reservation?.Trip is { IsArchived: false } trip
+                    && trip.AppUserId == notification.UserId
+                    && ReservationReminderPolicy.IsEligible(reservation.Type, reservation.TimePrecision,
+                        reservation.PlanningKind, reservation.Flexibility)
+                    && ReservationReminderPolicy.Create(reservation.Id, reservation.Type, reservation.Date,
+                        reservation.StartsAt, reservation.TimeZoneId ?? trip.TimeZoneId, reservation.Title,
+                        now.AddMinutes(-workerOptions.StaleNotificationGraceMinutes), false)
+                        .Any(item => item.NotifyAtUtc == notification.ScheduledForUtc);
+                if (!stillValid)
+                {
+                    notification.Status = NotificationOutboxStatuses.Skipped;
+                    notification.SkippedAtUtc = now;
+                    notification.LastError = "Reservation changed, removed, or reminder expired.";
+                    sentOrSkipped++;
+                    continue;
+                }
+            }
             var userDevices = devices
                 .Where(device => device.UserId == notification.UserId && IsEnabledForNotification(device, notification))
                 .ToList();
@@ -242,7 +267,7 @@ public sealed class TravelNotificationScheduler(
     {
         var leadLabel = leadMinutes >= 1440
             ? "manana"
-            : $"en {leadMinutes / 60} h";
+            : leadMinutes < 60 ? $"en {leadMinutes} min" : $"en {leadMinutes / 60} h";
         var location = string.IsNullOrWhiteSpace(reservation.LocationName)
             ? reservation.City
             : reservation.LocationName;

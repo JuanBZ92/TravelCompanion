@@ -28,6 +28,16 @@ public sealed class TravelCompanionApiClient
     }
 
     public Uri? BaseAddress => _httpClient.BaseAddress;
+    public event Func<Task>? ItineraryChanged;
+
+    public async Task<IReadOnlyList<ReservationReminderDto>> GetReservationRemindersAsync(string token, CancellationToken ct)
+    {
+        using var request = CreateRequest(HttpMethod.Get,
+            $"api/notifications/reminders?locale={CultureInfo.CurrentUICulture.TwoLetterISOLanguageName}", token);
+        using var response = await _httpClient.SendAsync(request, ct).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<List<ReservationReminderDto>>(JsonOptions, ct).ConfigureAwait(false) ?? [];
+    }
 
     public async Task<IReadOnlyList<DestinationSummaryDto>> GetDestinationsAsync(CancellationToken cancellationToken = default)
     {
@@ -965,7 +975,10 @@ public sealed class TravelCompanionApiClient
         using var request = CreateAuthorizedRequest(HttpMethod.Post, "api/mobile/itinerary", token);
         request.Content = JsonContent.Create(mutation, options: JsonOptions);
         using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
-        return await response.Content.ReadFromJsonAsync<ItineraryItemMutationResponse>(JsonOptions, cancellationToken).ConfigureAwait(false);
+        var result = await response.Content.ReadFromJsonAsync<ItineraryItemMutationResponse>(JsonOptions, cancellationToken).ConfigureAwait(false);
+        if (response.IsSuccessStatusCode && result?.Success == true && ItineraryChanged is { } changed)
+            await changed().ConfigureAwait(false);
+        return result;
     }
 
     public async Task<ItineraryItemMutationResponse?> UpdateItineraryItemAsync(string token, Guid id, ItineraryItemMutationRequest mutation, CancellationToken cancellationToken = default)
@@ -973,14 +986,20 @@ public sealed class TravelCompanionApiClient
         using var request = CreateAuthorizedRequest(HttpMethod.Patch, $"api/mobile/itinerary/{id}", token);
         request.Content = JsonContent.Create(mutation, options: JsonOptions);
         using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
-        return await response.Content.ReadFromJsonAsync<ItineraryItemMutationResponse>(JsonOptions, cancellationToken).ConfigureAwait(false);
+        var result = await response.Content.ReadFromJsonAsync<ItineraryItemMutationResponse>(JsonOptions, cancellationToken).ConfigureAwait(false);
+        if (response.IsSuccessStatusCode && result?.Success == true && ItineraryChanged is { } changed)
+            await changed().ConfigureAwait(false);
+        return result;
     }
 
     public async Task<ItineraryItemMutationResponse?> DeleteItineraryItemAsync(string token, Guid id, int expectedRevision, CancellationToken cancellationToken = default)
     {
         using var request = CreateAuthorizedRequest(HttpMethod.Delete, $"api/mobile/itinerary/{id}?expectedRevision={expectedRevision}", token);
         using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
-        return await response.Content.ReadFromJsonAsync<ItineraryItemMutationResponse>(JsonOptions, cancellationToken).ConfigureAwait(false);
+        var result = await response.Content.ReadFromJsonAsync<ItineraryItemMutationResponse>(JsonOptions, cancellationToken).ConfigureAwait(false);
+        if (response.IsSuccessStatusCode && result?.Success == true && ItineraryChanged is { } changed)
+            await changed().ConfigureAwait(false);
+        return result;
     }
 
     private static HttpRequestMessage CreateAuthorizedRequest(HttpMethod method, string url, string token)

@@ -133,6 +133,14 @@ public static class MauiProgram
         builder.Services.AddSingleton<RecommendationsPage>();
         builder.Services.AddSingleton<MapPage>();
         builder.Services.AddSingleton<FreeMapPage>();
+        builder.Services.AddSingleton<ReservationReminderService>();
+#if ANDROID
+        builder.Services.AddSingleton<ILocalReservationNotifications, Platforms.Android.ReservationNotifications>();
+#elif IOS
+        builder.Services.AddSingleton<ILocalReservationNotifications, Platforms.iOS.ReservationNotifications>();
+#else
+        builder.Services.AddSingleton<ILocalReservationNotifications, UnsupportedReservationNotifications>();
+#endif
         builder.Services.AddSingleton<SchedulePage>();
         builder.Services.AddSingleton<TravelChatPage>();
         builder.Services.AddTransient<ScheduleItemDetailPage>();

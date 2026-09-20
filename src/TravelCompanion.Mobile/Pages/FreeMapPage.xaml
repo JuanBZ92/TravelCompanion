@@ -112,7 +112,6 @@
                     </Grid>
 
                     <VerticalStackLayout Grid.Row="1" Spacing="5" IsVisible="{Binding IsUnlockedSelection}">
-                            <Button Text="Añadir al itinerario" Command="{Binding AddSelectedToItineraryCommand}" BackgroundColor="#3D3329" TextColor="White" CornerRadius="0" />
                             <Label Text="{Binding SelectedRecommendation.Title}"
                                    FontFamily="serif"
                                    FontSize="22"
@@ -171,7 +170,12 @@
                                 IsEnabled="{Binding CanBrowseMarkers}"
                                 Style="{StaticResource MapPreviewNavigationButton}"
                                 SemanticProperties.Description="Lugar anterior" />
-                        <HorizontalStackLayout Grid.Column="1" HorizontalOptions="Center">
+                        <HorizontalStackLayout Grid.Column="1" Spacing="8" HorizontalOptions="Center">
+                            <ImageButton Source="itinerary_add.svg"
+                                         Command="{Binding AddSelectedToItineraryCommand}"
+                                         IsVisible="{Binding IsUnlockedSelection}"
+                                         Style="{StaticResource MapPreviewIconButton}"
+                                         SemanticProperties.Description="Agregar al itinerario" />
                             <ImageButton Source="tab_map.svg"
                                          Command="{Binding OpenSelectedMapCommand}"
                                          IsVisible="{Binding IsUnlockedSelection}"

@@ -49,7 +49,8 @@ public sealed class FreePreviewSessionGuardMiddleware(RequestDelegate next)
         }
 
         if (HttpMethods.IsGet(request.Method)
-            && (request.Path.StartsWithSegments("/api/mobile/sync-state")
+            && (request.Path.Equals("/api/notifications/reminders")
+                || request.Path.StartsWithSegments("/api/mobile/sync-state")
                 || request.Path.StartsWithSegments("/api/mobile/bootstrap")
                 || request.Path.StartsWithSegments("/api/mobile/today")
                 || request.Path.StartsWithSegments("/api/mobile/recommendations")))

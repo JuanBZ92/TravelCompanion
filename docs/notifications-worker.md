@@ -2,7 +2,24 @@
 
 `TravelCompanion.Notifications.Worker` es el primer corte del servicio de notificaciones. Vive en la misma solucion, pero esta aislado para poder separarlo luego como microservicio o Azure Container App/WebJob/Function.
 
-## Flujo Actual
+## Recordatorios locales de reservas (Android/iOS)
+
+La entrega al teléfono usa notificaciones **locales**, no el emisor de logs del worker. El backend publica `GET /api/notifications/reminders?locale=es|en`, autenticado y permitido para Free. Devuelve exclusivamente el viaje seleccionado que pertenece al usuario, publicado y no archivado. No expone códigos de confirmación, notas ni direcciones. No requiere credenciales FCM/APNs.
+
+- Reservas confirmadas, vuelos y check-in de hospedajes con hora exacta: **180 y 45 minutos antes**. Una reserva a las 19:00 en Tokio avisa a las 16:00 y 18:15 de Tokio.
+- Check-in se calcula una vez, con la fecha/hora de inicio del hospedaje. Un hotel guardado sin reserva/horario no permite inferir el check-in. No se programan eventos flexibles por mañana/tarde/noche.
+- La zona de la reserva tiene prioridad sobre la del viaje. Zonas desconocidas y horas ambiguas/inexistentes por horario de verano se omiten; no se inventa una hora.
+- Se programan los próximos 60 avisos del viaje (margen para el límite de iOS); al abrir/reanudar, cambiar de cuenta/viaje, recuperar conexión o actualizar la agenda se repone la ventana. Guardar/editar/eliminar una reserva espera la sincronización de recordatorios; un fallo de red conserva la última programación conocida. No se garantiza incorporar cambios de otro dispositivo mientras la app permanece cerrada y sin sincronizar.
+- IDs estables por reserva/antelación evitan duplicados. Editar reemplaza la programación, borrar/archivar elimina sus avisos tras sincronizar. Salir de la cuenta cancela las alarmas antes de limpiar la sesión.
+- Android persiste la programación y la restaura tras reinicio o actualización de APK. Solicita permiso de notificaciones (Android 13+) y ofrece alarmas exactas (Android 12+); sin este último usa alarmas aproximadas del SO. Forzar detención, restricciones del fabricante o revocar permisos pueden impedir/demorar la entrega.
+- iOS usa `UNUserNotificationCenter` y presenta banner/sonido también en primer plano. Windows y Mac Catalyst no programan estos avisos en esta versión.
+- En **Today → menú del itinerario → Recordatorios de reservas** se pueden solicitar permisos nuevamente o abrir los ajustes del teléfono.
+
+### Validación pendiente en dispositivo
+
+Comprobar Android/iOS con app abierta, cerrada, permiso denegado, reinicio Android, edición y borrado de reserva, logout y cambio de cuenta. En staging crear una reserva con inicio en 45 minutos más dos minutos y comprobar que el aviso llega en dos minutos. La compilación y los tests de horarios no sustituyen esta prueba. Publicar primero el backend con el endpoint y después la APK/app.
+
+## Flujo del worker (legado, emisor de logs)
 
 1. La app mobile registra su device token en `POST /api/notifications/devices`.
 2. La API guarda el dispositivo en `NotificationDeviceRegistrations`.
@@ -62,7 +79,7 @@ Config principal:
     "SendBatchSize": 50,
     "StaleNotificationGraceMinutes": 30,
     "ScheduleTimeZoneId": "UTC",
-    "ReservationReminderLeadMinutes": [1440, 180]
+    "ReservationReminderLeadMinutes": [1440, 180, 45]
   }
 }
 ```
@@ -149,3 +166,7 @@ Para enviar push real al celular:
 4. Pedir permisos de notificacion en Android 13+ e iOS.
 5. Crear deeplinks para `travelcompanion://schedule/{id}`.
 6. Agregar notificaciones de recomendaciones, por ejemplo resumen diario o sugerencias cuando hay huecos grandes en agenda.
+
+Vuelos y check-in con hora exacta también reciben un aviso 24 horas antes; las reservas comunes mantienen solo 180/45 minutos. Los avisos cuyo momento ya pasó no se envían retroactivamente.
+
+Cambios de ciudad: se comparan días consecutivos del itinerario. Si cambia la ciudad, se programa un aviso de preparación a las 09:00 del día anterior en la zona del viaje, sin inferir hora de salida. El DTO usa `reservationId: null`, `tripDayId` y un ID estable `city-change-{dayId}`. Editar/eliminar el cambio lo reemplaza/cancela en la siguiente sincronización.

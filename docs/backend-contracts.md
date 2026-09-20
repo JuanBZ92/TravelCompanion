@@ -301,3 +301,12 @@ For deployed environments, provide the same key through the platform secret stor
 Morning visits and afternoon stops prioritize non-food candidates. If none remain after access, duplicate and explicit replacement filters, Food candidates are eligible as fallback. This uses the same authorized candidate pool: Free stays within its configured radius, while paid access retains its catalog permissions. Period-only morning visits at 10:30 remain morning visits even when their recommendation is Food.
 
 Free map previews include all catalog markers assigned to the selected city, including those beyond CoverageRadiusKm. Only markers inside FreeRadiusKm carry recommendation details; outside markers retain opaque keys and approximate coordinates. Free builder sessions use this preview map in the main Map tab and offer the pass for locked selections.
+
+
+### Reservation reminders
+
+`GET /api/notifications/reminders?locale=es|en` requires a traveler session (including Free). Returns `ReservationReminderDto[]` for the selected owned published non-archived trip, sorted by UTC delivery time, maximum 60. Each entry contains stable `id`, `reservationId`, `notifyAtUtc`, localized `title` and `body`. No selected trip or no eligible future reservations returns `[]`; unauthenticated calls return 401. Exact confirmed reservations, flights and lodging check-in generate notifications 180/45 minutes before start, using reservation timezone then trip timezone. Clients replace their scheduled snapshot only after a successful response and clear it on logout/scope change. Local permissions are required; this does not register push tokens or send FCM/APNs messages.
+
+Vuelos y check-in con hora exacta también reciben un aviso 24 horas antes; las reservas comunes mantienen solo 180/45 minutos. Los avisos cuyo momento ya pasó no se envían retroactivamente.
+
+Cambios de ciudad: se comparan días consecutivos del itinerario. Si cambia la ciudad, se programa un aviso de preparación a las 09:00 del día anterior en la zona del viaje, sin inferir hora de salida. El DTO usa `reservationId: null`, `tripDayId` y un ID estable `city-change-{dayId}`. Editar/eliminar el cambio lo reemplaza/cancela en la siguiente sincronización.

@@ -137,6 +137,9 @@ public partial class SchedulePage : ContentPage
             "Guardar para usar sin conexión",
             "Compartir itinerario"
         };
+        var remindersLabel = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "en"
+            ? "Reservation reminders" : "Recordatorios de reservas";
+        actions.Add(remindersLabel);
         if (_viewModel.CanManageItinerary)
         {
             actions.Insert(0, "Editar itinerario");
@@ -163,6 +166,8 @@ public partial class SchedulePage : ContentPage
         {
             await _viewModel.ShareItineraryCommand.ExecuteAsync(null);
         }
+        else if (action == remindersLabel)
+            await MauiProgram.Services.GetRequiredService<TravelCompanion.Mobile.Services.ReservationReminderService>().ConfigureAsync();
     }
 
     private async void OnTodayLocationTapped(object? sender, TappedEventArgs e)

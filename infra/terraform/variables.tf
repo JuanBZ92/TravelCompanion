@@ -134,7 +134,7 @@ variable "notifications_schedule_time_zone_id" {
 variable "notifications_reservation_reminder_lead_minutes" {
   description = "Lead times in minutes for reservation reminders."
   type        = list(number)
-  default     = [1440, 180]
+  default     = [1440, 180, 45]
 
   validation {
     condition     = length(var.notifications_reservation_reminder_lead_minutes) > 0 && alltrue([for minutes in var.notifications_reservation_reminder_lead_minutes : minutes > 0])

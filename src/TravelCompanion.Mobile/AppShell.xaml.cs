@@ -54,9 +54,15 @@ public partial class AppShell : Shell
         {
             // Free builders keep the preview map, including redacted paid markers.
             if (sessionService.IsFreeMapPreview && MapTab.Content is not FreeMapPage)
+            {
+                MapTab.ContentTemplate = null;
                 MapTab.Content = new FreeMapPage();
+            }
             else if (!sessionService.IsFreeMapPreview && MapTab.Content is FreeMapPage)
+            {
+                MapTab.ContentTemplate = null;
                 MapTab.Content = MauiProgram.Services.GetRequiredService<MapPage>();
+            }
         }
         ScheduleTab.IsVisible = usesMainTabs;
         AssistantTab.IsVisible = sessionService.IsBuilder;
@@ -108,21 +114,29 @@ public partial class AppShell : Shell
             return;
         }
 
+        _logoutInProgress = true;
         Dispatcher.Dispatch(async () => await LogoutFromTabAsync());
     }
 
     private async Task LogoutFromTabAsync()
     {
-        _logoutInProgress = true;
+        IsEnabled = false;
         try
         {
             var logoutService = MauiProgram.Services.GetRequiredService<SessionLogoutService>();
+            // Leave the native map before resetting its bindings or removing active tabs.
+            await GoToAsync("//login");
             await logoutService.LogoutAsync();
             ApplySessionTabs(MauiProgram.Services.GetRequiredService<AuthSessionService>());
-            await GoToAsync("//login");
+        }
+        catch (Exception exception)
+        {
+            System.Diagnostics.Trace.TraceError($"Logout failed: {exception}");
+            await DisplayAlertAsync("Salir", "No pudimos completar el cierre de sesión. Intentá nuevamente.", "OK");
         }
         finally
         {
+            IsEnabled = true;
             _logoutInProgress = false;
         }
     }
@@ -143,7 +157,11 @@ public partial class AppShell : Shell
 
     private void OnSessionStateChanged(object? sender, EventArgs e)
     {
-        Dispatcher.Dispatch(() => ApplySessionTabs(MauiProgram.Services.GetRequiredService<AuthSessionService>()));
+        Dispatcher.Dispatch(() =>
+        {
+            if (!_logoutInProgress)
+                ApplySessionTabs(MauiProgram.Services.GetRequiredService<AuthSessionService>());
+        });
     }
 
     private void ApplyLocalizedTitles()

@@ -68,6 +68,7 @@ public sealed class SessionLogoutService(
         Guid? userId,
         bool preservePendingItineraryAction)
     {
+        await serviceProvider.GetRequiredService<ReservationReminderService>().ClearAsync();
         await TryClearAsync(() => bootstrapStore.ClearUserCacheAsync(userId));
         await TryClearAsync(() => discoverStore.ClearUserCacheAsync(userId));
         await TryClearAsync(() => todayStore.ClearUserCacheAsync(userId));

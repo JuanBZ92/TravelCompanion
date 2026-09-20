@@ -10,5 +10,5 @@ public sealed class NotificationWorkerOptions
     public int SendBatchSize { get; set; } = 50;
     public int StaleNotificationGraceMinutes { get; set; } = 30;
     public string ScheduleTimeZoneId { get; set; } = "UTC";
-    public int[] ReservationReminderLeadMinutes { get; set; } = [1440, 180];
+    public int[] ReservationReminderLeadMinutes { get; set; } = [1440, 180, 45];
 }

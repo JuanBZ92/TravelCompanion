@@ -43,6 +43,7 @@ public sealed class FreeMapEndpointTests
 
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", session.Token);
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/mobile/bootstrap")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/notifications/reminders?locale=es")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/api/mobile/today")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/mobile/docs")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/me/schedule")).StatusCode);

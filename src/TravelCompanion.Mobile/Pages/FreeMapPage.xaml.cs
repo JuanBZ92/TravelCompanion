@@ -92,7 +92,7 @@ public partial class FreeMapPage : ContentPage
             Radius = Distance.FromKilometers((double)preview.City.FreeRadiusKm),
             StrokeColor = Color.FromArgb("#8A6F3D"),
             FillColor = Color.FromArgb("#268A6F3D"),
-            StrokeWidth = 2
+            StrokeWidth = 4
         });
 
         foreach (var marker in preview.Markers)
@@ -127,9 +127,11 @@ public partial class FreeMapPage : ContentPage
             }
         }
 
-        _map.MoveToRegion(MapSpan.FromCenterAndRadius(
-            center,
-            Distance.FromKilometers(Math.Max(4.5, (double)preview.City.FreeRadiusKm * 2.5))));
+        var radiusKm = Math.Max(4.5, (double)preview.City.FreeRadiusKm * 2.5);
+        foreach (var marker in preview.Markers)
+            radiusKm = Math.Max(radiusKm, Location.CalculateDistance(center,
+                new Location((double)marker.Latitude, (double)marker.Longitude), DistanceUnits.Kilometers) * 1.15);
+        _map.MoveToRegion(MapSpan.FromCenterAndRadius(center, Distance.FromKilometers(radiusKm)));
 #endif
     }
 

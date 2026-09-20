@@ -4,6 +4,7 @@ using TravelCompanion.Api.Data;
 using TravelCompanion.Api.Models;
 using TravelCompanion.Api.Services;
 using TravelCompanion.Shared.Dtos;
+using TravelCompanion.Shared;
 
 namespace TravelCompanion.Api.Controllers;
 
@@ -13,6 +14,28 @@ public sealed class NotificationsController(
     TravelCompanionDbContext dbContext,
     UserSessionService sessionService) : ControllerBase
 {
+    [HttpGet("reminders")]
+    public async Task<ActionResult<IReadOnlyList<ReservationReminderDto>>> GetReminders(
+        [FromQuery] string? locale, CancellationToken cancellationToken)
+    {
+        var session = await sessionService.GetSessionContextAsync(HttpContext, cancellationToken);
+        if (session is null) return Unauthorized();
+        var trips = await dbContext.Trips.AsNoTracking().Include(trip => trip.Reservations).Include(trip => trip.DayPlans)
+            .Where(trip => trip.Id == session.TripId && trip.AppUserId == session.User.Id
+                && !trip.IsArchived && trip.PublicationStatus == TripPublicationStatus.Published)
+            .ToListAsync(cancellationToken);
+        var now = DateTimeOffset.UtcNow;
+        var english = locale?.StartsWith("en", StringComparison.OrdinalIgnoreCase) == true;
+        var reminders = trips.SelectMany(trip => trip.Reservations
+                .Where(item => ReservationReminderPolicy.IsEligible(item.Type, item.TimePrecision, item.PlanningKind, item.Flexibility))
+                .SelectMany(item => ReservationReminderPolicy.Create(item.Id, item.Type, item.Date, item.StartsAt,
+                    item.TimeZoneId ?? trip.TimeZoneId, item.Title, now, english))
+                .Concat(ReservationReminderPolicy.CityChanges(trip.DayPlans.Select(day => (day.Id, day.Date, day.City)),
+                    trip.TimeZoneId, now, english)))
+            .OrderBy(item => item.NotifyAtUtc).ThenBy(item => item.Id).Take(60).ToList();
+        return Ok(reminders);
+    }
+
     [HttpPost("devices")]
     public async Task<ActionResult<NotificationDeviceRegistrationDto>> RegisterDevice(
         RegisterNotificationDeviceRequest request,
