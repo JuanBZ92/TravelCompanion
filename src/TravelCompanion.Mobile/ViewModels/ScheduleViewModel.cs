@@ -1234,7 +1234,8 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         }
 
         var selectedDate = _selectedDate.Value;
-        SelectedDayReview = _dayReviewsByDate.TryGetValue(selectedDate, out var review)
+        var hasTimedReservation = ScheduleReviewAnalyzer.HasTimedReservation(selectedDate, _allItems);
+        SelectedDayReview = hasTimedReservation && _dayReviewsByDate.TryGetValue(selectedDate, out var review)
             ? new DayReviewViewModel(review)
             : null;
         if (SelectedDayReview is not null && _trackedDayReviews.Add(selectedDate))
@@ -1468,11 +1469,11 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
                     {
                         Item = item,
                         Recommendation = _recommendations.FirstOrDefault(recommendation => recommendation.Id == item.RecommendationId)
+                            ?? ScheduleRecommendationFallback.Create(item)
                     })
-                    .Where(entry => entry.Recommendation is not null)
                     .Select(entry => new TodayLocationViewModel(
-                        entry.Recommendation!,
-                        CalculateDistanceKm(_currentLocation, entry.Recommendation!),
+                        entry.Recommendation,
+                        CalculateDistanceKm(_currentLocation, entry.Recommendation),
                         isAssigned: true,
                         assignedItem: entry.Item))
                     .ToList();
@@ -1708,6 +1709,13 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         if (currentLocation is null)
         {
             return recommendation.DistanceKm;
+        }
+
+        if (recommendation.DestinationId == Guid.Empty
+            && recommendation.Latitude == 0
+            && recommendation.Longitude == 0)
+        {
+            return null;
         }
 
         const double earthRadiusKm = 6371;
@@ -2042,6 +2050,9 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     {
         try
         {
+            // Do not join a Today request that started before the itinerary mutation.
+            // Its valid but older response would hide the last saved recommendation.
+            await _todayStore.InvalidateAllAsync();
             var token = await _sessionService.GetTokenAsync();
             if (string.IsNullOrWhiteSpace(token) || !_selectedDate.HasValue)
             {

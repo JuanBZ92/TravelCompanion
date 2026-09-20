@@ -121,6 +121,37 @@ public sealed class ScheduleReviewAnalyzerTests
         Assert.Empty(review.Issues);
     }
 
+    [Fact]
+    public void Reports_no_timed_reservation_for_a_generated_flexible_day()
+    {
+        var generated = Enumerable.Range(0, 5)
+            .Select(index => Item(
+                $"Plan {index + 1}",
+                new TimeOnly(9 + index * 2, 0),
+                new TimeOnly(10 + index * 2, 0)) with
+            {
+                PlanningKind = ScheduleItemKind.Recommendation,
+                Owner = ItineraryItemOwner.Traveler,
+                Flexibility = ItineraryFlexibility.Flexible,
+                TimePrecision = ItineraryTimePrecision.PeriodOnly,
+                EndsAt = null
+            })
+            .ToList();
+
+        Assert.False(ScheduleReviewAnalyzer.HasTimedReservation(Date, generated));
+        var review = ScheduleReviewAnalyzer.AnalyzeDay(Date, generated);
+        Assert.Equal(DayReviewStatuses.Balanced, review.Status);
+        Assert.Empty(review.Issues);
+    }
+
+    [Fact]
+    public void Reports_a_confirmed_exact_reservation_as_reviewable()
+    {
+        var confirmed = Item("Reserva", new TimeOnly(19, 0), new TimeOnly(20, 0));
+
+        Assert.True(ScheduleReviewAnalyzer.HasTimedReservation(Date, [confirmed]));
+    }
+
     private static ScheduleItemDto Item(
         string title,
         TimeOnly startsAt,

@@ -141,6 +141,28 @@ public sealed class ScheduleTodayPresentationTests
     }
 
     [Fact]
+    public void Assigned_recommendation_created_from_schedule_fallback_is_visible()
+    {
+        var item = new ScheduleItemDto(
+            Guid.NewGuid(), Guid.NewGuid(), ReservationType.Event,
+            new DateOnly(2026, 10, 1), new TimeOnly(19, 30), null, null,
+            "Cena local", "Tokyo", "Cena local", "Asakusa, Tokyo",
+            string.Empty, "Guardado desde Travel Assistant.",
+            null, null, null, null, null, null,
+            ScheduleItemKind.Recommendation, ItineraryItemOwner.Traveler,
+            ItineraryItemSource.YukuRecommendation, ItineraryTimePrecision.PeriodOnly,
+            Latitude: 35.71m, Longitude: 139.79m,
+            DurationMinutes: 90);
+        var fallback = ScheduleRecommendationFallback.Create(item);
+
+        var location = new TodayLocationViewModel(fallback, null, true, item);
+
+        Assert.Equal("Cena local", location.Title);
+        Assert.True(location.IsAssigned);
+        Assert.True(location.CanRemove);
+    }
+
+    [Fact]
     public void Curated_description_remains_visible_for_a_populated_block()
     {
         const string curatedDescription = "Después del museo, almuerzo tranquilo en Ginza.";

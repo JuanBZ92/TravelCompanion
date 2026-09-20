@@ -64,6 +64,9 @@ public static class ScheduleReviewAnalyzer
         return new(date, status, title, summaryText, orderedIssues);
     }
 
+    public static bool HasTimedReservation(DateOnly date, IReadOnlyList<ScheduleItemDto>? items) =>
+        (items ?? []).Any(item => CoversDate(item, date) && IsTimedReservation(item));
+
     private static void AddIncompleteInformationIssues(
         IReadOnlyList<ScheduleItemDto> timedItems,
         ICollection<DayReviewIssueDto> issues)
@@ -84,6 +87,13 @@ public static class ScheduleReviewAnalyzer
             || item.Owner == ItineraryItemOwner.Yuku
             || item.Flexibility is ItineraryFlexibility.FixedByTraveler
                 or ItineraryFlexibility.ConfirmedReservation);
+
+    private static bool IsTimedReservation(ScheduleItemDto item) =>
+        item.Type != ReservationType.Lodging
+        && item.HasExactTime
+        && (item.Type == ReservationType.Flight
+            || item.PlanningKind == ScheduleItemKind.ConfirmedReservation
+            || item.Flexibility == ItineraryFlexibility.ConfirmedReservation);
 
     private static void AddOverlapIssues(DateOnly date,
         IReadOnlyList<ScheduleItemDto> items,

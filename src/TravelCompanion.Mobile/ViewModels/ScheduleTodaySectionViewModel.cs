@@ -3,6 +3,30 @@ using TravelCompanion.Mobile.Services;
 
 namespace TravelCompanion.Mobile.ViewModels;
 
+internal static class ScheduleRecommendationFallback
+{
+    public static RecommendationDto Create(ScheduleItemDto item) => new(
+        item.RecommendationId ?? item.Id,
+        Guid.Empty,
+        item.Title,
+        "Lugar",
+        string.IsNullOrWhiteSpace(item.Address) ? item.City : item.Address,
+        item.Notes,
+        [],
+        "medium",
+        item.Latitude ?? 0,
+        item.Longitude ?? 0,
+        item.DurationMinutes ?? 60,
+        null,
+        null,
+        TravelCompanion.Shared.ContentAccessLevel.Free,
+        [],
+        null)
+    {
+        ProviderPlaceId = item.ProviderPlaceId
+    };
+}
+
 public sealed record ScheduleTodayLoadingSectionViewModel(
     string Title,
     string PeriodLabel);

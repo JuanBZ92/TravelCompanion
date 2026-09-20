@@ -971,6 +971,8 @@ public sealed partial class TravelChatViewModel(
         }
 
         var savedCount = 0;
+        var savedItems = new List<ScheduleItemDto>(Math.Min(cards.Count, 5));
+        int? latestRevision = null;
         foreach (var card in cards.Take(5))
         {
             if (!card.RecommendationId.HasValue || !card.StartsAt.HasValue) continue;
@@ -998,15 +1000,20 @@ public sealed partial class TravelChatViewModel(
             savedCount++;
             if (result.Item is not null)
             {
-                await bootstrapStore.UpsertScheduleItemAsync(
-                    result.Item,
-                    result.Revision,
-                    CancellationToken.None);
+                savedItems.Add(result.Item);
+                latestRevision = result.Revision ?? latestRevision;
             }
         }
 
-        if (savedCount > 0)
+        if (savedItems.Count > 0)
         {
+            // Publish the complete day once. Publishing after every stop causes Today
+            // refreshes for partial server states; a slower early response can then
+            // temporarily hide the last stop (usually dinner).
+            await bootstrapStore.UpsertScheduleItemsAsync(
+                savedItems,
+                latestRevision,
+                CancellationToken.None);
             await bootstrapStore.RefreshAsync(token, cancellationToken: CancellationToken.None);
         }
         return savedCount;

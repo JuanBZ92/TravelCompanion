@@ -311,8 +311,16 @@ public sealed class MobileBootstrapStore(
     public async Task<bool> UpsertScheduleItemAsync(
         ScheduleItemDto item,
         int? revision = null,
+        CancellationToken cancellationToken = default) =>
+        await UpsertScheduleItemsAsync([item], revision, cancellationToken).ConfigureAwait(false);
+
+    public async Task<bool> UpsertScheduleItemsAsync(
+        IReadOnlyList<ScheduleItemDto> updatedItems,
+        int? revision = null,
         CancellationToken cancellationToken = default)
     {
+        if (updatedItems.Count == 0) return false;
+
         var currentUserId = sessionService.CurrentUserId;
         var currentTripId = sessionService.CurrentTripId;
         if (_current is null
@@ -321,8 +329,8 @@ public sealed class MobileBootstrapStore(
             || _current.Schedule is null)
         {
             logger.LogInformation(
-                "Skipped schedule cache update because bootstrap cache is not ready. ItemId={ScheduleItemId}.",
-                item.Id);
+                "Skipped schedule cache update because bootstrap cache is not ready. ItemCount={ScheduleItemCount}.",
+                updatedItems.Count);
             return false;
         }
 
@@ -330,9 +338,10 @@ public sealed class MobileBootstrapStore(
         Interlocked.Increment(ref _generation);
 
         var schedule = _current.Schedule;
+        var updatedIds = updatedItems.Select(item => item.Id).ToHashSet();
         var items = schedule.Items
-            .Where(existing => existing.Id != item.Id)
-            .Append(item)
+            .Where(existing => !updatedIds.Contains(existing.Id))
+            .Concat(updatedItems)
             .OrderBy(existing => existing.Date)
             .ThenBy(existing => existing.StartsAt)
             .ToList();
@@ -368,8 +377,8 @@ public sealed class MobileBootstrapStore(
             ScheduleUpdated?.Invoke(this, new ScheduleCacheUpdatedEventArgs(updatedSchedule, savedAt)));
 
         logger.LogInformation(
-            "Schedule cache updated after assistant save. ItemId={ScheduleItemId}; TotalItems={ScheduleItemCount}.",
-            item.Id,
+            "Schedule cache updated after assistant save. UpdatedItems={UpdatedItemCount}; TotalItems={ScheduleItemCount}.",
+            updatedItems.Count,
             items.Count);
         return true;
     }

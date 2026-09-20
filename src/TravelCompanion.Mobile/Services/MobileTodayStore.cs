@@ -208,7 +208,7 @@ public sealed class MobileTodayStore(
 
     public async Task InvalidateAllAsync()
     {
-        CancelActiveRefresh();
+        DetachActiveRefresh();
         Interlocked.Increment(ref _generation);
         _invalidated = true;
         _current = null;
@@ -265,6 +265,18 @@ public sealed class MobileTodayStore(
         lock (_refreshLock)
         {
             _refreshCancellation?.Cancel();
+        }
+    }
+
+    private void DetachActiveRefresh()
+    {
+        lock (_refreshLock)
+        {
+            _refreshCancellation?.Cancel();
+            _refreshCancellation?.Dispose();
+            _refreshCancellation = null;
+            _refreshTask = null;
+            _refreshKey = null;
         }
     }
 
