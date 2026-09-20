@@ -41,24 +41,35 @@ public partial class TravelChatPage : ContentPage, IQueryAttributable
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-        await _viewModel.LoadContextAsync();
-        if (_routeDate is { } routeDate && !string.IsNullOrWhiteSpace(_routeTheme))
+        try
         {
-            var city = _routeCity;
-            var theme = _routeTheme;
-            _routeDate = null;
-            _routeCity = null;
-            _routeTheme = null;
-            await _viewModel.RequestThematicRouteAsync(routeDate, city, theme);
+            await _viewModel.LoadContextAsync();
+            if (_routeDate is { } routeDate && !string.IsNullOrWhiteSpace(_routeTheme))
+            {
+                var city = _routeCity;
+                var theme = _routeTheme;
+                _routeDate = null;
+                _routeCity = null;
+                _routeTheme = null;
+                await _viewModel.RequestThematicRouteAsync(routeDate, city, theme);
+            }
+            else if (_reviewDate is { } reviewDate)
+            {
+                var city = _reviewCity;
+                var summary = _reviewSummary;
+                _reviewDate = null;
+                _reviewCity = null;
+                _reviewSummary = null;
+                await _viewModel.RequestDayAlternativeAsync(reviewDate, city, summary);
+            }
         }
-        else if (_reviewDate is { } reviewDate)
+        catch (OperationCanceledException)
         {
-            var city = _reviewCity;
-            var summary = _reviewSummary;
-            _reviewDate = null;
-            _reviewCity = null;
-            _reviewSummary = null;
-            await _viewModel.RequestDayAlternativeAsync(reviewDate, city, summary);
+            // Expected when the user leaves the page while its context is loading.
+        }
+        catch
+        {
+            _viewModel.ErrorMessage = "No pudimos preparar la mejora del día. Intenta nuevamente.";
         }
     }
 

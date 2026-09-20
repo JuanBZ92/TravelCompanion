@@ -96,6 +96,12 @@ public sealed class DayProposalService(
             if (access.Session.AccessMode == SessionAccessMode.FreeMapPreview) query = query.Where(item => item.AccessLevel == ContentAccessLevel.Free);
             var candidates = await query.Where(item => item.Neighborhood.ToLower().Contains(city.ToLower()))
                 .OrderByDescending(item => item.Rating).ThenBy(item => item.Title).Take(40).ToListAsync(ct);
+            if (access.Session.AccessMode == SessionAccessMode.FreeMapPreview && freeTrialAccessService is not null)
+            {
+                candidates = (await freeTrialAccessService
+                    .FilterToFreeRadiusAsync(candidates, trip.DestinationId, ct))
+                    .ToList();
+            }
             var profile = await dbContext.TravelPreferenceProfiles.AsNoTracking()
                 .SingleOrDefaultAsync(item => item.UserId == access.User.Id, ct) ?? new TravelPreferenceProfile { UserId = access.User.Id };
             var recommendations = ranker is null ? candidates.Take(6).ToList()

@@ -134,6 +134,43 @@ public sealed class FreeBuilderTrialTests
     }
 
     [Fact]
+    public async Task Free_trial_can_create_a_day_proposal_and_it_stays_inside_the_free_radius()
+    {
+        await using var factory = new TrialApiFactory();
+        var seed = await factory.SeedAsync();
+        using var client = factory.CreateClient();
+        var login = await LoginAsync(client, "proposal-radius");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login.Token);
+        var date = new DateOnly(2026, 10, 5);
+        var setupResponse = await client.PutAsJsonAsync(
+            "/api/mobile/builder/setup",
+            new SaveBuilderTripSetupRequest(
+                date, date.AddDays(2), "Asia/Tokyo", 0,
+                [new BuilderTripSetupSegmentDto("Tokyo", date, date.AddDays(2))]),
+            JsonOptions);
+        setupResponse.EnsureSuccessStatusCode();
+        var setup = await setupResponse.Content.ReadFromJsonAsync<BuilderTripSetupDto>(JsonOptions);
+
+        var response = await client.PostAsJsonAsync(
+            "/api/mobile/proposals",
+            new DayProposalRequestDto(
+                date,
+                DayPlanningGoal.Balance,
+                setup!.Revision,
+                new TimeOnly(9, 0),
+                new TimeOnly(21, 0),
+                "free-proposal-radius"),
+            JsonOptions);
+
+        response.EnsureSuccessStatusCode();
+        var proposal = await response.Content.ReadFromJsonAsync<DayProposalDto>(JsonOptions);
+        Assert.NotNull(proposal);
+        Assert.NotEmpty(proposal.Changes);
+        Assert.All(proposal.Changes, change => Assert.Equal(seed.InsideRecommendationId, change.RecommendationId));
+        Assert.DoesNotContain(proposal.Changes, change => change.RecommendationId == seed.OutsideRecommendationId);
+    }
+
+    [Fact]
     public async Task Paid_pin_promotes_the_same_draft_to_builder_access()
     {
         await using var factory = new TrialApiFactory();

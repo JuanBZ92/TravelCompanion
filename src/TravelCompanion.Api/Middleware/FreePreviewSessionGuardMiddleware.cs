@@ -42,7 +42,8 @@ public sealed class FreePreviewSessionGuardMiddleware(RequestDelegate next)
             || request.Path.StartsWithSegments("/api/ai/save-itinerary-item")
             || request.Path.StartsWithSegments("/api/ai/save_itinerary_item")
             || request.Path.StartsWithSegments("/api/ai/feedback")
-            || request.Path.StartsWithSegments("/api/me/travel-preference-profile"))
+            || request.Path.StartsWithSegments("/api/me/travel-preference-profile")
+            || request.Path.StartsWithSegments("/api/mobile/proposals"))
         {
             return true;
         }
