@@ -1,8 +1,8 @@
+using System.Security.Cryptography;
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using TravelCompanion.Api.Services;
 using TravelCompanion.Shared.Dtos;
-using System.Security.Cryptography;
-using System.Text;
 
 namespace TravelCompanion.Api.Controllers;
 
@@ -28,6 +28,9 @@ public sealed class AiController(
         {
             return this.ValidationError(nameof(request.Message), "Message is required.");
         }
+
+        if (request.GuidedAction?.Action == TravelCompanion.Shared.GuidedTravelActions.FullDay && request.Date is null)
+            return this.ValidationError(nameof(request.Date), "Select a day to improve.");
 
         var user = await sessionService.GetUserAsync(HttpContext, cancellationToken);
         if (user is null)
@@ -65,20 +68,31 @@ public sealed class AiController(
         {
             try
             {
-                var fingerprint = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(request.Message.Trim())))[..16];
+                if (access.Session.AccessMode == TravelCompanion.Shared.SessionAccessMode.FreeMapPreview)
+                {
+                    if (request.Date is { } date)
+                        await freeTrialAccessService.RequirePlanningDateAsync(user.Id, access.TripId, date, cancellationToken);
+                    if (request.GuidedAction?.Action == TravelCompanion.Shared.GuidedTravelActions.FullDay)
+                        await freeTrialAccessService.RequireEditingAsync(user.Id, false, cancellationToken);
+                }
+                // Bind retry identity to the complete input: reusing an id for different requests must not bypass quota.
+                var fingerprint = Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(request)))[..24];
+                var operationId = request.OperationId ?? Guid.NewGuid();
                 usageLease = await assistantUsageService.ReserveAsync(user.Id, access.TripId,
-                    $"chat:{request.ConversationId ?? "new"}:{fingerprint}", cancellationToken);
+                    request.GuidedAction?.Action == TravelCompanion.Shared.GuidedTravelActions.FullDay
+                        ? $"{AssistantUsageService.FullDayPrefix}{operationId:N}:{fingerprint}"
+                        : $"chat:{operationId:N}:{fingerprint}", cancellationToken);
             }
             catch (TrialUpgradeRequiredException exception)
             {
                 return Ok(new TravelChatResponse(
                     request.ConversationId ?? Guid.NewGuid().ToString("N"),
                     access.Session.AccessMode == TravelCompanion.Shared.SessionAccessMode.FreeMapPreview
-                        ? "Ya probaste las 3 consultas gratuitas. Activa tu pase para seguir planificando con YUKU."
+                        ? "Activa tu pase para continuar. La prueba incluye tres días, tres mejoras del día y tres consultas del Assistant, con 30 minutos de edición."
                         : "Has alcanzado el límite diario del Assistant. Se reinicia a las 00:00 UTC.",
                     "upgrade_required", [], ["Activar mi pase"],
                     new MissingContextDto("upgrade", "No quedan consultas disponibles por ahora.", ["Activar mi pase"]),
-                    TrialAccess: exception.Status));
+                    TrialAccess: trialStatus is null ? exception.Status : await freeTrialAccessService.GetStatusAsync(user.Id, cancellationToken)));
             }
         }
 

@@ -5,6 +5,7 @@ using TravelCompanion.Shared.Dtos;
 namespace TravelCompanion.Api.Controllers;
 
 [ApiController]
+[RetiredPlanningFeature]
 [Route("api/mobile/thematic-routes")]
 public sealed class ThematicRoutesController(ThematicRouteService service) : ControllerBase
 {

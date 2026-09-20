@@ -43,8 +43,8 @@ public sealed class PaywallOfferService(
                 ? new[] { "Keep and recover this trip", "Edit until seven days after your trip", "30 Assistant requests per day" }
                 : new[] { "Conserva y recupera este viaje", "Edita hasta siete días después del viaje", "30 consultas diarias al Assistant" }
             : isEnglish
-                ? new[] { "Complete recommendation catalog", "Builder, routes, and day reorganization", "30 Assistant requests per day" }
-                : new[] { "Catálogo completo de recomendaciones", "Builder, rutas y reorganización del día", "30 consultas diarias al Assistant" };
+                ? new[] { "Complete recommendation catalog", "Plan every day of your trip with Builder", "30 Assistant requests per day" }
+                : new[] { "Catálogo completo de recomendaciones", "Planea todos los días de tu viaje con Builder", "30 consultas diarias al Assistant" };
         var now = DateTimeOffset.UtcNow;
         var passExpiry = grant is { IsTrial: false, Status: BuilderAccessStatus.Active }
             ? grant.ExpiresAtUtc : StorePurchaseService.CalculateExpiry(trip, now.AddYears(1));

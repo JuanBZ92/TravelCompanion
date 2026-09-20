@@ -14,6 +14,13 @@ public sealed class FreeTrialAccessService(
     ILogger<FreeTrialAccessService> logger,
     ProductAnalyticsService? analytics = null)
 {
+    public async Task RequirePlanningDateAsync(Guid userId, Guid? tripId, DateOnly date, CancellationToken ct)
+    {
+        var trip = await dbContext.Trips.AsNoTracking().FirstOrDefaultAsync(t => t.Id == tripId && t.AppUserId == userId, ct);
+        if (trip is null || !FreePlanningPolicy.CanPlanDate(trip.StartsOn, date))
+            throw new TrialUpgradeRequiredException(await GetStatusAsync(userId, ct));
+    }
+
     public async Task<BuilderAccessGrant?> GetGrantAsync(Guid userId, CancellationToken cancellationToken = default) =>
         await dbContext.BuilderAccessGrants
             .Include(grant => grant.Destination)
@@ -37,7 +44,7 @@ public sealed class FreeTrialAccessService(
             { TrialDraftExpiresAtUtc: { } draftExpiry } when draftExpiry > current => TrialAccessState.ReadOnly,
             _ => TrialAccessState.Expired
         };
-        var limit = Math.Clamp(options.Value.AssistantRequestLimit, 0, 20);
+        var limit = Math.Clamp(options.Value.AssistantRequestLimit, 0, 3);
         return new TrialAccessStatusDto(
             grant?.IsTrial == true && grant.ConvertedAtUtc is null,
             state,
@@ -112,7 +119,7 @@ public sealed class FreeTrialAccessService(
             return ToStatus(grant);
         }
 
-        var limit = Math.Clamp(options.Value.AssistantRequestLimit, 0, 20);
+        var limit = Math.Clamp(options.Value.AssistantRequestLimit, 0, 3);
         if (grant.TrialAssistantRequestsUsed < limit)
         {
             grant.TrialAssistantRequestsUsed++;

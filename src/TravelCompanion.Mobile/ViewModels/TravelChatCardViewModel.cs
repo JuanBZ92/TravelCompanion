@@ -9,6 +9,7 @@ namespace TravelCompanion.Mobile.ViewModels;
 
 public sealed partial class TravelChatCardViewModel : ObservableObject
 {
+    public bool AnimateEntrance { get; set; }
     private readonly TravelCardDto _card;
     private bool _isSaved;
     private string? _feedbackStatusMessage;

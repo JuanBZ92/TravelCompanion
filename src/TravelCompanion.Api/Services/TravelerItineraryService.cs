@@ -145,6 +145,8 @@ public sealed class TravelerItineraryService(
         var item = trip.Reservations.SingleOrDefault(existing => existing.Id == id)
             ?? throw new KeyNotFoundException();
         EnsureTravelerOwned(item);
+        if (access.Session.AccessMode == SessionAccessMode.FreeMapPreview)
+            await freeTrialAccessService!.RequirePlanningDateAsync(access.User.Id, trip.Id, item.Date, cancellationToken);
         var period = TripPlanPeriods.Find(periodKey)!;
         var startsAt = request.UseExactTime ? request.StartsAt!.Value : period.StartsAt;
         if (!request.ConfirmOverlap && trip.Reservations.Any(other => other.Id != id && other.Date == request.Date && other.StartsAt == startsAt))
@@ -219,6 +221,8 @@ public sealed class TravelerItineraryService(
         EnsureRevision(trip, expectedRevision);
         var item = trip.Reservations.SingleOrDefault(existing => existing.Id == id) ?? throw new KeyNotFoundException();
         EnsureTravelerOwned(item);
+        if (access.Session.AccessMode == SessionAccessMode.FreeMapPreview)
+            await freeTrialAccessService!.RequirePlanningDateAsync(access.User.Id, trip.Id, item.Date, cancellationToken);
         dbContext.Reservations.Remove(item);
         trip.PlanRevision++;
         trip.UpdatedAtUtc = DateTimeOffset.UtcNow;
@@ -251,6 +255,9 @@ public sealed class TravelerItineraryService(
         {
             throw new ArgumentException("La fecha esta fuera del viaje.");
         }
+
+        if (access.Session.AccessMode == SessionAccessMode.FreeMapPreview)
+            await freeTrialAccessService!.RequirePlanningDateAsync(access.User.Id, trip.Id, date, cancellationToken);
 
         var block = trip.DayPlans.Single(day => day.Date == date).Blocks.Single(item => item.PeriodKey == period.Key);
         return (trip, block);

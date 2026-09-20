@@ -15,6 +15,8 @@ public sealed class AssistantUsageService(
     IOptions<FreePreviewOptions> freeOptions,
     IOptions<StorePurchaseOptions> paidOptions)
 {
+    public const string FullDayPrefix = "full-day:";
+
     public async Task<AssistantUsageLeaseResult> ReserveAsync(Guid userId, Guid? tripId, string operationKey, CancellationToken ct)
     {
         if (DbExecutionStrategy.ShouldExecute(dbContext))
@@ -37,18 +39,21 @@ public sealed class AssistantUsageService(
             item.BuilderAccessGrantId == grant.Id && item.OperationKey == operationKey, ct);
         if (prior?.CompletedAtUtc is not null || prior is { CancelledAtUtc: null } && prior.ExpiresAtUtc > now)
         {
-            var existingRemaining = await RemainingAsync(grant, now, ct);
+            var existingRemaining = await RemainingAsync(grant, now, operationKey.StartsWith(FullDayPrefix, StringComparison.Ordinal), ct);
             if (transaction is not null) await transaction.CommitAsync(ct);
             return new(prior!.Id, existingRemaining, grant.IsTrial);
         }
-        var limit = grant.IsTrial ? Math.Clamp(freeOptions.Value.AssistantRequestLimit, 0, 20)
+        var fullDay = operationKey.StartsWith(FullDayPrefix, StringComparison.Ordinal);
+        var limit = grant.IsTrial ? (fullDay ? FreePlanningPolicy.MaximumDayImprovements : Math.Clamp(freeOptions.Value.AssistantRequestLimit, 0, 3))
             : Math.Clamp(paidOptions.Value.DailyAssistantLimit, 1, 100);
-        var used = grant.IsTrial ? grant.TrialAssistantRequestsUsed
+        var used = grant.IsTrial ? (fullDay
+            ? await dbContext.AssistantUsageLeases.CountAsync(item => item.BuilderAccessGrantId == grant.Id && item.OperationKey.StartsWith(FullDayPrefix) && item.CompletedAtUtc != null, ct)
+            : grant.TrialAssistantRequestsUsed)
             : (await dbContext.AssistantDailyUsages.AsNoTracking().FirstOrDefaultAsync(item => item.BuilderAccessGrantId == grant.Id && item.UtcDate == DateOnly.FromDateTime(now.UtcDateTime), ct))?.SuccessfulRequests ?? 0;
         var reserved = await dbContext.AssistantUsageLeases.CountAsync(item => item.BuilderAccessGrantId == grant.Id
-            && item.UtcDate == DateOnly.FromDateTime(now.UtcDateTime) && item.CompletedAtUtc == null && item.CancelledAtUtc == null && item.ExpiresAtUtc > now, ct);
+            && (grant.IsTrial ? item.OperationKey.StartsWith(FullDayPrefix) == fullDay : item.UtcDate == DateOnly.FromDateTime(now.UtcDateTime)) && item.CompletedAtUtc == null && item.CancelledAtUtc == null && item.ExpiresAtUtc > now, ct);
         if (used + reserved >= limit)
-            throw new TrialUpgradeRequiredException(new(grant.IsTrial, grant.IsTrial ? TravelCompanion.Shared.Dtos.TrialAccessState.ReadOnly : TravelCompanion.Shared.Dtos.TrialAccessState.Paid,
+            throw new TrialUpgradeRequiredException(new(grant.IsTrial, grant.IsTrial ? (grant.TrialEditingExpiresAtUtc > now ? TravelCompanion.Shared.Dtos.TrialAccessState.Editing : TravelCompanion.Shared.Dtos.TrialAccessState.ReadOnly) : TravelCompanion.Shared.Dtos.TrialAccessState.Paid,
                 grant.TrialEditingExpiresAtUtc, grant.TrialDraftExpiresAtUtc, 0, freeOptions.Value.PassPrice, freeOptions.Value.Currency, freeOptions.Value.PurchaseUrl));
         var lease = prior ?? new AssistantUsageLease
         {
@@ -80,6 +85,7 @@ public sealed class AssistantUsageService(
         await LockGrantAsync(grant.Id, ct);
         await dbContext.Entry(grant).ReloadAsync(ct);
         await dbContext.Entry(lease).ReloadAsync(ct);
+        if (lease.CompletedAtUtc.HasValue || lease.CancelledAtUtc.HasValue) return;
         if (lease.ExpiresAtUtc <= now)
         {
             lease.CancelledAtUtc = now;
@@ -87,7 +93,10 @@ public sealed class AssistantUsageService(
             if (transaction is not null) await transaction.CommitAsync(ct);
             throw new InvalidOperationException("La reserva de cuota caducó; vuelve a intentar la operación.");
         }
-        if (grant.IsTrial) grant.TrialAssistantRequestsUsed++;
+        if (grant.IsTrial)
+        {
+            if (!lease.OperationKey.StartsWith(FullDayPrefix, StringComparison.Ordinal)) grant.TrialAssistantRequestsUsed++;
+        }
         else
         {
             var usage = await dbContext.AssistantDailyUsages.SingleOrDefaultAsync(item =>
@@ -112,10 +121,12 @@ public sealed class AssistantUsageService(
         await dbContext.SaveChangesAsync(ct);
     }
 
-    private async Task<int> RemainingAsync(BuilderAccessGrant grant, DateTimeOffset now, CancellationToken ct)
+    private async Task<int> RemainingAsync(BuilderAccessGrant grant, DateTimeOffset now, bool fullDay, CancellationToken ct)
     {
-        var limit = grant.IsTrial ? freeOptions.Value.AssistantRequestLimit : paidOptions.Value.DailyAssistantLimit;
-        var used = grant.IsTrial ? grant.TrialAssistantRequestsUsed
+        var limit = grant.IsTrial ? (fullDay ? FreePlanningPolicy.MaximumDayImprovements : Math.Clamp(freeOptions.Value.AssistantRequestLimit, 0, 3)) : paidOptions.Value.DailyAssistantLimit;
+        var used = grant.IsTrial ? (fullDay
+            ? await dbContext.AssistantUsageLeases.CountAsync(item => item.BuilderAccessGrantId == grant.Id && item.OperationKey.StartsWith(FullDayPrefix) && item.CompletedAtUtc != null, ct)
+            : grant.TrialAssistantRequestsUsed)
             : (await dbContext.AssistantDailyUsages.AsNoTracking().FirstOrDefaultAsync(item => item.BuilderAccessGrantId == grant.Id && item.UtcDate == DateOnly.FromDateTime(now.UtcDateTime), ct))?.SuccessfulRequests ?? 0;
         return Math.Max(0, limit - used);
     }

@@ -8,9 +8,6 @@ public partial class TravelChatPage : ContentPage, IQueryAttributable
     private DateOnly? _reviewDate;
     private string? _reviewCity;
     private string? _reviewSummary;
-    private DateOnly? _routeDate;
-    private string? _routeCity;
-    private string? _routeTheme;
 
     public TravelChatPage()
         : this(MauiProgram.Services.GetRequiredService<TravelChatViewModel>())
@@ -31,11 +28,6 @@ public partial class TravelChatPage : ContentPage, IQueryAttributable
             : null;
         _reviewCity = query.TryGetValue("ReviewCity", out var cityValue) ? cityValue as string : null;
         _reviewSummary = query.TryGetValue("ReviewSummary", out var summaryValue) ? summaryValue as string : null;
-        _routeDate = query.TryGetValue("RouteDate", out var routeDateValue) && routeDateValue is DateOnly routeDate
-            ? routeDate
-            : null;
-        _routeCity = query.TryGetValue("RouteCity", out var routeCityValue) ? routeCityValue as string : null;
-        _routeTheme = query.TryGetValue("RouteTheme", out var routeThemeValue) ? routeThemeValue as string : null;
     }
 
     protected override async void OnAppearing()
@@ -44,16 +36,7 @@ public partial class TravelChatPage : ContentPage, IQueryAttributable
         try
         {
             await _viewModel.LoadContextAsync();
-            if (_routeDate is { } routeDate && !string.IsNullOrWhiteSpace(_routeTheme))
-            {
-                var city = _routeCity;
-                var theme = _routeTheme;
-                _routeDate = null;
-                _routeCity = null;
-                _routeTheme = null;
-                await _viewModel.RequestThematicRouteAsync(routeDate, city, theme);
-            }
-            else if (_reviewDate is { } reviewDate)
+            if (_reviewDate is { } reviewDate)
             {
                 var city = _reviewCity;
                 var summary = _reviewSummary;
@@ -77,6 +60,46 @@ public partial class TravelChatPage : ContentPage, IQueryAttributable
     {
         _viewModel.CancelActiveOperations();
         base.OnDisappearing();
+    }
+
+    private static bool ReduceMotion
+    {
+        get
+        {
+#if ANDROID
+            return OperatingSystem.IsAndroidVersionAtLeast(26) && !Android.Animation.ValueAnimator.AreAnimatorsEnabled();
+#elif IOS || MACCATALYST
+            return UIKit.UIAccessibility.IsReduceMotionEnabled;
+#elif WINDOWS
+            return !new Windows.UI.ViewManagement.UISettings().AnimationsEnabled;
+#else
+            return true;
+#endif
+        }
+    }
+
+    private async void OnCardLoaded(object? sender, EventArgs e)
+    {
+        if (sender is not View view || view.BindingContext is not TravelChatCardViewModel { AnimateEntrance: true } card) return;
+        card.AnimateEntrance = false;
+        if (ReduceMotion) return;
+        try
+        {
+            view.CancelAnimations();
+            view.Opacity = 0;
+            view.TranslationY = 12;
+            await Task.WhenAll(view.FadeToAsync(1, 220, Easing.CubicOut), view.TranslateToAsync(0, 0, 220, Easing.CubicOut));
+        }
+        catch (OperationCanceledException) { }
+        finally { view.Opacity = 1; view.TranslationY = 0; }
+    }
+
+    private void OnCardUnloaded(object? sender, EventArgs e)
+    {
+        if (sender is not View view) return;
+        view.CancelAnimations();
+        view.Opacity = 1;
+        view.TranslationY = 0;
     }
 
     private async void OnSuggestedReplyTapped(object? sender, TappedEventArgs e)

@@ -309,4 +309,7 @@
   <data name="AccountArchiveWarning" xml:space="preserve"><value>The trip will leave your active list. You can open it again from My trips.</value></data>
   <data name="AccountArchiveError" xml:space="preserve"><value>We could not archive the trip.</value></data>
   <data name="ProposalProtected" xml:space="preserve"><value>Protected</value></data>
+  <data name="FreePlanningLockedDay" xml:space="preserve"><value>Your trial includes planning the first 3 days. Activate your pass to plan the whole trip.</value></data>
+  <data name="FreePlanningUnlockTrip" xml:space="preserve"><value>Plan the whole trip · Activate pass</value></data>
+  <data name="PlanningTryAgain" xml:space="preserve"><value>We could not open this option. Please try again.</value></data>
 </root>

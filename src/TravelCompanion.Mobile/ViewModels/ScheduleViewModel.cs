@@ -180,14 +180,20 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
 
     public bool ShowDayReview => !ShowTodayLoading && SelectedDayReview is not null;
     public bool ShowImproveDay => _selectedDate.HasValue && _tripId.HasValue;
-    public string ImproveDayLabel => LocalizationResourceManager.Instance["TodayImproveDay"];
+    public bool IsSelectedDayLocked => _sessionService.IsFreeMapPreview
+        && _tripStartsOn is { } start && _selectedDate is { } date
+        && !FreePlanningPolicy.CanPlanDate(start, date);
+    public bool CanEditSelectedDay => _sessionService.CanEditItinerary && !IsSelectedDayLocked;
+    public string LockedDayMessage => LocalizationResourceManager.Instance["FreePlanningLockedDay"];
+    public string UnlockTripLabel => LocalizationResourceManager.Instance["FreePlanningUnlockTrip"];
+    public string ImproveDayLabel => IsSelectedDayLocked ? UnlockTripLabel : LocalizationResourceManager.Instance["TodayImproveDay"];
     public bool HasFreshVisibleData => _bootstrapStore.HasFreshSnapshot()
         && (!_selectedDate.HasValue || _todayStore.HasFreshSnapshot(_selectedDate.Value));
 
     public bool HasScheduleItems => _allItems.Count > 0;
     public bool HasItineraryActions => _tripId.HasValue;
     public bool CanManageItinerary => _sessionService.IsBuilder
-        && _sessionService.CanEditItinerary
+        && CanEditSelectedDay
         && !_sessionService.RequiresTripSetup
         && _tripStartsOn.HasValue;
     public bool ShowTrialBanner => _sessionService.IsTrial;
@@ -219,8 +225,6 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     [RelayCommand]
     private Task RedeemPassAsync() => PaywallNavigation.OpenAsync(TravelCompanion.Shared.Dtos.PaywallEntryPoint.Today);
 
-    [RelayCommand]
-    private Task OpenRoutesAsync() => Shell.Current.GoToAsync(nameof(ThematicRoutesPage));
     public bool HasSelectedDayItems => TodaySections.Any(section => section.HasContent);
     public bool HasFocusItem => _focusItem is not null;
     public bool ShowInitialLoading => IsBusy && DayFilters.Count == 0;
@@ -510,7 +514,8 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     [RelayCommand]
     private async Task AddPersonalItemAsync(ScheduleTodaySectionViewModel? section)
     {
-        if (section is null || !_sessionService.CanEditItinerary) return;
+        if (section is null) return;
+        if (!CanEditSelectedDay) { await RedeemPassAsync(); return; }
         if (_sessionService.RequiresTripSetup)
         {
             await Shell.Current.GoToAsync(nameof(BuilderSetupPage));
@@ -682,96 +687,19 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     }
 
     [RelayCommand]
-    private Task ImproveDayAsync()
+    private async Task ImproveDayAsync()
     {
-        if (!ShowImproveDay || IsBusy) return Task.CompletedTask;
-
-        return Shell.Current.GoToAsync("//main/assistant", new ShellNavigationQueryParameters
+        if (!ShowImproveDay || IsBusy) return;
+        try
         {
-            ["ReviewDate"] = _selectedDate!.Value,
-            ["ReviewCity"] = SelectedCity
-        });
-    }
-
-    [RelayCommand]
-    private Task AskAssistantAboutDayAsync()
-    {
-        if (_selectedDate is null || SelectedDayReview is null)
-        {
-            return Task.CompletedTask;
-        }
-
-        if (SelectedDayReview.HasIssues)
-        {
-            return LoadAsync(async ct =>
+            if (!CanEditSelectedDay) { await RedeemPassAsync(); return; }
+            await Shell.Current.GoToAsync("//main/assistant", new ShellNavigationQueryParameters
             {
-                var issue = SelectedDayReview.Issues.FirstOrDefault();
-                if (issue is null) return;
-                var target = issue.ItemIds
-                    .Select(id => _allItems.FirstOrDefault(item => item.Id == id))
-                    .Where(item => item is not null)
-                    .Cast<ScheduleItemDto>()
-                    .LastOrDefault(item => item.IsTravelerOwned && !item.IsProtected)
-                    ?? _allItems.LastOrDefault(item => item.Date == _selectedDate.Value
-                        && item.IsTravelerOwned && !item.IsProtected);
-                if (target is null)
-                {
-                    StatusMessage = "No hay una actividad flexible que podamos sustituir sin tocar tus reservas.";
-                    return;
-                }
-
-                var token = await _sessionService.GetTokenAsync();
-                if (string.IsNullOrWhiteSpace(token))
-                {
-                    _sessionService.Clear();
-                    await Shell.Current.GoToAsync("//login");
-                    return;
-                }
-                var proposal = await _apiClient.CreateDayProposalAsync(
-                    token,
-                    new DayProposalRequestDto(
-                        _selectedDate.Value,
-                        DayPlanningGoal.Reorganize,
-                        _builderRevision ?? 0,
-                        new TimeOnly(9, 0),
-                        new TimeOnly(21, 0),
-                        $"issue:{target.Id:N}:{_builderRevision ?? 0}",
-                        target.Id,
-                        issue.Issue.Kind),
-                    ct);
-                if (proposal is null)
-                {
-                    throw new InvalidOperationException("No encontramos una alternativa que resuelva ese problema.");
-                }
-                await Shell.Current.GoToAsync(nameof(DayProposalPage), new ShellNavigationQueryParameters
-                {
-                    ["Proposal"] = proposal
-                });
+                ["ReviewDate"] = _selectedDate!.Value,
+                ["ReviewCity"] = SelectedCity
             });
         }
-
-        return Shell.Current.GoToAsync("//main/assistant", new ShellNavigationQueryParameters
-        {
-            ["ReviewDate"] = _selectedDate.Value,
-            ["ReviewCity"] = SelectedCity,
-            ["ReviewSummary"] = SelectedDayReview.Summary
-        });
-    }
-
-    [RelayCommand]
-    private Task OpenThematicRouteAsync(string? theme)
-    {
-        if (_selectedDate is null || string.IsNullOrWhiteSpace(theme))
-        {
-            return Task.CompletedTask;
-        }
-
-        return Shell.Current.GoToAsync("//main/assistant", new ShellNavigationQueryParameters
-        {
-            ["RouteDate"] = _selectedDate.Value,
-            ["RouteCity"] = SelectedCity,
-            ["RouteTheme"] = theme.Trim()
-        });
+        catch (Exception) { ErrorMessage = LocalizationResourceManager.Instance["PlanningTryAgain"]; }
     }
 
     [RelayCommand]
@@ -790,6 +718,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
 
     private async Task DeleteTravelerItemAsync(ScheduleItemDto item)
     {
+        if (!CanEditSelectedDay) { await RedeemPassAsync(); return; }
         var confirmed = await Shell.Current.DisplayAlertAsync("Quitar plan", $"¿Quitar {item.Title} del itinerario?", "Quitar", "Cancelar");
         if (!confirmed) return;
         var token = await _sessionService.GetTokenAsync();
@@ -1259,7 +1188,8 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
                 date,
                 offset + 1,
                 GetCityForDate(date, schedule.DestinationName),
-                _selectedDate == date));
+                _selectedDate == date,
+                _sessionService.IsFreeMapPreview && !FreePlanningPolicy.CanPlanDate(schedule.StartsOn, date)));
         }
     }
 
@@ -1490,7 +1420,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
                         _hotelsByDate.GetValueOrDefault(today.Date),
                         _sessionService.CanCalculateRoutes))
                     .ToList(),
-                _sessionService.CanEditItinerary))
+                CanEditSelectedDay))
             .ToList();
     }
 
@@ -1548,7 +1478,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
                         : curatedDescription,
                     locations,
                     reservations,
-                    _sessionService.CanEditItinerary);
+                    CanEditSelectedDay);
             })
             .ToList();
     }
@@ -2160,6 +2090,9 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         OnPropertyChanged(nameof(SelectedDateLabel));
         OnPropertyChanged(nameof(ShowImproveDay));
         OnPropertyChanged(nameof(ImproveDayLabel));
+        OnPropertyChanged(nameof(IsSelectedDayLocked));
+        OnPropertyChanged(nameof(CanEditSelectedDay));
+        OnPropertyChanged(nameof(CanManageItinerary));
         OnPropertyChanged(nameof(AmbientGlyph));
         OnPropertyChanged(nameof(HasPreviewMessage));
         OnPropertyChanged(nameof(HasStayCard));

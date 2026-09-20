@@ -234,7 +234,7 @@
                                                      BindableLayout.ItemsSource="{Binding Cards}">
                                     <BindableLayout.ItemTemplate>
                                         <DataTemplate x:DataType="viewModels:TravelChatCardViewModel">
-                                            <Border Style="{StaticResource Card}"
+                                            <Border Loaded="OnCardLoaded" Unloaded="OnCardUnloaded" Style="{StaticResource Card}"
                                                     Padding="14"
                                                     BackgroundColor="#F6F1EA"
                                                     Stroke="#D8CFC4">

@@ -93,11 +93,6 @@
                         </Grid>
                     </Border>
 
-                    <Button Text="Rutas y reorganización"
-                            Command="{Binding OpenRoutesCommand}"
-                            Style="{StaticResource GhostButton}"
-                            SemanticProperties.Description="Abrir rutas temáticas y propuestas del día" />
-
                     <Border Padding="16,14"
                             BackgroundColor="#F6F1EA"
                             Stroke="#D8CFC4"
@@ -177,6 +172,9 @@
                         </CollectionView.ItemTemplate>
                     </CollectionView>
 
+                    <Border IsVisible="{Binding IsSelectedDayLocked}" Style="{StaticResource NoticePanel}">
+                        <Label Text="{Binding LockedDayMessage}" TextColor="#5F4B25" />
+                    </Border>
                     <Button Text="{Binding ImproveDayLabel}"
                             Command="{Binding ImproveDayCommand}"
                             IsVisible="{Binding ShowImproveDay}"
@@ -231,17 +229,7 @@
                                        FontSize="13"
                                        LineHeight="1.3"
                                        TextColor="#6A625B" />
-                                <Button Text="{Binding SelectedDayReview.AssistantActionLabel}"
-                                        IsVisible="{Binding SelectedDayReview.HasIssues}"
-                                        Command="{Binding AskAssistantAboutDayCommand}"
-                                        HorizontalOptions="Start"
-                                        BackgroundColor="{Binding SelectedDayReview.AccentColor}"
-                                        TextColor="White"
-                                        CornerRadius="0"
-                                        FontSize="12"
-                                        Padding="12,8"
-                                        Margin="0,5,0,0"
-                                        MinimumHeightRequest="42" />
+
                             </VerticalStackLayout>
 
                             <VerticalStackLayout Grid.Row="1"

@@ -57,6 +57,9 @@ public sealed class ItineraryService(
             return new SaveItineraryItemResponse(false, "No encontre un viaje propio para esa fecha y destino.", null);
         }
 
+        if (trialGrant is not null && !FreePlanningPolicy.CanPlanDate(trip.StartsOn, request.Date))
+            return new(false, "Activa el pase para planear más de tres días y completar tu viaje.", null);
+
         if (!CanAccessRecommendation(user, recommendation))
         {
             return new SaveItineraryItemResponse(false, "Esa recomendacion no esta disponible para tu cuenta.", null);

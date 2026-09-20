@@ -8,7 +8,8 @@ public sealed record TravelChatRequest(
     GeoPointDto? CurrentLocation,
     string? Locale,
     GuidedTravelActionDto? GuidedAction = null,
-    GuidedPlanCriteriaDto? Criteria = null);
+    GuidedPlanCriteriaDto? Criteria = null,
+    Guid? OperationId = null);
 
 public sealed record GeoPointDto(
     decimal Latitude,

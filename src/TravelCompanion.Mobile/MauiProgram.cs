@@ -123,8 +123,6 @@ public static class MauiProgram
         builder.Services.AddTransient<BuilderSetupViewModel>();
         builder.Services.AddTransient<ItineraryItemEditorViewModel>();
         builder.Services.AddTransient<PaywallViewModel>();
-        builder.Services.AddTransient<ThematicRoutesViewModel>();
-        builder.Services.AddTransient<DayProposalViewModel>();
         builder.Services.AddTransient<AccountViewModel>();
         builder.Services.AddSingleton<DocsViewModel>();
         builder.Services.AddSingleton<ISessionStateResettable>(sp => sp.GetRequiredService<DocsViewModel>());
@@ -145,8 +143,6 @@ public static class MauiProgram
         builder.Services.AddTransient<BuilderSetupPage>();
         builder.Services.AddTransient<ItineraryItemEditorPage>();
         builder.Services.AddTransient<PaywallPage>();
-        builder.Services.AddTransient<ThematicRoutesPage>();
-        builder.Services.AddTransient<DayProposalPage>();
         builder.Services.AddTransient<AccountPage>();
 
         var app = builder.Build();

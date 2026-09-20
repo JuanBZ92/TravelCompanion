@@ -98,6 +98,15 @@ public sealed class FreeBuilderTrialTests
         Assert.Equal(HttpStatusCode.PaymentRequired, blocked.StatusCode);
         var status = await blocked.Content.ReadFromJsonAsync<TrialAccessStatusDto>(JsonOptions);
         Assert.Equal(TrialAccessState.ReadOnly, status?.State);
+        var improve = await client.PostAsJsonAsync("/api/ai/travel-chat",
+            new TravelChatRequest("full day", null, "Tokyo", arrival, null, "es-ES",
+                new GuidedTravelActionDto(GuidedTravelActions.FullDay),
+                new GuidedPlanCriteriaDto(GuidedTravelCategories.Food, Budget: "low")), JsonOptions);
+        improve.EnsureSuccessStatusCode();
+        var plan = await improve.Content.ReadFromJsonAsync<TravelChatResponse>(JsonOptions);
+        Assert.Equal("upgrade", plan!.MissingContext!.Field);
+        Assert.Empty(plan.Cards);
+
     }
 
     [Fact]
@@ -134,7 +143,7 @@ public sealed class FreeBuilderTrialTests
     }
 
     [Fact]
-    public async Task Free_trial_can_create_a_day_proposal_and_it_stays_inside_the_free_radius()
+    public async Task Retired_planning_features_are_not_available_to_older_clients()
     {
         await using var factory = new TrialApiFactory();
         var seed = await factory.SeedAsync();
@@ -162,12 +171,44 @@ public sealed class FreeBuilderTrialTests
                 "free-proposal-radius"),
             JsonOptions);
 
+        Assert.Equal(HttpStatusCode.Gone, response.StatusCode);
+        var redeem = await client.PostAsJsonAsync("/api/mobile/pass/redeem", new RedeemTravelPassRequest("4321"), JsonOptions);
+        redeem.EnsureSuccessStatusCode();
+        var paid = await redeem.Content.ReadFromJsonAsync<AuthSessionDto>(JsonOptions);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", paid!.Token);
+        var routes = await client.GetAsync("/api/mobile/thematic-routes");
+        Assert.Equal(HttpStatusCode.Gone, routes.StatusCode);
+
+    }
+
+    [Fact]
+    public async Task Long_free_trip_is_allowed_but_day_four_planning_requires_a_pass()
+    {
+        await using var factory = new TrialApiFactory();
+        var seed = await factory.SeedAsync();
+        using var client = factory.CreateClient();
+        var login = await LoginAsync(client, "long-trip");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login.Token);
+        var date = new DateOnly(2026, 10, 5);
+        var setup = await client.PutAsJsonAsync("/api/mobile/builder/setup",
+            new SaveBuilderTripSetupRequest(date, date.AddDays(9), "Asia/Tokyo", 0,
+                [new BuilderTripSetupSegmentDto("Tokyo", date, date.AddDays(9))]), JsonOptions);
+        setup.EnsureSuccessStatusCode();
+        var response = await client.PostAsJsonAsync("/api/ai/travel-chat",
+            new TravelChatRequest("full day", null, "Tokyo", date.AddDays(3), null, "es-ES",
+                new GuidedTravelActionDto(GuidedTravelActions.FullDay),
+                new GuidedPlanCriteriaDto(GuidedTravelCategories.Food, Budget: "low")), JsonOptions);
         response.EnsureSuccessStatusCode();
-        var proposal = await response.Content.ReadFromJsonAsync<DayProposalDto>(JsonOptions);
-        Assert.NotNull(proposal);
-        Assert.NotEmpty(proposal.Changes);
-        Assert.All(proposal.Changes, change => Assert.Equal(seed.InsideRecommendationId, change.RecommendationId));
-        Assert.DoesNotContain(proposal.Changes, change => change.RecommendationId == seed.OutsideRecommendationId);
+        var plan = await response.Content.ReadFromJsonAsync<TravelChatResponse>(JsonOptions);
+        Assert.Equal("upgrade", plan!.MissingContext!.Field);
+        Assert.Empty(plan.Cards);
+        var save = await client.PostAsJsonAsync("/api/ai/save-itinerary-item",
+            new SaveItineraryItemRequest(seed.InsideRecommendationId, date.AddDays(3), new TimeOnly(9, 0), null), JsonOptions);
+        Assert.Equal(HttpStatusCode.BadRequest, save.StatusCode);
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<TravelCompanionDbContext>();
+        Assert.Empty(await db.AssistantUsageLeases.ToListAsync());
+        Assert.Empty(await db.Reservations.Where(r => r.RecommendationId == seed.InsideRecommendationId).ToListAsync());
     }
 
     [Fact]

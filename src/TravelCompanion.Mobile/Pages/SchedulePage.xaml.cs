@@ -159,7 +159,6 @@ public partial class SchedulePage : ContentPage
 
         var actions = new List<string>
         {
-            "Crear ruta temática",
             "Guardar para usar sin conexión",
             "Compartir itinerario"
         };
@@ -188,22 +187,6 @@ public partial class SchedulePage : ContentPage
         else if (action == "Compartir itinerario")
         {
             await _viewModel.ShareItineraryCommand.ExecuteAsync(null);
-        }
-        else if (action == "Crear ruta temática")
-        {
-            var theme = await DisplayActionSheetAsync(
-                "¿Qué tipo de ruta quieres?",
-                "Cancelar",
-                null,
-                "Comida local",
-                "Templos e historia",
-                "Arte y diseño",
-                "Naturaleza y jardines",
-                "Barrios y compras");
-            if (!string.IsNullOrWhiteSpace(theme) && theme != "Cancelar")
-            {
-                await _viewModel.OpenThematicRouteCommand.ExecuteAsync(theme);
-            }
         }
     }
 

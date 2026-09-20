@@ -309,4 +309,7 @@
   <data name="AccountArchiveWarning" xml:space="preserve"><value>El viaje dejará la lista activa. Podrás abrirlo de nuevo desde Mis viajes.</value></data>
   <data name="AccountArchiveError" xml:space="preserve"><value>No pudimos archivar el viaje.</value></data>
   <data name="ProposalProtected" xml:space="preserve"><value>Protegido</value></data>
+  <data name="FreePlanningLockedDay" xml:space="preserve"><value>La prueba permite planear los primeros 3 días. Activa el pase para planear el viaje completo.</value></data>
+  <data name="FreePlanningUnlockTrip" xml:space="preserve"><value>Planear todo el viaje · Activar pase</value></data>
+  <data name="PlanningTryAgain" xml:space="preserve"><value>No pudimos abrir esta opción. Inténtalo de nuevo.</value></data>
 </root>

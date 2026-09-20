@@ -18,6 +18,62 @@ namespace TravelCompanion.Api.Tests;
 public sealed class CommercePlanningTests
 {
     [Fact]
+    public async Task Free_day_improvements_and_chat_have_independent_three_result_limits()
+    {
+        await using var db = CreateDb();
+        var (user, trip, _, _) = await SeedPurchaseTripAsync(db);
+        var grant = new BuilderAccessGrant
+        {
+            Id = Guid.NewGuid(), AppUserId = user.Id, TripId = trip.Id, DestinationId = trip.DestinationId,
+            IsTrial = true, Status = BuilderAccessStatus.Active, TrialEditingStartedAtUtc = DateTimeOffset.UtcNow,
+            TrialEditingExpiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(30), TrialDraftExpiresAtUtc = DateTimeOffset.UtcNow.AddDays(30)
+        };
+        db.Add(grant);
+        await db.SaveChangesAsync();
+        var usage = new AssistantUsageService(db, Microsoft.Extensions.Options.Options.Create(new FreePreviewOptions()),
+            Microsoft.Extensions.Options.Options.Create(new StorePurchaseOptions()));
+        var cancelled = await usage.ReserveAsync(user.Id, trip.Id, "full-day:failed", default);
+        await usage.CancelAsync(cancelled.LeaseId, default);
+        var cancelledChat = await usage.ReserveAsync(user.Id, trip.Id, "chat:failed", default);
+        await usage.CancelAsync(cancelledChat.LeaseId, default);
+        for (var i = 0; i < 3; i++)
+        {
+            var lease = await usage.ReserveAsync(user.Id, trip.Id, $"full-day:{i}", default);
+            await usage.CompleteAsync(lease.LeaseId, default);
+            await usage.CompleteAsync(lease.LeaseId, default);
+        }
+        Assert.Equal(0, grant.TrialAssistantRequestsUsed);
+        await Assert.ThrowsAsync<TrialUpgradeRequiredException>(() => usage.ReserveAsync(user.Id, trip.Id, "full-day:fourth", default));
+        for (var i = 0; i < 3; i++)
+        {
+            var lease = await usage.ReserveAsync(user.Id, trip.Id, $"chat:{i}", default);
+            await usage.CompleteAsync(lease.LeaseId, default);
+        }
+        Assert.Equal(3, grant.TrialAssistantRequestsUsed);
+        await Assert.ThrowsAsync<TrialUpgradeRequiredException>(() => usage.ReserveAsync(user.Id, trip.Id, "chat:fourth", default));
+        Assert.Equal(6, await db.AssistantUsageLeases.CountAsync(l => l.CompletedAtUtc != null));
+    }
+
+    [Fact]
+    public async Task Free_planning_rejects_day_four_and_expired_editing()
+    {
+        await using var db = CreateDb();
+        var (user, trip, _, _) = await SeedPurchaseTripAsync(db);
+        db.Add(new BuilderAccessGrant
+        {
+            Id = Guid.NewGuid(), AppUserId = user.Id, TripId = trip.Id, DestinationId = trip.DestinationId,
+            IsTrial = true, Status = BuilderAccessStatus.Active, TrialEditingStartedAtUtc = DateTimeOffset.UtcNow.AddHours(-1),
+            TrialEditingExpiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(-30), TrialDraftExpiresAtUtc = DateTimeOffset.UtcNow.AddDays(30)
+        });
+        await db.SaveChangesAsync();
+        var free = new FreeTrialAccessService(db, Microsoft.Extensions.Options.Options.Create(new FreePreviewOptions()), NullLogger<FreeTrialAccessService>.Instance);
+        await free.RequirePlanningDateAsync(user.Id, trip.Id, trip.StartsOn.AddDays(2), default);
+        await Assert.ThrowsAsync<TrialUpgradeRequiredException>(() => free.RequirePlanningDateAsync(user.Id, trip.Id, trip.StartsOn.AddDays(3), default));
+        await Assert.ThrowsAsync<TrialUpgradeRequiredException>(() => free.RequireEditingAsync(user.Id, false, default));
+        Assert.False(FreePlanningPolicy.CanPlanDate(trip.StartsOn, trip.StartsOn.AddDays(-1)));
+    }
+
+    [Fact]
     public void Pass_expiry_uses_trip_timezone_and_one_year_cap()
     {
         var trip = new Trip

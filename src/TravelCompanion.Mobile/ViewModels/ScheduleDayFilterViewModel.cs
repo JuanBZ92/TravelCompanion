@@ -17,8 +17,9 @@ public sealed partial class ScheduleDayFilterViewModel : ObservableObject
         DateOnly date,
         int tripDayNumber,
         string city,
-        bool isSelected = false)
+        bool isSelected = false, bool isLocked = false)
     {
+        IsLocked = isLocked;
         Date = date;
         TripDayNumber = tripDayNumber;
         _city = city;
@@ -32,7 +33,8 @@ public sealed partial class ScheduleDayFilterViewModel : ObservableObject
         get => _city;
         private set => SetProperty(ref _city, value);
     }
-    public string DayLabel => $"DIA {TripDayNumber}";
+    public bool IsLocked { get; }
+    public string DayLabel => $"{(IsLocked ? "🔒 " : "")}DIA {TripDayNumber}";
     public string DateLabel => $"{Date.Day}/{Date.Month}";
 
     public bool IsSelected

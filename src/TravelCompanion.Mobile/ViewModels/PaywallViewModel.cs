@@ -245,7 +245,7 @@ public sealed partial class PaywallViewModel(
         {
             PaywallEntryPoint.Map => Shell.Current.GoToAsync("//main/map"),
             PaywallEntryPoint.Assistant => Shell.Current.GoToAsync("//main/assistant"),
-            PaywallEntryPoint.Routes => Shell.Current.GoToAsync(nameof(ThematicRoutesPage)),
+            PaywallEntryPoint.Routes => Shell.Current.GoToAsync("//main/schedule"),
             _ => Shell.Current.GoToAsync("//main/schedule")
         });
     }

@@ -5,6 +5,7 @@ using TravelCompanion.Shared.Dtos;
 namespace TravelCompanion.Api.Controllers;
 
 [ApiController]
+[RetiredPlanningFeature]
 [Route("api/mobile/proposals")]
 public sealed class DayProposalsController(DayProposalService service) : ControllerBase
 {

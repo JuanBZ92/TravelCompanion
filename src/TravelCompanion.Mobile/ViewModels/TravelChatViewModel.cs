@@ -253,6 +253,11 @@ public sealed partial class TravelChatViewModel(
             return;
         }
 
+        if (!sessionService.CanEditItinerary)
+        {
+            await PaywallNavigation.OpenAsync(PaywallEntryPoint.Today);
+            return;
+        }
         PlanningDate = date.ToDateTime(TimeOnly.MinValue);
         if (!string.IsNullOrWhiteSpace(city))
         {
@@ -284,24 +289,6 @@ public sealed partial class TravelChatViewModel(
 
         ShowGuidedStep("category", Resource("AssistantGuidedCategoryQuestion"),
             CreateCategoryOptions(includeContinue: true), addHistory: false);
-    }
-
-    public async Task RequestThematicRouteAsync(DateOnly date, string? city, string theme)
-    {
-        if (IsBusy || string.IsNullOrWhiteSpace(theme))
-        {
-            return;
-        }
-
-        PlanningDate = date.ToDateTime(TimeOnly.MinValue);
-        if (!string.IsNullOrWhiteSpace(city))
-        {
-            City = city;
-        }
-
-        MessageText = $"Crea un plan de {theme.Trim()} para este día con varias paradas cercanas entre sí. Mantén todas mis reservas confirmadas y usa solamente los espacios libres.";
-        IsFreeTextVisible = true;
-        await SendMessageAsync();
     }
 
     public void ResetForNewSession()
@@ -521,6 +508,11 @@ public sealed partial class TravelChatViewModel(
         {
             var isGuidedSubmission = _pendingGuidedAction is not null;
             var isFullDaySubmission = _pendingGuidedAction?.Action == GuidedTravelActions.FullDay;
+            if (isFullDaySubmission && !sessionService.CanEditItinerary)
+            {
+                await PaywallNavigation.OpenAsync(PaywallEntryPoint.Today);
+                return;
+            }
             var replacementCard = _pendingReplacementCard;
             var isTargetedReplacement = replacementCard is not null
                 && _pendingGuidedAction?.Action == GuidedTravelActions.Alternative;
@@ -570,7 +562,8 @@ public sealed partial class TravelChatViewModel(
                     currentLocation,
                     CultureInfo.CurrentUICulture.Name,
                     _pendingGuidedAction,
-                    _pendingGuidedAction is null ? null : _guidedCriteria),
+                    _pendingGuidedAction is null ? null : _guidedCriteria,
+                    Guid.NewGuid()),
                 activeRequest.Token);
 
             if (response is null)
@@ -620,6 +613,11 @@ public sealed partial class TravelChatViewModel(
                     ? string.Format(CultureInfo.CurrentCulture, Resource("AssistantFullDaySaved"), savedCount)
                     : string.Format(CultureInfo.CurrentCulture, Resource("AssistantFullDayPartiallySaved"), savedCount, processedCardCount);
                 fullDayProgressMessage.UpdateProgress(responseMessage, isLoading: false);
+                if (!sessionService.CanEditItinerary)
+                {
+                    await PaywallNavigation.OpenAsync(PaywallEntryPoint.Today);
+                    return;
+                }
             }
             else if (isFullDaySubmission)
             {
@@ -647,6 +645,11 @@ public sealed partial class TravelChatViewModel(
             }
 
             ApplyMissingContext(response.MissingContext);
+            if (isFullDaySubmission && response.MissingContext?.Field == "upgrade")
+            {
+                await PaywallNavigation.OpenAsync(PaywallEntryPoint.Today);
+                return;
+            }
             if (response.MissingContext is not null
                 && !string.Equals(response.MissingContext.Field, "preferences", StringComparison.OrdinalIgnoreCase))
             {
@@ -1082,6 +1085,7 @@ public sealed partial class TravelChatViewModel(
     {
         return MainThread.InvokeOnMainThreadAsync(() =>
         {
+            card.AnimateEntrance = true;
             Messages.Add(new TravelChatMessageViewModel(string.Empty, isFromUser: false, [card]));
             var progressIndex = Messages.IndexOf(progressMessage);
             if (progressIndex >= 0 && progressIndex < Messages.Count - 1)
@@ -1419,7 +1423,9 @@ public sealed partial class TravelChatViewModel(
 
     private void ApplyPlanningContext(TripScheduleDto? schedule)
     {
-        var firstUsefulDay = (schedule?.Items ?? [])
+        if (schedule is null) return;
+        var firstUsefulDay = schedule.Items
+            .Where(item => !sessionService.IsFreeMapPreview || FreePlanningPolicy.CanPlanDate(schedule.StartsOn, item.Date))
             .GroupBy(item => item.Date)
             .OrderByDescending(group => group.Count())
             .ThenBy(group => group.Key)
@@ -1427,6 +1433,7 @@ public sealed partial class TravelChatViewModel(
 
         if (firstUsefulDay is null)
         {
+            PlanningDate = schedule.StartsOn.ToDateTime(TimeOnly.MinValue);
             return;
         }
 
