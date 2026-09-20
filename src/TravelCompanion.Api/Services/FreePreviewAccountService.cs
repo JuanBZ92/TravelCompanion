@@ -81,6 +81,7 @@ public sealed class FreePreviewAccountService(TravelCompanionDbContext dbContext
             DestinationId = destinationId,
             PinHash = string.Empty,
             IsTrial = true,
+            Status = TravelCompanion.Shared.BuilderAccessStatus.Active,
             CreatedAtUtc = DateTimeOffset.UtcNow
         });
         try

@@ -11,7 +11,8 @@ namespace TravelCompanion.Api.Services;
 public sealed class FreeTrialAccessService(
     TravelCompanionDbContext dbContext,
     IOptions<FreePreviewOptions> options,
-    ILogger<FreeTrialAccessService> logger)
+    ILogger<FreeTrialAccessService> logger,
+    ProductAnalyticsService? analytics = null)
 {
     public async Task<BuilderAccessGrant?> GetGrantAsync(Guid userId, CancellationToken cancellationToken = default) =>
         await dbContext.BuilderAccessGrants
@@ -28,7 +29,7 @@ public sealed class FreeTrialAccessService(
         var current = now ?? DateTimeOffset.UtcNow;
         var state = grant switch
         {
-            null => TrialAccessState.Paid,
+            null => TrialAccessState.NoAccess,
             { IsTrial: false } => TrialAccessState.Paid,
             { ConvertedAtUtc: not null } => TrialAccessState.Paid,
             { TrialEditingStartedAtUtc: null } => TrialAccessState.NotStarted,
@@ -64,6 +65,8 @@ public sealed class FreeTrialAccessService(
             grant.TrialEditingExpiresAtUtc = now.AddMinutes(editingMinutes);
             grant.TrialDraftExpiresAtUtc = grant.TrialEditingExpiresAtUtc.Value.AddDays(retentionDays);
             await dbContext.SaveChangesAsync(cancellationToken);
+            if (analytics is not null)
+                await analytics.RecordServerEventAsync(userId, grant.TripId, "trial_started", "editing", null, cancellationToken);
             logger.LogInformation(
                 "Free trial started. UserId={UserId}; EditingExpiresAtUtc={EditingExpiresAtUtc}; DraftExpiresAtUtc={DraftExpiresAtUtc}.",
                 userId,

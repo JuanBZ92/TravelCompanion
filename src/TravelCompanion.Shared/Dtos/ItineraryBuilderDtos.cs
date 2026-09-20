@@ -53,7 +53,9 @@ public sealed record ItineraryItemMutationRequest(
     decimal? Longitude,
     int ExpectedRevision,
     [param: Required, MaxLength(80)] string IdempotencyKey,
-    bool ConfirmOverlap = false);
+    bool ConfirmOverlap = false,
+    ItineraryFlexibility Flexibility = ItineraryFlexibility.Flexible,
+    int? DurationMinutes = null);
 
 public sealed record ItineraryItemMutationResponse(
     bool Success,

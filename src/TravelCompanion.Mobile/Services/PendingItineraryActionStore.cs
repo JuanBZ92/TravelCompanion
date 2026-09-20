@@ -4,15 +4,23 @@ namespace TravelCompanion.Mobile.Services;
 
 public sealed class PendingItineraryActionStore
 {
-    public RecommendationDto? Recommendation { get; private set; }
-    public bool HasPendingItem => Recommendation is not null;
+    public sealed record PendingItineraryAction(RecommendationDto Recommendation, DateOnly? Date, TimeOnly? SuggestedStartTime);
 
-    public void Set(RecommendationDto recommendation) => Recommendation = recommendation;
-    public RecommendationDto? Take()
+    public PendingItineraryAction? Action { get; private set; }
+    public RecommendationDto? Recommendation => Action?.Recommendation;
+    public bool HasPendingItem => Action is not null;
+
+    public void Set(RecommendationDto recommendation, DateOnly? date = null, TimeOnly? suggestedStartTime = null) =>
+        Action = new(recommendation, date, suggestedStartTime);
+    public PendingItineraryAction? TakeAction()
     {
-        var value = Recommendation;
-        Recommendation = null;
+        var value = Action;
+        Action = null;
         return value;
     }
-    public void Clear() => Recommendation = null;
+    public RecommendationDto? Take()
+    {
+        return TakeAction()?.Recommendation;
+    }
+    public void Clear() => Action = null;
 }

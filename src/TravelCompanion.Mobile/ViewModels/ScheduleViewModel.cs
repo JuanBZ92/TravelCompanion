@@ -22,6 +22,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     private readonly BuilderTripStore _builderTripStore;
     private readonly OfflineSyncCoordinator _syncCoordinator;
     private readonly MobileSyncStateStore _syncStateStore;
+    private readonly ProductAnalyticsTracker _analytics;
     private readonly ILogger<ScheduleViewModel> _logger;
     private readonly List<ScheduleItemDto> _allItems = [];
     private readonly List<RecommendationDto> _recommendations = [];
@@ -56,6 +57,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     private readonly Dictionary<DateOnly, TodayHotelBaseDto> _hotelsByDate = [];
     private readonly Dictionary<DateOnly, TodayDto> _todayByDate = [];
     private readonly Dictionary<DateOnly, DayReviewDto> _dayReviewsByDate = [];
+    private readonly HashSet<DateOnly> _trackedDayReviews = [];
     private TodayHotelBaseDto? _selectedHotelBase;
     private DayReviewViewModel? _selectedDayReview;
     private string _destinationName = "Tu viaje";
@@ -211,46 +213,10 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     }
 
     [RelayCommand]
-    private async Task RedeemPassAsync()
-    {
-        if (Uri.TryCreate(_sessionService.TrialPurchaseUrl, UriKind.Absolute, out var purchaseUri))
-        {
-            var action = await Shell.Current.DisplayActionSheetAsync(
-                "Pase Japón",
-                "Cancelar",
-                null,
-                $"Comprar · {_sessionService.TrialPassPrice:0.00} {_sessionService.TrialCurrency}",
-                "Ya tengo código");
-            if (action?.StartsWith("Comprar", StringComparison.Ordinal) == true)
-            {
-                await Launcher.Default.OpenAsync(purchaseUri);
-                return;
-            }
-            if (action != "Ya tengo código") return;
-        }
-        var pin = await Shell.Current.DisplayPromptAsync(
-            "Activar pase Japón",
-            $"Introduce tu código para guardar el viaje y desbloquear el catálogo completo ({_sessionService.TrialPassPrice:0.00} {_sessionService.TrialCurrency}).",
-            "Activar",
-            "Cancelar",
-            keyboard: Keyboard.Numeric,
-            maxLength: 6);
-        if (string.IsNullOrWhiteSpace(pin)) return;
-        var token = await _sessionService.GetTokenAsync();
-        var session = string.IsNullOrWhiteSpace(token)
-            ? null
-            : await _apiClient.RedeemTravelPassAsync(token, new string(pin.Where(char.IsDigit).ToArray()));
-        if (session is null)
-        {
-            ErrorMessage = "El código no es válido o ya fue utilizado.";
-            return;
-        }
+    private Task RedeemPassAsync() => PaywallNavigation.OpenAsync(TravelCompanion.Shared.Dtos.PaywallEntryPoint.Today);
 
-        await _sessionService.SaveAsync(session);
-        if (Shell.Current is AppShell shell) shell.ApplySessionTabs(_sessionService);
-        RefreshTrialCountdown();
-        await RefreshScheduleCommand.ExecuteAsync(null);
-    }
+    [RelayCommand]
+    private Task OpenRoutesAsync() => Shell.Current.GoToAsync(nameof(ThematicRoutesPage));
     public bool HasSelectedDayItems => TodaySections.Any(section => section.HasContent);
     public bool HasFocusItem => _focusItem is not null;
     public bool ShowInitialLoading => IsBusy && DayFilters.Count == 0;
@@ -314,6 +280,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         BuilderTripStore builderTripStore,
         OfflineSyncCoordinator syncCoordinator,
         MobileSyncStateStore syncStateStore,
+        ProductAnalyticsTracker analytics,
         ILogger<ScheduleViewModel> logger)
     {
         _sessionService = sessionService;
@@ -325,6 +292,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         _builderTripStore = builderTripStore;
         _syncCoordinator = syncCoordinator;
         _syncStateStore = syncStateStore;
+        _analytics = analytics;
         _logger = logger;
         _bootstrapStore.ScheduleUpdated += OnScheduleCacheUpdated;
     }
@@ -356,6 +324,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         _hotelsByDate.Clear();
         _todayByDate.Clear();
         _dayReviewsByDate.Clear();
+        _trackedDayReviews.Clear();
         ResetLoadState();
         _allItems.Clear();
         _recommendations.Clear();
@@ -1215,6 +1184,8 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         SelectedDayReview = _dayReviewsByDate.TryGetValue(selectedDate, out var review)
             ? new DayReviewViewModel(review)
             : null;
+        if (SelectedDayReview is not null && _trackedDayReviews.Add(selectedDate))
+            _ = _analytics.TrackAsync("day_review_viewed", "today", tripId: _tripId);
         _selectedCity = GetCityForDate(selectedDate, _destinationName);
         _selectedHotelBase = _hotelsByDate.GetValueOrDefault(selectedDate);
         _selectedHotelBase ??= _today?.Date == selectedDate ? _today.HotelBase : null;

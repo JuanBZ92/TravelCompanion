@@ -93,6 +93,11 @@
                         </Grid>
                     </Border>
 
+                    <Button Text="Rutas y reorganización"
+                            Command="{Binding OpenRoutesCommand}"
+                            Style="{StaticResource GhostButton}"
+                            SemanticProperties.Description="Abrir rutas temáticas y propuestas del día" />
+
                     <Border Padding="16,14"
                             BackgroundColor="#F6F1EA"
                             Stroke="#D8CFC4"

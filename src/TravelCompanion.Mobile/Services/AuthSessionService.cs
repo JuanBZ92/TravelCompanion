@@ -5,9 +5,11 @@ namespace TravelCompanion.Mobile.Services;
 
 public sealed class AuthSessionService
 {
+    public event EventHandler? StateChanged;
     private long _contextVersion;
     private const string UserIdKey = "auth_user_id";
     private const string EmailKey = "auth_email";
+    private const string EmailVerifiedKey = "auth_email_verified";
     private const string DisplayNameKey = "auth_display_name";
     private const string TripIdKey = "auth_trip_id";
     private const string DestinationNameKey = "auth_destination_name";
@@ -117,6 +119,8 @@ public sealed class AuthSessionService
         }
     }
 
+    public bool EmailVerified => Preferences.Default.Get(EmailVerifiedKey, false);
+
     public Guid? CurrentTripId
     {
         get
@@ -139,6 +143,7 @@ public sealed class AuthSessionService
     {
         Preferences.Default.Set(UserIdKey, session.UserId.ToString());
         Preferences.Default.Set(EmailKey, session.Email);
+        Preferences.Default.Set(EmailVerifiedKey, session.EmailVerified);
         Preferences.Default.Set(DisplayNameKey, session.DisplayName);
         if (session.TripId.HasValue)
         {
@@ -172,6 +177,7 @@ public sealed class AuthSessionService
         ApplyTrialAccess(session.TrialAccess);
         await SecureStorage.Default.SetAsync(TokenKey, session.Token).ConfigureAwait(false);
         Interlocked.Increment(ref _contextVersion);
+        StateChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public async Task<string?> GetTokenAsync()
@@ -203,9 +209,12 @@ public sealed class AuthSessionService
 
     public void ApplySyncState(MobileSyncStateDto state)
     {
+        if (state.AccessMode.HasValue)
+            Preferences.Default.Set(AccessModeKey, state.AccessMode.Value.ToString());
         ApplyCapabilities(state.Capabilities);
         Preferences.Default.Set(AccessExpiresAtUtcKey, state.AccessExpiresAtUtc.ToString("O"));
         ApplyTrialAccess(state.TrialAccess);
+        StateChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public void ApplyTrialAccess(TrialAccessStatusDto? trial)
@@ -249,6 +258,7 @@ public sealed class AuthSessionService
     {
         Preferences.Default.Remove(UserIdKey);
         Preferences.Default.Remove(EmailKey);
+        Preferences.Default.Remove(EmailVerifiedKey);
         Preferences.Default.Remove(DisplayNameKey);
         Preferences.Default.Remove(TripIdKey);
         Preferences.Default.Remove(DestinationNameKey);
@@ -265,6 +275,7 @@ public sealed class AuthSessionService
         ClearTrialAccess();
         SecureStorage.Default.Remove(TokenKey);
         Interlocked.Increment(ref _contextVersion);
+        StateChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private static DateTimeOffset? ReadTimestamp(string key) =>

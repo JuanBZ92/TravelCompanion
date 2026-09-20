@@ -115,6 +115,10 @@ public sealed class AuthController(
 
             foreach (var grant in grants)
             {
+                if (string.IsNullOrWhiteSpace(grant.PinHash))
+                {
+                    continue;
+                }
                 var verification = builderPinHasher.VerifyHashedPassword(grant, grant.PinHash, pin);
                 if (verification == PasswordVerificationResult.Failed || grant.AppUser is null)
                 {
@@ -265,6 +269,7 @@ public sealed class AuthController(
             accessMode,
             experienceMode,
             capabilities ?? TravelerAccessService.CreateCapabilities(experienceMode, false),
-            trialAccess);
+            trialAccess,
+            user.EmailVerified);
     }
 }

@@ -62,6 +62,43 @@ public sealed class ScheduleReviewAnalyzerTests
         Assert.Contains(review.Issues, issue => issue.Kind == DayReviewIssueKinds.PackedDay);
     }
 
+    [Fact]
+    public void Uses_the_real_intersection_when_one_item_finishes_inside_another()
+    {
+        var first = Item("Long visit", new TimeOnly(10, 0), new TimeOnly(14, 0));
+        var second = Item("Short visit", new TimeOnly(11, 0), new TimeOnly(11, 30));
+
+        var issue = Assert.Single(ScheduleReviewAnalyzer.AnalyzeDay(Date, [first, second]).Issues);
+
+        Assert.Equal(-30, issue.AvailableMinutes);
+    }
+
+    [Fact]
+    public void Carries_an_overnight_interval_into_the_next_day()
+    {
+        var overnight = Item("Night bus", new TimeOnly(23, 0), new TimeOnly(1, 0)) with { EndsOn = Date.AddDays(1) };
+        var early = (Item("Arrival breakfast", new TimeOnly(0, 30), new TimeOnly(2, 0))) with { Date = Date.AddDays(1) };
+
+        var reviews = ScheduleReviewAnalyzer.Analyze([overnight, early], Date, Date.AddDays(1));
+
+        Assert.Contains(reviews.Single(item => item.Date == Date.AddDays(1)).Issues,
+            issue => issue.Kind == DayReviewIssueKinds.Overlap && issue.AvailableMinutes == -30);
+    }
+
+    [Fact]
+    public void Reports_incomplete_time_information()
+    {
+        var incomplete = Item("Flexible visit", new TimeOnly(10, 0), new TimeOnly(11, 0)) with
+        {
+            TimePrecision = ItineraryTimePrecision.PeriodOnly,
+            EndsAt = null
+        };
+
+        var review = ScheduleReviewAnalyzer.AnalyzeDay(Date, [incomplete]);
+
+        Assert.Contains(review.Issues, issue => issue.Kind == DayReviewIssueKinds.IncompleteInformation);
+    }
+
     private static ScheduleItemDto Item(
         string title,
         TimeOnly startsAt,

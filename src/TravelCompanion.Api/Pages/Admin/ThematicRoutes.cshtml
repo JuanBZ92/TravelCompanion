@@ -1,0 +1,33 @@
+@page
+@model TravelCompanion.Api.Pages.Admin.ThematicRoutesModel
+@{ ViewData["Title"] = "Rutas temáticas"; }
+<h1>Rutas temáticas</h1>
+<p class="lede">Publica plantillas editoriales. Las copias personales no cambian cuando editas una plantilla.</p>
+<section class="panel">
+<form method="get"><label>Destino <select name="destinationId" onchange="this.form.submit()">
+@foreach (var destination in Model.Destinations) { <option value="@destination.Id" selected="@(destination.Id == Model.Input.DestinationId)">@destination.Name</option> }
+</select></label></form>
+</section>
+<section class="panel" style="margin-top:18px">
+<h2>@(Model.Input.Id.HasValue ? "Editar plantilla" : "Nueva plantilla")</h2>
+<form method="post" asp-page-handler="Save">
+<div asp-validation-summary="All"></div>
+<input type="hidden" asp-for="Input.Id" />
+<input type="hidden" asp-for="Input.DestinationId" />
+<label>Nombre <input asp-for="Input.Name" /></label>
+<label>Ciudad <input asp-for="Input.City" /></label>
+<label>Tema <select asp-for="Input.Theme" asp-items="Html.GetEnumSelectList<TravelCompanion.Shared.Dtos.RouteTheme>()"></select></label>
+<label>Estado <select asp-for="Input.Status" asp-items="Html.GetEnumSelectList<TravelCompanion.Shared.Dtos.RoutePublicationStatus>()"></select></label>
+<label>Acceso <select asp-for="Input.AccessLevel" asp-items="Html.GetEnumSelectList<TravelCompanion.Shared.Dtos.RouteAccessLevel>()"></select></label>
+<table><thead><tr><th>Usar</th><th>Recomendación</th><th>Orden</th><th>Duración</th></tr></thead><tbody>
+@for (var i = 0; i < Model.Input.Stops.Count; i++) {
+<tr><td><input asp-for="Input.Stops[i].Selected" /></td><td>@Model.Input.Stops[i].Title<input type="hidden" asp-for="Input.Stops[i].RecommendationId" /><input type="hidden" asp-for="Input.Stops[i].Title" /></td><td><input asp-for="Input.Stops[i].SortOrder" style="width:5rem" /></td><td><input asp-for="Input.Stops[i].DurationMinutes" style="width:6rem" /> min</td></tr>
+}
+</tbody></table><button class="button" type="submit">Guardar plantilla</button>
+</form></section>
+<section class="panel" style="margin-top:18px"><h2>Plantillas</h2>
+@foreach (var route in Model.Routes) { <article><strong>@route.Name</strong> · @route.Theme · @route.AccessLevel · @route.Status · @route.Stops.Count paradas
+<a class="button secondary" asp-page="/Admin/ThematicRoutes" asp-route-destinationId="@route.DestinationId" asp-route-routeId="@route.Id">Editar</a>
+@if (route.Status != TravelCompanion.Shared.Dtos.RoutePublicationStatus.Archived) { <form method="post" asp-page-handler="Archive" style="display:inline"><input type="hidden" name="id" value="@route.Id" /><button class="button secondary" type="submit">Archivar</button></form> }
+</article> }
+</section>

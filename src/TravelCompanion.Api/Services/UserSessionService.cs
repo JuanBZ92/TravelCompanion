@@ -106,15 +106,32 @@ public sealed class UserSessionService(TravelCompanionDbContext dbContext)
                     cancellationToken);
             if (!grantIsActive)
             {
+                var purchasedTripExists = await dbContext.BuilderAccessGrants.AsNoTracking().AnyAsync(grant =>
+                    grant.AppUserId == session.UserId && grant.TripId == session.TripId && !grant.IsTrial,
+                    cancellationToken);
                 var activeSession = await dbContext.AppUserSessions
                     .FirstOrDefaultAsync(existingSession => existingSession.Id == session.Id, cancellationToken);
-                if (activeSession is not null)
+                if (activeSession is not null && purchasedTripExists)
+                {
+                    activeSession.AccessMode = SessionAccessMode.BuilderReadOnly;
+                    session.AccessMode = SessionAccessMode.BuilderReadOnly;
+                    await dbContext.SaveChangesAsync(cancellationToken);
+                }
+                else if (activeSession is not null)
                 {
                     activeSession.RevokedAt = now;
                     await dbContext.SaveChangesAsync(cancellationToken);
+                    return null;
                 }
-                return null;
+                else if (!purchasedTripExists) return null;
             }
+        }
+        else if (session.AccessMode == SessionAccessMode.BuilderReadOnly)
+        {
+            var purchasedTripExists = await dbContext.BuilderAccessGrants.AsNoTracking().AnyAsync(grant =>
+                grant.AppUserId == session.UserId && grant.TripId == session.TripId && !grant.IsTrial,
+                cancellationToken);
+            if (!purchasedTripExists) return null;
         }
 
         if (!session.LastSeenAt.HasValue || now - session.LastSeenAt.Value >= LastSeenUpdateInterval)
@@ -177,6 +194,9 @@ public sealed class UserSessionService(TravelCompanionDbContext dbContext)
         await dbContext.SaveChangesAsync(cancellationToken);
         httpContext.Items.Remove(SessionContextItemKey);
     }
+
+    public void InvalidateRequestCache(HttpContext httpContext) =>
+        httpContext.Items.Remove(SessionContextItemKey);
 
     public async Task RevokeUserSessionsAsync(Guid userId, CancellationToken cancellationToken = default)
     {

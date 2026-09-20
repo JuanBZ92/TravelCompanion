@@ -116,7 +116,8 @@ public sealed class ItineraryBuilderServiceTests
             "morning", true, new TimeOnly(20, 0), null, "Tokyo", recommendation.Title, "", null,
             null, null, result.Revision, "test-edit", true);
         var updated = await itineraryService.UpdateAsync(httpContext, result.Item!.Id, timed);
-        Assert.Equal(ScheduleItemKind.ConfirmedReservation, updated.Item!.PlanningKind);
+        Assert.Equal(ScheduleItemKind.Recommendation, updated.Item!.PlanningKind);
+        Assert.Equal(ItineraryFlexibility.Flexible, updated.Item.Flexibility);
         Assert.Equal(new TimeOnly(20, 0), updated.Item.StartsAt);
         var persisted = await dbContext.Reservations.SingleAsync();
         Assert.Equal("night", trip.DayPlans.SelectMany(d => d.Blocks).Single(b => b.Id == persisted.TripDayBlockId).PeriodKey);
@@ -295,12 +296,12 @@ public sealed class ItineraryBuilderServiceTests
 
         Assert.False(deleted.IsConfigured);
         Assert.Null(deleted.TripId);
-        Assert.Empty(await dbContext.Trips.ToListAsync());
-        Assert.Empty(await dbContext.Reservations.ToListAsync());
-        Assert.Empty(await dbContext.NotificationOutboxItems.ToListAsync());
+        var archivedTrip = await dbContext.Trips.SingleAsync();
+        Assert.True(archivedTrip.IsArchived);
+        Assert.NotEmpty(await dbContext.Reservations.ToListAsync());
         Assert.All(await dbContext.AppUserSessions.Where(item => item.UserId == user.Id).ToListAsync(), item => Assert.Null(item.TripId));
         var preservedGrant = await dbContext.BuilderAccessGrants.SingleAsync();
-        Assert.Null(preservedGrant.TripId);
+        Assert.Equal(tripId, preservedGrant.TripId);
         Assert.Equal(BuilderAccessStatus.Active, preservedGrant.Status);
     }
 

@@ -151,4 +151,156 @@
   <data name="AssistantGuidedAdjust" xml:space="preserve"><value>Ajustar</value></data>
   <data name="AssistantGuidedEstimated" xml:space="preserve"><value>estimado</value></data>
   <data name="AssistantGuidedOfflineQuestion" xml:space="preserve"><value>Tus elecciones están guardadas. Volvé a intentar la recomendación cuando tengas conexión.</value></data>
+  <data name="PaywallPageTitle" xml:space="preserve"><value>Pase Japón</value></data>
+  <data name="PaywallEyebrow" xml:space="preserve"><value>TU VIAJE, COMPLETO</value></data>
+  <data name="PaywallHeadline" xml:space="preserve"><value>Activa el Pase Japón</value></data>
+  <data name="PaywallBuy" xml:space="preserve"><value>Comprar en la tienda</value></data>
+  <data name="PaywallRestore" xml:space="preserve"><value>Restaurar compra</value></data>
+  <data name="PaywallSupportCode" xml:space="preserve"><value>Usar código de soporte</value></data>
+  <data name="RoutesPageTitle" xml:space="preserve"><value>Rutas</value></data>
+  <data name="RoutesEyebrow" xml:space="preserve"><value>RUTAS TEMÁTICAS</value></data>
+  <data name="RoutesHeadline" xml:space="preserve"><value>Explora Japón a tu ritmo</value></data>
+  <data name="RoutesLastProposal" xml:space="preserve"><value>Última propuesta</value></data>
+  <data name="RoutesReorganize" xml:space="preserve"><value>Reorganizar</value></data>
+  <data name="RoutesNew" xml:space="preserve"><value>Nueva ruta</value></data>
+  <data name="RoutesEmpty" xml:space="preserve"><value>Todavía no hay rutas guardadas.</value></data>
+  <data name="RoutesAddToDay" xml:space="preserve"><value>Añadir al día</value></data>
+  <data name="CommonEdit" xml:space="preserve"><value>Editar</value></data>
+  <data name="CommonRemove" xml:space="preserve"><value>Quitar</value></data>
+  <data name="ProposalPageTitle" xml:space="preserve"><value>Propuesta</value></data>
+  <data name="ProposalCompare" xml:space="preserve"><value>COMPARAR ANTES DE CAMBIAR</value></data>
+  <data name="ProposalCurrent" xml:space="preserve"><value>Actual → Propuesta</value></data>
+  <data name="ProposalKeep" xml:space="preserve"><value>Conservar actual</value></data>
+  <data name="ProposalReplace" xml:space="preserve"><value>Cambiar parada</value></data>
+  <data name="ProposalMoveEarlier" xml:space="preserve"><value>Subir</value></data>
+  <data name="ProposalApplyAll" xml:space="preserve"><value>Aplicar todo</value></data>
+  <data name="ProposalUndo" xml:space="preserve"><value>Deshacer</value></data>
+  <data name="TabAccount" xml:space="preserve"><value>Cuenta</value></data>
+  <data name="LoginRecoverEmail" xml:space="preserve"><value>Recuperar con email</value></data>
+  <data name="CommonCancel" xml:space="preserve"><value>Cancelar</value></data>
+  <data name="AccountPageTitle" xml:space="preserve"><value>Mis viajes</value></data>
+  <data name="AccountEyebrow" xml:space="preserve"><value>TU CUENTA</value></data>
+  <data name="AccountHeadline" xml:space="preserve"><value>Tus viajes, en todos tus dispositivos</value></data>
+  <data name="AccountVerified" xml:space="preserve"><value>Email verificado</value></data>
+  <data name="AccountVerifyEmail" xml:space="preserve"><value>Verificar o cambiar email</value></data>
+  <data name="AccountTripsTitle" xml:space="preserve"><value>Mis viajes</value></data>
+  <data name="AccountNoTrips" xml:space="preserve"><value>Todavía no hay viajes vinculados a esta cuenta.</value></data>
+  <data name="AccountCurrentTrip" xml:space="preserve"><value>Viaje actual</value></data>
+  <data name="AccountOpenTrip" xml:space="preserve"><value>Abrir viaje</value></data>
+  <data name="AccountRecoverTitle" xml:space="preserve"><value>Recupera tus viajes</value></data>
+  <data name="AccountRecoverPrompt" xml:space="preserve"><value>Introduce tu email verificado.</value></data>
+  <data name="AccountSendCode" xml:space="preserve"><value>Enviar código</value></data>
+  <data name="AccountVerifyTitle" xml:space="preserve"><value>Verifica tu email</value></data>
+  <data name="AccountVerifyPrompt" xml:space="preserve"><value>Introduce el código de seis dígitos.</value></data>
+  <data name="AccountVerify" xml:space="preserve"><value>Verificar</value></data>
+  <data name="AccountCodeSendError" xml:space="preserve"><value>No pudimos enviar el código.</value></data>
+  <data name="AccountCodeInvalid" xml:space="preserve"><value>El código no es válido o ha caducado.</value></data>
+  <data name="AccountLoadError" xml:space="preserve"><value>No pudimos cargar tu cuenta.</value></data>
+  <data name="AccountSelectTripError" xml:space="preserve"><value>No pudimos abrir este viaje.</value></data>
+  <data name="AccountDelete" xml:space="preserve"><value>Eliminar cuenta</value></data>
+  <data name="AccountDeleteTitle" xml:space="preserve"><value>¿Eliminar la cuenta?</value></data>
+  <data name="AccountDeleteWarning" xml:space="preserve"><value>Se eliminarán tu cuenta y la analítica personal. Esta acción no se puede deshacer.</value></data>
+  <data name="AccountDeleteConfirm" xml:space="preserve"><value>Eliminar</value></data>
+  <data name="AccountDeleteError" xml:space="preserve"><value>No pudimos eliminar tu cuenta.</value></data>
+  <data name="AccountExpiresFormat" xml:space="preserve"><value>Acceso hasta {0:dd/MM/yyyy}</value></data>
+  <data name="AccountAccessNoAccess" xml:space="preserve"><value>Sin acceso activo</value></data>
+  <data name="AccountAccessNotStarted" xml:space="preserve"><value>Prueba sin iniciar</value></data>
+  <data name="AccountAccessEditing" xml:space="preserve"><value>Prueba gratuita</value></data>
+  <data name="AccountAccessReadOnly" xml:space="preserve"><value>Solo lectura</value></data>
+  <data name="AccountAccessPurchasePending" xml:space="preserve"><value>Compra pendiente</value></data>
+  <data name="AccountAccessExpired" xml:space="preserve"><value>Pase vencido</value></data>
+  <data name="AccountAccessRevoked" xml:space="preserve"><value>Pase revocado</value></data>
+  <data name="AccountAccessPaid" xml:space="preserve"><value>Pase Japón activo</value></data>
+  <data name="AccountAnalyticsTitle" xml:space="preserve"><value>Ayuda a mejorar YUKU</value></data>
+  <data name="AccountAnalyticsDescription" xml:space="preserve"><value>Comparte uso anónimo del producto. Nunca incluimos textos del chat, notas, códigos de reserva ni ubicaciones precisas.</value></data>
+  <data name="CommonContinue" xml:space="preserve"><value>Continuar</value></data>
+  <data name="CommonSave" xml:space="preserve"><value>Guardar</value></data>
+  <data name="CommerceConfigureTrip" xml:space="preserve"><value>Configura primero tu viaje.</value></data>
+  <data name="CommerceSessionExpired" xml:space="preserve"><value>Tu sesión venció.</value></data>
+  <data name="PaywallPreviewFormat" xml:space="preserve"><value>{0} planes en {1} días · {2} rutas guardadas</value></data>
+  <data name="PaywallRetentionFormat" xml:space="preserve"><value>Tu borrador se conserva hasta {0:dd/MM/yyyy HH:mm}.</value></data>
+  <data name="PaywallAccessDetailsFormat" xml:space="preserve"><value>Acceso hasta el {0:g}. {1} consultas diarias al Assistant; la cuota se reinicia a las {2:t}, hora local.</value></data>
+  <data name="PaywallLoadError" xml:space="preserve"><value>No pudimos cargar la oferta.</value></data>
+  <data name="PaywallReady" xml:space="preserve"><value>Listo para comprar</value></data>
+  <data name="PaywallUnavailable" xml:space="preserve"><value>La compra no está disponible en este dispositivo.</value></data>
+  <data name="PaywallRecoverTitle" xml:space="preserve"><value>Recupera tu viaje</value></data>
+  <data name="PaywallRecoverPrompt" xml:space="preserve"><value>Escribe tu email antes de pagar.</value></data>
+  <data name="PaywallSendingCode" xml:space="preserve"><value>Enviando código</value></data>
+  <data name="PaywallPreparing" xml:space="preserve"><value>Preparando</value></data>
+  <data name="PaywallPrepareError" xml:space="preserve"><value>No pudimos preparar la compra.</value></data>
+  <data name="PaywallAwaitingConfirmation" xml:space="preserve"><value>Esperando confirmación</value></data>
+  <data name="PaywallCancelled" xml:space="preserve"><value>Cancelado</value></data>
+  <data name="PaywallPending" xml:space="preserve"><value>Pago pendiente</value></data>
+  <data name="PaywallEvidenceError" xml:space="preserve"><value>La tienda no devolvió una compra verificable.</value></data>
+  <data name="PaywallVerifying" xml:space="preserve"><value>Verificando</value></data>
+  <data name="PaywallRestoring" xml:space="preserve"><value>Restaurando</value></data>
+  <data name="PaywallRestored" xml:space="preserve"><value>Compra restaurada</value></data>
+  <data name="PaywallNoActivePass" xml:space="preserve"><value>No encontramos un pase activo para este viaje.</value></data>
+  <data name="PaywallRecoveringPurchase" xml:space="preserve"><value>Recuperando compra</value></data>
+  <data name="PaywallLookingForPending" xml:space="preserve"><value>Buscando una compra pendiente</value></data>
+  <data name="PaywallVerifyError" xml:space="preserve"><value>No pudimos verificar la compra.</value></data>
+  <data name="PaywallNotActive" xml:space="preserve"><value>La compra todavía no está activa.</value></data>
+  <data name="PaywallActive" xml:space="preserve"><value>Activo</value></data>
+  <data name="PaywallAdminCodeTitle" xml:space="preserve"><value>Código administrativo</value></data>
+  <data name="PaywallAdminCodePrompt" xml:space="preserve"><value>Introduce el PIN de soporte.</value></data>
+  <data name="PaywallActivate" xml:space="preserve"><value>Activar</value></data>
+  <data name="PaywallAdminCodeInvalid" xml:space="preserve"><value>El código no es válido o ya fue utilizado.</value></data>
+  <data name="ProposalTitle" xml:space="preserve"><value>Propuesta</value></data>
+  <data name="ProposalTitleFormat" xml:space="preserve"><value>Propuesta · {0:dd/MM}</value></data>
+  <data name="ProposalTripChanged" xml:space="preserve"><value>El viaje cambió. Actualiza la propuesta.</value></data>
+  <data name="ProposalApplied" xml:space="preserve"><value>Propuesta aplicada en una sola operación.</value></data>
+  <data name="ProposalChanged" xml:space="preserve"><value>La propuesta cambió. Vuelve a cargarla.</value></data>
+  <data name="ProposalUndoUnavailable" xml:space="preserve"><value>Ya no se puede deshacer.</value></data>
+  <data name="ProposalRestored" xml:space="preserve"><value>Itinerario restaurado.</value></data>
+  <data name="RoutesCreateTitle" xml:space="preserve"><value>Nueva ruta</value></data>
+  <data name="RoutesNamePrompt" xml:space="preserve"><value>Nombre de la ruta</value></data>
+  <data name="RoutesCityTitle" xml:space="preserve"><value>Ciudad</value></data>
+  <data name="RoutesCityPrompt" xml:space="preserve"><value>¿En qué ciudad?</value></data>
+  <data name="RoutesThemeTitle" xml:space="preserve"><value>Tema</value></data>
+  <data name="RoutesThemeFood" xml:space="preserve"><value>Gastronomía</value></data>
+  <data name="RoutesThemeHistory" xml:space="preserve"><value>Historia y templos</value></data>
+  <data name="RoutesThemeArt" xml:space="preserve"><value>Arte y diseño</value></data>
+  <data name="RoutesThemeNature" xml:space="preserve"><value>Naturaleza y jardines</value></data>
+  <data name="RoutesThemeShopping" xml:space="preserve"><value>Barrios y compras</value></data>
+  <data name="RoutesNotEnoughStops" xml:space="preserve"><value>No encontramos suficientes paradas para esa ruta.</value></data>
+  <data name="RoutesEditTitle" xml:space="preserve"><value>Editar ruta</value></data>
+  <data name="RoutesOrderTitle" xml:space="preserve"><value>Orden de las paradas</value></data>
+  <data name="RoutesKeepOrder" xml:space="preserve"><value>Mantener orden</value></data>
+  <data name="RoutesReverseOrder" xml:space="preserve"><value>Invertir orden</value></data>
+  <data name="RoutesChanged" xml:space="preserve"><value>La ruta cambió en otro dispositivo. Vuelve a cargarla.</value></data>
+  <data name="RoutesRemoveTitle" xml:space="preserve"><value>Quitar ruta</value></data>
+  <data name="RoutesRemoveWarning" xml:space="preserve"><value>La ruta desaparecerá de tu biblioteca. Las actividades ya añadidas al viaje se conservarán.</value></data>
+  <data name="RoutesRemoveKeepActivities" xml:space="preserve"><value>Quitar ruta y conservar actividades</value></data>
+  <data name="RoutesRemoveWithActivities" xml:space="preserve"><value>Quitar ruta y actividades flexibles</value></data>
+  <data name="RoutesRemoveActivitiesWarning" xml:space="preserve"><value>Se quitarán las actividades flexibles añadidas por esta ruta. Las reservas confirmadas y actividades fijadas se conservarán.</value></data>
+  <data name="RoutesRemoveError" xml:space="preserve"><value>No pudimos quitar la ruta.</value></data>
+  <data name="RoutesTripLoadError" xml:space="preserve"><value>No pudimos cargar el viaje.</value></data>
+  <data name="RoutesPrepareError" xml:space="preserve"><value>No pudimos preparar la ruta.</value></data>
+  <data name="RoutesProposalError" xml:space="preserve"><value>No pudimos generar la propuesta.</value></data>
+  <data name="RoutesNoSavedProposal" xml:space="preserve"><value>Todavía no hay una propuesta guardada.</value></data>
+  <data name="RoutesMoveStop" xml:space="preserve"><value>Mover una parada</value></data>
+  <data name="RoutesDeleteStop" xml:space="preserve"><value>Eliminar una parada</value></data>
+  <data name="RoutesReplaceStop" xml:space="preserve"><value>Sustituir una parada</value></data>
+  <data name="RoutesSelectStop" xml:space="preserve"><value>Elige una parada</value></data>
+  <data name="RoutesMoveEarlier" xml:space="preserve"><value>Mover antes</value></data>
+  <data name="RoutesMoveLater" xml:space="preserve"><value>Mover después</value></data>
+  <data name="RoutesMinimumStops" xml:space="preserve"><value>Una ruta debe conservar al menos dos paradas.</value></data>
+  <data name="RoutesNoAlternatives" xml:space="preserve"><value>No hay otras recomendaciones disponibles en esta ciudad.</value></data>
+  <data name="RoutesSaveCopy" xml:space="preserve"><value>Guardar copia</value></data>
+  <data name="RoutesCopyError" xml:space="preserve"><value>No pudimos guardar una copia personal de esta ruta.</value></data>
+  <data name="ItemExactTimeHint" xml:space="preserve"><value>Una hora exacta no marca esta actividad como reserva confirmada.</value></data>
+  <data name="ItemDurationLabel" xml:space="preserve"><value>DURACIÓN EN MINUTOS</value></data>
+  <data name="ItemFlexibilityLabel" xml:space="preserve"><value>ESTADO DE PLANIFICACIÓN</value></data>
+  <data name="ItemFlexibilityFlexible" xml:space="preserve"><value>Actividad flexible</value></data>
+  <data name="ItemFlexibilityFixed" xml:space="preserve"><value>Horario fijado por mí</value></data>
+  <data name="ItemFlexibilityConfirmed" xml:space="preserve"><value>Reserva confirmada</value></data>
+  <data name="ItemFlexibilityHint" xml:space="preserve"><value>El planificador solo puede mover o quitar actividades flexibles.</value></data>
+  <data name="ProposalProposed" xml:space="preserve"><value>Propuesta</value></data>
+  <data name="StoreGoogleNotConfigured" xml:space="preserve"><value>Google Play Billing requiere la configuración de la cuenta de tienda.</value></data>
+  <data name="StoreAppleNotConfigured" xml:space="preserve"><value>StoreKit 2 requiere el producto y el puente nativo firmados.</value></data>
+  <data name="AccountArchive" xml:space="preserve"><value>Archivar</value></data>
+  <data name="AccountArchiveTitle" xml:space="preserve"><value>Archivar viaje</value></data>
+  <data name="AccountArchiveWarning" xml:space="preserve"><value>El viaje dejará la lista activa. Podrás abrirlo de nuevo desde Mis viajes.</value></data>
+  <data name="AccountArchiveError" xml:space="preserve"><value>No pudimos archivar el viaje.</value></data>
+  <data name="ProposalProtected" xml:space="preserve"><value>Protegido</value></data>
 </root>

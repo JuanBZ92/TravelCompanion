@@ -27,6 +27,16 @@ variables:
   azureServiceConnection: TODO-AZURE-SERVICE-CONNECTION
   NUGET_PACKAGES: $(Pipeline.Workspace)/.nuget/packages
 
+resources:
+  containers:
+  - container: postgres
+    image: postgres:16.4
+    env:
+      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_DB: travel_companion_ci
+    ports:
+    - 5432:5432
+
 stages:
 - stage: Build
   displayName: Build API
@@ -84,6 +94,115 @@ stages:
 
     - script: dotnet test tests/TravelCompanion.Mobile.Tests/TravelCompanion.Mobile.Tests.csproj --configuration $(buildConfiguration) --no-restore
       displayName: Test mobile assistant presentation
+
+- stage: RelationalAndMobile
+  displayName: Validate PostgreSQL and mobile builds
+  dependsOn: Build
+  condition: succeeded()
+  jobs:
+  - job: PostgreSqlTests
+    displayName: Run required PostgreSQL tests
+    pool:
+      vmImage: $(vmImageName)
+    timeoutInMinutes: 25
+    services:
+      postgres: postgres
+    steps:
+    - checkout: self
+      clean: true
+      fetchDepth: 1
+
+    - task: UseDotNet@2
+      displayName: Install .NET SDK
+      inputs:
+        packageType: sdk
+        version: $(dotnetSdkVersion)
+
+    - task: Cache@2
+      displayName: Cache NuGet packages
+      inputs:
+        key: 'nuget | "$(Agent.OS)" | **/*.csproj'
+        restoreKeys: |
+          nuget | "$(Agent.OS)"
+        path: $(Pipeline.Workspace)/.nuget/packages
+
+    - script: dotnet restore tests/TravelCompanion.Api.Tests/TravelCompanion.Api.Tests.csproj
+      displayName: Restore PostgreSQL tests
+
+    - bash: |
+        set -euo pipefail
+        for attempt in $(seq 1 30); do
+          if pg_isready -h localhost -p 5432 -U postgres; then
+            exit 0
+          fi
+          sleep 1
+        done
+        echo "PostgreSQL did not become ready." >&2
+        exit 1
+      displayName: Require PostgreSQL service
+
+    - script: dotnet test tests/TravelCompanion.Api.Tests/TravelCompanion.Api.Tests.csproj --configuration $(buildConfiguration) --no-restore --filter "FullyQualifiedName~Postgres" --logger "trx;LogFileName=postgres-tests.trx"
+      displayName: Test PostgreSQL migrations and concurrency
+      env:
+        TRAVELCOMPANION_TEST_POSTGRES: Host=localhost;Port=5432;Database=travel_companion_ci;Username=postgres;Pooling=false
+
+    - task: PublishTestResults@2
+      displayName: Publish PostgreSQL test results
+      condition: succeededOrFailed()
+      inputs:
+        testResultsFormat: VSTest
+        testResultsFiles: '**/postgres-tests.trx'
+        failTaskOnFailedTests: true
+
+  - job: AndroidBuild
+    displayName: Build Android application
+    pool:
+      vmImage: $(vmImageName)
+    timeoutInMinutes: 35
+    steps:
+    - checkout: self
+      clean: true
+      fetchDepth: 1
+
+    - task: UseDotNet@2
+      displayName: Install .NET SDK
+      inputs:
+        packageType: sdk
+        version: $(dotnetSdkVersion)
+
+    - script: dotnet workload install maui-android
+      displayName: Install Android workload
+
+    - script: dotnet restore src/TravelCompanion.Mobile/TravelCompanion.Mobile.csproj -p:TargetFramework=net10.0-android
+      displayName: Restore Android application
+
+    - script: dotnet build src/TravelCompanion.Mobile/TravelCompanion.Mobile.csproj --configuration $(buildConfiguration) --framework net10.0-android --no-restore
+      displayName: Build Android application
+
+  - job: IosBuild
+    displayName: Build iOS simulator application
+    pool:
+      vmImage: macOS-15
+    timeoutInMinutes: 35
+    steps:
+    - checkout: self
+      clean: true
+      fetchDepth: 1
+
+    - task: UseDotNet@2
+      displayName: Install .NET SDK
+      inputs:
+        packageType: sdk
+        version: $(dotnetSdkVersion)
+
+    - script: dotnet workload install maui-ios
+      displayName: Install iOS workload
+
+    - script: dotnet restore src/TravelCompanion.Mobile/TravelCompanion.Mobile.csproj -p:TargetFramework=net10.0-ios -p:RuntimeIdentifier=iossimulator-x64 -p:PlatformTarget=x64
+      displayName: Restore iOS simulator application
+
+    - script: dotnet build src/TravelCompanion.Mobile/TravelCompanion.Mobile.csproj --configuration $(buildConfiguration) --framework net10.0-ios --no-restore -p:RuntimeIdentifier=iossimulator-x64 -p:PlatformTarget=x64 -p:CodesignKey= -p:CodesignProvision= -p:CodesignRequireProvisioningProfile=false
+      displayName: Build iOS simulator application
 
 - stage: TerraformValidate
   displayName: Validate Terraform

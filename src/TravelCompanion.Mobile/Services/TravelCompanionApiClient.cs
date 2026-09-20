@@ -112,6 +112,203 @@ public sealed class TravelCompanionApiClient
         return await response.Content.ReadFromJsonAsync<AuthSessionDto>(JsonOptions, cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task<PaywallOfferDto?> GetPaywallOfferAsync(string token, Guid tripId, PaywallEntryPoint entryPoint, string platform, CancellationToken ct = default)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Get,
+            $"api/mobile/conversion/paywall/{tripId}?entryPoint={entryPoint}&platform={Uri.EscapeDataString(platform)}", token);
+        using var response = await _httpClient.SendAsync(request, ct).ConfigureAwait(false);
+        return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync<PaywallOfferDto>(JsonOptions, ct).ConfigureAwait(false) : null;
+    }
+
+    public async Task<EmailCodeRequestedDto?> RequestEmailCodeAsync(string? token, string email, string locale, CancellationToken ct = default)
+    {
+        using var request = CreateRequest(HttpMethod.Post, "api/mobile/account/email/code", token);
+        request.Content = JsonContent.Create(new RequestEmailCodeDto(email, locale), options: JsonOptions);
+        using var response = await _httpClient.SendAsync(request, ct).ConfigureAwait(false);
+        return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync<EmailCodeRequestedDto>(JsonOptions, ct).ConfigureAwait(false) : null;
+    }
+
+    public async Task<AuthSessionDto?> VerifyEmailCodeAsync(string? token, string email, string code, CancellationToken ct = default)
+    {
+        using var request = CreateRequest(HttpMethod.Post, "api/mobile/account/email/verify", token);
+        request.Content = JsonContent.Create(new VerifyEmailCodeDto(email, code), options: JsonOptions);
+        using var response = await _httpClient.SendAsync(request, ct).ConfigureAwait(false);
+        return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync<AuthSessionDto>(JsonOptions, ct).ConfigureAwait(false) : null;
+    }
+
+    public async Task<PurchaseIntentDto?> CreatePurchaseIntentAsync(string token, CreatePurchaseIntentDto payload, CancellationToken ct = default)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Post, "api/mobile/purchases/intents", token);
+        request.Content = JsonContent.Create(payload, options: JsonOptions);
+        using var response = await _httpClient.SendAsync(request, ct).ConfigureAwait(false);
+        return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync<PurchaseIntentDto>(JsonOptions, ct).ConfigureAwait(false) : null;
+    }
+
+    public async Task<PurchaseIntentDto?> CancelPurchaseIntentAsync(string token, Guid intentId, CancellationToken ct = default)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Post, $"api/mobile/purchases/intents/{intentId}/cancel", token);
+        using var response = await _httpClient.SendAsync(request, ct).ConfigureAwait(false);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<PurchaseIntentDto>(JsonOptions, ct).ConfigureAwait(false) : null;
+    }
+
+    public Task<bool> SendProductAnalyticsAsync(string token, ProductAnalyticsEventDto analyticsEvent, CancellationToken ct = default) =>
+        SendProductAnalyticsBatchAsync(token, [analyticsEvent], ct);
+
+    public async Task<bool> SendProductAnalyticsBatchAsync(
+        string token,
+        IReadOnlyList<ProductAnalyticsEventDto> analyticsEvents,
+        CancellationToken ct = default)
+    {
+        if (analyticsEvents.Count == 0) return true;
+        using var request = CreateAuthorizedRequest(HttpMethod.Post, "api/mobile/conversion/events", token);
+        request.Content = JsonContent.Create(new ProductAnalyticsBatchDto(analyticsEvents), options: JsonOptions);
+        using var response = await _httpClient.SendAsync(request, ct).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+            _logger.LogDebug("Product analytics delivery deferred after HTTP {StatusCode}.", (int)response.StatusCode);
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<PassAccessDto?> VerifyPurchaseAsync(string token, VerifyPurchaseDto payload, CancellationToken ct = default)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Post, "api/mobile/purchases/verify", token);
+        request.Content = JsonContent.Create(payload, options: JsonOptions);
+        using var response = await _httpClient.SendAsync(request, ct).ConfigureAwait(false);
+        return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync<PassAccessDto>(JsonOptions, ct).ConfigureAwait(false) : null;
+    }
+
+    public async Task<IReadOnlyList<PassAccessDto>> RestorePassesAsync(string token, CancellationToken ct = default)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Post, "api/mobile/purchases/restore", token);
+        using var response = await _httpClient.SendAsync(request, ct).ConfigureAwait(false);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<List<PassAccessDto>>(JsonOptions, ct).ConfigureAwait(false) ?? [] : [];
+    }
+
+    public async Task<AuthSessionDto?> SelectAccountTripAsync(string token, Guid tripId, CancellationToken ct = default)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Post, "api/mobile/account/select-trip", token);
+        request.Content = JsonContent.Create(new SelectAccountTripDto(tripId), options: JsonOptions);
+        using var response = await _httpClient.SendAsync(request, ct).ConfigureAwait(false);
+        return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync<AuthSessionDto>(JsonOptions, ct).ConfigureAwait(false) : null;
+    }
+
+    public async Task<TravelerAccountDto?> GetAccountAsync(string token, CancellationToken ct = default)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Get, "api/mobile/account", token);
+        using var response = await _httpClient.SendAsync(request, ct).ConfigureAwait(false);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<TravelerAccountDto>(JsonOptions, ct).ConfigureAwait(false)
+            : null;
+    }
+
+    public async Task<AuthSessionDto?> ArchiveAccountTripAsync(string token, Guid tripId, CancellationToken ct = default)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Post, $"api/mobile/account/trips/{tripId}/archive", token);
+        using var response = await _httpClient.SendAsync(request, ct).ConfigureAwait(false);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<AuthSessionDto>(JsonOptions, ct).ConfigureAwait(false)
+            : null;
+    }
+
+    public async Task<bool> DeleteAccountAsync(string token, CancellationToken ct = default)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Delete, "api/mobile/account", token);
+        using var response = await _httpClient.SendAsync(request, ct).ConfigureAwait(false);
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<bool> UpdateAnalyticsConsentAsync(string token, bool granted, CancellationToken ct = default)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Put, "api/mobile/account/analytics-consent", token);
+        request.Content = JsonContent.Create(new UpdateAnalyticsConsentDto(granted), options: JsonOptions);
+        using var response = await _httpClient.SendAsync(request, ct).ConfigureAwait(false);
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<IReadOnlyList<ThematicRouteDto>> GetThematicRoutesAsync(string token, CancellationToken ct = default)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Get, "api/mobile/thematic-routes", token);
+        using var response = await _httpClient.SendAsync(request, ct).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<List<ThematicRouteDto>>(JsonOptions, ct).ConfigureAwait(false) ?? [];
+    }
+
+    public async Task<ThematicRouteDto?> CreateThematicRouteAsync(string token, CreateThematicRouteDto payload, CancellationToken ct = default)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Post, "api/mobile/thematic-routes", token);
+        request.Content = JsonContent.Create(payload, options: JsonOptions);
+        using var response = await _httpClient.SendAsync(request, ct).ConfigureAwait(false);
+        return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync<ThematicRouteDto>(JsonOptions, ct).ConfigureAwait(false) : null;
+    }
+
+    public async Task<ThematicRouteDto?> UpdateThematicRouteAsync(string token, Guid routeId, UpdateThematicRouteDto payload, CancellationToken ct = default)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Put, $"api/mobile/thematic-routes/{routeId}", token);
+        request.Content = JsonContent.Create(payload, options: JsonOptions);
+        using var response = await _httpClient.SendAsync(request, ct).ConfigureAwait(false);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<ThematicRouteDto>(JsonOptions, ct).ConfigureAwait(false) : null;
+    }
+
+    public async Task<bool> DeleteThematicRouteAsync(string token, Guid routeId, bool removeActivities = false,
+        int? expectedRevision = null, CancellationToken ct = default)
+    {
+        var query = $"?removeActivities={removeActivities.ToString().ToLowerInvariant()}"
+            + (expectedRevision.HasValue ? $"&expectedRevision={expectedRevision.Value}" : string.Empty);
+        using var request = CreateAuthorizedRequest(HttpMethod.Delete, $"api/mobile/thematic-routes/{routeId}{query}", token);
+        using var response = await _httpClient.SendAsync(request, ct).ConfigureAwait(false);
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<ThematicRouteDto?> CopyThematicRouteAsync(string token, Guid routeId, CancellationToken ct = default)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Post, $"api/mobile/thematic-routes/{routeId}/copy", token);
+        using var response = await _httpClient.SendAsync(request, ct).ConfigureAwait(false);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<ThematicRouteDto>(JsonOptions, ct).ConfigureAwait(false) : null;
+    }
+
+    public async Task<DayProposalDto?> PrepareRouteApplicationAsync(string token, Guid routeId, ApplyThematicRouteDto payload, CancellationToken ct = default)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Post, $"api/mobile/thematic-routes/{routeId}/prepare-application", token);
+        request.Content = JsonContent.Create(payload, options: JsonOptions);
+        using var response = await _httpClient.SendAsync(request, ct).ConfigureAwait(false);
+        return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync<DayProposalDto>(JsonOptions, ct).ConfigureAwait(false) : null;
+    }
+
+    public async Task<DayProposalDto?> CreateDayProposalAsync(string token, DayProposalRequestDto payload, CancellationToken ct = default)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Post, "api/mobile/proposals", token);
+        request.Content = JsonContent.Create(payload, options: JsonOptions);
+        using var response = await _httpClient.SendAsync(request, ct).ConfigureAwait(false);
+        return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync<DayProposalDto>(JsonOptions, ct).ConfigureAwait(false) : null;
+    }
+
+    public async Task<DayProposalDto?> ReviseDayProposalAsync(string token, Guid proposalId, ReviseDayProposalDto payload, CancellationToken ct = default)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Patch, $"api/mobile/proposals/{proposalId}", token);
+        request.Content = JsonContent.Create(payload, options: JsonOptions);
+        using var response = await _httpClient.SendAsync(request, ct).ConfigureAwait(false);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<DayProposalDto>(JsonOptions, ct).ConfigureAwait(false) : null;
+    }
+
+    public async Task<ItineraryChangeSetDto?> ApplyDayProposalAsync(string token, Guid proposalId, ApplyDayProposalDto payload, CancellationToken ct = default)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Post, $"api/mobile/proposals/{proposalId}/apply", token);
+        request.Content = JsonContent.Create(payload, options: JsonOptions);
+        using var response = await _httpClient.SendAsync(request, ct).ConfigureAwait(false);
+        return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync<ItineraryChangeSetDto>(JsonOptions, ct).ConfigureAwait(false) : null;
+    }
+
+    public async Task<ItineraryChangeSetDto?> UndoDayProposalAsync(string token, Guid operationId, CancellationToken ct = default)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Post, $"api/mobile/proposals/operations/{operationId}/undo", token);
+        using var response = await _httpClient.SendAsync(request, ct).ConfigureAwait(false);
+        return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync<ItineraryChangeSetDto>(JsonOptions, ct).ConfigureAwait(false) : null;
+    }
+
     public async Task<IReadOnlyList<FreeMapCityDto>?> GetFreeMapCitiesAsync(
         string token,
         CancellationToken cancellationToken = default)
@@ -783,10 +980,14 @@ public sealed class TravelCompanionApiClient
     }
 
     private static HttpRequestMessage CreateAuthorizedRequest(HttpMethod method, string url, string token)
+        => CreateRequest(method, url, token);
+
+    private static HttpRequestMessage CreateRequest(HttpMethod method, string url, string? token = null)
     {
         var request = new HttpRequestMessage(method, url);
         request.Headers.AcceptLanguage.ParseAdd(System.Globalization.CultureInfo.CurrentUICulture.Name);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        if (!string.IsNullOrWhiteSpace(token))
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         return request;
     }
 

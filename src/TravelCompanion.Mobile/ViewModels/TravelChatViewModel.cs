@@ -606,14 +606,6 @@ public sealed partial class TravelChatViewModel(
     [RelayCommand]
     private async Task SaveItineraryItemAsync(TravelChatCardViewModel? card)
     {
-        if (!sessionService.CanEditItinerary)
-        {
-            StatusMessage = sessionService.IsTrial
-                ? "Tu tiempo de edición terminó. Activa el pase para conservar y seguir editando el viaje."
-                : "Este viaje curado no se puede modificar desde la app.";
-            return;
-        }
-
         if (card is null || !card.CanSave || !card.RecommendationId.HasValue)
         {
             StatusMessage = Resource("AssistantNoReadyPlan");
@@ -637,6 +629,13 @@ public sealed partial class TravelChatViewModel(
             if (recommendation is null)
             {
                 StatusMessage = Resource("AssistantDetailNotFound");
+                return;
+            }
+
+            if (!sessionService.CanEditItinerary)
+            {
+                pendingItineraryActionStore.Set(recommendation, DateOnly.FromDateTime(PlanningDate), card.StartsAt);
+                await PaywallNavigation.OpenAsync(PaywallEntryPoint.Assistant);
                 return;
             }
 
@@ -1053,48 +1052,7 @@ public sealed partial class TravelChatViewModel(
         MissingContextSuggestions.Clear();
     }
 
-    private async Task RedeemPassAsync()
-    {
-        if (Uri.TryCreate(sessionService.TrialPurchaseUrl, UriKind.Absolute, out var purchaseUri))
-        {
-            var action = await Shell.Current.DisplayActionSheetAsync(
-                "Pase Japón",
-                "Cancelar",
-                null,
-                $"Comprar · {sessionService.TrialPassPrice:0.00} {sessionService.TrialCurrency}",
-                "Ya tengo código");
-            if (action?.StartsWith("Comprar", StringComparison.Ordinal) == true)
-            {
-                await Launcher.Default.OpenAsync(purchaseUri);
-                return;
-            }
-            if (action != "Ya tengo código") return;
-        }
-        var pin = await Shell.Current.DisplayPromptAsync(
-            "Activar pase Japón",
-            $"Introduce tu código para continuar con el asistente y guardar el viaje ({sessionService.TrialPassPrice:0.00} {sessionService.TrialCurrency}).",
-            "Activar",
-            "Cancelar",
-            keyboard: Keyboard.Numeric,
-            maxLength: 6);
-        if (string.IsNullOrWhiteSpace(pin)) return;
-        var token = await sessionService.GetTokenAsync();
-        var session = string.IsNullOrWhiteSpace(token)
-            ? null
-            : await apiClient.RedeemTravelPassAsync(token, new string(pin.Where(char.IsDigit).ToArray()));
-        if (session is null)
-        {
-            ErrorMessage = "El código no es válido o ya fue utilizado.";
-            return;
-        }
-
-        await sessionService.SaveAsync(session);
-        if (Shell.Current is AppShell shell) shell.ApplySessionTabs(sessionService);
-        ClearMissingContext();
-        SuggestedReplies.Clear();
-        StatusMessage = "Pase activado. Tu itinerario y el asistente ya están desbloqueados.";
-        OnPropertyChanged(nameof(CanEditItinerary));
-    }
+    private Task RedeemPassAsync() => PaywallNavigation.OpenAsync(TravelCompanion.Shared.Dtos.PaywallEntryPoint.Assistant);
 
     private bool CanSendMessage()
     {

@@ -21,10 +21,13 @@ public sealed class Trip
     public int PlanRevision { get; set; }
     public DateTimeOffset? PublishedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
+    public bool IsArchived { get; set; }
+    public DateTimeOffset? DraftPurgedAtUtc { get; set; }
     public List<Reservation> Reservations { get; set; } = [];
     public List<TripDayPlan> DayPlans { get; set; } = [];
     public List<TravelDocument> Documents { get; set; } = [];
     public TripPlanDraft? PlanDraft { get; set; }
+    public List<ThematicRoute> ThematicRoutes { get; set; } = [];
 }
 
 public enum TripPublicationStatus

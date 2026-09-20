@@ -20,7 +20,7 @@ public static class ScheduleReviewAnalyzer
         var reviews = new List<DayReviewDto>();
         for (var date = startsOn; date <= endsOn; date = date.AddDays(1))
         {
-            reviews.Add(AnalyzeDay(date, source.Where(item => item.Date == date).ToList()));
+            reviews.Add(AnalyzeDay(date, source.Where(item => CoversDate(item, date)).ToList()));
         }
 
         return reviews;
@@ -30,14 +30,15 @@ public static class ScheduleReviewAnalyzer
     {
         var timedItems = (items ?? [])
             .Where(item => item.Type != ReservationType.Lodging && item.HasExactTime)
-            .OrderBy(GetStart)
+            .OrderBy(item => GetStart(item, date))
             .ThenBy(item => item.SortOrder)
             .ToList();
         var issues = new List<DayReviewIssueDto>();
 
-        AddOverlapIssues(timedItems, issues);
-        AddTransferIssues(timedItems, issues);
-        AddPackedDayIssue(timedItems, issues);
+        AddIncompleteInformationIssues(items ?? [], timedItems, issues);
+        AddOverlapIssues(date, timedItems, issues);
+        AddTransferIssues(date, timedItems, issues);
+        AddPackedDayIssue(date, timedItems, issues);
 
         var orderedIssues = issues
             .OrderBy(issue => SeverityOrder(issue.Severity))
@@ -63,14 +64,29 @@ public static class ScheduleReviewAnalyzer
         return new(date, status, title, summaryText, orderedIssues);
     }
 
-    private static void AddOverlapIssues(
+    private static void AddIncompleteInformationIssues(IReadOnlyList<ScheduleItemDto> allItems,
+        IReadOnlyList<ScheduleItemDto> timedItems, ICollection<DayReviewIssueDto> issues)
+    {
+        var missingExactTime = allItems.Where(item => item.Type != ReservationType.Lodging && !item.HasExactTime).ToList();
+        var missingEnd = timedItems.Where(item => !item.EndsAt.HasValue).ToList();
+        if (missingExactTime.Count == 0 && missingEnd.Count == 0) return;
+        var ids = missingExactTime.Concat(missingEnd).Select(item => item.Id).Distinct().ToList();
+        var parts = new List<string>();
+        if (missingExactTime.Count > 0) parts.Add($"{missingExactTime.Count} sin horario exacto");
+        if (missingEnd.Count > 0) parts.Add($"{missingEnd.Count} sin hora de fin");
+        issues.Add(new(DayReviewIssueKinds.IncompleteInformation, DayReviewSeverities.Info,
+            "Información incompleta", $"Hay planes {string.Join(" y ", parts)}; no podemos comprobar todos los conflictos.", ids));
+    }
+
+    private static void AddOverlapIssues(DateOnly date,
         IReadOnlyList<ScheduleItemDto> items,
         ICollection<DayReviewIssueDto> issues)
     {
         for (var index = 0; index < items.Count; index++)
         {
             var current = items[index];
-            var currentEnd = GetExplicitEnd(current);
+            var currentStart = GetStart(current, date);
+            var currentEnd = GetExplicitEnd(current, date);
             if (!currentEnd.HasValue)
             {
                 continue;
@@ -79,13 +95,16 @@ public static class ScheduleReviewAnalyzer
             for (var candidateIndex = index + 1; candidateIndex < items.Count; candidateIndex++)
             {
                 var candidate = items[candidateIndex];
-                var candidateStart = GetStart(candidate);
+                var candidateStart = GetStart(candidate, date);
                 if (candidateStart >= currentEnd.Value)
                 {
                     break;
                 }
 
-                var overlapMinutes = Math.Max(1, (int)Math.Ceiling((currentEnd.Value - candidateStart).TotalMinutes));
+                var candidateEnd = GetExplicitEnd(candidate, date) ?? currentEnd.Value;
+                var overlapStart = currentStart > candidateStart ? currentStart : candidateStart;
+                var overlapEnd = currentEnd.Value < candidateEnd ? currentEnd.Value : candidateEnd;
+                var overlapMinutes = Math.Max(1, (int)Math.Ceiling((overlapEnd - overlapStart).TotalMinutes));
                 issues.Add(new(
                     DayReviewIssueKinds.Overlap,
                     DayReviewSeverities.Critical,
@@ -98,7 +117,7 @@ public static class ScheduleReviewAnalyzer
         }
     }
 
-    private static void AddTransferIssues(
+    private static void AddTransferIssues(DateOnly date,
         IReadOnlyList<ScheduleItemDto> items,
         ICollection<DayReviewIssueDto> issues)
     {
@@ -106,13 +125,13 @@ public static class ScheduleReviewAnalyzer
         {
             var origin = items[index];
             var destination = items[index + 1];
-            var originEnd = GetExplicitEnd(origin);
+            var originEnd = GetExplicitEnd(origin, date);
             if (!originEnd.HasValue)
             {
                 continue;
             }
 
-            var availableMinutes = (int)Math.Floor((GetStart(destination) - originEnd.Value).TotalMinutes);
+            var availableMinutes = (int)Math.Floor((GetStart(destination, date) - originEnd.Value).TotalMinutes);
             if (availableMinutes < 0)
             {
                 continue;
@@ -134,15 +153,15 @@ public static class ScheduleReviewAnalyzer
             issues.Add(new(
                 DayReviewIssueKinds.TightTransfer,
                 missingMinutes >= 30 ? DayReviewSeverities.Critical : DayReviewSeverities.Warning,
-                "Traslado con poco margen",
-                $"Entre {origin.Title} y {destination.Title} tienes {availableMinutes} min; conviene reservar unos {recommendedMinutes} min.",
+                "Traslado estimado con poco margen",
+                $"Entre {origin.Title} y {destination.Title} tienes {availableMinutes} min; el traslado estimado necesita unos {recommendedMinutes} min.",
                 [origin.Id, destination.Id],
                 availableMinutes,
                 recommendedMinutes));
         }
     }
 
-    private static void AddPackedDayIssue(
+    private static void AddPackedDayIssue(DateOnly date,
         IReadOnlyList<ScheduleItemDto> items,
         ICollection<DayReviewIssueDto> issues)
     {
@@ -152,10 +171,10 @@ public static class ScheduleReviewAnalyzer
         }
 
         var explicitMinutes = items
-            .Select(item => (Start: GetStart(item), End: GetExplicitEnd(item)))
+            .Select(item => (Start: GetStart(item, date), End: GetExplicitEnd(item, date)))
             .Where(window => window.End.HasValue && window.End.Value > window.Start)
             .Sum(window => (window.End!.Value - window.Start).TotalMinutes);
-        var spanMinutes = (GetStart(items[^1]) - GetStart(items[0])).TotalMinutes;
+        var spanMinutes = (GetStart(items[^1], date) - GetStart(items[0], date)).TotalMinutes;
         if (items.Count < 5 && explicitMinutes < 8 * 60 && (items.Count < 4 || spanMinutes < 12 * 60))
         {
             return;
@@ -210,17 +229,30 @@ public static class ScheduleReviewAnalyzer
         return earthRadiusKm * 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
     }
 
-    private static DateTime GetStart(ScheduleItemDto item) => item.Date.ToDateTime(item.StartsAt);
+    private static bool CoversDate(ScheduleItemDto item, DateOnly date)
+    {
+        var endDate = ResolveEndDate(item);
+        return item.Date <= date && endDate >= date;
+    }
 
-    private static DateTime? GetExplicitEnd(ScheduleItemDto item)
+    private static DateOnly ResolveEndDate(ScheduleItemDto item) => item.EndsOn
+        ?? (item.EndsAt.HasValue && item.EndsAt.Value <= item.StartsAt ? item.Date.AddDays(1) : item.Date);
+
+    private static DateTime GetStart(ScheduleItemDto item, DateOnly date) => item.Date < date
+        ? date.ToDateTime(TimeOnly.MinValue)
+        : item.Date.ToDateTime(item.StartsAt);
+
+    private static DateTime? GetExplicitEnd(ScheduleItemDto item, DateOnly date)
     {
         if (!item.EndsAt.HasValue)
         {
             return null;
         }
 
-        var end = (item.EndsOn ?? item.Date).ToDateTime(item.EndsAt.Value);
-        var start = GetStart(item);
+        var end = ResolveEndDate(item).ToDateTime(item.EndsAt.Value);
+        var start = GetStart(item, date);
+        var dayEnd = date.AddDays(1).ToDateTime(TimeOnly.MinValue);
+        if (end > dayEnd) end = dayEnd;
         return end > start ? end : null;
     }
 

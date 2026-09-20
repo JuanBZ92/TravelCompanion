@@ -9,7 +9,7 @@ public sealed class FreePreviewOptions
     public string Pin { get; set; } = ReservedPin;
     public int SessionLifetimeDays { get; set; } = 7;
     public int TrialEditingMinutes { get; set; } = 30;
-    public int DraftRetentionDays { get; set; } = 7;
+    public int DraftRetentionDays { get; set; } = 30;
     public int AssistantRequestLimit { get; set; } = 3;
     public decimal PassPrice { get; set; } = 24.99m;
     public string Currency { get; set; } = "EUR";

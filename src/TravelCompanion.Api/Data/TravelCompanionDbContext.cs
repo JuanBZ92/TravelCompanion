@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using TravelCompanion.Api.Models;
+using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Api.Data;
 
@@ -27,6 +28,23 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
     public DbSet<NotificationDeviceRegistration> NotificationDeviceRegistrations => Set<NotificationDeviceRegistration>();
     public DbSet<NotificationOutboxItem> NotificationOutboxItems => Set<NotificationOutboxItem>();
     public DbSet<MobileDataVersion> MobileDataVersions => Set<MobileDataVersion>();
+    public DbSet<EmailVerificationChallenge> EmailVerificationChallenges => Set<EmailVerificationChallenge>();
+    public DbSet<StorePurchaseIntent> StorePurchaseIntents => Set<StorePurchaseIntent>();
+    public DbSet<StorePurchaseTransaction> StorePurchaseTransactions => Set<StorePurchaseTransaction>();
+    public DbSet<StoreNotificationReceipt> StoreNotificationReceipts => Set<StoreNotificationReceipt>();
+    public DbSet<StoreRevocationMarker> StoreRevocationMarkers => Set<StoreRevocationMarker>();
+    public DbSet<ProductAnalyticsEvent> ProductAnalyticsEvents => Set<ProductAnalyticsEvent>();
+    public DbSet<ProductAnalyticsDailyAggregate> ProductAnalyticsDailyAggregates => Set<ProductAnalyticsDailyAggregate>();
+    public DbSet<ProductExperimentAssignment> ProductExperimentAssignments => Set<ProductExperimentAssignment>();
+    public DbSet<AssistantDailyUsage> AssistantDailyUsages => Set<AssistantDailyUsage>();
+    public DbSet<AssistantUsageLease> AssistantUsageLeases => Set<AssistantUsageLease>();
+    public DbSet<ItineraryProposal> ItineraryProposals => Set<ItineraryProposal>();
+    public DbSet<ItineraryOperation> ItineraryOperations => Set<ItineraryOperation>();
+    public DbSet<ThematicRoute> ThematicRoutes => Set<ThematicRoute>();
+    public DbSet<ThematicRouteStop> ThematicRouteStops => Set<ThematicRouteStop>();
+    public DbSet<ThematicRouteApplication> ThematicRouteApplications => Set<ThematicRouteApplication>();
+    public DbSet<ThematicRouteApplicationStop> ThematicRouteApplicationStops => Set<ThematicRouteApplicationStop>();
+    public DbSet<TripSynchronizationWork> TripSynchronizationWorks => Set<TripSynchronizationWork>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -195,6 +213,10 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
                 .HasMaxLength(24)
                 .HasDefaultValue(TravelCompanion.Shared.ItineraryTimePrecision.Exact)
                 .HasSentinel((TravelCompanion.Shared.ItineraryTimePrecision)(-1));
+            entity.Property(reservation => reservation.Flexibility)
+                .HasConversion<string>()
+                .HasMaxLength(32)
+                .HasDefaultValue(TravelCompanion.Shared.ItineraryFlexibility.Flexible);
             entity.Property(reservation => reservation.ProviderPlaceId).HasMaxLength(160);
             entity.HasIndex(reservation => new { reservation.TripId, reservation.Owner, reservation.Date });
             entity.HasIndex(reservation => new { reservation.TripId, reservation.ProviderPlaceId });
@@ -295,6 +317,7 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
             entity.Property(grant => grant.Status)
                 .HasConversion<string>()
                 .HasMaxLength(24);
+            entity.Property(grant => grant.Origin).HasConversion<string>().HasMaxLength(24);
             entity.HasOne(grant => grant.AppUser)
                 .WithMany(user => user.BuilderAccessGrants)
                 .HasForeignKey(grant => grant.AppUserId)
@@ -306,6 +329,10 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
             entity.HasOne(grant => grant.Trip)
                 .WithMany()
                 .HasForeignKey(grant => grant.TripId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(grant => grant.PurchaseTransaction)
+                .WithOne()
+                .HasForeignKey<BuilderAccessGrant>(grant => grant.PurchaseTransactionId)
                 .OnDelete(DeleteBehavior.SetNull);
         });
 
@@ -443,6 +470,211 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
                 .HasConversion<string>()
                 .HasMaxLength(32);
             entity.Property(entitlement => entitlement.Source).HasMaxLength(80);
+        });
+
+        modelBuilder.Entity<EmailVerificationChallenge>(entity =>
+        {
+            entity.HasIndex(item => new { item.Email, item.CreatedAtUtc });
+            entity.Property(item => item.Email).HasMaxLength(180);
+            entity.Property(item => item.CodeHash).HasMaxLength(128);
+            entity.Property(item => item.RequestIpHash).HasMaxLength(128);
+        });
+
+        modelBuilder.Entity<StorePurchaseIntent>(entity =>
+        {
+            entity.HasIndex(item => new { item.AppUserId, item.TripId, item.State });
+            entity.HasIndex(item => item.OpaqueAccountId).IsUnique();
+            entity.Property(item => item.Provider).HasConversion<string>().HasMaxLength(24);
+            entity.Property(item => item.State).HasConversion<string>().HasMaxLength(32);
+            entity.Property(item => item.EntryPoint).HasConversion<string>().HasMaxLength(32);
+            entity.Property(item => item.ProductId).HasMaxLength(120);
+            entity.Property(item => item.OpaqueAccountId).HasMaxLength(80);
+            entity.Property(item => item.PaywallVariant).HasMaxLength(40);
+            entity.Property(item => item.AppVersion).HasMaxLength(32);
+            entity.Property(item => item.Platform).HasMaxLength(24);
+            entity.Property(item => item.ErrorCode).HasMaxLength(80);
+            entity.Property(item => item.DraftSnapshotJson).HasColumnType("jsonb");
+            entity.HasOne(item => item.AppUser).WithMany(user => user.PurchaseIntents)
+                .HasForeignKey(item => item.AppUserId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(item => item.Trip).WithMany().HasForeignKey(item => item.TripId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<StorePurchaseTransaction>(entity =>
+        {
+            entity.HasIndex(item => new { item.Provider, item.Environment, item.ProviderTransactionId }).IsUnique();
+            entity.Property(item => item.Provider).HasConversion<string>().HasMaxLength(24);
+            entity.Property(item => item.Environment).HasConversion<string>().HasMaxLength(24);
+            entity.Property(item => item.ProviderTransactionId).HasMaxLength(240);
+            entity.Property(item => item.ProviderOriginalTransactionId).HasMaxLength(240);
+            entity.Property(item => item.ProductId).HasMaxLength(120);
+            entity.Property(item => item.Currency).HasMaxLength(3);
+            entity.Property(item => item.GrossAmount).HasPrecision(10, 2);
+            entity.Property(item => item.EvidenceFingerprint).HasMaxLength(128);
+            entity.HasOne(item => item.PurchaseIntent).WithMany(intent => intent.Transactions)
+                .HasForeignKey(item => item.PurchaseIntentId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<StoreNotificationReceipt>(entity =>
+        {
+            entity.HasIndex(item => new { item.Provider, item.Environment, item.ProviderNotificationId }).IsUnique();
+            entity.Property(item => item.Provider).HasConversion<string>().HasMaxLength(24);
+            entity.Property(item => item.Environment).HasConversion<string>().HasMaxLength(24);
+            entity.Property(item => item.ProviderNotificationId).HasMaxLength(240);
+            entity.Property(item => item.PayloadHash).HasMaxLength(128);
+            entity.Property(item => item.ProtectedPayload).HasColumnType("text");
+            entity.Property(item => item.LastError).HasMaxLength(1000);
+        });
+
+        modelBuilder.Entity<StoreRevocationMarker>(entity =>
+        {
+            entity.HasIndex(item => new { item.Provider, item.Environment, item.ProviderTransactionId });
+            entity.HasIndex(item => new { item.Provider, item.Environment, item.EvidenceFingerprint });
+            entity.Property(item => item.Provider).HasConversion<string>().HasMaxLength(24);
+            entity.Property(item => item.Environment).HasConversion<string>().HasMaxLength(24);
+            entity.Property(item => item.ProviderTransactionId).HasMaxLength(240);
+            entity.Property(item => item.EvidenceFingerprint).HasMaxLength(128);
+            entity.Property(item => item.Reason).HasMaxLength(120);
+        });
+
+        modelBuilder.Entity<ProductAnalyticsEvent>(entity =>
+        {
+            entity.HasIndex(item => item.EventId).IsUnique();
+            entity.HasIndex(item => new { item.Name, item.OccurredAtUtc });
+            entity.HasIndex(item => new { item.AppUserId, item.OccurredAtUtc });
+            entity.Property(item => item.Name).HasMaxLength(80);
+            entity.Property(item => item.Source).HasMaxLength(40);
+            entity.Property(item => item.AppVersion).HasMaxLength(32);
+            entity.Property(item => item.Platform).HasMaxLength(24);
+            entity.Property(item => item.AccessState).HasMaxLength(32);
+            entity.Property(item => item.PaywallVariant).HasMaxLength(40);
+            entity.Property(item => item.SchemaVersion).HasDefaultValue(1);
+        });
+
+        modelBuilder.Entity<ProductAnalyticsDailyAggregate>(entity =>
+        {
+            entity.HasIndex(item => new { item.Date, item.Name, item.Source, item.Platform, item.AppVersion, item.PaywallVariant }).IsUnique();
+            entity.Property(item => item.Name).HasMaxLength(80);
+            entity.Property(item => item.Source).HasMaxLength(40);
+            entity.Property(item => item.Platform).HasMaxLength(24);
+            entity.Property(item => item.AppVersion).HasMaxLength(32);
+            entity.Property(item => item.PaywallVariant).HasMaxLength(40);
+        });
+
+        modelBuilder.Entity<ProductExperimentAssignment>(entity =>
+        {
+            entity.HasIndex(item => new { item.AppUserId, item.Experiment }).IsUnique();
+            entity.Property(item => item.Experiment).HasMaxLength(80);
+            entity.Property(item => item.Variant).HasMaxLength(40);
+            entity.HasOne(item => item.AppUser).WithMany(user => user.ExperimentAssignments)
+                .HasForeignKey(item => item.AppUserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AssistantDailyUsage>(entity =>
+        {
+            entity.HasIndex(item => new { item.BuilderAccessGrantId, item.UtcDate }).IsUnique();
+            entity.HasOne(item => item.BuilderAccessGrant).WithMany()
+                .HasForeignKey(item => item.BuilderAccessGrantId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AssistantUsageLease>(entity =>
+        {
+            entity.HasIndex(item => new { item.BuilderAccessGrantId, item.OperationKey }).IsUnique();
+            entity.HasIndex(item => new { item.BuilderAccessGrantId, item.UtcDate, item.ExpiresAtUtc });
+            entity.Property(item => item.OperationKey).HasMaxLength(100);
+            entity.HasOne(item => item.BuilderAccessGrant).WithMany()
+                .HasForeignKey(item => item.BuilderAccessGrantId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ItineraryProposal>(entity =>
+        {
+            entity.HasIndex(item => new { item.TripId, item.AppUserId, item.IdempotencyKey }).IsUnique();
+            entity.HasIndex(item => new { item.TripId, item.ExpiresAtUtc });
+            entity.Property(item => item.Goal).HasConversion<string>().HasMaxLength(32);
+            entity.Property(item => item.IdempotencyKey).HasMaxLength(80);
+            entity.Property(item => item.ChangesJson).HasColumnType("jsonb");
+            entity.Property(item => item.WarningsJson).HasColumnType("jsonb");
+            entity.Property(item => item.Narrative).HasMaxLength(1200);
+            entity.Property(item => item.WindowStart).HasDefaultValue(new TimeOnly(9, 0));
+            entity.Property(item => item.WindowEnd).HasDefaultValue(new TimeOnly(21, 0));
+            entity.Property(item => item.CurrentContextJson).HasColumnType("jsonb").HasDefaultValue("[]");
+            entity.Property(item => item.ProtectedItemsJson).HasColumnType("jsonb").HasDefaultValue("[]");
+            entity.HasOne(item => item.Trip).WithMany().HasForeignKey(item => item.TripId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(item => item.SourceRoute).WithMany().HasForeignKey(item => item.SourceRouteId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<ItineraryOperation>(entity =>
+        {
+            entity.HasIndex(item => new { item.TripId, item.IdempotencyKey }).IsUnique();
+            entity.HasIndex(item => new { item.TripId, item.AppliedRevision });
+            entity.Property(item => item.IdempotencyKey).HasMaxLength(80);
+            entity.Property(item => item.PreviousStateJson).HasColumnType("jsonb");
+            entity.HasOne(item => item.Trip).WithMany().HasForeignKey(item => item.TripId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ThematicRoute>(entity =>
+        {
+            entity.HasIndex(item => new { item.AppUserId, item.UpdatedAtUtc });
+            entity.HasIndex(item => new { item.DestinationId, item.City, item.Theme, item.Status });
+            entity.Property(item => item.Name).HasMaxLength(140);
+            entity.Property(item => item.City).HasMaxLength(120);
+            entity.Property(item => item.Theme).HasConversion<string>().HasMaxLength(40);
+            entity.Property(item => item.Origin).HasConversion<string>().HasMaxLength(24);
+            entity.Property(item => item.Status).HasConversion<string>().HasMaxLength(24);
+            entity.Property(item => item.AccessLevel).HasConversion<string>().HasMaxLength(24);
+            entity.Property(item => item.Pace).HasMaxLength(24);
+            entity.Property(item => item.WarningsJson).HasColumnType("jsonb");
+            entity.HasOne(item => item.AppUser).WithMany().HasForeignKey(item => item.AppUserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(item => item.Trip).WithMany(trip => trip.ThematicRoutes).HasForeignKey(item => item.TripId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(item => item.Destination).WithMany().HasForeignKey(item => item.DestinationId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<ThematicRouteStop>(entity =>
+        {
+            entity.HasIndex(item => new { item.ThematicRouteId, item.SortOrder }).IsUnique();
+            entity.HasOne(item => item.ThematicRoute).WithMany(route => route.Stops)
+                .HasForeignKey(item => item.ThematicRouteId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(item => item.Recommendation).WithMany().HasForeignKey(item => item.RecommendationId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(item => item.ItineraryItem).WithMany().HasForeignKey(item => item.ItineraryItemId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<ThematicRouteApplication>(entity =>
+        {
+            entity.HasIndex(item => new { item.ThematicRouteId, item.CreatedAtUtc });
+            entity.HasIndex(item => item.ItineraryOperationId).IsUnique();
+            entity.HasOne(item => item.ThematicRoute).WithMany(item => item.Applications)
+                .HasForeignKey(item => item.ThematicRouteId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(item => item.Trip).WithMany().HasForeignKey(item => item.TripId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(item => item.ItineraryOperation).WithOne()
+                .HasForeignKey<ThematicRouteApplication>(item => item.ItineraryOperationId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ThematicRouteApplicationStop>(entity =>
+        {
+            entity.HasIndex(item => new { item.ThematicRouteApplicationId, item.ThematicRouteStopId }).IsUnique();
+            entity.HasOne(item => item.ThematicRouteApplication).WithMany(item => item.Stops)
+                .HasForeignKey(item => item.ThematicRouteApplicationId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(item => item.ThematicRouteStop).WithMany()
+                .HasForeignKey(item => item.ThematicRouteStopId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(item => item.ItineraryItem).WithMany()
+                .HasForeignKey(item => item.ItineraryItemId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<TripSynchronizationWork>(entity =>
+        {
+            entity.HasIndex(item => new { item.TripId, item.Revision, item.Kind }).IsUnique();
+            entity.HasIndex(item => new { item.ProcessedAtUtc, item.NextAttemptAtUtc });
+            entity.Property(item => item.Kind).HasMaxLength(40);
+            entity.Property(item => item.LastError).HasMaxLength(1000);
         });
     }
 }

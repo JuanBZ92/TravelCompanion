@@ -36,7 +36,7 @@
 
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">15.0</SupportedOSPlatformVersion>
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">15.0</SupportedOSPlatformVersion>
-		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">21.0</SupportedOSPlatformVersion>
+		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">23.0</SupportedOSPlatformVersion>
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
 		<TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'tizen'">6.5</SupportedOSPlatformVersion>
@@ -99,6 +99,19 @@
 		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.7" />
 		<PackageReference Include="Microsoft.Maui.Controls.Maps" Version="10.0.60" />
 		<PackageReference Include="Oscore.Maui.Biometric" Version="2.5.1" />
+	</ItemGroup>
+
+	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+		<PackageReference Include="Xamarin.Android.Google.BillingClient" Version="8.0.0" />
+	</ItemGroup>
+
+	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">
+		<XcodeProject Include="Platforms/iOS/StoreKitBridge/StoreKitBridge.xcodeproj">
+			<SchemeName>StoreKitBridge</SchemeName>
+			<Kind>Framework</Kind>
+			<ForceLoad>true</ForceLoad>
+			<Frameworks>StoreKit UIKit</Frameworks>
+		</XcodeProject>
 	</ItemGroup>
 
 	<ItemGroup>

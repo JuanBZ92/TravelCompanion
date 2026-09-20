@@ -19,7 +19,7 @@ public sealed class TravelerAccessService(
         var mode = session.AccessMode switch
         {
             SessionAccessMode.FreeMapPreview => ExperienceMode.FreePreview,
-            SessionAccessMode.Builder => ExperienceMode.SelfServiceBuilder,
+            SessionAccessMode.Builder or SessionAccessMode.BuilderReadOnly => ExperienceMode.SelfServiceBuilder,
             _ => ExperienceMode.CuratedPremium
         };
         if (session.AccessMode == SessionAccessMode.FreeMapPreview)
@@ -39,6 +39,17 @@ public sealed class TravelerAccessService(
                     HasCuratedDocs: false,
                     RequiresTripSetup: !session.TripId.HasValue,
                     CanCalculateRoutes: false));
+        }
+
+        if (session.AccessMode == SessionAccessMode.BuilderReadOnly)
+        {
+            return new TravelerAccessContext(session, mode, new TravelerCapabilitiesDto(
+                CanViewFullMap: false,
+                CanSearchGooglePlaces: false,
+                CanEditItinerary: false,
+                HasCuratedDocs: false,
+                RequiresTripSetup: false,
+                CanCalculateRoutes: false));
         }
 
         return new TravelerAccessContext(session, mode, CreateCapabilities(mode, mode == ExperienceMode.SelfServiceBuilder && !session.TripId.HasValue));

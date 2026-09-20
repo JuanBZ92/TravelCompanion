@@ -1,0 +1,48 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {};
+	objectVersion = 56;
+	objects = {
+		100000000000000000000001 = {isa = PBXBuildFile; fileRef = 100000000000000000000002; };
+		100000000000000000000002 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreKitBridge.swift; sourceTree = "<group>"; };
+		100000000000000000000003 = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = StoreKitBridge.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		100000000000000000000004 = {isa = PBXGroup; children = (100000000000000000000002, 100000000000000000000005,); sourceTree = "<group>"; };
+		100000000000000000000005 = {isa = PBXGroup; children = (100000000000000000000003,); name = Products; sourceTree = "<group>"; };
+		100000000000000000000006 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (100000000000000000000001,); runOnlyForDeploymentPostprocessing = 0; };
+		100000000000000000000007 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		100000000000000000000008 = {isa = PBXHeadersBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		100000000000000000000009 = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 10000000000000000000000A;
+			buildPhases = (100000000000000000000008, 100000000000000000000006, 100000000000000000000007,);
+			buildRules = ();
+			dependencies = ();
+			name = StoreKitBridge;
+			productName = StoreKitBridge;
+			productReference = 100000000000000000000003;
+			productType = "com.apple.product-type.framework";
+		};
+		10000000000000000000000A = {isa = XCConfigurationList; buildConfigurations = (10000000000000000000000B, 10000000000000000000000C,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		10000000000000000000000B = {isa = XCBuildConfiguration; buildSettings = {BUILD_LIBRARY_FOR_DISTRIBUTION = YES; CODE_SIGNING_ALLOWED = NO; DEFINES_MODULE = YES; GENERATE_INFOPLIST_FILE = YES; IPHONEOS_DEPLOYMENT_TARGET = 15.0; PRODUCT_BUNDLE_IDENTIFIER = com.yuku.travelcompanion.StoreKitBridge; PRODUCT_NAME = "$(TARGET_NAME)"; SKIP_INSTALL = NO; SWIFT_VERSION = 5.0; }; name = Debug; };
+		10000000000000000000000C = {isa = XCBuildConfiguration; buildSettings = {BUILD_LIBRARY_FOR_DISTRIBUTION = YES; CODE_SIGNING_ALLOWED = NO; DEFINES_MODULE = YES; GENERATE_INFOPLIST_FILE = YES; IPHONEOS_DEPLOYMENT_TARGET = 15.0; PRODUCT_BUNDLE_IDENTIFIER = com.yuku.travelcompanion.StoreKitBridge; PRODUCT_NAME = "$(TARGET_NAME)"; SKIP_INSTALL = NO; SWIFT_VERSION = 5.0; }; name = Release; };
+		10000000000000000000000D = {isa = XCConfigurationList; buildConfigurations = (10000000000000000000000E, 10000000000000000000000F,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		10000000000000000000000E = {isa = XCBuildConfiguration; buildSettings = {IPHONEOS_DEPLOYMENT_TARGET = 15.0; SDKROOT = iphoneos; }; name = Debug; };
+		10000000000000000000000F = {isa = XCBuildConfiguration; buildSettings = {IPHONEOS_DEPLOYMENT_TARGET = 15.0; SDKROOT = iphoneos; }; name = Release; };
+		100000000000000000000010 = {
+			isa = PBXProject;
+			attributes = {BuildIndependentTargetsInParallel = 1; LastSwiftUpdateCheck = 1600; LastUpgradeCheck = 1600;};
+			buildConfigurationList = 10000000000000000000000D;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (en, Base,);
+			mainGroup = 100000000000000000000004;
+			productRefGroup = 100000000000000000000005;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (100000000000000000000009,);
+		};
+	};
+	rootObject = 100000000000000000000010;
+}

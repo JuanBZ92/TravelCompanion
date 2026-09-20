@@ -1,0 +1,66 @@
+@page
+@model TravelCompanion.Api.Pages.Admin.ConversionModel
+@{ ViewData["Title"] = "Conversión"; }
+<h1>Conversión</h1>
+<p class="lede">Embudo de producto basado en eventos persistidos. Se excluyen sandbox y pruebas de ingresos.</p>
+<form method="get" class="panel" style="margin-bottom:18px">
+    <label>Desde <input type="date" name="from" value="@Model.From.ToString("yyyy-MM-dd")" /></label>
+    <label>Hasta <input type="date" name="to" value="@Model.To.ToString("yyyy-MM-dd")" /></label>
+    <label>Plataforma <input name="platform" /></label>
+    <label>Versión <input name="appVersion" /></label>
+    <label>Entrada <input name="entry" /></label>
+    <label>Variante <input name="variant" /></label>
+    <button class="button" type="submit">Filtrar</button>
+</form>
+<section class="grid">
+@foreach (var stage in Model.Stages) { <article class="panel"><div class="metric">@stage.Users</div><div class="muted">@stage.Name</div>@if (stage.ConversionFromPrevious.HasValue) { <div class="muted">@stage.ConversionFromPrevious% desde la etapa anterior</div> }</article> }
+</section>
+<section class="panel" style="margin-top:18px">
+    <h2>Incidencias de doble compra</h2>
+    <p class="muted">Requieren revisión de soporte y, cuando corresponda, reembolso. El primer pase del viaje se conserva.</p>
+    @if (Model.DuplicatePurchases.Count == 0) { <p class="muted">Sin incidencias registradas.</p> }
+    else
+    {
+        <div style="overflow-x:auto">
+            <table>
+                <thead><tr><th>Fecha UTC</th><th>Proveedor</th><th>Entorno</th><th>Viaje</th><th>Usuario</th><th>Transacción</th><th>Finalizada</th></tr></thead>
+                <tbody>
+                @foreach (var purchase in Model.DuplicatePurchases)
+                {
+                    <tr>
+                        <td>@purchase.VerifiedAtUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td>@purchase.Provider</td><td>@purchase.Environment</td>
+                        <td><code>@purchase.TripId</code></td><td><code>@purchase.AppUserId</code></td>
+                        <td><code>@purchase.ProviderTransactionId</code></td>
+                        <td>@(purchase.Finalized ? "Sí" : "Pendiente")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>
+<section class="grid" style="margin-top:18px">
+    <article class="panel"><div class="metric">@Model.PendingPurchases</div><div class="muted">Compras pendientes</div></article>
+    <article class="panel"><div class="metric">@Model.Restores</div><div class="muted">Restauraciones</div></article>
+    <article class="panel"><div class="metric">@Model.Refunds</div><div class="muted">Reembolsos</div></article>
+    <article class="panel"><div class="metric">@Model.FailedCheckouts</div><div class="muted">Checkouts fallidos</div></article>
+    <article class="panel"><div class="metric">@Model.ActivationFailures</div><div class="muted">Pagos verificados sin pase</div></article>
+    <article class="panel"><div class="metric">@Model.ConsentCoveragePercent%</div><div class="muted">Cobertura de consentimiento</div></article>
+    <article class="panel"><div class="metric">@(Model.MedianHoursToPurchase?.ToString("0.0") ?? "—")</div><div class="muted">Horas medianas hasta compra</div></article>
+    <article class="panel"><div class="metric">@(Model.SevenDayConversionPercent?.ToString("0.0") ?? "—")%</div><div class="muted">Compra en 7 días · @Model.SevenDayCohortSize cohortes cerradas</div></article>
+    <article class="panel"><div class="metric">@(Model.ThirtyDayConversionPercent?.ToString("0.0") ?? "—")%</div><div class="muted">Compra en 30 días · @Model.ThirtyDayCohortSize cohortes cerradas</div></article>
+</section>
+<section class="panel" style="margin-top:18px">
+    <h2>Señales de uso</h2>
+    <p class="muted">Acompañan a la conversión; no son pasos obligatorios del embudo.</p>
+    @foreach (var signal in Model.Signals) { <p><strong>@signal.Users</strong> · @signal.Name</p> }
+</section>
+<section class="panel" style="margin-top:18px">
+    <h2>Ingresos brutos verificados</h2>
+    @if (Model.Revenue.Count == 0) { <p class="muted">Sin compras de producción en el periodo.</p> }
+    @foreach (var revenue in Model.Revenue) { <p><strong>@revenue.Gross.ToString("0.00") @revenue.Currency</strong> · @revenue.Purchases compras · reembolsos @revenue.RefundedGross.ToString("0.00") @revenue.Currency (@revenue.Refunds)</p> }
+    @if (Model.PurchasesWithoutVerifiedAmount > 0) { <p class="muted">@Model.PurchasesWithoutVerifiedAmount compras con importe pendiente de verificar.</p> }
+    @if (Model.SevenDayCohortIncomplete) { <p class="muted">La cohorte de 7 días todavía está incompleta.</p> }
+    @if (Model.ThirtyDayCohortIncomplete) { <p class="muted">La cohorte de 30 días todavía está incompleta.</p> }
+</section>

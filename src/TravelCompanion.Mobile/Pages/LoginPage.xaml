@@ -75,6 +75,10 @@
                             Style="{StaticResource GhostButton}"
                             Command="{Binding UnlockWithBiometricsCommand}"
                             IsVisible="{Binding CanUseBiometricUnlock}" />
+                    <Button Text="{Binding LoginRecoverEmail}"
+                            Style="{StaticResource GhostButton}"
+                            Command="{Binding RecoverWithEmailCommand}"
+                            IsEnabled="{Binding IsNotBusy}" />
                     <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
                 </VerticalStackLayout>
             </Border>

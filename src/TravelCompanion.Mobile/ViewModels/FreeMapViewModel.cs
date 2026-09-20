@@ -161,52 +161,7 @@ public sealed partial class FreeMapViewModel(
     private Task StartFreeBuilderAsync() => Shell.Current.GoToAsync(nameof(BuilderSetupPage));
 
     [RelayCommand]
-    private async Task RedeemPassAsync()
-    {
-        if (Uri.TryCreate(sessionService.TrialPurchaseUrl, UriKind.Absolute, out var purchaseUri))
-        {
-            var action = await Shell.Current.DisplayActionSheetAsync(
-                "Pase Japón",
-                "Cancelar",
-                null,
-                $"Comprar · {sessionService.TrialPassPrice:0.00} {sessionService.TrialCurrency}",
-                "Ya tengo código");
-            if (action?.StartsWith("Comprar", StringComparison.Ordinal) == true)
-            {
-                await Launcher.Default.OpenAsync(purchaseUri);
-                return;
-            }
-            if (action != "Ya tengo código") return;
-        }
-        var pin = await Shell.Current.DisplayPromptAsync(
-            "Activar pase Japón",
-            "Introduce el código recibido después de comprar el pase. Tu borrador se conservará.",
-            "Activar",
-            "Cancelar",
-            keyboard: Keyboard.Numeric,
-            maxLength: 6);
-        if (string.IsNullOrWhiteSpace(pin))
-        {
-            return;
-        }
-
-        var token = await sessionService.GetTokenAsync();
-        var activated = string.IsNullOrWhiteSpace(token)
-            ? null
-            : await apiClient.RedeemTravelPassAsync(token, new string(pin.Where(char.IsDigit).ToArray()));
-        if (activated is null)
-        {
-            ErrorMessage = "No pudimos activar ese código. Comprueba el PIN o solicita uno nuevo.";
-            return;
-        }
-
-        await sessionService.SaveAsync(activated);
-        if (Shell.Current is AppShell shell)
-        {
-            shell.ApplySessionTabs(sessionService);
-        }
-        await Shell.Current.GoToAsync("//main/schedule");
-    }
+    private Task RedeemPassAsync() => PaywallNavigation.OpenAsync(TravelCompanion.Shared.Dtos.PaywallEntryPoint.Map);
 
     [RelayCommand]
     private Task LogoutAsync() => EndPreviewSessionAsync();

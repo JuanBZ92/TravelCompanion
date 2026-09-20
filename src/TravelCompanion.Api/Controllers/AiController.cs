@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using TravelCompanion.Api.Services;
 using TravelCompanion.Shared.Dtos;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace TravelCompanion.Api.Controllers;
 
@@ -13,7 +15,9 @@ public sealed class AiController(
     ITravelChatService travelChatService,
     IItineraryService itineraryService,
     ITravelAssistantFeedbackService feedbackService,
-    FreeTrialAccessService freeTrialAccessService) : ControllerBase
+    FreeTrialAccessService freeTrialAccessService,
+    AssistantUsageService assistantUsageService,
+    ProductAnalyticsService analytics) : ControllerBase
 {
     [HttpPost("travel-chat")]
     public async Task<ActionResult<TravelChatResponse>> TravelChat(
@@ -33,6 +37,14 @@ public sealed class AiController(
 
         var access = await accessService.GetAsync(HttpContext, cancellationToken);
         var intent = intentClassifier.Classify(request.Message);
+        if (access?.Session.AccessMode == TravelCompanion.Shared.SessionAccessMode.BuilderReadOnly)
+        {
+            return Ok(new TravelChatResponse(
+                request.ConversationId ?? Guid.NewGuid().ToString("N"),
+                "Tu itinerario sigue disponible para consulta. Activa un pase para volver a usar el Assistant.",
+                "upgrade_required", [], ["Activar mi pase"],
+                new MissingContextDto("upgrade", "Este viaje está en modo de solo lectura.", ["Activar mi pase"])));
+        }
         if (access?.ExperienceMode == ExperienceMode.SelfServiceBuilder
             && access.Capabilities.RequiresTripSetup
             && (intent.IsPlanning || intent.Intent == TravelChatIntents.SaveItinerary))
@@ -46,30 +58,47 @@ public sealed class AiController(
                 new MissingContextDto("tripSetup", "Configura las fechas y ciudades de tu viaje para continuar.", ["Configurar mi viaje"])));
         }
 
-        TrialAccessStatusDto? trialStatus = null;
-        if (access?.Session.AccessMode == TravelCompanion.Shared.SessionAccessMode.FreeMapPreview)
+        TrialAccessStatusDto? trialStatus = access?.Session.AccessMode == TravelCompanion.Shared.SessionAccessMode.FreeMapPreview
+            ? await freeTrialAccessService.GetStatusAsync(user.Id, cancellationToken) : null;
+        AssistantUsageLeaseResult? usageLease = null;
+        if (access?.Session.AccessMode is TravelCompanion.Shared.SessionAccessMode.Builder or TravelCompanion.Shared.SessionAccessMode.FreeMapPreview)
         {
             try
             {
-                trialStatus = await freeTrialAccessService.RequireAssistantQuotaAsync(user.Id, cancellationToken);
+                var fingerprint = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(request.Message.Trim())))[..16];
+                usageLease = await assistantUsageService.ReserveAsync(user.Id, access.TripId,
+                    $"chat:{request.ConversationId ?? "new"}:{fingerprint}", cancellationToken);
             }
             catch (TrialUpgradeRequiredException exception)
             {
                 return Ok(new TravelChatResponse(
                     request.ConversationId ?? Guid.NewGuid().ToString("N"),
-                    "Ya probaste las 3 consultas gratuitas. Activa tu pase para seguir planificando con YUKU.",
-                    "upgrade_required",
-                    [],
-                    ["Activar mi pase"],
-                    new MissingContextDto("upgrade", "Activa tu pase para continuar con el asistente.", ["Activar mi pase"]),
+                    access.Session.AccessMode == TravelCompanion.Shared.SessionAccessMode.FreeMapPreview
+                        ? "Ya probaste las 3 consultas gratuitas. Activa tu pase para seguir planificando con YUKU."
+                        : "Has alcanzado el límite diario del Assistant. Se reinicia a las 00:00 UTC.",
+                    "upgrade_required", [], ["Activar mi pase"],
+                    new MissingContextDto("upgrade", "No quedan consultas disponibles por ahora.", ["Activar mi pase"]),
                     TrialAccess: exception.Status));
             }
         }
 
-        var response = await travelChatService.CreatePlanAsync(user, request, cancellationToken);
-        if (trialStatus is not null && response.Cards.Count > 0)
+        TravelChatResponse response;
+        try
         {
-            trialStatus = await freeTrialAccessService.RecordSuccessfulAssistantRequestAsync(user.Id, cancellationToken);
+            response = await travelChatService.CreatePlanAsync(user, request, cancellationToken);
+            if (usageLease is not null && response.Cards.Count > 0)
+            {
+                await assistantUsageService.CompleteAsync(usageLease.LeaseId, cancellationToken);
+                await analytics.RecordServerEventAsync(user.Id, access?.TripId, "first_useful_response",
+                    "assistant", null, cancellationToken);
+                if (trialStatus is not null) trialStatus = await freeTrialAccessService.GetStatusAsync(user.Id, cancellationToken);
+            }
+            else if (usageLease is not null) await assistantUsageService.CancelAsync(usageLease.LeaseId, cancellationToken);
+        }
+        catch
+        {
+            if (usageLease is not null) await assistantUsageService.CancelAsync(usageLease.LeaseId, cancellationToken);
+            throw;
         }
         return Ok(response with { TrialAccess = trialStatus });
     }

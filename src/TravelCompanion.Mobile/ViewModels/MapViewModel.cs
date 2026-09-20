@@ -260,8 +260,15 @@ public sealed partial class MapViewModel(
     [RelayCommand]
     private async Task AddToItineraryAsync(RecommendationDto? recommendation)
     {
-        if (recommendation is null || !sessionService.CanEditItinerary)
+        if (recommendation is null)
         {
+            return;
+        }
+
+        if (!sessionService.CanEditItinerary)
+        {
+            pendingStore.Set(recommendation);
+            await PaywallNavigation.OpenAsync(PaywallEntryPoint.Map);
             return;
         }
 

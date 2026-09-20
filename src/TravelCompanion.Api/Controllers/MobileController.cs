@@ -92,7 +92,8 @@ public sealed class MobileController(
             access.ExperienceMode == ExperienceMode.FreePreview
                 ? Version(MobileDataVersionScopes.FreeCatalogGlobal)
                 : destination is null ? 1 : Version(MobileDataVersionScopes.FreeCatalog(destination.Id)),
-            TrialAccess: trialAccess);
+            TrialAccess: trialAccess,
+            AccessMode: access.Session.AccessMode);
         var etag = $"\"m1-{state.TripId:N}-{state.DestinationId:N}-{state.CatalogVersion}-{state.ItineraryVersion}-{state.DocumentsVersion}-{state.TodayPersonalizationVersion}-{state.FreeCatalogVersion}-{state.Capabilities.CanViewFullMap}-{state.Capabilities.CanSearchGooglePlaces}-{state.Capabilities.CanEditItinerary}-{state.Capabilities.HasCuratedDocs}-{state.Capabilities.RequiresTripSetup}-{state.Capabilities.CanCalculateRoutes}-{state.AccessExpiresAtUtc.UtcTicks}\"";
         Response.Headers.ETag = etag;
         if (Request.Headers.IfNoneMatch.Any(value => string.Equals(value, etag, StringComparison.Ordinal)))
@@ -131,8 +132,7 @@ public sealed class MobileController(
 
         var entitlements = ToEntitlementsDto(user);
         var recommendationsStopwatch = Stopwatch.StartNew();
-        var isFreePreview = await sessionService.GetSessionAccessModeAsync(HttpContext, cancellationToken)
-            == SessionAccessMode.FreeMapPreview;
+        var isFreePreview = IsRestrictedCatalog(await sessionService.GetSessionAccessModeAsync(HttpContext, cancellationToken));
         var recommendations = await GetUnlockedRecommendationsAsync(destination.Id, entitlements, isFreePreview, cancellationToken);
         recommendationsStopwatch.Stop();
         totalStopwatch.Stop();
@@ -249,8 +249,7 @@ public sealed class MobileController(
 
         var entitlements = ToEntitlementsDto(user);
         var recommendationsStopwatch = Stopwatch.StartNew();
-        var isFreePreview = await sessionService.GetSessionAccessModeAsync(HttpContext, cancellationToken)
-            == SessionAccessMode.FreeMapPreview;
+        var isFreePreview = IsRestrictedCatalog(await sessionService.GetSessionAccessModeAsync(HttpContext, cancellationToken));
         var unlockedRecommendations = await GetUnlockedRecommendationsAsync(destination.Id, entitlements, isFreePreview, cancellationToken);
         recommendationsStopwatch.Stop();
 
@@ -318,7 +317,7 @@ public sealed class MobileController(
         {
             return NotFound();
         }
-        if (await sessionService.GetSessionAccessModeAsync(HttpContext, cancellationToken) == SessionAccessMode.FreeMapPreview
+        if (IsRestrictedCatalog(await sessionService.GetSessionAccessModeAsync(HttpContext, cancellationToken))
             && !await freeTrialAccessService.IsRecommendationInFreeRadiusAsync(recommendation, cancellationToken))
         {
             return NotFound();
@@ -331,7 +330,7 @@ public sealed class MobileController(
     public async Task<ActionResult<TravelDocsDto>> GetDocs(CancellationToken cancellationToken = default)
     {
         var accessMode = await sessionService.GetSessionAccessModeAsync(HttpContext, cancellationToken);
-        if (accessMode == SessionAccessMode.Builder)
+        if (accessMode is SessionAccessMode.Builder or SessionAccessMode.BuilderReadOnly)
         {
             return Forbid();
         }
@@ -774,6 +773,9 @@ public sealed class MobileController(
             recommendation.DestinationId,
             recommendation.Packages.Select(package => package.Id).ToList());
     }
+
+    private static bool IsRestrictedCatalog(SessionAccessMode? mode) =>
+        mode is SessionAccessMode.FreeMapPreview or SessionAccessMode.BuilderReadOnly;
 
     private static string FormatServerTiming(params (string Name, double DurationMs)[] timings)
     {

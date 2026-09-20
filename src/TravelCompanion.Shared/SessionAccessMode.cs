@@ -4,5 +4,6 @@ public enum SessionAccessMode
 {
     Trip,
     FreeMapPreview,
-    Builder
+    Builder,
+    BuilderReadOnly
 }

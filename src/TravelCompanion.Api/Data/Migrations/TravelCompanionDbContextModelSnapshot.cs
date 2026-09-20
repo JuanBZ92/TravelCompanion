@@ -44,6 +44,12 @@ namespace TravelCompanion.Api.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("BehaviorAnalyticsConsent")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset?>("DeletedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("DisplayName")
                         .IsRequired()
                         .HasMaxLength(140)
@@ -53,6 +59,18 @@ namespace TravelCompanion.Api.Data.Migrations
                         .IsRequired()
                         .HasMaxLength(180)
                         .HasColumnType("character varying(180)");
+
+                    b.Property<bool>("EmailVerified")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset?>("EmailVerifiedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsDemo")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsInternal")
+                        .HasColumnType("boolean");
 
                     b.Property<bool>("MustChangePassword")
                         .HasColumnType("boolean");
@@ -123,6 +141,71 @@ namespace TravelCompanion.Api.Data.Migrations
                     b.ToTable("AppUserSessions");
                 });
 
+            modelBuilder.Entity("TravelCompanion.Api.Models.AssistantDailyUsage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BuilderAccessGrantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("ReservedRequests")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SuccessfulRequests")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly>("UtcDate")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BuilderAccessGrantId", "UtcDate")
+                        .IsUnique();
+
+                    b.ToTable("AssistantDailyUsages");
+                });
+
+            modelBuilder.Entity("TravelCompanion.Api.Models.AssistantUsageLease", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BuilderAccessGrantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("CancelledAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("CompletedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("ExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("OperationKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateOnly>("UtcDate")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BuilderAccessGrantId", "OperationKey")
+                        .IsUnique();
+
+                    b.HasIndex("BuilderAccessGrantId", "UtcDate", "ExpiresAtUtc");
+
+                    b.ToTable("AssistantUsageLeases");
+                });
+
             modelBuilder.Entity("TravelCompanion.Api.Models.BuilderAccessGrant", b =>
                 {
                     b.Property<Guid>("Id")
@@ -147,14 +230,26 @@ namespace TravelCompanion.Api.Data.Migrations
                     b.Property<bool>("IsTrial")
                         .HasColumnType("boolean");
 
+                    b.Property<DateTimeOffset?>("MaximumExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("OrderReference")
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)");
 
+                    b.Property<string>("Origin")
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
                     b.Property<string>("PinHash")
-                        .IsRequired()
                         .HasMaxLength(512)
                         .HasColumnType("character varying(512)");
+
+                    b.Property<Guid?>("PurchaseTransactionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("PurchasedAtUtc")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTimeOffset?>("RedeemedAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -185,6 +280,9 @@ namespace TravelCompanion.Api.Data.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("DestinationId");
+
+                    b.HasIndex("PurchaseTransactionId")
+                        .IsUnique();
 
                     b.HasIndex("TripId")
                         .IsUnique();
@@ -240,6 +338,49 @@ namespace TravelCompanion.Api.Data.Migrations
                     b.ToTable("Destinations");
                 });
 
+            modelBuilder.Entity("TravelCompanion.Api.Models.EmailVerificationChallenge", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CodeHash")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateTimeOffset?>("ConsumedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(180)
+                        .HasColumnType("character varying(180)");
+
+                    b.Property<DateTimeOffset>("ExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("FailedAttempts")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("RequestIpHash")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateTimeOffset>("ResendAvailableAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Email", "CreatedAtUtc");
+
+                    b.ToTable("EmailVerificationChallenges");
+                });
+
             modelBuilder.Entity("TravelCompanion.Api.Models.FreeMapCity", b =>
                 {
                     b.Property<Guid>("Id")
@@ -293,6 +434,148 @@ namespace TravelCompanion.Api.Data.Migrations
                     b.HasIndex("IsEnabled", "SortOrder");
 
                     b.ToTable("FreeMapCities");
+                });
+
+            modelBuilder.Entity("TravelCompanion.Api.Models.ItineraryOperation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AppUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("AppliedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("AppliedRevision")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("IdempotencyKey")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<int>("PreviousRevision")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("PreviousStateJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<Guid?>("RouteApplicationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TripId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UndoAvailableUntilUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("UndoneAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TripId", "AppliedRevision");
+
+                    b.HasIndex("TripId", "IdempotencyKey")
+                        .IsUnique();
+
+                    b.ToTable("ItineraryOperations");
+                });
+
+            modelBuilder.Entity("TravelCompanion.Api.Models.ItineraryProposal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AppUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("AppliedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("BasedOnRevision")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ChangesJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CurrentContextJson")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasDefaultValue("[]");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<DateTimeOffset>("ExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Goal")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("IdempotencyKey")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("Narrative")
+                        .IsRequired()
+                        .HasMaxLength(1200)
+                        .HasColumnType("character varying(1200)");
+
+                    b.Property<string>("ProtectedItemsJson")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasDefaultValue("[]");
+
+                    b.Property<Guid?>("SourceRouteId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TripId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("WarningsJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<TimeOnly>("WindowEnd")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("time without time zone")
+                        .HasDefaultValue(new TimeOnly(21, 0, 0));
+
+                    b.Property<bool>("WindowEndsNextDay")
+                        .HasColumnType("boolean");
+
+                    b.Property<TimeOnly>("WindowStart")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("time without time zone")
+                        .HasDefaultValue(new TimeOnly(9, 0, 0));
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SourceRouteId");
+
+                    b.HasIndex("TripId", "ExpiresAtUtc");
+
+                    b.HasIndex("TripId", "AppUserId", "IdempotencyKey")
+                        .IsUnique();
+
+                    b.ToTable("ItineraryProposals");
                 });
 
             modelBuilder.Entity("TravelCompanion.Api.Models.MobileDataVersion", b =>
@@ -452,6 +735,156 @@ namespace TravelCompanion.Api.Data.Migrations
                     b.HasIndex("UserId", "Status");
 
                     b.ToTable("NotificationOutboxItems");
+                });
+
+            modelBuilder.Entity("TravelCompanion.Api.Models.ProductAnalyticsDailyAggregate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AppVersion")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<int>("EventCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("PaywallVariant")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Platform")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Date", "Name", "Source", "Platform", "AppVersion", "PaywallVariant")
+                        .IsUnique();
+
+                    b.ToTable("ProductAnalyticsDailyAggregates");
+                });
+
+            modelBuilder.Entity("TravelCompanion.Api.Models.ProductAnalyticsEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AccessState")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<Guid?>("AnonymousUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AppUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AppVersion")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<bool>("BehaviorConsent")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsBusinessEvent")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsSandbox")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<DateTimeOffset>("OccurredAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PaywallVariant")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Platform")
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<DateTimeOffset>("ReceivedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("SchemaVersion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1);
+
+                    b.Property<string>("Source")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<Guid?>("TripId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventId")
+                        .IsUnique();
+
+                    b.HasIndex("AppUserId", "OccurredAtUtc");
+
+                    b.HasIndex("Name", "OccurredAtUtc");
+
+                    b.ToTable("ProductAnalyticsEvents");
+                });
+
+            modelBuilder.Entity("TravelCompanion.Api.Models.ProductExperimentAssignment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AppUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("AssignedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Experiment")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("Variant")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AppUserId", "Experiment")
+                        .IsUnique();
+
+                    b.ToTable("ProductExperimentAssignments");
                 });
 
             modelBuilder.Entity("TravelCompanion.Api.Models.Recommendation", b =>
@@ -689,6 +1122,9 @@ namespace TravelCompanion.Api.Data.Migrations
                         .HasMaxLength(160)
                         .HasColumnType("character varying(160)");
 
+                    b.Property<int?>("DurationMinutes")
+                        .HasColumnType("integer");
+
                     b.Property<TimeOnly?>("EndsAt")
                         .HasColumnType("time without time zone");
 
@@ -698,6 +1134,13 @@ namespace TravelCompanion.Api.Data.Migrations
                     b.Property<string>("ExternalId")
                         .HasMaxLength(160)
                         .HasColumnType("character varying(160)");
+
+                    b.Property<string>("Flexibility")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasDefaultValue("Flexible");
 
                     b.Property<string>("FlightNumber")
                         .HasMaxLength(40)
@@ -822,6 +1265,454 @@ namespace TravelCompanion.Api.Data.Migrations
                     b.HasIndex("TripId", "Type", "Date", "StartsAt");
 
                     b.ToTable("Reservations");
+                });
+
+            modelBuilder.Entity("TravelCompanion.Api.Models.StoreNotificationReceipt", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Environment")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("PayloadHash")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateTimeOffset?>("ProcessedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ProtectedPayload")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<string>("ProviderNotificationId")
+                        .IsRequired()
+                        .HasMaxLength(240)
+                        .HasColumnType("character varying(240)");
+
+                    b.Property<DateTimeOffset>("ReceivedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("RetryCount")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Provider", "Environment", "ProviderNotificationId")
+                        .IsUnique();
+
+                    b.ToTable("StoreNotificationReceipts");
+                });
+
+            modelBuilder.Entity("TravelCompanion.Api.Models.StorePurchaseIntent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AppUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AppVersion")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DraftSnapshotJson")
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("EntryPoint")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<int?>("Environment")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ErrorCode")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<DateTimeOffset?>("ExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("LastAttemptAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("OpaqueAccountId")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("PaywallVariant")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Platform")
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<string>("ProductId")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("ProtectedEvidence")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<int>("RetryCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<Guid>("TripId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OpaqueAccountId")
+                        .IsUnique();
+
+                    b.HasIndex("TripId");
+
+                    b.HasIndex("AppUserId", "TripId", "State");
+
+                    b.ToTable("StorePurchaseIntents");
+                });
+
+            modelBuilder.Entity("TravelCompanion.Api.Models.StorePurchaseTransaction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("AcknowledgedOrConsumed")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Currency")
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)");
+
+                    b.Property<string>("Environment")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<string>("EvidenceFingerprint")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<decimal?>("GrossAmount")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)");
+
+                    b.Property<string>("ProductId")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("ProtectedProviderToken")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<string>("ProviderOriginalTransactionId")
+                        .HasMaxLength(240)
+                        .HasColumnType("character varying(240)");
+
+                    b.Property<string>("ProviderTransactionId")
+                        .IsRequired()
+                        .HasMaxLength(240)
+                        .HasColumnType("character varying(240)");
+
+                    b.Property<Guid>("PurchaseIntentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("PurchasedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("RevocationReason")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("RevokedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("VerifiedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PurchaseIntentId");
+
+                    b.HasIndex("Provider", "Environment", "ProviderTransactionId")
+                        .IsUnique();
+
+                    b.ToTable("StorePurchaseTransactions");
+                });
+
+            modelBuilder.Entity("TravelCompanion.Api.Models.StoreRevocationMarker", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("AppliedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Environment")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<string>("EvidenceFingerprint")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<string>("ProviderTransactionId")
+                        .HasMaxLength(240)
+                        .HasColumnType("character varying(240)");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<DateTimeOffset>("ReceivedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Provider", "Environment", "EvidenceFingerprint");
+
+                    b.HasIndex("Provider", "Environment", "ProviderTransactionId");
+
+                    b.ToTable("StoreRevocationMarkers");
+                });
+
+            modelBuilder.Entity("TravelCompanion.Api.Models.ThematicRoute", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AccessLevel")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<Guid?>("AppUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("City")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("DestinationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("EstimatedTransferMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(140)
+                        .HasColumnType("character varying(140)");
+
+                    b.Property<string>("Origin")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<string>("Pace")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<DateOnly?>("PlannedDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<Guid?>("TemplateSourceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("TemplateVersion")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Theme")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<Guid?>("TripId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("VisitMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("WarningsJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<TimeOnly?>("WindowEnd")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<TimeOnly?>("WindowStart")
+                        .HasColumnType("time without time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TripId");
+
+                    b.HasIndex("AppUserId", "UpdatedAtUtc");
+
+                    b.HasIndex("DestinationId", "City", "Theme", "Status");
+
+                    b.ToTable("ThematicRoutes");
+                });
+
+            modelBuilder.Entity("TravelCompanion.Api.Models.ThematicRouteApplication", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("ItineraryOperationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ThematicRouteId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TripId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ItineraryOperationId")
+                        .IsUnique();
+
+                    b.HasIndex("TripId");
+
+                    b.HasIndex("ThematicRouteId", "CreatedAtUtc");
+
+                    b.ToTable("ThematicRouteApplications");
+                });
+
+            modelBuilder.Entity("TravelCompanion.Api.Models.ThematicRouteApplicationStop", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ItineraryItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ThematicRouteApplicationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ThematicRouteStopId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ItineraryItemId");
+
+                    b.HasIndex("ThematicRouteStopId");
+
+                    b.HasIndex("ThematicRouteApplicationId", "ThematicRouteStopId")
+                        .IsUnique();
+
+                    b.ToTable("ThematicRouteApplicationStops");
+                });
+
+            modelBuilder.Entity("TravelCompanion.Api.Models.ThematicRouteStop", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("DurationMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("EstimatedTransferMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("ItineraryItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("RecommendationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("ThematicRouteId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ItineraryItemId");
+
+                    b.HasIndex("RecommendationId");
+
+                    b.HasIndex("ThematicRouteId", "SortOrder")
+                        .IsUnique();
+
+                    b.ToTable("ThematicRouteStops");
                 });
 
             modelBuilder.Entity("TravelCompanion.Api.Models.TravelAssistantFeedback", b =>
@@ -1090,6 +1981,9 @@ namespace TravelCompanion.Api.Data.Migrations
                     b.Property<Guid>("DestinationId")
                         .HasColumnType("uuid");
 
+                    b.Property<DateTimeOffset?>("DraftPurgedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateOnly>("EndsOn")
                         .HasColumnType("date");
 
@@ -1103,6 +1997,9 @@ namespace TravelCompanion.Api.Data.Migrations
                     b.Property<string>("ExternalId")
                         .HasMaxLength(160)
                         .HasColumnType("character varying(160)");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean");
 
                     b.Property<int>("PlanRevision")
                         .HasColumnType("integer");
@@ -1264,6 +2161,52 @@ namespace TravelCompanion.Api.Data.Migrations
                     b.ToTable("TripPlanDrafts");
                 });
 
+            modelBuilder.Entity("TravelCompanion.Api.Models.TripSynchronizationWork", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AppUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("AttemptCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTimeOffset>("NextAttemptAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("ProcessedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Revision")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TripId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProcessedAtUtc", "NextAttemptAtUtc");
+
+                    b.HasIndex("TripId", "Revision", "Kind")
+                        .IsUnique();
+
+                    b.ToTable("TripSynchronizationWorks");
+                });
+
             modelBuilder.Entity("TravelCompanion.Api.Models.UserEntitlement", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1339,6 +2282,28 @@ namespace TravelCompanion.Api.Data.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("TravelCompanion.Api.Models.AssistantDailyUsage", b =>
+                {
+                    b.HasOne("TravelCompanion.Api.Models.BuilderAccessGrant", "BuilderAccessGrant")
+                        .WithMany()
+                        .HasForeignKey("BuilderAccessGrantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("BuilderAccessGrant");
+                });
+
+            modelBuilder.Entity("TravelCompanion.Api.Models.AssistantUsageLease", b =>
+                {
+                    b.HasOne("TravelCompanion.Api.Models.BuilderAccessGrant", "BuilderAccessGrant")
+                        .WithMany()
+                        .HasForeignKey("BuilderAccessGrantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("BuilderAccessGrant");
+                });
+
             modelBuilder.Entity("TravelCompanion.Api.Models.BuilderAccessGrant", b =>
                 {
                     b.HasOne("TravelCompanion.Api.Models.AppUser", "AppUser")
@@ -1353,6 +2318,11 @@ namespace TravelCompanion.Api.Data.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("TravelCompanion.Api.Models.StorePurchaseTransaction", "PurchaseTransaction")
+                        .WithOne()
+                        .HasForeignKey("TravelCompanion.Api.Models.BuilderAccessGrant", "PurchaseTransactionId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("TravelCompanion.Api.Models.Trip", "Trip")
                         .WithMany()
                         .HasForeignKey("TripId")
@@ -1361,6 +2331,8 @@ namespace TravelCompanion.Api.Data.Migrations
                     b.Navigation("AppUser");
 
                     b.Navigation("Destination");
+
+                    b.Navigation("PurchaseTransaction");
 
                     b.Navigation("Trip");
                 });
@@ -1374,6 +2346,35 @@ namespace TravelCompanion.Api.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Destination");
+                });
+
+            modelBuilder.Entity("TravelCompanion.Api.Models.ItineraryOperation", b =>
+                {
+                    b.HasOne("TravelCompanion.Api.Models.Trip", "Trip")
+                        .WithMany()
+                        .HasForeignKey("TripId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Trip");
+                });
+
+            modelBuilder.Entity("TravelCompanion.Api.Models.ItineraryProposal", b =>
+                {
+                    b.HasOne("TravelCompanion.Api.Models.ThematicRoute", "SourceRoute")
+                        .WithMany()
+                        .HasForeignKey("SourceRouteId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("TravelCompanion.Api.Models.Trip", "Trip")
+                        .WithMany()
+                        .HasForeignKey("TripId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("SourceRoute");
+
+                    b.Navigation("Trip");
                 });
 
             modelBuilder.Entity("TravelCompanion.Api.Models.NotificationDeviceRegistration", b =>
@@ -1410,6 +2411,17 @@ namespace TravelCompanion.Api.Data.Migrations
                     b.Navigation("Reservation");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("TravelCompanion.Api.Models.ProductExperimentAssignment", b =>
+                {
+                    b.HasOne("TravelCompanion.Api.Models.AppUser", "AppUser")
+                        .WithMany("ExperimentAssignments")
+                        .HasForeignKey("AppUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AppUser");
                 });
 
             modelBuilder.Entity("TravelCompanion.Api.Models.Recommendation", b =>
@@ -1472,6 +2484,141 @@ namespace TravelCompanion.Api.Data.Migrations
                     b.Navigation("Trip");
 
                     b.Navigation("TripDayBlock");
+                });
+
+            modelBuilder.Entity("TravelCompanion.Api.Models.StorePurchaseIntent", b =>
+                {
+                    b.HasOne("TravelCompanion.Api.Models.AppUser", "AppUser")
+                        .WithMany("PurchaseIntents")
+                        .HasForeignKey("AppUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("TravelCompanion.Api.Models.Trip", "Trip")
+                        .WithMany()
+                        .HasForeignKey("TripId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("AppUser");
+
+                    b.Navigation("Trip");
+                });
+
+            modelBuilder.Entity("TravelCompanion.Api.Models.StorePurchaseTransaction", b =>
+                {
+                    b.HasOne("TravelCompanion.Api.Models.StorePurchaseIntent", "PurchaseIntent")
+                        .WithMany("Transactions")
+                        .HasForeignKey("PurchaseIntentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("PurchaseIntent");
+                });
+
+            modelBuilder.Entity("TravelCompanion.Api.Models.ThematicRoute", b =>
+                {
+                    b.HasOne("TravelCompanion.Api.Models.AppUser", "AppUser")
+                        .WithMany()
+                        .HasForeignKey("AppUserId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("TravelCompanion.Api.Models.Destination", "Destination")
+                        .WithMany()
+                        .HasForeignKey("DestinationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("TravelCompanion.Api.Models.Trip", "Trip")
+                        .WithMany("ThematicRoutes")
+                        .HasForeignKey("TripId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("AppUser");
+
+                    b.Navigation("Destination");
+
+                    b.Navigation("Trip");
+                });
+
+            modelBuilder.Entity("TravelCompanion.Api.Models.ThematicRouteApplication", b =>
+                {
+                    b.HasOne("TravelCompanion.Api.Models.ItineraryOperation", "ItineraryOperation")
+                        .WithOne()
+                        .HasForeignKey("TravelCompanion.Api.Models.ThematicRouteApplication", "ItineraryOperationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("TravelCompanion.Api.Models.ThematicRoute", "ThematicRoute")
+                        .WithMany("Applications")
+                        .HasForeignKey("ThematicRouteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("TravelCompanion.Api.Models.Trip", "Trip")
+                        .WithMany()
+                        .HasForeignKey("TripId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ItineraryOperation");
+
+                    b.Navigation("ThematicRoute");
+
+                    b.Navigation("Trip");
+                });
+
+            modelBuilder.Entity("TravelCompanion.Api.Models.ThematicRouteApplicationStop", b =>
+                {
+                    b.HasOne("TravelCompanion.Api.Models.Reservation", "ItineraryItem")
+                        .WithMany()
+                        .HasForeignKey("ItineraryItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("TravelCompanion.Api.Models.ThematicRouteApplication", "ThematicRouteApplication")
+                        .WithMany("Stops")
+                        .HasForeignKey("ThematicRouteApplicationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("TravelCompanion.Api.Models.ThematicRouteStop", "ThematicRouteStop")
+                        .WithMany()
+                        .HasForeignKey("ThematicRouteStopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ItineraryItem");
+
+                    b.Navigation("ThematicRouteApplication");
+
+                    b.Navigation("ThematicRouteStop");
+                });
+
+            modelBuilder.Entity("TravelCompanion.Api.Models.ThematicRouteStop", b =>
+                {
+                    b.HasOne("TravelCompanion.Api.Models.Reservation", "ItineraryItem")
+                        .WithMany()
+                        .HasForeignKey("ItineraryItemId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("TravelCompanion.Api.Models.Recommendation", "Recommendation")
+                        .WithMany()
+                        .HasForeignKey("RecommendationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("TravelCompanion.Api.Models.ThematicRoute", "ThematicRoute")
+                        .WithMany("Stops")
+                        .HasForeignKey("ThematicRouteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ItineraryItem");
+
+                    b.Navigation("Recommendation");
+
+                    b.Navigation("ThematicRoute");
                 });
 
             modelBuilder.Entity("TravelCompanion.Api.Models.TravelAssistantFeedback", b =>
@@ -1625,9 +2772,13 @@ namespace TravelCompanion.Api.Data.Migrations
 
                     b.Navigation("Entitlements");
 
+                    b.Navigation("ExperimentAssignments");
+
                     b.Navigation("NotificationDevices");
 
                     b.Navigation("NotificationOutboxItems");
+
+                    b.Navigation("PurchaseIntents");
 
                     b.Navigation("Sessions");
 
@@ -1647,6 +2798,23 @@ namespace TravelCompanion.Api.Data.Migrations
                     b.Navigation("Recommendations");
                 });
 
+            modelBuilder.Entity("TravelCompanion.Api.Models.StorePurchaseIntent", b =>
+                {
+                    b.Navigation("Transactions");
+                });
+
+            modelBuilder.Entity("TravelCompanion.Api.Models.ThematicRoute", b =>
+                {
+                    b.Navigation("Applications");
+
+                    b.Navigation("Stops");
+                });
+
+            modelBuilder.Entity("TravelCompanion.Api.Models.ThematicRouteApplication", b =>
+                {
+                    b.Navigation("Stops");
+                });
+
             modelBuilder.Entity("TravelCompanion.Api.Models.TravelChatConversation", b =>
                 {
                     b.Navigation("FeedbackItems");
@@ -1661,6 +2829,8 @@ namespace TravelCompanion.Api.Data.Migrations
                     b.Navigation("PlanDraft");
 
                     b.Navigation("Reservations");
+
+                    b.Navigation("ThematicRoutes");
                 });
 
             modelBuilder.Entity("TravelCompanion.Api.Models.TripDayBlock", b =>

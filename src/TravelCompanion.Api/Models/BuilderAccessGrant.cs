@@ -1,4 +1,5 @@
 using TravelCompanion.Shared;
+using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Api.Models;
 
@@ -11,7 +12,7 @@ public sealed class BuilderAccessGrant
     public Destination? Destination { get; set; }
     public Guid? TripId { get; set; }
     public Trip? Trip { get; set; }
-    public required string PinHash { get; set; }
+    public string? PinHash { get; set; }
     public BuilderAccessStatus Status { get; set; } = BuilderAccessStatus.Active;
     public string? OrderReference { get; set; }
     public DateTimeOffset CreatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
@@ -24,4 +25,9 @@ public sealed class BuilderAccessGrant
     public DateTimeOffset? TrialDraftExpiresAtUtc { get; set; }
     public int TrialAssistantRequestsUsed { get; set; }
     public DateTimeOffset? ConvertedAtUtc { get; set; }
+    public StoreProvider? Origin { get; set; }
+    public Guid? PurchaseTransactionId { get; set; }
+    public StorePurchaseTransaction? PurchaseTransaction { get; set; }
+    public DateTimeOffset? PurchasedAtUtc { get; set; }
+    public DateTimeOffset? MaximumExpiresAtUtc { get; set; }
 }

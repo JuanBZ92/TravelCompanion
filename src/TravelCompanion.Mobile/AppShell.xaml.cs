@@ -17,8 +17,13 @@ public partial class AppShell : Shell
         Routing.RegisterRoute(nameof(ScheduleItemDetailPage), typeof(ScheduleItemDetailPage));
         Routing.RegisterRoute(nameof(BuilderSetupPage), typeof(BuilderSetupPage));
         Routing.RegisterRoute(nameof(ItineraryItemEditorPage), typeof(ItineraryItemEditorPage));
+        Routing.RegisterRoute(nameof(PaywallPage), typeof(PaywallPage));
+        Routing.RegisterRoute(nameof(ThematicRoutesPage), typeof(ThematicRoutesPage));
+        Routing.RegisterRoute(nameof(DayProposalPage), typeof(DayProposalPage));
+        Routing.RegisterRoute(nameof(AccountPage), typeof(AccountPage));
 
         var sessionService = MauiProgram.Services.GetRequiredService<AuthSessionService>();
+        sessionService.StateChanged += OnSessionStateChanged;
         MauiProgram.Services.GetRequiredService<OfflineSyncCoordinator>().PendingCountChanged += OnPendingCountChanged;
         if (sessionService.IsFreeMapPreview)
         {
@@ -45,8 +50,9 @@ public partial class AppShell : Shell
         FreeMapTab.IsVisible = sessionService.IsFreeMapPreview;
         MapTab.IsVisible = !sessionService.IsFreeMapPreview;
         ScheduleTab.IsVisible = sessionService.IsBuilder;
-        AssistantTab.IsVisible = sessionService.IsBuilder;
+        AssistantTab.IsVisible = sessionService.IsBuilder && sessionService.CanEditItinerary;
         DocsTab.IsVisible = sessionService.HasCuratedDocs;
+        AccountTab.IsVisible = sessionService.HasSession && !sessionService.IsFreeMapPreview;
         LogoutTab.IsVisible = sessionService.HasSession && !sessionService.IsFreeMapPreview;
     }
 
@@ -97,6 +103,11 @@ public partial class AppShell : Shell
         });
     }
 
+    private void OnSessionStateChanged(object? sender, EventArgs e)
+    {
+        Dispatcher.Dispatch(() => ApplySessionTabs(MauiProgram.Services.GetRequiredService<AuthSessionService>()));
+    }
+
     private void ApplyLocalizedTitles()
     {
         var resources = LocalizationResourceManager.Instance;
@@ -110,6 +121,7 @@ public partial class AppShell : Shell
             ? $"{resources["TabAssistant"]} ({_pendingMutationCount})"
             : resources["TabAssistant"];
         DocsTab.Title = resources["TabDocs"];
+        AccountTab.Title = resources["TabAccount"];
         LogoutTab.Title = resources["TabLogout"];
     }
 }

@@ -39,7 +39,9 @@ public sealed record ScheduleItemDto(
     int SortOrder = 0,
     string? ProviderPlaceId = null,
     decimal? Latitude = null,
-    decimal? Longitude = null)
+    decimal? Longitude = null,
+    ItineraryFlexibility Flexibility = ItineraryFlexibility.Flexible,
+    int? DurationMinutes = null)
 {
     public string TypeLabel => Type switch
     {
@@ -57,6 +59,9 @@ public sealed record ScheduleItemDto(
     public bool IsRecommendation => PlanningKind == ScheduleItemKind.Recommendation;
     public bool IsTravelerOwned => Owner == ItineraryItemOwner.Traveler;
     public bool HasExactTime => TimePrecision == ItineraryTimePrecision.Exact;
+    public bool IsProtected => Owner == ItineraryItemOwner.Yuku
+        || Type is ReservationType.Flight or ReservationType.Lodging
+        || Flexibility is ItineraryFlexibility.FixedByTraveler or ItineraryFlexibility.ConfirmedReservation;
 
     public string MainDetail => Type switch
     {

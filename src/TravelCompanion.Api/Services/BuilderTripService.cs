@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using System.Data;
 using TravelCompanion.Api.Data;
 using TravelCompanion.Api.Models;
 using TravelCompanion.Shared;
@@ -23,7 +24,7 @@ public sealed class BuilderTripService(
             return null;
         }
 
-        var grant = await LoadGrantAsync(access.User.Id, cancellationToken);
+        var grant = await LoadGrantAsync(access.User.Id, access.TripId, cancellationToken);
         var trialStatus = grant?.IsTrial == true ? freeTrialAccessService?.ToStatus(grant) : null;
         if (trialStatus?.State == TrialAccessState.Expired)
         {
@@ -54,6 +55,9 @@ public sealed class BuilderTripService(
         SaveBuilderTripSetupRequest request,
         CancellationToken cancellationToken = default)
     {
+        if (DbExecutionStrategy.ShouldExecute(dbContext))
+            return await DbExecutionStrategy.ExecuteAsync(dbContext,
+                () => SaveAsync(httpContext, request, cancellationToken), cancellationToken);
         var access = await GetBuilderAccessAsync(httpContext, cancellationToken)
             ?? throw new UnauthorizedAccessException();
         var trialStatus = access.Session.AccessMode == TravelCompanion.Shared.SessionAccessMode.FreeMapPreview
@@ -62,7 +66,11 @@ public sealed class BuilderTripService(
             : null;
         Validate(request);
 
-        var grant = await LoadGrantAsync(access.User.Id, cancellationToken)
+        await using var transaction = dbContext.Database.IsRelational()
+            ? await dbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken) : null;
+        if (access.TripId.HasValue)
+            await TripConcurrencyLock.LockAsync(dbContext, access.TripId.Value, cancellationToken);
+        var grant = await LoadGrantAsync(access.User.Id, access.TripId, cancellationToken)
             ?? throw new InvalidOperationException("No active builder access was found.");
         Trip trip;
         if (grant.TripId.HasValue)
@@ -121,10 +129,20 @@ public sealed class BuilderTripService(
         trip.EndsOn = request.DepartureDate;
         trip.TimeZoneId = request.TimeZoneId;
         trip.ExperienceMode = ExperienceMode.SelfServiceBuilder;
+        if (!grant.IsTrial && grant.MaximumExpiresAtUtc.HasValue)
+        {
+            if (!StorePurchaseService.IsTripWithinCoverage(trip, grant.MaximumExpiresAtUtc.Value))
+                throw new InvalidOperationException("Las nuevas fechas quedan fuera de la vigencia máxima del pase.");
+            var recalculated = StorePurchaseService.CalculateExpiry(trip, grant.MaximumExpiresAtUtc.Value);
+            if (recalculated <= DateTimeOffset.UtcNow)
+                throw new InvalidOperationException("Las nuevas fechas quedan fuera de la vigencia del pase.");
+            grant.ExpiresAtUtc = recalculated;
+        }
         SynchronizeDays(trip, request.Segments);
         trip.PlanRevision++;
         trip.UpdatedAtUtc = DateTimeOffset.UtcNow;
         await dbContext.SaveChangesAsync(cancellationToken);
+        if (transaction is not null) await transaction.CommitAsync(cancellationToken);
         await sessionService.BindCurrentSessionToTripAsync(httpContext, trip.Id, cancellationToken);
         return ToDto(trip, trialStatus);
     }
@@ -134,6 +152,9 @@ public sealed class BuilderTripService(
         DeleteBuilderTripSetupRequest request,
         CancellationToken cancellationToken = default)
     {
+        if (DbExecutionStrategy.ShouldExecute(dbContext))
+            return await DbExecutionStrategy.ExecuteAsync(dbContext,
+                () => DeleteAsync(httpContext, request, cancellationToken), cancellationToken);
         var access = await GetBuilderAccessAsync(httpContext, cancellationToken)
             ?? throw new UnauthorizedAccessException();
         if (access.Session.AccessMode == TravelCompanion.Shared.SessionAccessMode.FreeMapPreview)
@@ -141,7 +162,10 @@ public sealed class BuilderTripService(
             await (freeTrialAccessService?.RequireEditingAsync(access.User.Id, startIfNeeded: false, cancellationToken)
                 ?? throw new UnauthorizedAccessException());
         }
-        var grant = await LoadGrantAsync(access.User.Id, cancellationToken)
+        await using var transaction = dbContext.Database.IsRelational()
+            ? await dbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken) : null;
+        await TripConcurrencyLock.LockAsync(dbContext, request.TripId, cancellationToken);
+        var grant = await LoadGrantAsync(access.User.Id, request.TripId, cancellationToken)
             ?? throw new InvalidOperationException("No active builder access was found.");
         if (grant.TripId != request.TripId)
         {
@@ -165,6 +189,19 @@ public sealed class BuilderTripService(
             throw new BuilderRevisionConflictException(trip.PlanRevision);
         }
 
+        if (!grant.IsTrial)
+        {
+            var paidSessions = await dbContext.AppUserSessions
+                .Where(item => item.UserId == access.User.Id && item.TripId == trip.Id)
+                .ToListAsync(cancellationToken);
+            foreach (var paidSession in paidSessions) paidSession.TripId = null;
+            trip.IsArchived = true;
+            trip.UpdatedAtUtc = DateTimeOffset.UtcNow;
+            await dbContext.SaveChangesAsync(cancellationToken);
+            if (transaction is not null) await transaction.CommitAsync(cancellationToken);
+            return EmptySetup(grant.Destination?.Name ?? "Japan", grant.Destination?.TimeZoneId ?? "Asia/Tokyo", null);
+        }
+
         var reservationIds = trip.Reservations.Select(item => item.Id).ToList();
         if (reservationIds.Count > 0)
         {
@@ -185,6 +222,7 @@ public sealed class BuilderTripService(
         grant.TripId = null;
         dbContext.Trips.Remove(trip);
         await dbContext.SaveChangesAsync(cancellationToken);
+        if (transaction is not null) await transaction.CommitAsync(cancellationToken);
 
         return EmptySetup(
             grant.Destination?.Name ?? "Japan",
@@ -200,9 +238,10 @@ public sealed class BuilderTripService(
             : null;
     }
 
-    private Task<BuilderAccessGrant?> LoadGrantAsync(Guid userId, CancellationToken cancellationToken) => dbContext.BuilderAccessGrants
+    private Task<BuilderAccessGrant?> LoadGrantAsync(Guid userId, Guid? tripId, CancellationToken cancellationToken) => dbContext.BuilderAccessGrants
         .Include(item => item.Destination)
         .Where(item => item.AppUserId == userId
+            && (tripId.HasValue ? item.TripId == tripId : item.TripId == null)
             && item.Status == TravelCompanion.Shared.BuilderAccessStatus.Active
             && item.RevokedAtUtc == null
             && (!item.ExpiresAtUtc.HasValue || item.ExpiresAtUtc > DateTimeOffset.UtcNow))

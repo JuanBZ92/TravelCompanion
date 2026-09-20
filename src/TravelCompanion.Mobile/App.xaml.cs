@@ -13,8 +13,13 @@ public partial class App : Application
 	{
 		var window = new Window(new AppShell());
 		var syncCoordinator = MauiProgram.Services.GetRequiredService<TravelCompanion.Mobile.Services.OfflineSyncCoordinator>();
+		var purchaseRecovery = MauiProgram.Services.GetRequiredService<TravelCompanion.Mobile.Services.StorePurchaseRecoveryService>();
 		syncCoordinator.Start();
-		window.Activated += (_, _) => syncCoordinator.TriggerSynchronize();
+		window.Activated += async (_, _) =>
+		{
+			syncCoordinator.TriggerSynchronize();
+			await purchaseRecovery.RecoverAsync();
+		};
 		return window;
 	}
 }

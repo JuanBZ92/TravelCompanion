@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:viewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
              xmlns:dtos="clr-namespace:TravelCompanion.Shared.Dtos;assembly=TravelCompanion.Shared"
+             xmlns:services="clr-namespace:TravelCompanion.Mobile.Services"
              x:Class="TravelCompanion.Mobile.Pages.ItineraryItemEditorPage"
              x:DataType="viewModels:ItineraryItemEditorViewModel"
              Title="Agregar al itinerario"
@@ -70,7 +71,10 @@
                 <VerticalStackLayout Spacing="6"><Label Text="MOMENTO" Style="{StaticResource Eyebrow}"/><Picker ItemsSource="{Binding Periods}" SelectedItem="{Binding SelectedPeriod}" /></VerticalStackLayout>
                 <Grid ColumnDefinitions="*,Auto" Padding="0,6"><Label Text="Definir hora exacta" VerticalOptions="Center"/><Switch Grid.Column="1" IsToggled="{Binding UseExactTime}" /></Grid>
                 <TimePicker Time="{Binding Time}" IsVisible="{Binding UseExactTime}" />
-                <Label Text="Se mostrara como reserva en tu itinerario. Esto no reserva con el establecimiento." IsVisible="{Binding UseExactTime}" FontSize="12" TextColor="#6E675F" />
+                <Label Text="{Binding [ItemExactTimeHint], Source={x:Static services:LocalizationResourceManager.Instance}}" IsVisible="{Binding UseExactTime}" FontSize="12" TextColor="#6E675F" />
+                <VerticalStackLayout Spacing="6"><Label Text="{Binding [ItemDurationLabel], Source={x:Static services:LocalizationResourceManager.Instance}}" Style="{StaticResource Eyebrow}"/><Entry Text="{Binding DurationMinutes}" Keyboard="Numeric" /></VerticalStackLayout>
+                <VerticalStackLayout Spacing="6"><Label Text="{Binding [ItemFlexibilityLabel], Source={x:Static services:LocalizationResourceManager.Instance}}" Style="{StaticResource Eyebrow}"/><Picker ItemsSource="{Binding FlexibilityOptions}" ItemDisplayBinding="{Binding Label}" SelectedItem="{Binding SelectedFlexibility}" /></VerticalStackLayout>
+                <Label Text="{Binding [ItemFlexibilityHint], Source={x:Static services:LocalizationResourceManager.Instance}}" FontSize="12" TextColor="#6E675F" />
                 <Editor Placeholder="Notas personales (opcional)" Text="{Binding Notes}" AutoSize="TextChanges" MinimumHeightRequest="100" />
                 <Border IsVisible="{Binding HasError}" Style="{StaticResource ErrorPanel}"><Label Text="{Binding ErrorMessage}" /></Border>
                 <ActivityIndicator IsVisible="{Binding IsBusy}" IsRunning="{Binding IsBusy}" />

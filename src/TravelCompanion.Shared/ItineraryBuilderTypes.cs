@@ -21,6 +21,16 @@ public enum ItineraryTimePrecision
 
 public enum BuilderAccessStatus
 {
+    Trial,
+    PurchasePending,
     Active,
+    Expired,
     Revoked
+}
+
+public enum ItineraryFlexibility
+{
+    Flexible,
+    FixedByTraveler,
+    ConfirmedReservation
 }

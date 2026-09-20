@@ -12,6 +12,7 @@ public static class DayReviewIssueKinds
     public const string Overlap = "overlap";
     public const string TightTransfer = "tight_transfer";
     public const string PackedDay = "packed_day";
+    public const string IncompleteInformation = "incomplete_information";
 }
 
 public static class DayReviewSeverities

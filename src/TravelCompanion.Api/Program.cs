@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.ApplicationInsights.AspNetCore.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
@@ -99,6 +100,8 @@ builder.Services.AddRateLimiter(options =>
         CreateFixedWindowPartition(httpContext, "password", 8, TimeSpan.FromMinutes(1)));
     options.AddPolicy("AdminLogin", httpContext =>
         CreateFixedWindowPartition(httpContext, "admin", 6, TimeSpan.FromMinutes(5)));
+    options.AddPolicy("EmailCode", httpContext =>
+        CreateFixedWindowPartition(httpContext, "email-code", 8, TimeSpan.FromMinutes(10)));
 });
 builder.Services.Configure<AdminAuthOptions>(
     builder.Configuration.GetSection(AdminAuthOptions.SectionName));
@@ -111,6 +114,10 @@ builder.Services.Configure<FreePreviewOptions>(
 builder.Services.Configure<GooglePlacesOptions>(builder.Configuration.GetSection(GooglePlacesOptions.SectionName));
 builder.Services.Configure<GoogleRoutesOptions>(builder.Configuration.GetSection("GoogleRoutes"));
 builder.Services.Configure<BuilderDemoOptions>(builder.Configuration.GetSection(BuilderDemoOptions.SectionName));
+builder.Services.Configure<EmailVerificationOptions>(builder.Configuration.GetSection(EmailVerificationOptions.SectionName));
+builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection(SmtpOptions.SectionName));
+builder.Services.Configure<StorePurchaseOptions>(builder.Configuration.GetSection(StorePurchaseOptions.SectionName));
+builder.Services.Configure<ProductFeatureOptions>(builder.Configuration.GetSection(ProductFeatureOptions.SectionName));
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
@@ -125,6 +132,10 @@ builder.Services
         options.ExpireTimeSpan = TimeSpan.FromHours(8);
         options.SlidingExpiration = false;
     });
+var dataProtection = builder.Services.AddDataProtection().SetApplicationName("TravelCompanion.Api");
+var dataProtectionKeysPath = builder.Configuration["DataProtection:KeysPath"];
+if (!string.IsNullOrWhiteSpace(dataProtectionKeysPath))
+    dataProtection.PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysPath));
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
@@ -143,7 +154,29 @@ builder.Services.AddHttpClient("GoogleRoutes").RemoveAllLoggers();
 builder.Services.AddScoped<FreePreviewAccountService>();
 builder.Services.AddScoped<FreeTrialAccessService>();
 builder.Services.AddScoped<FreeMapPreviewService>();
+builder.Services.AddScoped<ITransactionalEmailSender, SmtpTransactionalEmailSender>();
+builder.Services.AddScoped<EmailAccountService>();
+builder.Services.AddScoped<ProductAnalyticsService>();
+builder.Services.AddSingleton<CommerceOperationsTelemetry>();
+builder.Services.AddScoped<PaywallOfferService>();
+builder.Services.AddScoped<StorePurchaseService>();
+builder.Services.AddScoped<DayProposalService>();
+builder.Services.AddScoped<DeterministicDayPlanningEngine>();
+builder.Services.AddScoped<AssistantUsageService>();
+builder.Services.AddScoped<ThematicRouteService>();
+builder.Services.AddScoped<IStoreReceiptVerifier, AppleStoreReceiptVerifier>();
+builder.Services.AddSingleton<AppleSignedDataVerifier>();
+builder.Services.AddScoped<IStoreReceiptVerifier, GooglePlayReceiptVerifier>();
+builder.Services.AddScoped<IStorePurchaseFinalizer, GooglePlayPurchaseFinalizer>();
+builder.Services.AddHttpClient("GooglePlayPublisher").RemoveAllLoggers();
+builder.Services.AddHttpClient("GooglePlayOAuth").RemoveAllLoggers();
+builder.Services.AddHttpClient("GoogleOidc").RemoveAllLoggers();
 builder.Services.AddHostedService<ExpiredTrialCleanupWorker>();
+builder.Services.AddHostedService<ProductAnalyticsRetentionWorker>();
+builder.Services.AddHostedService<StorePurchaseReconciliationWorker>();
+builder.Services.AddHostedService<StoreNotificationProcessingWorker>();
+builder.Services.AddHostedService<TripSynchronizationWorker>();
+builder.Services.AddHostedService<CommerceOperationsMonitoringWorker>();
 builder.Services.AddScoped<IUserInvitationSender, LoggingUserInvitationSender>();
 builder.Services.AddScoped<IUserProfileService, UserProfileService>();
 builder.Services.AddScoped<IItineraryService, ItineraryService>();

@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:viewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
+             xmlns:services="clr-namespace:TravelCompanion.Mobile.Services"
+             x:Class="TravelCompanion.Mobile.Pages.AccountPage"
+             x:Name="AccountPageRoot"
+             x:DataType="viewModels:AccountViewModel"
+             Title="{Binding PageTitle}">
+    <RefreshView IsRefreshing="{Binding IsRefreshing}" Command="{Binding LoadAccountCommand}">
+        <ScrollView>
+            <VerticalStackLayout Padding="24" Spacing="18">
+                <Label Text="{Binding [AccountEyebrow], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                       Style="{StaticResource Eyebrow}" />
+                <Label Text="{Binding [AccountHeadline], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                       Style="{StaticResource Headline}"
+                       SemanticProperties.HeadingLevel="Level1" />
+
+                <Border Style="{StaticResource Card}">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="{Binding Email}" Style="{StaticResource Title}" />
+                        <Label Text="{Binding [AccountVerified], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                               IsVisible="{Binding EmailVerified}" Style="{StaticResource Metadata}" />
+                        <Button Text="{Binding [AccountVerifyEmail], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                                Command="{Binding VerifyEmailCommand}" Style="{StaticResource GhostButton}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Style="{StaticResource Card}">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                        <VerticalStackLayout Spacing="4">
+                            <Label Text="{Binding [AccountAnalyticsTitle], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                                   Style="{StaticResource Title}" />
+                            <Label Text="{Binding [AccountAnalyticsDescription], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                                   Style="{StaticResource Metadata}" />
+                        </VerticalStackLayout>
+                        <Switch Grid.Column="1" IsToggled="{Binding BehaviorAnalyticsEnabled}" />
+                    </Grid>
+                </Border>
+
+                <Label Text="{Binding [AccountTripsTitle], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                       Style="{StaticResource Title}" SemanticProperties.HeadingLevel="Level2" />
+                <Label Text="{Binding [AccountNoTrips], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                       IsVisible="{Binding HasNoTrips}"
+                       Style="{StaticResource Body}" />
+                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Trips}" Spacing="12">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="viewModels:AccountTripItem">
+                            <Border Style="{StaticResource Card}">
+                                <VerticalStackLayout Spacing="7">
+                                    <Label Text="{Binding Name}" Style="{StaticResource Title}" />
+                                    <Label Text="{Binding DateRange}" Style="{StaticResource Metadata}" />
+                                    <Label Text="{Binding AccessLabel}" Style="{StaticResource Body}" />
+                                    <Label Text="{Binding ExpiryLabel}" Style="{StaticResource Metadata}" />
+                                    <Label Text="{Binding [AccountCurrentTrip], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                                           IsVisible="{Binding IsCurrent}" TextColor="{StaticResource Accent}" FontAttributes="Bold" />
+                                    <Button Text="{Binding [AccountOpenTrip], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                                            Command="{Binding Source={x:Reference AccountPageRoot}, Path=BindingContext.SelectTripCommand}"
+                                            CommandParameter="{Binding .}" />
+                                    <Button Text="{Binding [AccountArchive], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                                            IsVisible="{Binding CanArchive}"
+                                            Command="{Binding Source={x:Reference AccountPageRoot}, Path=BindingContext.ArchiveTripCommand}"
+                                            CommandParameter="{Binding .}" Style="{StaticResource GhostButton}" />
+                                </VerticalStackLayout>
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+
+                <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
+                <Border Style="{StaticResource ErrorPanel}" IsVisible="{Binding HasError}">
+                    <Label Text="{Binding ErrorMessage}" />
+                </Border>
+                <Button Text="{Binding [AccountDelete], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                        Command="{Binding DeleteAccountCommand}" Style="{StaticResource GhostButton}" />
+            </VerticalStackLayout>
+        </ScrollView>
+    </RefreshView>
+</ContentPage>

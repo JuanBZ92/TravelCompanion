@@ -63,7 +63,8 @@ public sealed class TravelPassController(
                 && (!grant.ExpiresAtUtc.HasValue || grant.ExpiresAtUtc > now))
             .ToListAsync(cancellationToken);
         var paidGrant = paidGrants.FirstOrDefault(grant =>
-            pinHasher.VerifyHashedPassword(grant, grant.PinHash, request.Pin.Trim()) != PasswordVerificationResult.Failed);
+            !string.IsNullOrWhiteSpace(grant.PinHash)
+            && pinHasher.VerifyHashedPassword(grant, grant.PinHash, request.Pin.Trim()) != PasswordVerificationResult.Failed);
         if (paidGrant is null || paidGrant.DestinationId != trialGrant.DestinationId)
         {
             return Unauthorized(new { message = "El código del pase no es válido para este viaje." });
@@ -109,6 +110,7 @@ public sealed class TravelPassController(
             SessionAccessMode.Builder,
             ExperienceMode.SelfServiceBuilder,
             capabilities,
-            freeTrialAccessService.ToStatus(null)));
+            freeTrialAccessService.ToStatus(paidGrant),
+            session.User.EmailVerified));
     }
 }

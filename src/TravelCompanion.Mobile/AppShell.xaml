@@ -64,6 +64,13 @@
             Route="docs" />
 
         <ShellContent
+            x:Name="AccountTab"
+            Title="Cuenta"
+            Icon="tab_docs.svg"
+            ContentTemplate="{DataTemplate pages:AccountPage}"
+            Route="account" />
+
+        <ShellContent
             x:Name="LogoutTab"
             Title="Salir"
             Icon="tab_power.svg"

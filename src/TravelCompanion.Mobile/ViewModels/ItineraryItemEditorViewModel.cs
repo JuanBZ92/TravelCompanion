@@ -16,6 +16,12 @@ public sealed partial class ItineraryItemEditorViewModel(
     MapViewModel mapViewModel,
     BuilderTripStore builderTripStore) : ViewModelBase
 {
+    private static readonly IReadOnlyList<ItineraryFlexibilityOption> FlexibilityChoices =
+    [
+        new(ItineraryFlexibility.Flexible, LocalizationResourceManager.Instance.GetString("ItemFlexibilityFlexible")),
+        new(ItineraryFlexibility.FixedByTraveler, LocalizationResourceManager.Instance.GetString("ItemFlexibilityFixed")),
+        new(ItineraryFlexibility.ConfirmedReservation, LocalizationResourceManager.Instance.GetString("ItemFlexibilityConfirmed"))
+    ];
     private RecommendationDto? _recommendation;
     private DateTime _date = DateTime.Today;
     private DateTime _minimumDate = DateTime.Today;
@@ -23,6 +29,8 @@ public sealed partial class ItineraryItemEditorViewModel(
     private string _selectedPeriod = "Tarde";
     private bool _useExactTime;
     private TimeSpan _time = new(15, 0, 0);
+    private string _durationMinutes = "60";
+    private ItineraryFlexibilityOption _selectedFlexibility = FlexibilityChoices[0];
     private string _notes = string.Empty;
     private string _titleText = string.Empty;
     private string _locationName = string.Empty;
@@ -42,6 +50,7 @@ public sealed partial class ItineraryItemEditorViewModel(
     private readonly Dictionary<string, IReadOnlyList<PlaceSuggestionDto>> _placeSuggestionCache = new(StringComparer.Ordinal);
 
     public IReadOnlyList<string> Periods { get; } = ["Mañana", "Medio día", "Tarde", "Noche"];
+    public IReadOnlyList<ItineraryFlexibilityOption> FlexibilityOptions => FlexibilityChoices;
     public ObservableCollection<PlaceSuggestionDto> PlaceSuggestions { get; } = [];
     public string HeaderTitle => _recommendation?.Title ?? "Nuevo plan";
     public string Subtitle => _recommendation?.Neighborhood ?? "Agrega una idea personal";
@@ -86,6 +95,8 @@ public sealed partial class ItineraryItemEditorViewModel(
     public string SelectedPeriod { get => _selectedPeriod; set => SetProperty(ref _selectedPeriod, value); }
     public bool UseExactTime { get => _useExactTime; set => SetProperty(ref _useExactTime, value); }
     public TimeSpan Time { get => _time; set => SetProperty(ref _time, value); }
+    public string DurationMinutes { get => _durationMinutes; set => SetProperty(ref _durationMinutes, value); }
+    public ItineraryFlexibilityOption SelectedFlexibility { get => _selectedFlexibility; set => SetProperty(ref _selectedFlexibility, value); }
     public string Notes { get => _notes; set => SetProperty(ref _notes, value); }
     public string CurrentCity { get => _currentCity; private set => SetProperty(ref _currentCity, value); }
     public string? PlaceSearchMessage
@@ -113,6 +124,8 @@ public sealed partial class ItineraryItemEditorViewModel(
         _fallbackCity = recommendation.Neighborhood.Split(',')[0].Trim();
         _applyingPlaceSelection = true;
         TitleText = recommendation.Title;
+        DurationMinutes = Math.Max(15, recommendation.SuggestedDurationMinutes).ToString(CultureInfo.InvariantCulture);
+        SelectedFlexibility = FlexibilityChoices[0];
         LocationName = recommendation.Title;
         Address = recommendation.Neighborhood;
         _applyingPlaceSelection = false;
@@ -151,6 +164,8 @@ public sealed partial class ItineraryItemEditorViewModel(
         _fallbackCity = string.Empty;
         _applyingPlaceSelection = true;
         TitleText = string.Empty;
+        DurationMinutes = "60";
+        SelectedFlexibility = FlexibilityChoices[0];
         LocationName = string.Empty;
         Address = string.Empty;
         _applyingPlaceSelection = false;
@@ -184,6 +199,10 @@ public sealed partial class ItineraryItemEditorViewModel(
         SelectedPeriod = item.StartsAt.Hour switch { < 12 => "Mañana", < 15 => "Medio día", < 19 => "Tarde", _ => "Noche" };
         UseExactTime = item.HasExactTime;
         Time = item.StartsAt.ToTimeSpan();
+        DurationMinutes = (item.DurationMinutes ?? (item.EndsAt.HasValue
+            ? Math.Max(15, (int)(item.EndsAt.Value.ToTimeSpan() - item.StartsAt.ToTimeSpan()).TotalMinutes) : 60))
+            .ToString(CultureInfo.InvariantCulture);
+        SelectedFlexibility = FlexibilityChoices.First(option => option.Value == item.Flexibility);
         OnPropertyChanged(nameof(HeaderTitle));
         OnPropertyChanged(nameof(Subtitle));
         OnPropertyChanged(nameof(CanSearchPlaces));
@@ -373,14 +392,21 @@ public sealed partial class ItineraryItemEditorViewModel(
         Guid? recommendationId = _recommendation is not null && _recommendation.Id != Guid.Empty
             ? _recommendation.Id
             : _existingItem?.RecommendationId;
+        if (!int.TryParse(DurationMinutes, NumberStyles.Integer, CultureInfo.InvariantCulture, out var duration)
+            || duration is < 15 or > 1440)
+        {
+            ErrorMessage = "La duración debe estar entre 15 y 1440 minutos.";
+            return;
+        }
+        var startsAt = UseExactTime ? TimeOnly.FromTimeSpan(Time) : (TimeOnly?)null;
         var mutation = new ItineraryItemMutationRequest(
             recommendationId,
             recommendationId.HasValue ? null : _selectedGooglePlaceId, TitleText.Trim(), DateOnly.FromDateTime(Date), periodKey,
-            UseExactTime, UseExactTime ? TimeOnly.FromTimeSpan(Time) : null, null,
+            UseExactTime, startsAt, startsAt?.AddMinutes(duration),
             recommendationId.HasValue ? _recommendation?.Neighborhood.Split(',')[0] ?? CurrentCity : CurrentCity,
             LocationName, Address,
             Notes, _recommendation?.Latitude ?? _selectedLatitude, _recommendation?.Longitude ?? _selectedLongitude,
-            _revision, Guid.NewGuid().ToString("N"));
+            _revision, Guid.NewGuid().ToString("N"), Flexibility: SelectedFlexibility.Value, DurationMinutes: duration);
         var result = await SaveMutationAsync(mutation);
         if (result?.HasOverlap == true)
         {
@@ -477,3 +503,5 @@ public sealed partial class ItineraryItemEditorViewModel(
         CultureInfo.InvariantCulture.CompareInfo.IndexOf(
             value, query, CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace) >= 0;
 }
+
+public sealed record ItineraryFlexibilityOption(ItineraryFlexibility Value, string Label);

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using System.Data;
 using TravelCompanion.Api.Data;
 using TravelCompanion.Api.Models;
 using TravelCompanion.Shared;
@@ -9,19 +10,26 @@ namespace TravelCompanion.Api.Services;
 public sealed class TravelerItineraryService(
     TravelCompanionDbContext dbContext,
     TravelerAccessService accessService,
-    FreeTrialAccessService? freeTrialAccessService = null)
+    FreeTrialAccessService? freeTrialAccessService = null,
+    ProductAnalyticsService? analytics = null)
 {
     public async Task<ItineraryItemMutationResponse> CreateAsync(
         HttpContext httpContext,
         ItineraryItemMutationRequest request,
         CancellationToken cancellationToken = default)
     {
+        if (DbExecutionStrategy.ShouldExecute(dbContext))
+            return await DbExecutionStrategy.ExecuteAsync(dbContext,
+                () => CreateAsync(httpContext, request, cancellationToken), cancellationToken);
         var access = await accessService.GetAsync(httpContext, cancellationToken);
         await RequireActiveTrialEditingAsync(access, cancellationToken);
         if (access is null || !access.Capabilities.CanEditItinerary || access.TripId is null)
         {
             throw new UnauthorizedAccessException();
         }
+        await using var transaction = dbContext.Database.IsRelational()
+            ? await dbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken) : null;
+        await TripConcurrencyLock.LockAsync(dbContext, access.TripId.Value, cancellationToken);
 
         var externalId = $"traveler-{request.IdempotencyKey.Trim()}";
         var priorResult = await dbContext.Reservations
@@ -68,6 +76,7 @@ public sealed class TravelerItineraryService(
         }
 
         var isGooglePlace = recommendation is null && !string.IsNullOrWhiteSpace(request.GooglePlaceId);
+        var isFirstTravelerItem = !trip.Reservations.Any(existingItem => existingItem.Owner == ItineraryItemOwner.Traveler);
         var item = new Reservation
         {
             Id = Guid.NewGuid(),
@@ -76,12 +85,14 @@ public sealed class TravelerItineraryService(
             TripDayBlockId = block.Id,
             RecommendationId = recommendation?.Id,
             Type = ReservationType.Event,
-            PlanningKind = ResolveKind(request.UseExactTime, recommendation is not null || isGooglePlace),
+            PlanningKind = ResolveKind(recommendation is not null || isGooglePlace, request.Flexibility),
             Owner = ItineraryItemOwner.Traveler,
             ItemSource = recommendation is not null ? ItineraryItemSource.YukuRecommendation
                 : isGooglePlace ? ItineraryItemSource.GooglePlace
                 : ItineraryItemSource.Manual,
             TimePrecision = request.UseExactTime ? ItineraryTimePrecision.Exact : ItineraryTimePrecision.PeriodOnly,
+            Flexibility = request.Flexibility,
+            DurationMinutes = request.DurationMinutes ?? recommendation?.SuggestedDurationMinutes,
             ProviderPlaceId = recommendation?.ProviderPlaceId ?? request.GooglePlaceId?.Trim(),
             Date = request.Date,
             StartsAt = startsAt,
@@ -103,6 +114,9 @@ public sealed class TravelerItineraryService(
         trip.PlanRevision++;
         trip.UpdatedAtUtc = DateTimeOffset.UtcNow;
         await dbContext.SaveChangesAsync(cancellationToken);
+        if (isFirstTravelerItem && analytics is not null)
+            await analytics.RecordServerEventAsync(access.User.Id, trip.Id, "first_item_saved", "itinerary", null, cancellationToken);
+        if (transaction is not null) await transaction.CommitAsync(cancellationToken);
         return new(true, "Agregado a tu itinerario.", trip.PlanRevision, ToDto(item));
 
         static string itemSourceLabel(Recommendation? recommendation, string? googlePlaceId) => recommendation is not null
@@ -116,8 +130,16 @@ public sealed class TravelerItineraryService(
         ItineraryItemMutationRequest request,
         CancellationToken cancellationToken = default)
     {
+        if (DbExecutionStrategy.ShouldExecute(dbContext))
+            return await DbExecutionStrategy.ExecuteAsync(dbContext,
+                () => UpdateAsync(httpContext, id, request, cancellationToken), cancellationToken);
         var access = await accessService.GetAsync(httpContext, cancellationToken);
         await RequireActiveTrialEditingAsync(access, cancellationToken);
+        if (access is null || !access.Capabilities.CanEditItinerary || access.TripId is null)
+            throw new UnauthorizedAccessException();
+        await using var transaction = dbContext.Database.IsRelational()
+            ? await dbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken) : null;
+        await TripConcurrencyLock.LockAsync(dbContext, access.TripId.Value, cancellationToken);
         var periodKey = ResolvePeriod(request);
         var (trip, block) = await LoadEditableContextAsync(httpContext, request.Date, periodKey, request.ExpectedRevision, cancellationToken);
         var item = trip.Reservations.SingleOrDefault(existing => existing.Id == id)
@@ -132,6 +154,8 @@ public sealed class TravelerItineraryService(
         item.StartsAt = request.UseExactTime ? request.StartsAt ?? period.StartsAt : period.StartsAt;
         item.EndsAt = request.UseExactTime ? request.EndsAt : null;
         item.TimePrecision = request.UseExactTime ? ItineraryTimePrecision.Exact : ItineraryTimePrecision.PeriodOnly;
+        item.Flexibility = request.Flexibility;
+        item.DurationMinutes = request.DurationMinutes ?? item.Recommendation?.SuggestedDurationMinutes;
         item.Title = request.Title.Trim();
         item.City = request.City?.Trim() ?? block.TripDayPlan?.City ?? item.City;
         item.LocationName = request.LocationName?.Trim() ?? request.Title.Trim();
@@ -161,11 +185,13 @@ public sealed class TravelerItineraryService(
                 item.SourceUrl = null;
             }
         }
-        item.PlanningKind = ResolveKind(request.UseExactTime,
-            item.RecommendationId.HasValue || item.ItemSource == ItineraryItemSource.GooglePlace);
+        item.PlanningKind = ResolveKind(
+            item.RecommendationId.HasValue || item.ItemSource == ItineraryItemSource.GooglePlace,
+            request.Flexibility);
         trip.PlanRevision++;
         trip.UpdatedAtUtc = DateTimeOffset.UtcNow;
         await dbContext.SaveChangesAsync(cancellationToken);
+        if (transaction is not null) await transaction.CommitAsync(cancellationToken);
         return new(true, "Itinerario actualizado.", trip.PlanRevision, ToDto(item));
     }
 
@@ -175,12 +201,18 @@ public sealed class TravelerItineraryService(
         int expectedRevision,
         CancellationToken cancellationToken = default)
     {
+        if (DbExecutionStrategy.ShouldExecute(dbContext))
+            return await DbExecutionStrategy.ExecuteAsync(dbContext,
+                () => DeleteAsync(httpContext, id, expectedRevision, cancellationToken), cancellationToken);
         var access = await accessService.GetAsync(httpContext, cancellationToken);
         await RequireActiveTrialEditingAsync(access, cancellationToken);
         if (access is null || !access.Capabilities.CanEditItinerary || access.TripId is null)
         {
             throw new UnauthorizedAccessException();
         }
+        await using var transaction = dbContext.Database.IsRelational()
+            ? await dbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken) : null;
+        await TripConcurrencyLock.LockAsync(dbContext, access.TripId.Value, cancellationToken);
 
         var trip = await dbContext.Trips.Include(item => item.Reservations)
             .SingleAsync(item => item.Id == access.TripId && item.AppUserId == access.User.Id, cancellationToken);
@@ -191,6 +223,7 @@ public sealed class TravelerItineraryService(
         trip.PlanRevision++;
         trip.UpdatedAtUtc = DateTimeOffset.UtcNow;
         await dbContext.SaveChangesAsync(cancellationToken);
+        if (transaction is not null) await transaction.CommitAsync(cancellationToken);
         return new(true, "Item eliminado.", trip.PlanRevision, DeletedItemId: id);
     }
 
@@ -235,8 +268,13 @@ public sealed class TravelerItineraryService(
     }
 
     public static ScheduleItemKind ResolveKind(bool exact, bool place) => place
-        ? exact ? ScheduleItemKind.ConfirmedReservation : ScheduleItemKind.Recommendation
+        ? ScheduleItemKind.Recommendation
         : ScheduleItemKind.ManualEvent;
+
+    public static ScheduleItemKind ResolveKind(bool place, ItineraryFlexibility flexibility) =>
+        flexibility == ItineraryFlexibility.ConfirmedReservation
+            ? ScheduleItemKind.ConfirmedReservation
+            : place ? ScheduleItemKind.Recommendation : ScheduleItemKind.ManualEvent;
 
     private static string ResolvePeriod(ItineraryItemMutationRequest request)
     {
@@ -266,5 +304,5 @@ public sealed class TravelerItineraryService(
         item.Title, item.City, item.LocationName, item.Address, item.ConfirmationCode, item.Notes,
         item.Airline, item.FlightNumber, item.OriginName, item.DestinationName, item.OriginAirport,
         item.DestinationAirport, item.PlanningKind, item.Owner, item.ItemSource, item.TimePrecision,
-        item.SortOrder, item.ProviderPlaceId, item.Latitude, item.Longitude);
+        item.SortOrder, item.ProviderPlaceId, item.Latitude, item.Longitude, item.Flexibility, item.DurationMinutes);
 }

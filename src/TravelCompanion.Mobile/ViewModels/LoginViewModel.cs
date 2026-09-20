@@ -17,6 +17,7 @@ public sealed partial class LoginViewModel(
     public string LoginFreePreview => Resource("LoginFreePreview");
     public string LoginOpenTrip => Resource("LoginOpenTrip");
     public string LoginBiometric => Resource("LoginBiometric");
+    public string LoginRecoverEmail => Resource("LoginRecoverEmail");
 
     public string Pin
     {
@@ -87,6 +88,47 @@ public sealed partial class LoginViewModel(
     {
         await Shell.Current.GoToAsync("//biometric-unlock");
     }
+
+    [RelayCommand]
+    private Task RecoverWithEmailAsync() => LoadAsync(async cancellationToken =>
+    {
+        var email = await Shell.Current.DisplayPromptAsync(
+            Resource("AccountRecoverTitle"),
+            Resource("AccountRecoverPrompt"),
+            Resource("AccountSendCode"),
+            Resource("CommonCancel"),
+            keyboard: Keyboard.Email);
+        if (string.IsNullOrWhiteSpace(email)) return;
+
+        var requested = await apiClient.RequestEmailCodeAsync(
+            null,
+            email,
+            System.Globalization.CultureInfo.CurrentUICulture.Name,
+            cancellationToken);
+        if (requested is null)
+            throw new InvalidOperationException(Resource("AccountCodeSendError"));
+
+        var code = await Shell.Current.DisplayPromptAsync(
+            Resource("AccountVerifyTitle"),
+            Resource("AccountVerifyPrompt"),
+            Resource("AccountVerify"),
+            Resource("CommonCancel"),
+            keyboard: Keyboard.Numeric,
+            maxLength: 6);
+        if (string.IsNullOrWhiteSpace(code)) return;
+
+        var session = await apiClient.VerifyEmailCodeAsync(
+            null,
+            email,
+            new string(code.Where(char.IsDigit).ToArray()),
+            cancellationToken) ?? throw new InvalidOperationException(Resource("AccountCodeInvalid"));
+
+        if (sessionService.HasSession)
+            await logoutService.ResetContentAsync(sessionService.CurrentUserId);
+        await sessionService.SaveAsync(session);
+        if (Shell.Current is AppShell appShell) appShell.ApplySessionTabs(sessionService);
+        await Shell.Current.GoToAsync(nameof(TravelCompanion.Mobile.Pages.AccountPage));
+    });
 
     private static string Resource(string key) => LocalizationResourceManager.Instance.GetString(key);
 }

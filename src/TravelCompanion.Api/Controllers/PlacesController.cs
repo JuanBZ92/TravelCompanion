@@ -64,7 +64,8 @@ public sealed class PlacesController(
     {
         var access = await accessService.GetAsync(HttpContext, cancellationToken);
         if (access is null || (!access.Capabilities.CanViewFullMap
-            && access.Session.AccessMode != TravelCompanion.Shared.SessionAccessMode.FreeMapPreview)) return Forbid();
+            && access.Session.AccessMode is not (TravelCompanion.Shared.SessionAccessMode.FreeMapPreview
+                or TravelCompanion.Shared.SessionAccessMode.BuilderReadOnly))) return Forbid();
         if (string.IsNullOrWhiteSpace(request.Query) || request.Query.Trim().Length < 2) return Ok(Array.Empty<RecommendationDto>());
 
         var now = DateTimeOffset.UtcNow;
@@ -120,7 +121,8 @@ public sealed class PlacesController(
                 item.Latitude,
                 item.Longitude))
             .ToListAsync(cancellationToken);
-        if (access.Session.AccessMode == TravelCompanion.Shared.SessionAccessMode.FreeMapPreview)
+        if (access.Session.AccessMode is TravelCompanion.Shared.SessionAccessMode.FreeMapPreview
+            or TravelCompanion.Shared.SessionAccessMode.BuilderReadOnly)
         {
             var freeCities = await dbContext.FreeMapCities.AsNoTracking()
                 .Where(city => city.IsEnabled && city.DestinationId == destinationId)

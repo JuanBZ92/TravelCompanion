@@ -88,11 +88,17 @@ public static class MauiProgram
         builder.Services.AddSingleton<MobileSyncStateStore>();
         builder.Services.AddSingleton<BuilderTripStore>();
         builder.Services.AddSingleton<OfflineMutationQueueService>();
+        builder.Services.AddSingleton<ProductAnalyticsQueueService>();
+        builder.Services.AddSingleton<PendingStorePurchaseStore>();
+        builder.Services.AddSingleton<StorePurchaseRecoveryService>();
+        builder.Services.AddSingleton<AnalyticsConsentService>();
+        builder.Services.AddSingleton<ProductAnalyticsTracker>();
         builder.Services.AddSingleton<OfflineSyncCoordinator>();
         builder.Services.AddSingleton<FavoritesService>();
         builder.Services.AddSingleton<PendingItineraryActionStore>();
         builder.Services.AddSingleton<SessionLogoutService>();
         builder.Services.AddSingleton<ILocationService, LocationService>();
+        builder.Services.AddSingleton<IStorePurchaseService, NativeStorePurchaseService>();
         builder.Services.AddSingleton(LocalizationResourceManager.Instance);
 
         builder.Services.AddTransient<LoginViewModel>();
@@ -114,6 +120,10 @@ public static class MauiProgram
         builder.Services.AddTransient<RecommendationDetailViewModel>();
         builder.Services.AddTransient<BuilderSetupViewModel>();
         builder.Services.AddTransient<ItineraryItemEditorViewModel>();
+        builder.Services.AddTransient<PaywallViewModel>();
+        builder.Services.AddTransient<ThematicRoutesViewModel>();
+        builder.Services.AddTransient<DayProposalViewModel>();
+        builder.Services.AddTransient<AccountViewModel>();
         builder.Services.AddSingleton<DocsViewModel>();
         builder.Services.AddSingleton<ISessionStateResettable>(sp => sp.GetRequiredService<DocsViewModel>());
 
@@ -132,6 +142,10 @@ public static class MauiProgram
         builder.Services.AddTransient<RecommendationDetailPage>();
         builder.Services.AddTransient<BuilderSetupPage>();
         builder.Services.AddTransient<ItineraryItemEditorPage>();
+        builder.Services.AddTransient<PaywallPage>();
+        builder.Services.AddTransient<ThematicRoutesPage>();
+        builder.Services.AddTransient<DayProposalPage>();
+        builder.Services.AddTransient<AccountPage>();
 
         var app = builder.Build();
         Services = app.Services;

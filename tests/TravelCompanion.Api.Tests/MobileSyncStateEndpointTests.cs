@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -17,6 +19,11 @@ namespace TravelCompanion.Api.Tests;
 
 public sealed class MobileSyncStateEndpointTests
 {
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        Converters = { new JsonStringEnumConverter() }
+    };
+
     [Fact]
     public async Task Sync_state_returns_small_independent_versions_and_honors_etag()
     {
@@ -28,7 +35,7 @@ public sealed class MobileSyncStateEndpointTests
         using var first = await client.GetAsync("/api/mobile/sync-state");
         first.EnsureSuccessStatusCode();
         Assert.NotNull(first.Headers.ETag);
-        var state = await first.Content.ReadFromJsonAsync<MobileSyncStateDto>();
+        var state = await first.Content.ReadFromJsonAsync<MobileSyncStateDto>(JsonOptions);
         Assert.NotNull(state);
         Assert.Equal(seed.TripId, state.TripId);
         Assert.Equal(7, state.ItineraryVersion);
