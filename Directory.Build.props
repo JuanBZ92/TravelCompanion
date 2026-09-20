@@ -1,5 +1,7 @@
 <Project>
   <PropertyGroup Condition="'$(MSBuildProjectName)' == 'TravelCompanion.Mobile'">
-    <MauiEnableXamlCBindingWithSourceCompilation>true</MauiEnableXamlCBindingWithSourceCompilation>
+    <!-- Localization uses an indexer on an explicit static Source. Keep those bindings
+         reflective so Release XamlC can still compile all view-model bindings safely. -->
+    <MauiEnableXamlCBindingWithSourceCompilation>false</MauiEnableXamlCBindingWithSourceCompilation>
   </PropertyGroup>
 </Project>
