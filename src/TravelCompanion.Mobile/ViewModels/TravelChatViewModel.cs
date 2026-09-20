@@ -875,6 +875,11 @@ public sealed partial class TravelChatViewModel(
             return;
         }
 
+        if (_isFullDayFlow && !alternative)
+        {
+            await PersistGuidedPreferencesAsync();
+        }
+
         _pendingGuidedAction = new GuidedTravelActionDto(
             alternative
                 ? GuidedTravelActions.Alternative
@@ -890,6 +895,39 @@ public sealed partial class TravelChatViewModel(
         IsFreeTextVisible = false;
         IsSecondaryMenuVisible = false;
         await SendMessageAsync();
+    }
+
+    private async Task PersistGuidedPreferencesAsync()
+    {
+        var token = await sessionService.GetTokenAsync();
+        if (string.IsNullOrWhiteSpace(token) || _guidedCriteria is null) return;
+        var categories = _guidedCriteria.Categories.Append(_guidedCriteria.Category)
+            .Where(GuidedTravelCategories.IsValid)
+            .Select(value => value!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (categories.Count == 0) return;
+
+        var budgets = _guidedCriteria.Budgets.Append(_guidedCriteria.Budget)
+            .Where(value => value is "low" or "medium" or "high")
+            .Select(value => value!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var walkingMinutes = _selectedWalkingMinutes.Contains(0)
+            ? 180
+            : _guidedCriteria.MaxWalkingMinutes ?? 30;
+        try
+        {
+            await apiClient.PatchTravelPreferenceProfileAsync(
+                token,
+                new TravelPreferenceProfilePatchDto(
+                    null, null, budgets.FirstOrDefault() ?? "medium", "balanced",
+                    categories, null, null, walkingMinutes));
+        }
+        catch (Exception ex) when (IsTransientNetworkException(ex))
+        {
+            // The plan can still be generated. A later profile update may retry.
+        }
     }
 
     private async Task<int> SaveFullDayCardsAsync(
@@ -1472,7 +1510,9 @@ public sealed partial class TravelChatViewModel(
         if (_selectedCategories.Count == 0) return false;
 
         _selectedBudgets.Add(profile.BudgetLevel);
-        _selectedWalkingMinutes.Add(profile.MaxWalkingMinutes <= 15 ? 15 : 30);
+        _selectedWalkingMinutes.Add(profile.MaxWalkingMinutes >= 180
+            ? 0
+            : profile.MaxWalkingMinutes <= 15 ? 15 : 30);
         UpdateGuidedCriteriaFromSelections();
         return true;
     }
