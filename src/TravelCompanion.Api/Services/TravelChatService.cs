@@ -1160,8 +1160,8 @@ public sealed class TravelChatService(
     private static string CreateFullDayPlanningMessage(string locale)
     {
         return IsEnglish(locale)
-            ? "Build a day with morning coffee, a visit, lunch, and an afternoon outing"
-            : "Armá un día con café por la mañana, una visita, almuerzo y un recorrido por la tarde";
+            ? "Build a day with morning coffee, a visit, lunch, and dinner"
+            : "Armá un día con café por la mañana, una visita, almuerzo y cena";
     }
 
     private static string CreateFullDayResponseMessage(int stopCount, string locale)
@@ -1201,10 +1201,11 @@ public sealed class TravelChatService(
             recommendation => IsFoodRecommendation(recommendation)
                 && ContainsRecommendationTerms(recommendation, "lunch", "almuerzo", "ramen", "sushi"),
             IsFoodRecommendation);
-        AddFullDayStop(stops, used, ranked, requestSeed, "afternoon", new TimeOnly(15, 30),
-            english ? "Afternoon outing" : "Recorrido de tarde",
-            recommendation => !IsFoodRecommendation(recommendation) && MatchesAnyInterest(recommendation, criteria),
-            recommendation => !IsFoodRecommendation(recommendation));
+        AddFullDayStop(stops, used, ranked, requestSeed, "dinner", new TimeOnly(19, 30),
+            english ? "Dinner" : "Cena",
+            recommendation => IsFoodRecommendation(recommendation)
+                && ContainsRecommendationTerms(recommendation, "dinner", "cena", "izakaya", "yakitori", "omakase"),
+            IsFoodRecommendation);
 
         return stops.OrderBy(stop => stop.StartsAt).ToList();
     }

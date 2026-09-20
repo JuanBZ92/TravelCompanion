@@ -87,7 +87,9 @@ public sealed record DayProposalRequestDto(
     int ExpectedRevision,
     TimeOnly? WindowStart = null,
     TimeOnly? WindowEnd = null,
-    [param: Required, MaxLength(80)] string IdempotencyKey = "");
+    [param: Required, MaxLength(80)] string IdempotencyKey = "",
+    Guid? TargetItemId = null,
+    [param: MaxLength(40)] string? IssueKind = null);
 
 public sealed record ItineraryChangeDto(
     Guid ChangeId,

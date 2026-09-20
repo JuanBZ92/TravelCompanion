@@ -18,7 +18,8 @@ public sealed class DayProposalService(
     Microsoft.Extensions.Options.IOptions<TravelCompanion.Api.Options.ProductFeatureOptions>? features = null,
     IRecommendationRanker? ranker = null,
     ITravelAiModelClient? modelClient = null,
-    Microsoft.Extensions.Options.IOptions<TravelCompanion.Api.Options.OpenAiTravelOptions>? aiOptions = null)
+    Microsoft.Extensions.Options.IOptions<TravelCompanion.Api.Options.OpenAiTravelOptions>? aiOptions = null,
+    FreeTrialAccessService? freeTrialAccessService = null)
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private DeterministicDayPlanningEngine Planner { get; } = planningEngine ?? new DeterministicDayPlanningEngine();
@@ -43,6 +44,12 @@ public sealed class DayProposalService(
         var window = Planner.CreateWindow(request.Date, start, end);
         if (window.DurationMinutes is < 30 or > 24 * 60)
             throw new ArgumentException("La ventana de planificación no es válida.");
+
+        if (request.TargetItemId.HasValue)
+        {
+            return await CreateTargetedReplacementAsync(
+                context, access, trip, request, window, spanish: ProductLanguage.IsSpanish(context), ct);
+        }
 
         var dayItems = trip.Reservations.Where(item => Planner.Covers(item, request.Date)).OrderBy(item => Planner.GetInterval(item).Start).ToList();
         var protectedItems = dayItems.Where(IsProtected).ToList();
@@ -152,6 +159,122 @@ public sealed class DayProposalService(
             await assistantUsage.CancelAsync(quotaLease.LeaseId, CancellationToken.None);
             throw;
         }
+    }
+
+    private async Task<DayProposalDto> CreateTargetedReplacementAsync(
+        HttpContext context,
+        TravelerAccessContext access,
+        Trip trip,
+        DayProposalRequestDto request,
+        LocalPlanningInterval window,
+        bool spanish,
+        CancellationToken ct)
+    {
+        var target = trip.Reservations.SingleOrDefault(item => item.Id == request.TargetItemId
+            && Planner.Covers(item, request.Date))
+            ?? throw new ArgumentException("El plan que necesita ajuste ya no está disponible.");
+        if (IsProtected(target))
+            throw new InvalidOperationException("Las reservas protegidas no se sustituyen automáticamente.");
+
+        var used = trip.Reservations.Where(item => item.RecommendationId.HasValue)
+            .Select(item => item.RecommendationId!.Value).ToHashSet();
+        var candidates = await dbContext.Recommendations.AsNoTracking()
+            .Where(item => item.DestinationId == trip.DestinationId && !used.Contains(item.Id))
+            .OrderByDescending(item => item.Rating)
+            .Take(80)
+            .ToListAsync(ct);
+        if (access.Session.AccessMode == SessionAccessMode.FreeMapPreview)
+        {
+            candidates = freeTrialAccessService is null
+                ? candidates.Where(item => item.AccessLevel == ContentAccessLevel.Free).ToList()
+                : (await freeTrialAccessService.FilterToFreeRadiusAsync(candidates, trip.DestinationId, ct)).ToList();
+        }
+
+        var targetRecommendation = target.RecommendationId.HasValue
+            ? await dbContext.Recommendations.AsNoTracking().SingleOrDefaultAsync(item => item.Id == target.RecommendationId, ct)
+            : null;
+        var nearbyItems = trip.Reservations.Where(item => item.Id != target.Id && Planner.Covers(item, request.Date)).ToList();
+        var packedDay = string.Equals(request.IssueKind, DayReviewIssueKinds.PackedDay, StringComparison.OrdinalIgnoreCase);
+        var replacement = candidates
+            .OrderBy(item => targetRecommendation is not null
+                && string.Equals(item.Category, targetRecommendation.Category, StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+            .ThenBy(item => packedDay ? Math.Max(15, item.SuggestedDurationMinutes) : 0)
+            .ThenBy(item => ProximityScore(item, nearbyItems))
+            .ThenByDescending(item => item.Rating)
+            .FirstOrDefault()
+            ?? throw new InvalidOperationException("No encontramos una alternativa disponible para este plan.");
+
+        var duration = Math.Max(15, replacement.SuggestedDurationMinutes);
+        var current = Planner.GetInterval(target);
+        var cursor = current.Start < window.Start ? window.Start : current.Start;
+        var slot = Planner.FindNextAvailable(cursor, duration, nearbyItems, window.End,
+                string.Equals(request.IssueKind, DayReviewIssueKinds.TightTransfer, StringComparison.OrdinalIgnoreCase) ? 35 : 15)
+            ?? Planner.FindNextAvailable(window.Start, duration, nearbyItems, window.End, 20)
+            ?? throw new InvalidOperationException("No hay una franja libre para sustituir solamente ese plan.");
+        var slotEnd = slot.AddMinutes(duration);
+        var explanation = request.IssueKind switch
+        {
+            DayReviewIssueKinds.Overlap => spanish
+                ? "Sustituye solo este plan y lo mueve a una franja sin solapamientos."
+                : "Replaces only this plan and moves it to a slot without overlaps.",
+            DayReviewIssueKinds.TightTransfer => spanish
+                ? "Sustituye solo este plan por una alternativa más compatible con los desplazamientos del día."
+                : "Replaces only this plan with an option that better fits the day's transfers.",
+            DayReviewIssueKinds.PackedDay => spanish
+                ? "Sustituye solo este plan por una alternativa más breve."
+                : "Replaces only this plan with a shorter alternative.",
+            _ => spanish
+                ? "Sustituye solo el plan señalado por una alternativa con duración conocida."
+                : "Replaces only the selected plan with an alternative of known duration."
+        };
+        var change = new ItineraryChangeDto(
+            Guid.NewGuid(), ItineraryChangeKind.Replace, target.Id, replacement.Id, replacement.Title,
+            DateOnly.FromDateTime(slot), TimeOnly.FromDateTime(slot), TimeOnly.FromDateTime(slotEnd),
+            false, explanation, 0,
+            DateOnly.FromDateTime(slotEnd) == DateOnly.FromDateTime(slot) ? null : DateOnly.FromDateTime(slotEnd));
+        var dayItems = trip.Reservations.Where(item => Planner.Covers(item, request.Date)).ToList();
+        var protectedItems = dayItems.Where(IsProtected).ToList();
+        var quotaLease = await assistantUsage.ReserveAsync(
+            access.User.Id, access.TripId, $"proposal:{request.IdempotencyKey}", ct);
+        var proposal = new ItineraryProposal
+        {
+            Id = Guid.NewGuid(), TripId = trip.Id, AppUserId = access.User.Id, Date = request.Date,
+            Goal = DayPlanningGoal.Reorganize, BasedOnRevision = trip.PlanRevision, Version = 1,
+            WindowStart = TimeOnly.FromDateTime(window.Start), WindowEnd = TimeOnly.FromDateTime(window.End),
+            WindowEndsNextDay = window.End.Date > window.Start.Date,
+            CurrentContextJson = JsonSerializer.Serialize(dayItems.Select(ToSnapshot), JsonOptions),
+            ProtectedItemsJson = JsonSerializer.Serialize(protectedItems.Select(ToSnapshot), JsonOptions),
+            ChangesJson = JsonSerializer.Serialize(new[] { change }, JsonOptions), WarningsJson = "[]",
+            IdempotencyKey = request.IdempotencyKey, Narrative = explanation,
+            CreatedAtUtc = DateTimeOffset.UtcNow, ExpiresAtUtc = DateTimeOffset.UtcNow.AddHours(24)
+        };
+        try
+        {
+            dbContext.ItineraryProposals.Add(proposal);
+            await assistantUsage.CompleteAsync(quotaLease.LeaseId, ct);
+            await dbContext.SaveChangesAsync(ct);
+            if (analytics is not null)
+                await analytics.RecordServerEventAsync(access.User.Id, trip.Id, "proposal_generated", "targeted_issue", null, ct);
+            return ToDto(proposal);
+        }
+        catch
+        {
+            if (dbContext.Entry(proposal).State == EntityState.Added) dbContext.Entry(proposal).State = EntityState.Detached;
+            await assistantUsage.CancelAsync(quotaLease.LeaseId, CancellationToken.None);
+            throw;
+        }
+    }
+
+    private static decimal ProximityScore(Recommendation recommendation, IReadOnlyList<Reservation> items)
+    {
+        var located = items.Where(item => item.Latitude.HasValue && item.Longitude.HasValue).ToList();
+        if (located.Count == 0) return 0;
+        return located.Min(item =>
+        {
+            var latitude = recommendation.Latitude - item.Latitude!.Value;
+            var longitude = recommendation.Longitude - item.Longitude!.Value;
+            return latitude * latitude + longitude * longitude;
+        });
     }
 
     public async Task<DayProposalDto> GetAsync(HttpContext context, Guid id, CancellationToken ct)

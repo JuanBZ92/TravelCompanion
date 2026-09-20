@@ -19,7 +19,7 @@ public sealed class DayReviewViewModel
     public string Summary { get; }
     public IReadOnlyList<DayReviewIssueViewModel> Issues { get; }
     public bool HasIssues => Issues.Count > 0;
-    public string AssistantActionLabel => HasIssues ? "Proponer un día mejor" : "Mejorar este día";
+    public string AssistantActionLabel => HasIssues ? "Proponer un plan mejor" : "Mejorar este día";
     public string Eyebrow => Status == DayReviewStatuses.Balanced ? "DÍA REVISADO" : "REVISAR MI DÍA";
     public string StatusGlyph => Status == DayReviewStatuses.Balanced ? "✓" : "!";
     public string AccentColor => Status switch

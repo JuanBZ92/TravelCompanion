@@ -685,6 +685,55 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
             return Task.CompletedTask;
         }
 
+        if (SelectedDayReview.HasIssues)
+        {
+            return LoadAsync(async ct =>
+            {
+                var issue = SelectedDayReview.Issues.FirstOrDefault();
+                if (issue is null) return;
+                var target = issue.ItemIds
+                    .Select(id => _allItems.FirstOrDefault(item => item.Id == id))
+                    .Where(item => item is not null)
+                    .Cast<ScheduleItemDto>()
+                    .LastOrDefault(item => item.IsTravelerOwned && !item.IsProtected)
+                    ?? _allItems.LastOrDefault(item => item.Date == _selectedDate.Value
+                        && item.IsTravelerOwned && !item.IsProtected);
+                if (target is null)
+                {
+                    StatusMessage = "No hay una actividad flexible que podamos sustituir sin tocar tus reservas.";
+                    return;
+                }
+
+                var token = await _sessionService.GetTokenAsync();
+                if (string.IsNullOrWhiteSpace(token))
+                {
+                    _sessionService.Clear();
+                    await Shell.Current.GoToAsync("//login");
+                    return;
+                }
+                var proposal = await _apiClient.CreateDayProposalAsync(
+                    token,
+                    new DayProposalRequestDto(
+                        _selectedDate.Value,
+                        DayPlanningGoal.Reorganize,
+                        _builderRevision ?? 0,
+                        new TimeOnly(9, 0),
+                        new TimeOnly(21, 0),
+                        $"issue:{target.Id:N}:{_builderRevision ?? 0}",
+                        target.Id,
+                        issue.Issue.Kind),
+                    ct);
+                if (proposal is null)
+                {
+                    throw new InvalidOperationException("No encontramos una alternativa que resuelva ese problema.");
+                }
+                await Shell.Current.GoToAsync(nameof(DayProposalPage), new ShellNavigationQueryParameters
+                {
+                    ["Proposal"] = proposal
+                });
+            });
+        }
+
         return Shell.Current.GoToAsync("//main/assistant", new ShellNavigationQueryParameters
         {
             ["ReviewDate"] = _selectedDate.Value,
@@ -1061,6 +1110,10 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         _tripStartsOn = schedule.StartsOn;
         _tripEndsOn = schedule.EndsOn;
         _tripId = schedule.TripId;
+        if (_sessionService.IsBuilder)
+        {
+            _builderRevision = schedule.Revision;
+        }
         OnPropertyChanged(nameof(CanManageItinerary));
         OnPropertyChanged(nameof(HasItineraryActions));
         _allItems.Clear();

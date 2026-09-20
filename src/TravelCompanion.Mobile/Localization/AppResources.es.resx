@@ -148,7 +148,7 @@
   <data name="AssistantGuidedMenu" xml:space="preserve"><value>Más</value></data>
   <data name="AssistantGuidedAnotherRequest" xml:space="preserve"><value>Mostrame otra opción</value></data>
   <data name="AssistantGuidedRequestSummary" xml:space="preserve"><value>Buscame un plan de {0}</value></data>
-  <data name="AssistantGuidedFullDayRequestSummary" xml:space="preserve"><value>Armá mi día completo con café, una visita por la mañana, almuerzo, un recorrido por la tarde y cena.</value></data>
+  <data name="AssistantGuidedFullDayRequestSummary" xml:space="preserve"><value>Armá mi día con café por la mañana, una visita, almuerzo y cena.</value></data>
   <data name="AssistantGuidedAdjust" xml:space="preserve"><value>Ajustar</value></data>
   <data name="AssistantGuidedEstimated" xml:space="preserve"><value>estimado</value></data>
   <data name="AssistantGuidedOfflineQuestion" xml:space="preserve"><value>Tus elecciones están guardadas. Volvé a intentar la recomendación cuando tengas conexión.</value></data>

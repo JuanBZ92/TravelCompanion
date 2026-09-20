@@ -84,6 +84,82 @@ public sealed class CommercePlanningTests
     }
 
     [Fact]
+    public async Task Targeted_issue_proposal_replaces_only_the_flexible_problem_item()
+    {
+        await using var db = CreateDb();
+        var destination = new Destination
+        {
+            Id = Guid.NewGuid(), Name = "Japan", Slug = "targeted-proposal", Country = "Japan",
+            ShortDescription = "", HeroImageUrl = "", TimeZoneId = "Asia/Tokyo"
+        };
+        var user = new AppUser
+        {
+            Id = Guid.NewGuid(), Email = "targeted@example.com", DisplayName = "Traveler", EmailVerified = true
+        };
+        var date = new DateOnly(2027, 3, 12);
+        var trip = new Trip
+        {
+            Id = Guid.NewGuid(), AppUserId = user.Id, DestinationId = destination.Id,
+            TravelerName = user.DisplayName, StartsOn = date, EndsOn = date, TimeZoneId = "Asia/Tokyo",
+            ExperienceMode = ExperienceMode.SelfServiceBuilder,
+            DayPlans = [new TripDayPlan
+            {
+                Id = Guid.NewGuid(), Date = date, DayNumber = 1, City = "Tokyo", HotelBase = "", BaseAddress = "",
+                Blocks = TripPlanPeriods.All.Select(period => new TripDayBlock
+                {
+                    Id = Guid.NewGuid(), PeriodKey = period.Key, SortOrder = period.SortOrder
+                }).ToList()
+            }]
+        };
+        foreach (var block in trip.DayPlans[0].Blocks) block.TripDayPlanId = trip.DayPlans[0].Id;
+        var protectedItem = Reservation(trip.Id, date, "Reserva", new TimeOnly(10, 0),
+            ItineraryFlexibility.ConfirmedReservation, trip.DayPlans[0].Blocks[0].Id);
+        var flexibleItem = Reservation(trip.Id, date, "Plan con conflicto", new TimeOnly(10, 30),
+            ItineraryFlexibility.Flexible, trip.DayPlans[0].Blocks[0].Id);
+        trip.Reservations.AddRange([protectedItem, flexibleItem]);
+        var replacement = Recommendation(destination.Id, "Alternativa tranquila");
+        replacement.SuggestedDurationMinutes = 45;
+        replacement.Rating = 4.8;
+        var grant = new BuilderAccessGrant
+        {
+            Id = Guid.NewGuid(), AppUserId = user.Id, DestinationId = destination.Id, TripId = trip.Id,
+            IsTrial = false, Status = BuilderAccessStatus.Active, ExpiresAtUtc = DateTimeOffset.UtcNow.AddMonths(2)
+        };
+        db.AddRange(destination, user, trip, replacement, grant);
+        await db.SaveChangesAsync();
+
+        var sessions = new UserSessionService(db);
+        var (_, token) = await sessions.CreateSessionAsync(user, tripId: trip.Id, accessMode: SessionAccessMode.Builder);
+        var http = new DefaultHttpContext();
+        http.Request.Headers.Authorization = $"Bearer {token}";
+        var freeOptions = Microsoft.Extensions.Options.Options.Create(new FreePreviewOptions());
+        var free = new FreeTrialAccessService(db, freeOptions, NullLogger<FreeTrialAccessService>.Instance);
+        var access = new TravelerAccessService(sessions, free);
+        var usage = new AssistantUsageService(db, freeOptions,
+            Microsoft.Extensions.Options.Options.Create(new StorePurchaseOptions()));
+        var service = new DayProposalService(db, sessions, access, usage, freeTrialAccessService: free);
+
+        var proposal = await service.CreateAsync(http,
+            new(date, DayPlanningGoal.Reorganize, 0, new TimeOnly(9, 0), new TimeOnly(21, 0),
+                "targeted-proposal-1", flexibleItem.Id, DayReviewIssueKinds.Overlap), default);
+
+        var change = Assert.Single(proposal.Changes);
+        Assert.Equal(ItineraryChangeKind.Replace, change.Kind);
+        Assert.Equal(flexibleItem.Id, change.ExistingItemId);
+        Assert.Equal(replacement.Id, change.RecommendationId);
+        var applied = await service.ApplyAsync(http, proposal.Id,
+            new(proposal.Version, proposal.BasedOnRevision, "targeted-apply-1"), default);
+
+        Assert.Equal(2, await db.Reservations.CountAsync(item => item.TripId == trip.Id));
+        var protectedAfter = await db.Reservations.SingleAsync(item => item.Id == protectedItem.Id);
+        var flexibleAfter = await db.Reservations.SingleAsync(item => item.Id == flexibleItem.Id);
+        Assert.Equal(new TimeOnly(10, 0), protectedAfter.StartsAt);
+        Assert.Equal(replacement.Id, flexibleAfter.RecommendationId);
+        Assert.NotEqual(new TimeOnly(10, 30), flexibleAfter.StartsAt);
+        Assert.Equal(1, applied.Revision);
+    }
+
+    [Fact]
     public void Google_order_money_uses_units_and_nanos()
     {
         using var document = JsonDocument.Parse("""

@@ -1791,10 +1791,10 @@ public sealed class TravelChatServiceTests
         Assert.Null(response.MissingContext);
         Assert.Equal(4, response.Cards.Count);
         Assert.Equal(4, response.Cards.Select(card => card.RecommendationId).Distinct().Count());
-        Assert.Equal(["09:00", "10:30", "13:00", "15:30"], response.Cards.Select(card => card.StartTime));
+        Assert.Equal(["09:00", "10:30", "13:00", "19:30"], response.Cards.Select(card => card.StartTime));
         Assert.Contains("Café de mañana", response.Cards[0].Subtitle);
         Assert.Contains("Almuerzo", response.Cards[2].Subtitle);
-        Assert.Contains("Recorrido de tarde", response.Cards[3].Subtitle);
+        Assert.Contains("Cena", response.Cards[3].Subtitle);
         Assert.DoesNotContain(response.Cards, card => card.RecommendationId == alreadyUsed.Id.ToString());
     }
 

@@ -965,6 +965,13 @@ public sealed partial class TravelChatViewModel(
             if (result?.Saved != true) continue;
             card.IsSaved = true;
             savedCount++;
+            if (result.Item is not null)
+            {
+                await bootstrapStore.UpsertScheduleItemAsync(
+                    result.Item,
+                    result.Revision,
+                    CancellationToken.None);
+            }
         }
 
         if (savedCount > 0)
