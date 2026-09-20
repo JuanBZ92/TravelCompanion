@@ -87,7 +87,9 @@ public partial class SchedulePage : ContentPage
                 return;
             }
 
-            if (_viewModel.HasLoaded && !_viewModel.ShowTodayLoading)
+            if (_viewModel.HasLoaded
+                && !_viewModel.ShowTodayLoading
+                && _viewModel.HasFreshVisibleData)
             {
                 stopwatch.Stop();
                 _logger.LogInformation(

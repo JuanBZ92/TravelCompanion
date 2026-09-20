@@ -11,6 +11,7 @@ public sealed class MobileDiscoverStore(
     MobileSyncStateStore syncStateStore,
     ILogger<MobileDiscoverStore> logger)
 {
+    private static readonly TimeSpan FreshSnapshotLifetime = TimeSpan.FromMinutes(10);
     private bool _invalidated;
     private long _generation;
     private MobileDiscoverDto? _current;
@@ -211,7 +212,7 @@ public sealed class MobileDiscoverStore(
             && _currentLocale == Locale
             && _currentUserId == currentUserId
             && _currentTripId == sessionService.CurrentTripId
-            && _currentSavedAt.HasValue
+            && CacheFreshness.IsFresh(_currentSavedAt, maxAge ?? FreshSnapshotLifetime)
             && !_invalidated
             && IsScopeMatch(cacheScope, _current.Destination.Slug);
     }

@@ -11,6 +11,7 @@ public sealed class MobileTodayStore(
     MobileSyncStateStore syncStateStore,
     ILogger<MobileTodayStore> logger)
 {
+    private static readonly TimeSpan FreshSnapshotLifetime = TimeSpan.FromMinutes(2);
     private bool _invalidated;
     private long _generation;
     private TodayDto? _current;
@@ -202,7 +203,7 @@ public sealed class MobileTodayStore(
             && _currentUserId == sessionService.CurrentUserId
             && _currentTripId == sessionService.CurrentTripId
             && _currentDate == date
-            && _currentSavedAt.HasValue
+            && CacheFreshness.IsFresh(_currentSavedAt, maxAge ?? FreshSnapshotLifetime)
             && !_invalidated;
     }
 
@@ -238,7 +239,7 @@ public sealed class MobileTodayStore(
     }
 
     private static string GetCacheKey(Guid? userId, Guid? tripId, DateOnly date) =>
-        $"mobile-today-{date:yyyyMMdd}-trip-{tripId?.ToString() ?? "auto"}{GetCacheKeySuffix(userId)}";
+        $"mobile-today-v2-{date:yyyyMMdd}-trip-{tripId?.ToString() ?? "auto"}{GetCacheKeySuffix(userId)}";
 
     private static string GetCacheKeySuffix(Guid? userId) =>
         $"-{userId?.ToString() ?? "anonymous"}";
@@ -259,14 +260,6 @@ public sealed class MobileTodayStore(
         && context.ContextVersion == sessionService.ContextVersion
         && context.Generation == Interlocked.Read(ref _generation)
         && string.Equals(context.Locale, Locale, StringComparison.Ordinal);
-
-    private void CancelActiveRefresh()
-    {
-        lock (_refreshLock)
-        {
-            _refreshCancellation?.Cancel();
-        }
-    }
 
     private void DetachActiveRefresh()
     {

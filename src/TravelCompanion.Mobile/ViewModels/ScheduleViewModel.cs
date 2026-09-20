@@ -178,7 +178,9 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         }
     }
 
-    public bool ShowDayReview => SelectedDayReview is not null;
+    public bool ShowDayReview => !ShowTodayLoading && SelectedDayReview is not null;
+    public bool HasFreshVisibleData => _bootstrapStore.HasFreshSnapshot()
+        && (!_selectedDate.HasValue || _todayStore.HasFreshSnapshot(_selectedDate.Value));
 
     public bool HasScheduleItems => _allItems.Count > 0;
     public bool HasItineraryActions => _tripId.HasValue;
@@ -807,7 +809,9 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
 
         var stopwatch = Stopwatch.StartNew();
         _selectedDate = day.Date;
-        _today = _todayByDate.GetValueOrDefault(day.Date);
+        _today = _todayStore.HasFreshSnapshot(day.Date)
+            ? _todayByDate.GetValueOrDefault(day.Date)
+            : null;
         SetTodayLoading(_today is null);
         RebuildSelectedDay();
         stopwatch.Stop();
@@ -868,9 +872,12 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         }
 
         var cached = await _bootstrapStore.GetCachedAsync(cancellationToken: cancellationToken);
-        if (cached is not null)
+        var isOnline = Connectivity.Current.NetworkAccess == NetworkAccess.Internet;
+        var canShowCached = cached is not null
+            && (!isOnline || _bootstrapStore.HasFreshSnapshot());
+        if (canShowCached)
         {
-            ApplyBootstrapSchedule(cached.Value);
+            ApplyBootstrapSchedule(cached!.Value);
             HasLoaded = true;
             _logger.LogInformation(
                 "Schedule usable content available in {ElapsedMs}ms. Source=cache; ForceRefresh={ForceRefresh}.",
@@ -881,6 +888,10 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
             StatusMessage = forceRefresh
                 ? "Actualizando itinerario..."
                 : null;
+        }
+        else if (cached is not null && isOnline)
+        {
+            HideExpiredTodaySnapshot();
         }
 
         var shouldRefreshBootstrap = forceRefresh || !_bootstrapStore.HasFreshSnapshot();
@@ -916,7 +927,9 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
             }
             else
             {
-                StatusMessage = null;
+                ApplyBootstrapSchedule(cached.Value);
+                MarkLastUpdated(cached.SavedAt);
+                StatusMessage = OfflineCacheService.FormatSavedAt(cached.SavedAt);
             }
         }
 
@@ -964,9 +977,16 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
 
         var selectedDate = _selectedDate.Value;
         var cached = await _todayStore.GetCachedAsync(selectedDate, cancellationToken);
-        if (cached is not null && _selectedDate == selectedDate)
+        var isOnline = Connectivity.Current.NetworkAccess == NetworkAccess.Internet;
+        var canShowCached = cached is not null
+            && (!isOnline || _todayStore.HasFreshSnapshot(selectedDate));
+        if (canShowCached && _selectedDate == selectedDate)
         {
-            ApplyToday(cached.Value);
+            ApplyToday(cached!.Value);
+        }
+        else if (cached is not null && isOnline && _selectedDate == selectedDate)
+        {
+            HideExpiredTodaySnapshot();
         }
 
         if (!forceRefresh && _todayStore.HasFreshSnapshot(selectedDate))
@@ -1001,6 +1021,11 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
             {
                 CompleteTodayLoadingWithScheduleFallback();
             }
+            else if (!canShowCached && cached is not null && _selectedDate == selectedDate)
+            {
+                ApplyToday(cached.Value);
+                StatusMessage = OfflineCacheService.FormatSavedAt(cached.SavedAt);
+            }
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
         {
@@ -1011,7 +1036,11 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
 
             if (cached is not null)
             {
-                StatusMessage = null;
+                if (!canShowCached)
+                {
+                    ApplyToday(cached.Value);
+                    StatusMessage = OfflineCacheService.FormatSavedAt(cached.SavedAt);
+                }
             }
             else
             {
@@ -1083,6 +1112,18 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         RebuildSelectedDay();
     }
 
+    private void HideExpiredTodaySnapshot()
+    {
+        if (_selectedDate is { } selectedDate)
+        {
+            _todayByDate.Remove(selectedDate);
+        }
+
+        _today = null;
+        SetTodayLoading(_selectedDate.HasValue);
+        RebuildSelectedDay();
+    }
+
     private void ApplyBootstrapSchedule(MobileBootstrapDto bootstrap)
     {
         _recommendations.Clear();
@@ -1130,7 +1171,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
             && previouslySelectedDate.Value <= schedule.EndsOn
                 ? previouslySelectedDate
                 : GetInitialSelectedDate(schedule, _allItems);
-        _today = _selectedDate.HasValue
+        _today = _selectedDate.HasValue && _todayStore.HasFreshSnapshot(_selectedDate.Value)
             ? _todayByDate.GetValueOrDefault(_selectedDate.Value)
             : null;
         SetTodayLoading(_today is null);

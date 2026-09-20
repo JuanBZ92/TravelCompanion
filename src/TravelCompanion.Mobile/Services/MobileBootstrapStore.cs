@@ -12,6 +12,7 @@ public sealed class MobileBootstrapStore(
     MobileSyncStateStore syncStateStore,
     ILogger<MobileBootstrapStore> logger)
 {
+    private static readonly TimeSpan FreshSnapshotLifetime = TimeSpan.FromMinutes(5);
     private bool _invalidated;
     private long _generation;
     private MobileBootstrapDto? _current;
@@ -213,7 +214,7 @@ public sealed class MobileBootstrapStore(
             && _currentLocale == Locale
             && _currentUserId == currentUserId
             && _currentTripId == currentTripId
-            && _currentSavedAt.HasValue
+            && CacheFreshness.IsFresh(_currentSavedAt, maxAge ?? FreshSnapshotLifetime)
             && !_invalidated
             && IsScopeMatch(cacheScope, _current.Destination.Slug);
     }
