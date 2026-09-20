@@ -294,6 +294,10 @@ For deployed environments, provide the same key through the platform secret stor
 
 ### Full-day proximity and selected replacements
 
-`GuidedAction` with `Action = full_day` keeps the existing request/response shape. Eligible recommendations still pass catalog/free access filters and exclude recommendations already used on the trip. Selection prefers the shortest largest adjacent straight-line transfer, with seeded randomness for ties. On an empty day, coffee selection uses proximity to an eligible morning visit. Missing coordinates are not treated as zero distance.
+`GuidedAction` with `Action = full_day` keeps the existing request/response shape. Eligible recommendations still pass catalog/free access filters and exclude recommendations already used on the trip. Selection uses seeded randomness among eligible candidates, without automatic proximity ranking. Distance only filters alternatives when the user explicitly requests closer or farther replacements.
 
 `ReplaceReservationIds` selects editable events. Optional `DistanceAdjustment` (`closer`, `farther`) and `BudgetAdjustment` (`cheaper`, `dearer`) apply together to each selected event. Distance compares adjacent events; budget compares known price levels. No compatible alternative leaves that event unchanged. Mobile exposes these options together on the selection screen for both single and multiple replacements.
+
+Morning visits and afternoon stops prioritize non-food candidates. If none remain after access, duplicate and explicit replacement filters, Food candidates are eligible as fallback. This uses the same authorized candidate pool: Free stays within its configured radius, while paid access retains its catalog permissions. Period-only morning visits at 10:30 remain morning visits even when their recommendation is Food.
+
+Free map previews include all catalog markers assigned to the selected city, including those beyond CoverageRadiusKm. Only markers inside FreeRadiusKm carry recommendation details; outside markers retain opaque keys and approximate coordinates. Free builder sessions use this preview map in the main Map tab and offer the pass for locked selections.

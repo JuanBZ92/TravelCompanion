@@ -2094,7 +2094,7 @@ public sealed class TravelChatServiceTests
     }
 
     [Fact]
-    public async Task Full_day_prefers_nearby_stops_and_excludes_other_days()
+    public async Task Full_day_excludes_other_days_without_repeating_stops()
     {
         await using var db = CreateDbContext();
         var destination = Guid.NewGuid();
@@ -2114,13 +2114,13 @@ public sealed class TravelChatServiceTests
         db.Reservations.Add(previous);
         await db.SaveChangesAsync();
         var response = await CreateService(db).CreatePlanAsync(user, DayRequest(), CancellationToken.None);
-        Assert.Equal(near.Id.ToString(), response.Cards.Single(card => card.StartTime == "10:30").RecommendationId);
+        Assert.Equal(5, response.Cards.Count);
         Assert.DoesNotContain(response.Cards, card => card.RecommendationId == alreadyUsed.Id.ToString());
         Assert.Equal(response.Cards.Count, response.Cards.Select(card => card.RecommendationId).Distinct().Count());
     }
 
     [Fact]
-    public async Task Full_day_starts_with_coffee_near_the_available_visit()
+    public async Task Full_day_selection_does_not_depend_on_distance()
     {
         await using var db = CreateDbContext();
         var destination = Guid.NewGuid();
@@ -2132,7 +2132,12 @@ public sealed class TravelChatServiceTests
         db.Reservations.RemoveRange(await db.Reservations.ToListAsync());
         await db.SaveChangesAsync();
         var response = await CreateService(db).CreatePlanAsync(user, DayRequest(), CancellationToken.None);
-        Assert.Equal(near.Id.ToString(), response.Cards.Single(card => card.StartTime == "09:00").RecommendationId);
+        var selected = response.Cards.Single(card => card.StartTime == "09:00").RecommendationId;
+        near.Latitude += 1m;
+        far.Latitude = museum.Latitude;
+        await db.SaveChangesAsync();
+        var changedCoordinates = await CreateService(db).CreatePlanAsync(user, DayRequest(), CancellationToken.None);
+        Assert.Equal(selected, changedCoordinates.Cards.Single(card => card.StartTime == "09:00").RecommendationId);
     }
 
     [Theory]
@@ -2162,6 +2167,36 @@ public sealed class TravelChatServiceTests
         Assert.Equal(2, response.Cards.Count);
         Assert.All(response.Cards, card => Assert.Contains(card.RecommendationId, alternatives.Select(item => item.Id.ToString())));
         Assert.Equal(2, response.Cards.Select(card => card.RecommendationId).Distinct().Count());
+    }
+
+    [Fact]
+    public async Task Full_day_uses_food_when_visits_are_exhausted_and_keeps_morning_slot_on_reload()
+    {
+        await using var db = CreateDbContext();
+        var destination = Guid.NewGuid();
+        var cafe = DayRecommendation(destination, "Cafe", "Food");
+        var meals = Enumerable.Range(1, 4).Select(i => DayRecommendation(destination, $"Restaurant {i}", "Food")).ToArray();
+        var usedVisit = DayRecommendation(destination, "Museum", "Culture");
+        var user = await SeedPlanningWorldAsync(db, destination, meals.Concat([cafe, usedVisit]).ToArray());
+        db.Reservations.RemoveRange(await db.Reservations.ToListAsync());
+        var trip = await db.Trips.SingleAsync();
+        var previous = DayReservation(trip.Id, usedVisit, new(10, 30));
+        previous.Date = new DateOnly(2026, 10, 5);
+        db.Reservations.Add(previous);
+        await db.SaveChangesAsync();
+        var service = CreateService(db);
+        var response = await service.CreatePlanAsync(user, DayRequest(), CancellationToken.None);
+        Assert.Equal(5, response.Cards.Count);
+        Assert.Equal(5, response.Cards.Select(card => card.RecommendationId).Distinct().Count());
+        Assert.DoesNotContain(response.Cards, card => card.RecommendationId == usedVisit.Id.ToString());
+        foreach (var card in response.Cards)
+        {
+            var recommendation = meals.Append(cafe).Single(item => item.Id.ToString() == card.RecommendationId);
+            db.Reservations.Add(DayReservation(trip.Id, recommendation, TimeOnly.Parse(card.StartTime!)));
+        }
+        await db.SaveChangesAsync();
+        var complete = await service.CreatePlanAsync(user, DayRequest(), CancellationToken.None);
+        Assert.Equal("day_complete", complete.Intent);
     }
 
     private static TravelChatRequest DayRequest(params Guid[] selected) => new("Improve day", null, "Tokyo",

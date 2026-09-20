@@ -100,6 +100,27 @@ public sealed class FreeMapEndpointTests
     }
 
     [Fact]
+    public async Task Free_map_keeps_city_markers_beyond_coverage_without_exposing_details()
+    {
+        await using var factory = new FreeMapApiFactory();
+        await factory.SeedMapAsync();
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<TravelCompanionDbContext>();
+            var city = await db.FreeMapCities.SingleAsync();
+            city.CoverageRadiusKm = 2m;
+            await db.SaveChangesAsync();
+        }
+        using var client = factory.CreateClient();
+        var session = await LoginAsync(client);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", session.Token);
+        var preview = await client.GetFromJsonAsync<FreeMapPreviewDto>("/api/mobile/free-map/tokyo", JsonOptions);
+        Assert.NotNull(preview);
+        Assert.Equal(2, preview.Markers.Count);
+        Assert.Null(Assert.Single(preview.Markers, marker => marker.Access == FreeMapMarkerAccess.Locked).Recommendation);
+    }
+
+    [Fact]
     public async Task Trip_session_cannot_use_free_map_endpoint()
     {
         await using var factory = new FreeMapApiFactory();

@@ -112,6 +112,7 @@
                     </Grid>
 
                     <VerticalStackLayout Grid.Row="1" Spacing="5" IsVisible="{Binding IsUnlockedSelection}">
+                            <Button Text="Añadir al itinerario" Command="{Binding AddSelectedToItineraryCommand}" BackgroundColor="#3D3329" TextColor="White" CornerRadius="0" />
                             <Label Text="{Binding SelectedRecommendation.Title}"
                                    FontFamily="serif"
                                    FontSize="22"
@@ -145,7 +146,7 @@
                         </Grid>
                         <Button Text="Ya tengo PIN" Command="{Binding UseAnotherPinCommand}" Style="{StaticResource GhostButton}" CornerRadius="0" IsVisible="{Binding ShowPinOnlyAction}" />
                         <Button Text="Crear mi itinerario gratis" Command="{Binding StartFreeBuilderCommand}" BackgroundColor="#3D3329" TextColor="White" CornerRadius="0" />
-                        <Button Text="Activar pase" Command="{Binding RedeemPassCommand}" Style="{StaticResource GhostButton}" CornerRadius="0" />
+                        <Button Text="Activar pase" Command="{Binding RedeemPassCommand}" BackgroundColor="#3D3329" TextColor="White" CornerRadius="0" />
                     </VerticalStackLayout>
 
                     <VerticalStackLayout Grid.Row="1" Spacing="4" IsVisible="{Binding ShowMapSummary}">

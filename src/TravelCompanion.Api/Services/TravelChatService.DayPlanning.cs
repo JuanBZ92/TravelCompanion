@@ -73,7 +73,8 @@ public sealed partial class TravelChatService
         {
             var time = original?.StartsAt ?? DayStopTimes[slot];
             IEnumerable<ScoredRecommendation> options = candidates.RankedRecommendations
-                .Where(item => !used.Contains(item.Recommendation.Id) && MatchesDaySlot(item.Recommendation, slot));
+                .Where(item => !used.Contains(item.Recommendation.Id)
+                    && (slot is 1 or 3 || MatchesDaySlot(item.Recommendation, slot)));
             if (original is not null)
             {
                 if (action.DistanceAdjustment is "closer" or "farther")
@@ -92,18 +93,8 @@ public sealed partial class TravelChatService
                         && (action.BudgetAdjustment == "cheaper" ? candidatePrice < price : candidatePrice > price));
                 }
             }
-            // Prefer short transfers; randomness only breaks equally close choices.
-            // On an empty day, anchor breakfast near an eligible morning visit.
-            var candidate = options.OrderBy(item =>
-                LargestAdjacentTransfer(timeline, time, item.Recommendation.Latitude, item.Recommendation.Longitude).Distance
-                ?? candidates.RankedRecommendations
-                    .Where(next => next.Recommendation.Id != item.Recommendation.Id
-                        && !used.Contains(next.Recommendation.Id)
-                        && MatchesDaySlot(next.Recommendation, Math.Min(slot + 1, 4)))
-                    .Select(next => DayDistance(item.Recommendation.Latitude, item.Recommendation.Longitude,
-                        next.Recommendation.Latitude, next.Recommendation.Longitude))
-                    .Where(distance => distance.HasValue).Min()
-                ?? double.MaxValue)
+            var candidate = options
+                .OrderBy(item => slot is 1 or 3 && IsFoodRecommendation(item.Recommendation) ? 1 : 0)
                 .ThenBy(item => StableRandomOrder(action.OptionId ?? conversationId, slot.ToString(), item.Recommendation.Id))
                 .FirstOrDefault();
             if (candidate is null) continue;
@@ -157,6 +148,7 @@ public sealed partial class TravelChatService
         if (item.StartsAt >= new TimeOnly(18, 0)) return 4;
         if (item.StartsAt >= new TimeOnly(15, 0)) return 3;
         if (item.StartsAt >= new TimeOnly(12, 0)) return 2;
+        if (item.TimePrecision == ItineraryTimePrecision.PeriodOnly && item.StartsAt >= DayStopTimes[1]) return 1;
         if (item.Recommendation is not null) return IsFoodRecommendation(item.Recommendation) ? 0 : 1;
         return new[] { "cafe", "café", "coffee", "breakfast", "desayuno" }
             .Any(term => item.Title.Contains(term, StringComparison.OrdinalIgnoreCase)) ? 0 : 1;

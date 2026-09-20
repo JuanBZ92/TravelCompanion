@@ -126,6 +126,14 @@ public sealed partial class FreeMapViewModel(
     public void SelectMarker(FreeMapMarkerDto marker) => SelectedMarker = marker;
 
     [RelayCommand]
+    private async Task AddSelectedToItineraryAsync()
+    {
+        if (!IsUnlockedSelection || SelectedRecommendation is not { } recommendation) return;
+        await MauiProgram.Services.GetRequiredService<MapViewModel>()
+            .AddToItineraryCommand.ExecuteAsync(recommendation);
+    }
+
+    [RelayCommand]
     private void CloseSelection() => SelectedMarker = null;
 
     [RelayCommand]

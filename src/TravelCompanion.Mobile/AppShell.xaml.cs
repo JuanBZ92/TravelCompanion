@@ -50,6 +50,14 @@ public partial class AppShell : Shell
             && sessionService.IsFreeMapPreview
             && !sessionService.IsBuilder;
         MapTab.IsVisible = usesMainTabs;
+        if (usesMainTabs)
+        {
+            // Free builders keep the preview map, including redacted paid markers.
+            if (sessionService.IsFreeMapPreview && MapTab.Content is not FreeMapPage)
+                MapTab.Content = new FreeMapPage();
+            else if (!sessionService.IsFreeMapPreview && MapTab.Content is FreeMapPage)
+                MapTab.Content = MauiProgram.Services.GetRequiredService<MapPage>();
+        }
         ScheduleTab.IsVisible = usesMainTabs;
         AssistantTab.IsVisible = sessionService.IsBuilder;
         DocsTab.IsVisible = sessionService.HasCuratedDocs;

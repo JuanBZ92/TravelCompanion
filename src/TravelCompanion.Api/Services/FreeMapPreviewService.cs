@@ -62,7 +62,6 @@ public sealed class FreeMapPreviewService(
                     city.CenterLongitude,
                     recommendation.Latitude,
                     recommendation.Longitude)))
-            .Where(candidate => candidate.DistanceKm <= city.CoverageRadiusKm)
             .OrderBy(candidate => candidate.DistanceKm)
             .ThenBy(candidate => candidate.Recommendation.Title)
             .ToList();
