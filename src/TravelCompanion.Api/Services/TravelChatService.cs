@@ -463,7 +463,8 @@ public sealed class TravelChatService(
                     Subtitle = $"{stop.Label} · {card.Subtitle}",
                     Description = RecommendationPresentation.ToDto(
                         stop.Recommendation.Recommendation,
-                        locale: locale).DisplayDescription
+                        locale: locale).DisplayDescription,
+                    IsPeriodOnly = true
                 };
             }).ToList()
             : ranked.Select(scored => responseComposer.ToRecommendationCard(scored, context) with

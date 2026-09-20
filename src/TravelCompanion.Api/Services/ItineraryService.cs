@@ -84,8 +84,9 @@ public sealed class ItineraryService(
                 trip.PlanRevision);
         }
 
-        var endsAt = request.EndsAt
-            ?? request.StartsAt.AddMinutes(recommendation.SuggestedDurationMinutes);
+        TimeOnly? endsAt = request.TimePrecision == ItineraryTimePrecision.Exact
+            ? request.EndsAt ?? request.StartsAt.AddMinutes(recommendation.SuggestedDurationMinutes)
+            : null;
         var reservation = new Reservation
         {
             Id = Guid.NewGuid(),
@@ -100,7 +101,9 @@ public sealed class ItineraryService(
             PlanningKind = ScheduleItemKind.Recommendation,
             Owner = ItineraryItemOwner.Traveler,
             ItemSource = ItineraryItemSource.YukuRecommendation,
-            TimePrecision = ItineraryTimePrecision.Exact,
+            TimePrecision = request.TimePrecision,
+            Flexibility = ItineraryFlexibility.Flexible,
+            DurationMinutes = recommendation.SuggestedDurationMinutes,
             Date = request.Date,
             StartsAt = request.StartsAt,
             EndsAt = endsAt,
@@ -226,7 +229,8 @@ public sealed class ItineraryService(
             reservation.OriginAirport,
             reservation.DestinationAirport,
             reservation.PlanningKind, reservation.Owner, reservation.ItemSource, reservation.TimePrecision,
-            reservation.SortOrder, reservation.ProviderPlaceId, reservation.Latitude, reservation.Longitude);
+            reservation.SortOrder, reservation.ProviderPlaceId, reservation.Latitude, reservation.Longitude,
+            reservation.Flexibility, reservation.DurationMinutes);
     }
 
     private static RecommendationInteractionSignal CreateSavedSignal(

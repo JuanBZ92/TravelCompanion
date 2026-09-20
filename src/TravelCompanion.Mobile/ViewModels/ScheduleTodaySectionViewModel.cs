@@ -187,9 +187,11 @@ public sealed class TodayReservationViewModel
         bool canCalculateRoutes = false)
     {
         Item = item;
-        TimeLabel = item.HasEnd
-            ? $"{item.StartsAt:HH\\:mm} - {item.EndLabel}"
-            : $"{item.StartsAt:HH\\:mm}";
+        TimeLabel = item.HasExactTime
+            ? item.HasEnd
+                ? $"{item.StartsAt:HH\\:mm} - {item.EndLabel}"
+                : $"{item.StartsAt:HH\\:mm}"
+            : item.PeriodDisplay;
         Title = item.Title;
         Detail = item.TypeLabel;
         Place = item.Type switch

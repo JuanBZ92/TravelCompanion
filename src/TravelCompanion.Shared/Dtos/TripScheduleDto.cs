@@ -85,9 +85,19 @@ public sealed record ScheduleItemDto(
                 ? $"{EndsAt:HH\\:mm}"
                 : string.Empty;
 
-    public string StartDisplay => Type == ReservationType.Flight
-        ? $"Horario de salida: {StartsAt:HH\\:mm}"
-        : $"Hora: {StartsAt:HH\\:mm}";
+    public string StartDisplay => !HasExactTime
+        ? $"Momento: {PeriodDisplay}"
+        : Type == ReservationType.Flight
+            ? $"Horario de salida: {StartsAt:HH\\:mm}"
+            : $"Hora: {StartsAt:HH\\:mm}";
+
+    public string PeriodDisplay => StartsAt.Hour switch
+    {
+        < 12 => "Mañana",
+        < 15 => "Mediodía",
+        < 20 => "Tarde",
+        _ => "Noche"
+    };
 
     public string EndDisplay => string.IsNullOrWhiteSpace(EndLabel)
         ? string.Empty

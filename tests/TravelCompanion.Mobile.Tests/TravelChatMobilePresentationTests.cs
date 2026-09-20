@@ -1,5 +1,6 @@
 using TravelCompanion.Mobile.Services;
 using TravelCompanion.Mobile.ViewModels;
+using TravelCompanion.Shared;
 using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Mobile.Tests;
@@ -29,6 +30,34 @@ public sealed class TravelChatMobilePresentationTests
         Assert.Equal(string.Empty, normalized.MissingContext.Field);
         Assert.Equal(string.Empty, normalized.MissingContext.Message);
         Assert.Empty(normalized.MissingContext.Suggestions);
+    }
+
+    [Fact]
+    public void Normalize_schedule_replaces_a_stale_conflict_for_flexible_recommendations()
+    {
+        var date = new DateOnly(2026, 10, 1);
+        var item = new ScheduleItemDto(
+            Guid.NewGuid(), Guid.NewGuid(), ReservationType.Event, date,
+            new TimeOnly(9, 0), null, new TimeOnly(10, 0), "Flexible cafe",
+            "Tokyo", "Flexible cafe", string.Empty, "AI-PLAN", string.Empty,
+            null, null, null, null, null, null,
+            ScheduleItemKind.Recommendation, ItineraryItemOwner.Traveler,
+            ItineraryItemSource.YukuRecommendation, ItineraryTimePrecision.Exact,
+            Flexibility: ItineraryFlexibility.Flexible);
+        var staleReview = new DayReviewDto(
+            date, DayReviewStatuses.Tight, "Tu día tiene poco margen", "Stale",
+            [new DayReviewIssueDto(
+                DayReviewIssueKinds.TightTransfer, DayReviewSeverities.Warning,
+                "Traslado estimado con poco margen", "Stale", [item.Id])]);
+        var schedule = new TripScheduleDto(
+            Guid.NewGuid(), "Traveler", "Japan", date, date, [item],
+            DayReviews: [staleReview]);
+
+        var normalized = MobilePayloadNormalizer.Normalize(schedule);
+
+        var review = Assert.Single(normalized!.DayReviews!);
+        Assert.Equal(DayReviewStatuses.Balanced, review.Status);
+        Assert.Empty(review.Issues);
     }
 
     [Fact]
@@ -73,6 +102,23 @@ public sealed class TravelChatMobilePresentationTests
 
         Assert.False(viewModel.CanSave);
         Assert.Equal("Saved", viewModel.SaveButtonText);
+    }
+
+    [Fact]
+    public void Period_only_day_plan_does_not_show_a_fixed_time()
+    {
+        var card = new TravelCardDto(
+            "recommendation", "Morning cafe", "Café de mañana", null,
+            "09:00", "10:00", "low", null, null, [], [], Guid.NewGuid().ToString(), null)
+        {
+            IsPeriodOnly = true
+        };
+
+        var viewModel = new TravelChatCardViewModel(card);
+
+        Assert.False(viewModel.HasTimeLabel);
+        Assert.Equal(string.Empty, viewModel.TimeLabel);
+        Assert.Equal(new TimeOnly(9, 0), viewModel.StartsAt);
     }
 
     [Fact]

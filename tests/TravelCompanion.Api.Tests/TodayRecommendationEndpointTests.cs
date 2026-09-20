@@ -100,6 +100,8 @@ public sealed class TodayRecommendationEndpointTests
         Assert.NotNull(payload);
         Assert.True(payload.Saved);
         Assert.Equal(seed.UnassignedRecommendationId, payload.Item?.RecommendationId);
+        Assert.Equal(ItineraryTimePrecision.PeriodOnly, payload.Item?.TimePrecision);
+        Assert.Null(payload.Item?.EndsAt);
     }
 
     private sealed class TravelCompanionApiFactory : WebApplicationFactory<Program>

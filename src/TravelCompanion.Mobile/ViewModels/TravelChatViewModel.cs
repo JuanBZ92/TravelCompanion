@@ -984,7 +984,8 @@ public sealed partial class TravelChatViewModel(
                         DateOnly.FromDateTime(PlanningDate),
                         card.StartsAt.Value,
                         card.EndsAt,
-                        Guid.NewGuid()),
+                        Guid.NewGuid(),
+                        card.TimePrecision),
                     cancellationToken);
             }
             catch (OperationCanceledException) { throw; }

@@ -86,7 +86,7 @@ public sealed class ScheduleReviewAnalyzerTests
     }
 
     [Fact]
-    public void Reports_incomplete_time_information()
+    public void Treats_period_only_flexible_plans_as_intentional_and_balanced()
     {
         var incomplete = Item("Flexible visit", new TimeOnly(10, 0), new TimeOnly(11, 0)) with
         {
@@ -96,7 +96,29 @@ public sealed class ScheduleReviewAnalyzerTests
 
         var review = ScheduleReviewAnalyzer.AnalyzeDay(Date, [incomplete]);
 
-        Assert.Contains(review.Issues, issue => issue.Kind == DayReviewIssueKinds.IncompleteInformation);
+        Assert.Equal(DayReviewStatuses.Balanced, review.Status);
+        Assert.Empty(review.Issues);
+        Assert.Equal("No hay horarios fijos que puedan entrar en conflicto.", review.Summary);
+    }
+
+    [Fact]
+    public void Ignores_exact_times_on_flexible_recommendations_from_older_versions()
+    {
+        var first = Item("Cafe flexible", new TimeOnly(9, 0), new TimeOnly(10, 0), 35.7148m, 139.7967m) with
+        {
+            PlanningKind = ScheduleItemKind.Recommendation,
+            Flexibility = ItineraryFlexibility.Flexible
+        };
+        var second = Item("Paseo flexible", new TimeOnly(10, 15), new TimeOnly(11, 30), 35.6595m, 139.7005m) with
+        {
+            PlanningKind = ScheduleItemKind.Recommendation,
+            Flexibility = ItineraryFlexibility.Flexible
+        };
+
+        var review = ScheduleReviewAnalyzer.AnalyzeDay(Date, [first, second]);
+
+        Assert.Equal(DayReviewStatuses.Balanced, review.Status);
+        Assert.Empty(review.Issues);
     }
 
     private static ScheduleItemDto Item(

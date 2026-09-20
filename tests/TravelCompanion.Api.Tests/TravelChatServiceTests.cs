@@ -353,7 +353,8 @@ public sealed class TravelChatServiceTests
             new DateOnly(2026, 10, 6),
             new TimeOnly(11, 0),
             new TimeOnly(12, 30),
-            clientMutationId);
+            clientMutationId,
+            ItineraryTimePrecision.PeriodOnly);
         var response = await service.SaveItineraryItemAsync(
             user,
             request,
@@ -370,6 +371,10 @@ public sealed class TravelChatServiceTests
         Assert.Equal(response.Item.Id, replayedResponse.Item?.Id);
         Assert.Equal(response.Item.Id, differentDayResponse.Item?.Id);
         Assert.Equal(ScheduleItemKind.Recommendation, response.Item.PlanningKind);
+        Assert.Equal(ItineraryTimePrecision.PeriodOnly, response.Item.TimePrecision);
+        Assert.Equal(ItineraryFlexibility.Flexible, response.Item.Flexibility);
+        Assert.Null(response.Item.EndsAt);
+        Assert.Equal(90, response.Item.DurationMinutes);
         Assert.Equal("Plan guardado en tu itinerario.", response.Message);
         Assert.Equal(1, await dbContext.Reservations.CountAsync(reservation =>
             reservation.Trip!.AppUserId == user.Id
@@ -1827,6 +1832,7 @@ public sealed class TravelChatServiceTests
         Assert.Equal(5, response.Cards.Count);
         Assert.Equal(5, response.Cards.Select(card => card.RecommendationId).Distinct().Count());
         Assert.Equal(["09:00", "10:30", "13:00", "16:00", "19:30"], response.Cards.Select(card => card.StartTime));
+        Assert.All(response.Cards, card => Assert.True(card.IsPeriodOnly));
         Assert.Contains("Café de mañana", response.Cards[0].Subtitle);
         Assert.Contains("Almuerzo", response.Cards[2].Subtitle);
         Assert.Contains("Lugar de tarde", response.Cards[3].Subtitle);

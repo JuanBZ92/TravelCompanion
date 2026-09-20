@@ -2,6 +2,7 @@ using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using TravelCompanion.Mobile.Services;
+using TravelCompanion.Shared;
 using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Mobile.ViewModels;
@@ -25,6 +26,9 @@ public sealed partial class TravelChatCardViewModel : ObservableObject
         EndsAt = TimeOnly.TryParse(card.EndTime, out var endsAt)
             ? endsAt
             : null;
+        TimePrecision = card.IsPeriodOnly
+            ? ItineraryTimePrecision.PeriodOnly
+            : ItineraryTimePrecision.Exact;
         LocalizationResourceManager.Instance.CultureChanged += OnCultureChanged;
     }
 
@@ -49,6 +53,7 @@ public sealed partial class TravelChatCardViewModel : ObservableObject
     public string RecommendationReference => RecommendationId?.ToString() ?? Title;
     public TimeOnly? StartsAt { get; }
     public TimeOnly? EndsAt { get; }
+    public ItineraryTimePrecision TimePrecision { get; }
     public bool CanSave => RecommendationId.HasValue && !IsSaved;
     public string SaveButtonText => IsSaved ? Resource("AssistantSavedButton") : Resource("AssistantSaveButton");
     public string DetailButtonText => Resource("AssistantDetailButton");
@@ -89,7 +94,7 @@ public sealed partial class TravelChatCardViewModel : ObservableObject
             }
         }
     }
-    public string TimeLabel => string.IsNullOrWhiteSpace(_card.StartTime)
+    public string TimeLabel => TimePrecision != ItineraryTimePrecision.Exact || string.IsNullOrWhiteSpace(_card.StartTime)
         ? string.Empty
         : string.IsNullOrWhiteSpace(_card.EndTime)
             ? $"{Resource("AssistantTimePrefix")}: {_card.StartTime!}"

@@ -70,6 +70,8 @@ public sealed record TravelCardDto(
     string? ReservationId)
 {
     public IReadOnlyList<string> Tags { get; init; } = [];
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public bool IsPeriodOnly { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public string? ProviderPlaceId { get; init; }
 }
@@ -108,7 +110,8 @@ public sealed record SaveItineraryItemRequest(
     DateOnly Date,
     TimeOnly StartsAt,
     TimeOnly? EndsAt,
-    Guid? ClientMutationId = null);
+    Guid? ClientMutationId = null,
+    ItineraryTimePrecision TimePrecision = ItineraryTimePrecision.PeriodOnly);
 
 public sealed record SaveItineraryItemResponse(
     bool Saved,

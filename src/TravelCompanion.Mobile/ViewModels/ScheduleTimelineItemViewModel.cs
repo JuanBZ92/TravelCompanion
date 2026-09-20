@@ -13,9 +13,11 @@ public sealed class ScheduleTimelineItemViewModel
         Title = item.Type == ReservationType.Flight
             ? item.MainDetail
             : item.LocationName;
-        MetaLine = item.HasEnd
-            ? $"{item.StartsAt:HH\\:mm} - {item.EndLabel} · {item.TypeLabel}"
-            : $"{item.StartsAt:HH\\:mm} · {item.TypeLabel}";
+        MetaLine = item.HasExactTime
+            ? item.HasEnd
+                ? $"{item.StartsAt:HH\\:mm} - {item.EndLabel} · {item.TypeLabel}"
+                : $"{item.StartsAt:HH\\:mm} · {item.TypeLabel}"
+            : $"{item.PeriodDisplay} · {item.TypeLabel}";
         Body = GetReservationBody(item);
         DetailLine = item.Type == ReservationType.Flight
             ? item.SecondaryDetail

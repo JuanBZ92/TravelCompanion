@@ -29,13 +29,13 @@ public static class ScheduleReviewAnalyzer
     public static DayReviewDto AnalyzeDay(DateOnly date, IReadOnlyList<ScheduleItemDto>? items)
     {
         var timedItems = (items ?? [])
-            .Where(item => item.Type != ReservationType.Lodging && item.HasExactTime)
+            .Where(HasFixedSchedule)
             .OrderBy(item => GetStart(item, date))
             .ThenBy(item => item.SortOrder)
             .ToList();
         var issues = new List<DayReviewIssueDto>();
 
-        AddIncompleteInformationIssues(items ?? [], timedItems, issues);
+        AddIncompleteInformationIssues(timedItems, issues);
         AddOverlapIssues(date, timedItems, issues);
         AddTransferIssues(date, timedItems, issues);
         AddPackedDayIssue(date, timedItems, issues);
@@ -64,19 +64,26 @@ public static class ScheduleReviewAnalyzer
         return new(date, status, title, summaryText, orderedIssues);
     }
 
-    private static void AddIncompleteInformationIssues(IReadOnlyList<ScheduleItemDto> allItems,
-        IReadOnlyList<ScheduleItemDto> timedItems, ICollection<DayReviewIssueDto> issues)
+    private static void AddIncompleteInformationIssues(
+        IReadOnlyList<ScheduleItemDto> timedItems,
+        ICollection<DayReviewIssueDto> issues)
     {
-        var missingExactTime = allItems.Where(item => item.Type != ReservationType.Lodging && !item.HasExactTime).ToList();
         var missingEnd = timedItems.Where(item => !item.EndsAt.HasValue).ToList();
-        if (missingExactTime.Count == 0 && missingEnd.Count == 0) return;
-        var ids = missingExactTime.Concat(missingEnd).Select(item => item.Id).Distinct().ToList();
-        var parts = new List<string>();
-        if (missingExactTime.Count > 0) parts.Add($"{missingExactTime.Count} sin horario exacto");
-        if (missingEnd.Count > 0) parts.Add($"{missingEnd.Count} sin hora de fin");
+        if (missingEnd.Count == 0) return;
         issues.Add(new(DayReviewIssueKinds.IncompleteInformation, DayReviewSeverities.Info,
-            "Información incompleta", $"Hay planes {string.Join(" y ", parts)}; no podemos comprobar todos los conflictos.", ids));
+            "Información incompleta",
+            $"Hay {missingEnd.Count} {(missingEnd.Count == 1 ? "reserva" : "reservas")} sin hora de fin; no podemos comprobar todos los conflictos.",
+            missingEnd.Select(item => item.Id).ToList()));
     }
+
+    private static bool HasFixedSchedule(ScheduleItemDto item) =>
+        item.Type != ReservationType.Lodging
+        && item.HasExactTime
+        && (item.Type == ReservationType.Flight
+            || item.PlanningKind == ScheduleItemKind.ConfirmedReservation
+            || item.Owner == ItineraryItemOwner.Yuku
+            || item.Flexibility is ItineraryFlexibility.FixedByTraveler
+                or ItineraryFlexibility.ConfirmedReservation);
 
     private static void AddOverlapIssues(DateOnly date,
         IReadOnlyList<ScheduleItemDto> items,
