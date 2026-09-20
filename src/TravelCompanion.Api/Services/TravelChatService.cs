@@ -441,9 +441,13 @@ public sealed class TravelChatService(
             : [];
         var ranked = isFullDayRequest
             ? fullDayStops.Select(stop => stop.Recommendation).ToList()
-            : planningResult.RankedRecommendations
-                .Take(isTargetedReplacement ? 1 : isGuidedRequest ? 2 : 3)
-                .ToList();
+            : isTargetedReplacement
+                ? planningResult.RankedRecommendations.Take(1).ToList()
+                : isGuidedRequest
+                    ? planningResult.RankedRecommendations.Take(2).ToList()
+                    : responseMode == BalancedMode
+                        ? SelectDiverseRecommendations(planningResult.RankedRecommendations, 3)
+                        : planningResult.RankedRecommendations.Take(3).ToList();
         var cards = isFullDayRequest
             ? fullDayStops.Select(stop =>
             {
@@ -1160,8 +1164,8 @@ public sealed class TravelChatService(
     private static string CreateFullDayPlanningMessage(string locale)
     {
         return IsEnglish(locale)
-            ? "Build a day with morning coffee, a visit, lunch, and dinner"
-            : "Armá un día con café por la mañana, una visita, almuerzo y cena";
+            ? "Build a day with morning coffee and a visit, lunch, an afternoon place, and dinner"
+            : "Armá un día con café y una visita por la mañana, almuerzo, un lugar por la tarde y cena";
     }
 
     private static string CreateFullDayResponseMessage(int stopCount, string locale)
@@ -1186,7 +1190,7 @@ public sealed class TravelChatService(
     {
         var english = IsEnglish(locale);
         var used = new HashSet<Guid>();
-        var stops = new List<FullDayStop>(4);
+        var stops = new List<FullDayStop>(5);
 
         AddFullDayStop(stops, used, ranked, requestSeed, "coffee", new TimeOnly(9, 0),
             english ? "Morning coffee" : "Café de mañana",
@@ -1201,6 +1205,10 @@ public sealed class TravelChatService(
             recommendation => IsFoodRecommendation(recommendation)
                 && ContainsRecommendationTerms(recommendation, "lunch", "almuerzo", "ramen", "sushi"),
             IsFoodRecommendation);
+        AddFullDayStop(stops, used, ranked, requestSeed, "afternoon", new TimeOnly(16, 0),
+            english ? "Afternoon place" : "Lugar de tarde",
+            recommendation => !IsFoodRecommendation(recommendation) && MatchesAnyInterest(recommendation, criteria),
+            recommendation => !IsFoodRecommendation(recommendation));
         AddFullDayStop(stops, used, ranked, requestSeed, "dinner", new TimeOnly(19, 30),
             english ? "Dinner" : "Cena",
             recommendation => IsFoodRecommendation(recommendation)
@@ -1252,6 +1260,45 @@ public sealed class TravelChatService(
             .Take(20)
             .OrderBy(candidate => StableRandomOrder(requestSeed, slotId, candidate.Recommendation.Id))
             .FirstOrDefault();
+    }
+
+    private static List<ScoredRecommendation> SelectDiverseRecommendations(
+        IReadOnlyList<ScoredRecommendation> ranked,
+        int count)
+    {
+        var selected = new List<ScoredRecommendation>(count);
+        var selectedIds = new HashSet<Guid>();
+        var categoryBuckets = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var candidate in ranked)
+        {
+            if (!categoryBuckets.Add(GetRecommendationCategoryBucket(candidate.Recommendation))) continue;
+            selected.Add(candidate);
+            selectedIds.Add(candidate.Recommendation.Id);
+            if (selected.Count == count) return selected;
+        }
+
+        foreach (var candidate in ranked)
+        {
+            if (!selectedIds.Add(candidate.Recommendation.Id)) continue;
+            selected.Add(candidate);
+            if (selected.Count == count) break;
+        }
+
+        return selected;
+    }
+
+    private static string GetRecommendationCategoryBucket(Recommendation recommendation)
+    {
+        if (IsFoodRecommendation(recommendation)) return GuidedTravelCategories.Food;
+        if (MatchesInterest(recommendation, GuidedTravelCategories.Culture)) return GuidedTravelCategories.Culture;
+        if (MatchesInterest(recommendation, GuidedTravelCategories.Nature)) return GuidedTravelCategories.Nature;
+        if (MatchesInterest(recommendation, GuidedTravelCategories.Shopping)) return GuidedTravelCategories.Shopping;
+        if (MatchesInterest(recommendation, GuidedTravelCategories.Viewpoint)) return GuidedTravelCategories.Viewpoint;
+        if (MatchesInterest(recommendation, GuidedTravelCategories.Walk)) return GuidedTravelCategories.Walk;
+        if (MatchesInterest(recommendation, GuidedTravelCategories.Nightlife)) return GuidedTravelCategories.Nightlife;
+        return string.IsNullOrWhiteSpace(recommendation.Category)
+            ? "other"
+            : recommendation.Category.Trim().ToLowerInvariant();
     }
 
     private static ulong StableRandomOrder(string seed, string slotId, Guid recommendationId)

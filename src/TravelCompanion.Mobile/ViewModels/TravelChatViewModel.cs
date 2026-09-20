@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Net.Http;
+using System.Text.Json;
 using CommunityToolkit.Mvvm.Input;
 using TravelCompanion.Mobile.Pages;
 using TravelCompanion.Mobile.Services;
@@ -19,6 +20,8 @@ public sealed partial class TravelChatViewModel(
     PendingItineraryActionStore pendingItineraryActionStore) : ViewModelBase, ISessionStateResettable
 {
     private static readonly TimeSpan TravelChatNetworkTimeout = TimeSpan.FromSeconds(20);
+    private const string PreferenceCacheKeyPrefix = "travel-assistant-preferences-v1-";
+    private static readonly JsonSerializerOptions PreferenceJsonOptions = new(JsonSerializerDefaults.Web);
     private string? _conversationId;
     private string? _lastIntent;
     private string? _lastFailedMessage;
@@ -40,6 +43,9 @@ public sealed partial class TravelChatViewModel(
     private bool _isSecondaryMenuVisible;
     private bool _isExplicitlyCancelled;
     private bool _isFullDayFlow;
+    private bool _guidedPreferencesDirty;
+    private Guid? _loadedPreferenceUserId;
+    private TravelPreferenceProfileDto? _cachedPreferenceProfile;
     private readonly Stack<string> _guidedHistory = new();
     private readonly HashSet<string> _selectedCategories = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _selectedBudgets = new(StringComparer.OrdinalIgnoreCase);
@@ -143,8 +149,17 @@ public sealed partial class TravelChatViewModel(
     public async Task LoadContextAsync()
     {
         EnsureLocalizationSubscription();
+        ApplyCachedPreferencesForCurrentUser();
         if (_hasLoadedContext)
         {
+            if (_cachedPreferenceProfile is null)
+            {
+                var token = await sessionService.GetTokenAsync();
+                if (!string.IsNullOrWhiteSpace(token))
+                {
+                    await RefreshPreferenceProfileAsync(token, CancellationToken.None);
+                }
+            }
             var cached = await bootstrapStore.GetCachedAsync();
             if (cached is not null)
             {
@@ -163,6 +178,8 @@ public sealed partial class TravelChatViewModel(
                 await Shell.Current.GoToAsync("//login");
                 return;
             }
+
+            await RefreshPreferenceProfileAsync(token, ct);
 
             var cached = await bootstrapStore.GetCachedAsync(cancellationToken: ct);
             if (cached is not null)
@@ -255,7 +272,7 @@ public sealed partial class TravelChatViewModel(
         var token = await sessionService.GetTokenAsync();
         if (!string.IsNullOrWhiteSpace(token))
         {
-            var profile = await apiClient.GetTravelPreferenceProfileAsync(token);
+            var profile = await GetSavedPreferencesAsync(token);
             if (TryUseSavedPreferences(profile))
             {
                 await SendGuidedPlanAsync(alternative: false);
@@ -292,6 +309,9 @@ public sealed partial class TravelChatViewModel(
         _lastIntent = null;
         _lastFailedMessage = null;
         _hasLoadedContext = false;
+        _loadedPreferenceUserId = null;
+        _cachedPreferenceProfile = null;
+        _guidedPreferencesDirty = false;
         MessageText = string.Empty;
         PlanningDate = DateTime.Today;
         City = null;
@@ -328,6 +348,7 @@ public sealed partial class TravelChatViewModel(
             }
 
             ToggleSelection(_selectedCategories, category);
+            _guidedPreferencesDirty = true;
             UpdateGuidedCriteriaFromSelections();
             RefreshGuidedSelectionState();
             return;
@@ -355,6 +376,7 @@ public sealed partial class TravelChatViewModel(
             case "budget.medium":
             case "budget.high":
                 ToggleSelection(_selectedBudgets, id["budget.".Length..]);
+                _guidedPreferencesDirty = true;
                 UpdateGuidedCriteriaFromSelections();
                 RefreshGuidedSelectionState();
                 return;
@@ -368,6 +390,7 @@ public sealed partial class TravelChatViewModel(
                 _selectedWalkingMinutes.Remove(0);
                 var minutes = int.Parse(id["distance.".Length..], CultureInfo.InvariantCulture);
                 if (!_selectedWalkingMinutes.Add(minutes)) _selectedWalkingMinutes.Remove(minutes);
+                _guidedPreferencesDirty = true;
                 UpdateGuidedCriteriaFromSelections();
                 RefreshGuidedSelectionState();
                 return;
@@ -379,12 +402,14 @@ public sealed partial class TravelChatViewModel(
             case "distance.none":
                 _selectedWalkingMinutes.Clear();
                 _selectedWalkingMinutes.Add(0);
+                _guidedPreferencesDirty = true;
                 UpdateGuidedCriteriaFromSelections();
                 RefreshGuidedSelectionState();
                 return;
             case "location.skip":
                 _selectedWalkingMinutes.Clear();
                 _selectedWalkingMinutes.Add(0);
+                _guidedPreferencesDirty = true;
                 UpdateGuidedCriteriaFromSelections();
                 await SendGuidedPlanAsync(alternative: false);
                 return;
@@ -875,7 +900,7 @@ public sealed partial class TravelChatViewModel(
             return;
         }
 
-        if (_isFullDayFlow && !alternative)
+        if (!alternative && _guidedPreferencesDirty)
         {
             await PersistGuidedPreferencesAsync();
         }
@@ -918,11 +943,16 @@ public sealed partial class TravelChatViewModel(
             : _guidedCriteria.MaxWalkingMinutes ?? 30;
         try
         {
-            await apiClient.PatchTravelPreferenceProfileAsync(
+            var savedProfile = await apiClient.PatchTravelPreferenceProfileAsync(
                 token,
                 new TravelPreferenceProfilePatchDto(
                     null, null, budgets.FirstOrDefault() ?? "medium", "balanced",
                     categories, null, null, walkingMinutes));
+            if (savedProfile is not null)
+            {
+                CachePreferenceProfile(savedProfile);
+                _guidedPreferencesDirty = false;
+            }
         }
         catch (Exception ex) when (IsTransientNetworkException(ex))
         {
@@ -941,7 +971,7 @@ public sealed partial class TravelChatViewModel(
         }
 
         var savedCount = 0;
-        foreach (var card in cards.Take(4))
+        foreach (var card in cards.Take(5))
         {
             if (!card.RecommendationId.HasValue || !card.StartsAt.HasValue) continue;
             SaveItineraryItemResponse? result;
@@ -1487,8 +1517,96 @@ public sealed partial class TravelChatViewModel(
         }
     }
 
+    private void ApplyCachedPreferencesForCurrentUser()
+    {
+        var userId = sessionService.CurrentUserId;
+        if (!userId.HasValue)
+        {
+            return;
+        }
+
+        if (_loadedPreferenceUserId != userId)
+        {
+            _loadedPreferenceUserId = userId;
+            _cachedPreferenceProfile = ReadCachedPreferenceProfile(userId.Value);
+        }
+
+        if (TryUseSavedPreferences(_cachedPreferenceProfile)
+            && !_isFullDayFlow
+            && !HasMessages)
+        {
+            HasGuidedQuestion = false;
+            IsFreeTextVisible = true;
+        }
+    }
+
+    private async Task RefreshPreferenceProfileAsync(string token, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var profile = await apiClient.GetTravelPreferenceProfileAsync(token, cancellationToken);
+            if (profile is null)
+            {
+                return;
+            }
+
+            CachePreferenceProfile(profile);
+            if (TryUseSavedPreferences(profile) && !_isFullDayFlow && !HasMessages)
+            {
+                HasGuidedQuestion = false;
+                IsFreeTextVisible = true;
+            }
+        }
+        catch (Exception ex) when (IsTransientNetworkException(ex))
+        {
+            // Keep using the last user-scoped local profile while offline.
+        }
+    }
+
+    private async Task<TravelPreferenceProfileDto?> GetSavedPreferencesAsync(string token)
+    {
+        ApplyCachedPreferencesForCurrentUser();
+        if (_cachedPreferenceProfile is not null)
+        {
+            return _cachedPreferenceProfile;
+        }
+
+        await RefreshPreferenceProfileAsync(token, CancellationToken.None);
+        return _cachedPreferenceProfile;
+    }
+
+    private void CachePreferenceProfile(TravelPreferenceProfileDto profile)
+    {
+        _loadedPreferenceUserId = profile.UserId;
+        _cachedPreferenceProfile = profile;
+        Preferences.Default.Set(
+            PreferenceCacheKeyPrefix + profile.UserId.ToString("N"),
+            JsonSerializer.Serialize(profile, PreferenceJsonOptions));
+    }
+
+    private static TravelPreferenceProfileDto? ReadCachedPreferenceProfile(Guid userId)
+    {
+        var key = PreferenceCacheKeyPrefix + userId.ToString("N");
+        var json = Preferences.Default.Get(key, string.Empty);
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<TravelPreferenceProfileDto>(json, PreferenceJsonOptions);
+        }
+        catch (JsonException)
+        {
+            Preferences.Default.Remove(key);
+            return null;
+        }
+    }
+
     private bool TryUseSavedPreferences(TravelPreferenceProfileDto? profile)
     {
+        ClearGuidedSelections();
         if (profile is null || !profile.HasMinimumPreferences || profile.Interests.Count == 0
             || profile.BudgetLevel is not ("low" or "medium" or "high")
             || profile.MaxWalkingMinutes <= 0)
@@ -1521,6 +1639,7 @@ public sealed partial class TravelChatViewModel(
             ? 0
             : profile.MaxWalkingMinutes <= 15 ? 15 : 30);
         UpdateGuidedCriteriaFromSelections();
+        _guidedPreferencesDirty = false;
         return true;
     }
 

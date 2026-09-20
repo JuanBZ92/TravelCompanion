@@ -1379,6 +1379,41 @@ public sealed class TravelChatServiceTests
     }
 
     [Fact]
+    public async Task Generic_plan_returns_different_categories_when_the_catalog_allows_it()
+    {
+        await using var dbContext = CreateDbContext();
+        var destinationId = Guid.NewGuid();
+        var cafeOne = CreateRecommendation(destinationId, "Coffee one", "Food", "Cafe in Tokyo.", 45);
+        cafeOne.Tags = ["cafe", "coffee"];
+        var cafeTwo = CreateRecommendation(destinationId, "Coffee two", "Food", "Another cafe in Tokyo.", 45);
+        cafeTwo.Tags = ["cafe", "coffee"];
+        var temple = CreateRecommendation(destinationId, "Temple visit", "Culture", "Historic temple in Tokyo.", 90);
+        temple.Tags = ["culture", "temple"];
+        var garden = CreateRecommendation(destinationId, "Garden walk", "Nature", "Quiet garden in Tokyo.", 75);
+        garden.Tags = ["nature", "garden"];
+        var shopping = CreateRecommendation(destinationId, "Design shops", "Shopping", "Local shopping in Tokyo.", 60);
+        shopping.Tags = ["shopping", "design"];
+        var user = await SeedPlanningWorldAsync(dbContext, destinationId, cafeOne, cafeTwo, temple, garden, shopping);
+        var service = CreateService(dbContext);
+
+        var response = await service.CreatePlanAsync(
+            user,
+            new TravelChatRequest("Proponeme un plan", null, "Tokyo", new DateOnly(2026, 10, 6), null, "es-ES"),
+            CancellationToken.None);
+
+        Assert.Equal(3, response.Cards.Count);
+        Assert.True(response.Cards.Count(card => card.Title.StartsWith("Coffee", StringComparison.Ordinal)) <= 1);
+        Assert.Equal(3, response.Cards.Select(card => card.Title switch
+        {
+            var title when title.StartsWith("Coffee", StringComparison.Ordinal) => "food",
+            "Temple visit" => "culture",
+            "Garden walk" => "nature",
+            "Design shops" => "shopping",
+            _ => card.Title
+        }).Distinct(StringComparer.Ordinal).Count());
+    }
+
+    [Fact]
     public async Task CreatePlanAsync_does_not_echo_model_saved_claims_without_backend_confirmation()
     {
         await using var dbContext = CreateDbContext();
@@ -1750,7 +1785,7 @@ public sealed class TravelChatServiceTests
     }
 
     [Fact]
-    public async Task Full_day_plan_returns_four_distinct_timed_stops()
+    public async Task Full_day_plan_returns_five_distinct_timed_stops()
     {
         await using var dbContext = CreateDbContext();
         var destinationId = Guid.NewGuid();
@@ -1789,12 +1824,13 @@ public sealed class TravelChatServiceTests
             CancellationToken.None);
 
         Assert.Null(response.MissingContext);
-        Assert.Equal(4, response.Cards.Count);
-        Assert.Equal(4, response.Cards.Select(card => card.RecommendationId).Distinct().Count());
-        Assert.Equal(["09:00", "10:30", "13:00", "19:30"], response.Cards.Select(card => card.StartTime));
+        Assert.Equal(5, response.Cards.Count);
+        Assert.Equal(5, response.Cards.Select(card => card.RecommendationId).Distinct().Count());
+        Assert.Equal(["09:00", "10:30", "13:00", "16:00", "19:30"], response.Cards.Select(card => card.StartTime));
         Assert.Contains("Café de mañana", response.Cards[0].Subtitle);
         Assert.Contains("Almuerzo", response.Cards[2].Subtitle);
-        Assert.Contains("Cena", response.Cards[3].Subtitle);
+        Assert.Contains("Lugar de tarde", response.Cards[3].Subtitle);
+        Assert.Contains("Cena", response.Cards[4].Subtitle);
         Assert.DoesNotContain(response.Cards, card => card.RecommendationId == alreadyUsed.Id.ToString());
     }
 
