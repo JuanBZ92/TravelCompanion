@@ -43,6 +43,7 @@ public sealed partial class TravelChatViewModel(
     private bool _isSecondaryMenuVisible;
     private bool _isExplicitlyCancelled;
     private bool _isFullDayFlow;
+    private bool _isFullDayProgressActive;
     private bool _guidedPreferencesDirty;
     private Guid? _loadedPreferenceUserId;
     private TravelPreferenceProfileDto? _cachedPreferenceProfile;
@@ -145,6 +146,7 @@ public sealed partial class TravelChatViewModel(
     public bool HasMissingContext => !string.IsNullOrWhiteSpace(MissingContextMessage);
     public bool HasMessages => Messages.Count > 0;
     public bool ShowEmptyState => !HasMessages && !IsBusy;
+    public bool ShowGlobalLoading => IsBusy && !_isFullDayProgressActive;
 
     public async Task LoadContextAsync()
     {
@@ -514,6 +516,7 @@ public sealed partial class TravelChatViewModel(
             return;
         }
 
+        TravelChatMessageViewModel? fullDayProgressMessage = null;
         try
         {
             var isGuidedSubmission = _pendingGuidedAction is not null;
@@ -522,6 +525,8 @@ public sealed partial class TravelChatViewModel(
             var isTargetedReplacement = replacementCard is not null
                 && _pendingGuidedAction?.Action == GuidedTravelActions.Alternative;
             _isExplicitlyCancelled = false;
+            _isFullDayProgressActive = isFullDaySubmission;
+            OnPropertyChanged(nameof(ShowGlobalLoading));
             IsBusy = true;
             ErrorMessage = null;
             StatusMessage = null;
@@ -531,6 +536,15 @@ public sealed partial class TravelChatViewModel(
             {
                 Messages.Clear();
                 HasGuidedQuestion = false;
+                if (isFullDaySubmission)
+                {
+                    fullDayProgressMessage = new TravelChatMessageViewModel(
+                        Resource("AssistantFullDayPreparing"),
+                        isFromUser: false,
+                        isProgressMessage: true,
+                        isLoading: true);
+                    Messages.Add(fullDayProgressMessage);
+                }
             }
             else
             {
@@ -561,6 +575,7 @@ public sealed partial class TravelChatViewModel(
 
             if (response is null)
             {
+                RemoveProgressMessage(fullDayProgressMessage);
                 await ApplyChatOfflineFallbackAsync(message);
                 return;
             }
@@ -581,10 +596,34 @@ public sealed partial class TravelChatViewModel(
             var responseMessage = response.Message;
             if (isFullDaySubmission && response.MissingContext is null && cards.Count > 0)
             {
-                var savedCount = await SaveFullDayCardsAsync(cards, token, activeRequest.Token);
-                responseMessage = savedCount == cards.Count
+                fullDayProgressMessage ??= new TravelChatMessageViewModel(
+                    Resource("AssistantFullDayPreparing"),
+                    isFromUser: false,
+                    isProgressMessage: true,
+                    isLoading: true);
+                if (!Messages.Contains(fullDayProgressMessage))
+                {
+                    Messages.Add(fullDayProgressMessage);
+                }
+
+                var processedCardCount = Math.Min(cards.Count, 5);
+                var savedCount = await SaveFullDayCardsAsync(
+                    cards,
+                    token,
+                    activeRequest.Token,
+                    (card, completed, total) => PublishFullDayCardAsync(
+                        fullDayProgressMessage,
+                        card,
+                        completed,
+                        total));
+                responseMessage = savedCount == processedCardCount
                     ? string.Format(CultureInfo.CurrentCulture, Resource("AssistantFullDaySaved"), savedCount)
-                    : string.Format(CultureInfo.CurrentCulture, Resource("AssistantFullDayPartiallySaved"), savedCount, cards.Count);
+                    : string.Format(CultureInfo.CurrentCulture, Resource("AssistantFullDayPartiallySaved"), savedCount, processedCardCount);
+                fullDayProgressMessage.UpdateProgress(responseMessage, isLoading: false);
+            }
+            else if (isFullDaySubmission)
+            {
+                RemoveProgressMessage(fullDayProgressMessage);
             }
             if (isTargetedReplacement && replacementCard is not null)
             {
@@ -597,7 +636,7 @@ public sealed partial class TravelChatViewModel(
 
                 StatusMessage = response.Message;
             }
-            else if (!DuplicatesMissingContext(response))
+            else if ((!isFullDaySubmission || cards.Count == 0) && !DuplicatesMissingContext(response))
             {
                 Messages.Add(new TravelChatMessageViewModel(responseMessage, isFromUser: false, cards));
             }
@@ -625,18 +664,23 @@ public sealed partial class TravelChatViewModel(
         }
         catch (OperationCanceledException) when (_isExplicitlyCancelled)
         {
+            RemoveProgressMessage(fullDayProgressMessage);
         }
         catch (Exception ex) when (IsTransientNetworkException(ex))
         {
+            RemoveProgressMessage(fullDayProgressMessage);
             await ApplyChatOfflineFallbackAsync(message);
         }
         catch (Exception ex)
         {
+            RemoveProgressMessage(fullDayProgressMessage);
             ErrorMessage = string.Format(CultureInfo.CurrentCulture, Resource("AssistantPrepareError"), ex.Message);
         }
         finally
         {
             IsBusy = false;
+            _isFullDayProgressActive = false;
+            OnPropertyChanged(nameof(ShowGlobalLoading));
         }
     }
 
@@ -963,45 +1007,56 @@ public sealed partial class TravelChatViewModel(
     private async Task<int> SaveFullDayCardsAsync(
         IReadOnlyList<TravelChatCardViewModel> cards,
         string token,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Func<TravelChatCardViewModel, int, int, Task>? onCardProcessed = null)
     {
-        if (!sessionService.CanEditItinerary || sessionService.RequiresTripSetup)
-        {
-            return 0;
-        }
-
         var savedCount = 0;
-        var savedItems = new List<ScheduleItemDto>(Math.Min(cards.Count, 5));
+        var cardsToProcess = cards.Take(5).ToList();
+        var savedItems = new List<ScheduleItemDto>(cardsToProcess.Count);
         int? latestRevision = null;
-        foreach (var card in cards.Take(5))
+        for (var index = 0; index < cardsToProcess.Count; index++)
         {
-            if (!card.RecommendationId.HasValue || !card.StartsAt.HasValue) continue;
-            SaveItineraryItemResponse? result;
-            try
+            var card = cardsToProcess[index];
+            if (sessionService.CanEditItinerary
+                && !sessionService.RequiresTripSetup
+                && card.RecommendationId.HasValue
+                && card.StartsAt.HasValue)
             {
-                result = await apiClient.SaveItineraryItemAsync(
-                    token,
-                    new SaveItineraryItemRequest(
-                        card.RecommendationId.Value,
-                        DateOnly.FromDateTime(PlanningDate),
-                        card.StartsAt.Value,
-                        card.EndsAt,
-                        Guid.NewGuid(),
-                        card.TimePrecision),
-                    cancellationToken);
+                SaveItineraryItemResponse? result = null;
+                try
+                {
+                    result = await apiClient.SaveItineraryItemAsync(
+                        token,
+                        new SaveItineraryItemRequest(
+                            card.RecommendationId.Value,
+                            DateOnly.FromDateTime(PlanningDate),
+                            card.StartsAt.Value,
+                            card.EndsAt,
+                            Guid.NewGuid(),
+                            card.TimePrecision),
+                        cancellationToken);
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception ex) when (IsTransientNetworkException(ex))
+                {
+                    // Keep the generated card visible so the user can save it later.
+                }
+
+                if (result?.Saved == true)
+                {
+                    card.IsSaved = true;
+                    savedCount++;
+                    if (result.Item is not null)
+                    {
+                        savedItems.Add(result.Item);
+                        latestRevision = result.Revision ?? latestRevision;
+                    }
+                }
             }
-            catch (OperationCanceledException) { throw; }
-            catch (Exception ex) when (IsTransientNetworkException(ex))
+
+            if (onCardProcessed is not null)
             {
-                continue;
-            }
-            if (result?.Saved != true) continue;
-            card.IsSaved = true;
-            savedCount++;
-            if (result.Item is not null)
-            {
-                savedItems.Add(result.Item);
-                latestRevision = result.Revision ?? latestRevision;
+                await onCardProcessed(card, index + 1, cardsToProcess.Count);
             }
         }
 
@@ -1017,6 +1072,35 @@ public sealed partial class TravelChatViewModel(
             await bootstrapStore.RefreshAsync(token, cancellationToken: CancellationToken.None);
         }
         return savedCount;
+    }
+
+    private Task PublishFullDayCardAsync(
+        TravelChatMessageViewModel progressMessage,
+        TravelChatCardViewModel card,
+        int completed,
+        int total)
+    {
+        return MainThread.InvokeOnMainThreadAsync(() =>
+        {
+            Messages.Add(new TravelChatMessageViewModel(string.Empty, isFromUser: false, [card]));
+            var progressIndex = Messages.IndexOf(progressMessage);
+            if (progressIndex >= 0 && progressIndex < Messages.Count - 1)
+            {
+                Messages.Move(progressIndex, Messages.Count - 1);
+            }
+            progressMessage.UpdateProgress(
+                string.Format(CultureInfo.CurrentCulture, Resource("AssistantFullDayProgress"), completed, total),
+                isLoading: completed < total);
+            OnMessagesChanged();
+        });
+    }
+
+    private void RemoveProgressMessage(TravelChatMessageViewModel? progressMessage)
+    {
+        if (progressMessage is not null && Messages.Remove(progressMessage))
+        {
+            OnMessagesChanged();
+        }
     }
 
     private async Task ApplyChatOfflineFallbackAsync(string message)
@@ -1267,6 +1351,7 @@ public sealed partial class TravelChatViewModel(
     {
         SendMessageCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(ShowEmptyState));
+        OnPropertyChanged(nameof(ShowGlobalLoading));
     }
 
     private void OnMessagesChanged()

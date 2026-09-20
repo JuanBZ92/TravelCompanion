@@ -203,6 +203,32 @@
                                     </Label>
                                 </Border>
 
+                                <Border Padding="12,10"
+                                        IsVisible="{Binding IsProgressMessage}"
+                                        MaximumWidthRequest="620"
+                                        HorizontalOptions="Fill"
+                                        BackgroundColor="{StaticResource AccentSoft}"
+                                        Stroke="{StaticResource Gold}"
+                                        StrokeThickness="1"
+                                        SemanticProperties.Description="{Binding Text}">
+                                    <Border.StrokeShape>
+                                        <RoundRectangle CornerRadius="0" />
+                                    </Border.StrokeShape>
+                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                                        <ActivityIndicator IsRunning="{Binding IsLoading}"
+                                                           IsVisible="{Binding IsLoading}"
+                                                           Color="{StaticResource Accent}"
+                                                           WidthRequest="20"
+                                                           HeightRequest="20" />
+                                        <Label Grid.Column="1"
+                                               Text="{Binding Text}"
+                                               FontSize="13"
+                                               FontAttributes="Bold"
+                                               VerticalTextAlignment="Center"
+                                               TextColor="{StaticResource Accent}" />
+                                    </Grid>
+                                </Border>
+
                                 <VerticalStackLayout Spacing="8"
                                                      IsVisible="{Binding HasCards}"
                                                      BindableLayout.ItemsSource="{Binding Cards}">
@@ -425,8 +451,8 @@
                         MinimumHeightRequest="44" />
             </Grid>
 
-            <ActivityIndicator IsRunning="{Binding IsBusy}"
-                               IsVisible="{Binding IsBusy}"
+            <ActivityIndicator IsRunning="{Binding ShowGlobalLoading}"
+                               IsVisible="{Binding ShowGlobalLoading}"
                                Color="{StaticResource Accent}"
                                WidthRequest="22"
                                HeightRequest="22" />

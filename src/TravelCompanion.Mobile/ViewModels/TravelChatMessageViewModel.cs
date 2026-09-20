@@ -1,18 +1,51 @@
 using System.Collections.ObjectModel;
+using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace TravelCompanion.Mobile.ViewModels;
 
-public sealed class TravelChatMessageViewModel(
-    string text,
-    bool isFromUser,
-    IReadOnlyList<TravelChatCardViewModel>? cards = null)
+public sealed class TravelChatMessageViewModel : ObservableObject
 {
-    public string Text { get; } = text;
-    public bool IsFromUser { get; } = isFromUser;
+    private string _text;
+    private bool _isLoading;
+
+    public TravelChatMessageViewModel(
+        string text,
+        bool isFromUser,
+        IReadOnlyList<TravelChatCardViewModel>? cards = null,
+        bool isProgressMessage = false,
+        bool isLoading = false)
+    {
+        _text = text;
+        _isLoading = isLoading;
+        IsFromUser = isFromUser;
+        IsProgressMessage = isProgressMessage;
+        Cards = new ObservableCollection<TravelChatCardViewModel>(cards ?? []);
+    }
+
+    public string Text
+    {
+        get => _text;
+        private set => SetProperty(ref _text, value);
+    }
+
+    public bool IsLoading
+    {
+        get => _isLoading;
+        private set => SetProperty(ref _isLoading, value);
+    }
+
+    public bool IsFromUser { get; }
     public bool IsFromAssistant => !IsFromUser;
-    public ObservableCollection<TravelChatCardViewModel> Cards { get; } = new(cards ?? []);
+    public bool IsProgressMessage { get; }
+    public ObservableCollection<TravelChatCardViewModel> Cards { get; }
     public bool HasCards => Cards.Count > 0;
-    public bool ShouldShowText => !HasCards && !string.IsNullOrWhiteSpace(Text);
+    public bool ShouldShowText => !IsProgressMessage && !HasCards && !string.IsNullOrWhiteSpace(Text);
+
+    public void UpdateProgress(string text, bool isLoading)
+    {
+        Text = text;
+        IsLoading = isLoading;
+    }
 
     public bool ReplaceCard(TravelChatCardViewModel current, TravelChatCardViewModel replacement)
     {

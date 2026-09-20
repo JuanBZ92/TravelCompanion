@@ -177,6 +177,30 @@ public sealed class TravelChatMobilePresentationTests
     }
 
     [Fact]
+    public void Full_day_progress_message_updates_without_becoming_a_duplicate_chat_message()
+    {
+        var message = new TravelChatMessageViewModel(
+            "Armando tu día...",
+            isFromUser: false,
+            isProgressMessage: true,
+            isLoading: true);
+
+        Assert.True(message.IsProgressMessage);
+        Assert.True(message.IsLoading);
+        Assert.False(message.ShouldShowText);
+
+        message.UpdateProgress("2 de 5 planes listos.", isLoading: true);
+
+        Assert.Equal("2 de 5 planes listos.", message.Text);
+        Assert.True(message.IsLoading);
+
+        message.UpdateProgress("Se agregaron 5 planes directamente a este día.", isLoading: false);
+
+        Assert.False(message.IsLoading);
+        Assert.Equal("Se agregaron 5 planes directamente a este día.", message.Text);
+    }
+
+    [Fact]
     public void Normalize_travel_chat_response_preserves_safe_guided_question()
     {
         var response = new TravelChatResponse(
