@@ -189,7 +189,9 @@ public sealed class BuilderTripService(
             throw new BuilderRevisionConflictException(trip.PlanRevision);
         }
 
-        if (!grant.IsTrial)
+        // Store purchases stay attached to their original trip. Administrative/PIN
+        // grants can reset their demo itinerary and reuse the same access PIN.
+        if (grant.PurchaseTransactionId.HasValue)
         {
             var paidSessions = await dbContext.AppUserSessions
                 .Where(item => item.UserId == access.User.Id && item.TripId == trip.Id)

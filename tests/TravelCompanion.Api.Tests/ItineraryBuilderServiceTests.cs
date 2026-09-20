@@ -296,12 +296,12 @@ public sealed class ItineraryBuilderServiceTests
 
         Assert.False(deleted.IsConfigured);
         Assert.Null(deleted.TripId);
-        var archivedTrip = await dbContext.Trips.SingleAsync();
-        Assert.True(archivedTrip.IsArchived);
-        Assert.NotEmpty(await dbContext.Reservations.ToListAsync());
+        Assert.Empty(await dbContext.Trips.ToListAsync());
+        Assert.Empty(await dbContext.Reservations.ToListAsync());
+        Assert.Empty(await dbContext.NotificationOutboxItems.ToListAsync());
         Assert.All(await dbContext.AppUserSessions.Where(item => item.UserId == user.Id).ToListAsync(), item => Assert.Null(item.TripId));
         var preservedGrant = await dbContext.BuilderAccessGrants.SingleAsync();
-        Assert.Equal(tripId, preservedGrant.TripId);
+        Assert.Null(preservedGrant.TripId);
         Assert.Equal(BuilderAccessStatus.Active, preservedGrant.Status);
     }
 

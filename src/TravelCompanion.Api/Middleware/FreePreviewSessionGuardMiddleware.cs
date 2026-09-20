@@ -36,7 +36,7 @@ public sealed class FreePreviewSessionGuardMiddleware(RequestDelegate next)
 
         if (request.Path.StartsWithSegments("/api/mobile/builder/setup")
             || request.Path.StartsWithSegments("/api/mobile/itinerary")
-            || request.Path.StartsWithSegments("/api/mobile/places/search")
+            || request.Path.StartsWithSegments("/api/mobile/places")
             || request.Path.StartsWithSegments("/api/mobile/pass")
             || request.Path.StartsWithSegments("/api/ai/travel-chat")
             || request.Path.StartsWithSegments("/api/ai/save-itinerary-item")

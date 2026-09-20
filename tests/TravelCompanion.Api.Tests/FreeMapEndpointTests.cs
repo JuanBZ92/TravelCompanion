@@ -39,14 +39,15 @@ public sealed class FreeMapEndpointTests
         Assert.Equal(SessionAccessMode.FreeMapPreview, session.AccessMode);
         Assert.Null(session.TripId);
         Assert.False(session.MustChangePassword);
+        Assert.True(session.Capabilities?.CanSearchGooglePlaces);
 
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", session.Token);
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/mobile/bootstrap")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/api/mobile/today")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/mobile/docs")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/me/schedule")).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync("/api/mobile/places/autocomplete", new PlaceAutocompleteRequest("hotel", "Tokyo", Guid.NewGuid().ToString()))).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync("/api/mobile/places/details", new PlaceDetailsRequest("ChIJtest", Guid.NewGuid().ToString()))).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync("/api/mobile/places/autocomplete", new PlaceAutocompleteRequest("hotel", "Tokyo", Guid.NewGuid().ToString()))).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.PostAsJsonAsync("/api/mobile/places/details", new PlaceDetailsRequest("ChIJtest", Guid.NewGuid().ToString()))).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync(
             "/api/ai/travel-chat",
             new { message = "plan", locale = "es" })).StatusCode);

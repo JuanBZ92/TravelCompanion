@@ -94,7 +94,7 @@ public sealed class AuthController(
                 experienceMode: ExperienceMode.SelfServiceBuilder,
                 capabilities: new TravelerCapabilitiesDto(
                     CanViewFullMap: false,
-                    CanSearchGooglePlaces: false,
+                    CanSearchGooglePlaces: true,
                     CanEditItinerary: trialStatus.CanEdit,
                     HasCuratedDocs: false,
                     RequiresTripSetup: !trialGrant?.TripId.HasValue ?? true,

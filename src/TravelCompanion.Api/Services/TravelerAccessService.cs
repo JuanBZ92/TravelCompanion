@@ -34,7 +34,7 @@ public sealed class TravelerAccessService(
                 mode,
                 new TravelerCapabilitiesDto(
                     CanViewFullMap: false,
-                    CanSearchGooglePlaces: false,
+                    CanSearchGooglePlaces: true,
                     CanEditItinerary: trial.CanEdit,
                     HasCuratedDocs: false,
                     RequiresTripSetup: !session.TripId.HasValue,
@@ -57,7 +57,7 @@ public sealed class TravelerAccessService(
 
     public static TravelerCapabilitiesDto CreateCapabilities(ExperienceMode mode, bool requiresTripSetup) => mode switch
     {
-        ExperienceMode.FreePreview => new(false, false, false, false, false, false),
+        ExperienceMode.FreePreview => new(false, true, false, false, false, false),
         ExperienceMode.SelfServiceBuilder => new(true, true, true, false, requiresTripSetup, true),
         _ => new(true, true, false, true, false, true)
     };

@@ -154,8 +154,8 @@ public sealed class BuilderSetupEndpointTests
         var loginAgain = await client.PostAsJsonAsync("/api/auth/pin-login", new PinLoginRequestDto("1111"));
         loginAgain.EnsureSuccessStatusCode();
         using var loginJson = System.Text.Json.JsonDocument.Parse(await loginAgain.Content.ReadAsStringAsync());
-        Assert.Equal(System.Text.Json.JsonValueKind.String, loginJson.RootElement.GetProperty("tripId").ValueKind);
-        Assert.False(loginJson.RootElement.GetProperty("capabilities").GetProperty("requiresTripSetup").GetBoolean());
+        Assert.Equal(System.Text.Json.JsonValueKind.Null, loginJson.RootElement.GetProperty("tripId").ValueKind);
+        Assert.True(loginJson.RootElement.GetProperty("capabilities").GetProperty("requiresTripSetup").GetBoolean());
     }
 
     private sealed class BuilderApiFactory : WebApplicationFactory<Program>
