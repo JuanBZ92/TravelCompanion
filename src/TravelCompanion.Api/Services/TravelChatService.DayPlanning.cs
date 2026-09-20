@@ -92,7 +92,20 @@ public sealed partial class TravelChatService
                         && (action.BudgetAdjustment == "cheaper" ? candidatePrice < price : candidatePrice > price));
                 }
             }
-            var candidate = options.OrderBy(item => StableRandomOrder(action.OptionId ?? conversationId, slot.ToString(), item.Recommendation.Id)).FirstOrDefault();
+            // Prefer short transfers; randomness only breaks equally close choices.
+            // On an empty day, anchor breakfast near an eligible morning visit.
+            var candidate = options.OrderBy(item =>
+                LargestAdjacentTransfer(timeline, time, item.Recommendation.Latitude, item.Recommendation.Longitude).Distance
+                ?? candidates.RankedRecommendations
+                    .Where(next => next.Recommendation.Id != item.Recommendation.Id
+                        && !used.Contains(next.Recommendation.Id)
+                        && MatchesDaySlot(next.Recommendation, Math.Min(slot + 1, 4)))
+                    .Select(next => DayDistance(item.Recommendation.Latitude, item.Recommendation.Longitude,
+                        next.Recommendation.Latitude, next.Recommendation.Longitude))
+                    .Where(distance => distance.HasValue).Min()
+                ?? double.MaxValue)
+                .ThenBy(item => StableRandomOrder(action.OptionId ?? conversationId, slot.ToString(), item.Recommendation.Id))
+                .FirstOrDefault();
             if (candidate is null) continue;
             var recommendation = candidate.Recommendation;
             used.Add(recommendation.Id);

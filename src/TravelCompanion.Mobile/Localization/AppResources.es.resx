@@ -326,4 +326,7 @@
   <data name="AssistantRandomAlternative" xml:space="preserve"><value>Otra recomendación al azar</value></data>
   <data name="AssistantSelectEvents" xml:space="preserve"><value>Seleccioná al menos un evento para cambiar.</value></data>
   <data name="AssistantSaveBeforeChange" xml:space="preserve"><value>Guardá el plan antes de buscar un reemplazo.</value></data>
+  <data name="ItineraryDeleteRefreshFailed" xml:space="preserve"><value>No pudimos consultar el itinerario actualizado. Comprueba la conexión y vuelve a intentar eliminarlo.</value></data>
+  <data name="ItineraryDeleteConflict" xml:space="preserve"><value>El itinerario cambió mientras confirmabas. Pulsa de nuevo Eliminar itinerario para confirmar la versión actualizada.</value></data>
+  <data name="AssistantChangeReason" xml:space="preserve"><value>¿Qué querés cambiar? Se aplica a todos los planes seleccionados.</value></data>
 </root>

@@ -2093,6 +2093,77 @@ public sealed class TravelChatServiceTests
         Assert.Equal(original.Id, (await db.Reservations.SingleAsync()).RecommendationId);
     }
 
+    [Fact]
+    public async Task Full_day_prefers_nearby_stops_and_excludes_other_days()
+    {
+        await using var db = CreateDbContext();
+        var destination = Guid.NewGuid();
+        var cafe = DayRecommendation(destination, "Cafe", "Food");
+        var near = DayRecommendation(destination, "Nearby museum", "Culture");
+        near.Latitude += 0.001m;
+        var far = DayRecommendation(destination, "Distant museum", "Culture");
+        far.Latitude += 0.2m;
+        var alreadyUsed = DayRecommendation(destination, "Previous museum", "Culture");
+        var lunch = DayRecommendation(destination, "Lunch", "Food");
+        var dinner = DayRecommendation(destination, "Dinner", "Food");
+        var user = await SeedPlanningWorldAsync(db, destination, cafe, near, far, alreadyUsed, lunch, dinner);
+        db.Reservations.RemoveRange(await db.Reservations.ToListAsync());
+        var trip = await db.Trips.SingleAsync();
+        var previous = DayReservation(trip.Id, alreadyUsed, new(10, 30));
+        previous.Date = new DateOnly(2026, 10, 5);
+        db.Reservations.Add(previous);
+        await db.SaveChangesAsync();
+        var response = await CreateService(db).CreatePlanAsync(user, DayRequest(), CancellationToken.None);
+        Assert.Equal(near.Id.ToString(), response.Cards.Single(card => card.StartTime == "10:30").RecommendationId);
+        Assert.DoesNotContain(response.Cards, card => card.RecommendationId == alreadyUsed.Id.ToString());
+        Assert.Equal(response.Cards.Count, response.Cards.Select(card => card.RecommendationId).Distinct().Count());
+    }
+
+    [Fact]
+    public async Task Full_day_starts_with_coffee_near_the_available_visit()
+    {
+        await using var db = CreateDbContext();
+        var destination = Guid.NewGuid();
+        var near = DayRecommendation(destination, "Nearby Cafe", "Food");
+        var far = DayRecommendation(destination, "Distant Cafe", "Food");
+        far.Latitude += 0.2m;
+        var museum = DayRecommendation(destination, "Museum", "Culture");
+        var user = await SeedPlanningWorldAsync(db, destination, far, near, museum);
+        db.Reservations.RemoveRange(await db.Reservations.ToListAsync());
+        await db.SaveChangesAsync();
+        var response = await CreateService(db).CreatePlanAsync(user, DayRequest(), CancellationToken.None);
+        Assert.Equal(near.Id.ToString(), response.Cards.Single(card => card.StartTime == "09:00").RecommendationId);
+    }
+
+    [Theory]
+    [InlineData("closer", "cheaper", 0.01, "low")]
+    [InlineData("farther", "dearer", 0.1, "high")]
+    public async Task Batch_replacement_applies_both_reasons_to_every_selected_stop(
+        string distance, string budget, decimal offset, string price)
+    {
+        await using var db = CreateDbContext();
+        var destination = Guid.NewGuid();
+        var cafe = DayRecommendation(destination, "Cafe", "Food");
+        var lunch = DayRecommendation(destination, "Lunch", "Food");
+        var originals = new[] { DayRecommendation(destination, "Museum", "Culture"), DayRecommendation(destination, "Park", "Nature") };
+        foreach (var original in originals) original.Latitude += 0.05m;
+        var alternatives = new[] { DayRecommendation(destination, "Gallery", "Culture", price), DayRecommendation(destination, "Garden", "Nature", price) };
+        foreach (var alternative in alternatives) alternative.Latitude += offset;
+        var user = await SeedPlanningWorldAsync(db, destination, originals.Concat(alternatives).Concat([cafe, lunch]).ToArray());
+        db.Reservations.RemoveRange(await db.Reservations.ToListAsync());
+        var trip = await db.Trips.SingleAsync();
+        var first = DayReservation(trip.Id, originals[0], new(10, 30));
+        var second = DayReservation(trip.Id, originals[1], new(16, 0));
+        db.Reservations.AddRange(first, second, DayReservation(trip.Id, cafe, new(9, 0)), DayReservation(trip.Id, lunch, new(13, 0)));
+        await db.SaveChangesAsync();
+        var request = DayRequest(first.Id, second.Id);
+        request = request with { GuidedAction = request.GuidedAction! with { DistanceAdjustment = distance, BudgetAdjustment = budget } };
+        var response = await CreateService(db).CreatePlanAsync(user, request, CancellationToken.None);
+        Assert.Equal(2, response.Cards.Count);
+        Assert.All(response.Cards, card => Assert.Contains(card.RecommendationId, alternatives.Select(item => item.Id.ToString())));
+        Assert.Equal(2, response.Cards.Select(card => card.RecommendationId).Distinct().Count());
+    }
+
     private static TravelChatRequest DayRequest(params Guid[] selected) => new("Improve day", null, "Tokyo",
         new DateOnly(2026, 10, 6), null, "es-ES",
         new GuidedTravelActionDto(GuidedTravelActions.FullDay, "day-test") { ReplaceReservationIds = selected });

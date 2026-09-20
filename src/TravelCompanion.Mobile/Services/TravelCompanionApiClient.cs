@@ -923,6 +923,10 @@ public sealed class TravelCompanionApiClient
         if (!response.IsSuccessStatusCode)
         {
             _logger.LogWarning("Builder setup deletion failed with {StatusCode}.", (int)response.StatusCode);
+            if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+            {
+                throw new InvalidOperationException(LocalizationResourceManager.Instance["ItineraryDeleteConflict"]);
+            }
             var error = await ReadApiErrorMessageAsync(response, cancellationToken).ConfigureAwait(false);
             throw new InvalidOperationException(error ?? "No pudimos eliminar el itinerario. Intenta nuevamente.");
         }

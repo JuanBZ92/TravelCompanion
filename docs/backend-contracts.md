@@ -291,3 +291,9 @@ dotnet user-secrets set "OpenAI:ApiKey" "<server-side-api-key>" --project src\Tr
 ```
 
 For deployed environments, provide the same key through the platform secret store or an environment variable such as `OpenAI__ApiKey`.
+
+### Full-day proximity and selected replacements
+
+`GuidedAction` with `Action = full_day` keeps the existing request/response shape. Eligible recommendations still pass catalog/free access filters and exclude recommendations already used on the trip. Selection prefers the shortest largest adjacent straight-line transfer, with seeded randomness for ties. On an empty day, coffee selection uses proximity to an eligible morning visit. Missing coordinates are not treated as zero distance.
+
+`ReplaceReservationIds` selects editable events. Optional `DistanceAdjustment` (`closer`, `farther`) and `BudgetAdjustment` (`cheaper`, `dearer`) apply together to each selected event. Distance compares adjacent events; budget compares known price levels. No compatible alternative leaves that event unchanged. Mobile exposes these options together on the selection screen for both single and multiple replacements.

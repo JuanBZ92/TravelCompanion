@@ -43,13 +43,11 @@ public sealed class DayPlanChoicePage : ContentPage
             ItemsSource = new[] { Text("AssistantNoAdjustment"), Text("AssistantCheaper"), Text("AssistantDearer") },
             SelectedIndex = 0
         };
-        if (!batch)
-        {
-            content.Add(new Label { Text = Text("AssistantDistanceCategory") });
-            content.Add(distance);
-            content.Add(new Label { Text = Text("AssistantBudgetCategory") });
-            content.Add(budget);
-        }
+        content.Add(new Label { Text = Text("AssistantChangeReason") });
+        content.Add(new Label { Text = Text("AssistantDistanceCategory") });
+        content.Add(distance);
+        content.Add(new Label { Text = Text("AssistantBudgetCategory") });
+        content.Add(budget);
         var apply = new Button { Text = Text(batch ? "AssistantChangeSelected" : "AssistantApplyChange"), IsVisible = selections.Count > 0 };
         var random = new Button { Text = Text("AssistantRandomAlternative"), IsVisible = !batch };
         var cancel = new Button { Text = Text("CommonCancel") };
@@ -64,8 +62,8 @@ public sealed class DayPlanChoicePage : ContentPage
             }
             _closing = true;
             _result = new DayPlanChoice(ids,
-                randomized || batch ? null : distance.SelectedIndex switch { 1 => "closer", 2 => "farther", _ => null },
-                randomized || batch ? null : budget.SelectedIndex switch { 1 => "cheaper", 2 => "dearer", _ => null });
+                randomized ? null : distance.SelectedIndex switch { 1 => "closer", 2 => "farther", _ => null },
+                randomized ? null : budget.SelectedIndex switch { 1 => "cheaper", 2 => "dearer", _ => null });
             await Navigation.PopModalAsync();
             _completion.TrySetResult(_result);
         }

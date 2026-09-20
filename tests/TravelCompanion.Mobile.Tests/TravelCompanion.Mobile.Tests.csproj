@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <Using Include="Xunit" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\Services\BuilderTripDeletionFlow.cs" Link="BuilderTripDeletionFlow.cs" />
   </ItemGroup>
 
   <ItemGroup>

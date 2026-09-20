@@ -553,17 +553,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     [RelayCommand]
     private async Task DeleteItineraryAsync()
     {
-        if (!CanManageItinerary)
-        {
-            return;
-        }
-
-        var confirmed = await Shell.Current.DisplayAlertAsync(
-            "Eliminar itinerario",
-            "Se borrarán las fechas, ciudades, hoteles y todos los planes y reservas de este itinerario. Tu PIN y acceso Pago seguirán activos.",
-            "Eliminar itinerario",
-            "Cancelar");
-        if (!confirmed)
+        if (!CanManageItinerary || IsBusy)
         {
             return;
         }
@@ -578,24 +568,40 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
             }
 
             var tripId = _tripId;
-            var expectedRevision = _builderRevision;
-            if (!tripId.HasValue || !expectedRevision.HasValue)
+            if (!tripId.HasValue)
             {
-                var setup = await _builderTripStore.GetAsync(token, cancellationToken: ct);
-                if (setup?.TripId is null || (tripId.HasValue && setup.TripId != tripId))
-                {
-                    ErrorMessage = "El itinerario ya no existe o fue reemplazado en otro dispositivo. Actualiza Today antes de continuar.";
-                    return;
-                }
-
-                tripId = setup.TripId;
-                expectedRevision = setup.Revision;
+                ErrorMessage = "El itinerario ya no existe o fue reemplazado en otro dispositivo. Actualiza Today antes de continuar.";
+                return;
             }
 
-            await _apiClient.DeleteBuilderTripSetupAsync(
-                token,
-                new DeleteBuilderTripSetupRequest(tripId.Value, expectedRevision.Value),
+            var contextVersion = _sessionService.ContextVersion;
+            var result = await BuilderTripDeletionFlow.ExecuteAsync(
+                tripId.Value,
+                cancellationToken => _apiClient.GetBuilderTripSetupAsync(token, cancellationToken),
+                async setup =>
+                {
+                    if (contextVersion != _sessionService.ContextVersion) return false;
+                    _builderRevision = setup.Revision;
+                    return await Shell.Current.DisplayAlertAsync(
+                        "Eliminar itinerario",
+                        "Se borrarán las fechas, ciudades, hoteles y todos los planes y reservas de este itinerario. Tu PIN y acceso Pago seguirán activos.",
+                        "Eliminar itinerario",
+                        "Cancelar") && contextVersion == _sessionService.ContextVersion;
+                },
+                async (request, cancellationToken) =>
+                    await _apiClient.DeleteBuilderTripSetupAsync(token, request, cancellationToken),
                 ct);
+            if (result == BuilderTripDeletionResult.Unavailable)
+            {
+                ErrorMessage = LocalizationResourceManager.Instance["ItineraryDeleteRefreshFailed"];
+                return;
+            }
+            if (result == BuilderTripDeletionResult.TripChanged)
+            {
+                ErrorMessage = "El itinerario ya no existe o fue reemplazado en otro dispositivo. Actualiza Today antes de continuar.";
+                return;
+            }
+            if (result != BuilderTripDeletionResult.Deleted || contextVersion != _sessionService.ContextVersion) return;
             await _builderTripStore.ClearAsync();
             var userId = _sessionService.CurrentUserId;
             _sessionService.MarkTripDeleted();
