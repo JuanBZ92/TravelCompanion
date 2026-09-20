@@ -125,6 +125,23 @@ public sealed class ItineraryBuilderServiceTests
         var untimed = await itineraryService.UpdateAsync(httpContext, result.Item.Id,
             timed with { UseExactTime = false, StartsAt = null, ExpectedRevision = updated.Revision });
         Assert.Equal(ScheduleItemKind.Recommendation, untimed.Item!.PlanningKind);
+        var revision = untimed.Revision;
+        foreach (var exact in new[] { false, true })
+        {
+            var manual = await itineraryService.CreateAsync(httpContext, timed with
+            {
+                RecommendationId = null, Title = "Manual without duration",
+                UseExactTime = exact, StartsAt = exact ? new TimeOnly(11, 0) : null,
+                EndsAt = null, DurationMinutes = null, ExpectedRevision = revision,
+                IdempotencyKey = $"manual-no-duration-{exact}"
+            });
+            Assert.True(manual.Success);
+            var saved = await dbContext.Reservations.SingleAsync(r => r.Id == manual.Item!.Id);
+            Assert.Null(saved.DurationMinutes);
+            Assert.Null(saved.EndsAt);
+            revision = manual.Revision;
+        }
+
     }
 
     [Fact]

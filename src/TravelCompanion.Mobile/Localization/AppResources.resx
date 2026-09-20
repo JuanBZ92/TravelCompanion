@@ -295,7 +295,7 @@
   <data name="RoutesSaveCopy" xml:space="preserve"><value>Save copy</value></data>
   <data name="RoutesCopyError" xml:space="preserve"><value>We could not save a personal copy of this route.</value></data>
   <data name="ItemExactTimeHint" xml:space="preserve"><value>An exact time does not mark this activity as a confirmed reservation.</value></data>
-  <data name="ItemDurationLabel" xml:space="preserve"><value>DURATION IN MINUTES</value></data>
+  <data name="ItemDurationLabel" xml:space="preserve"><value>DURATION IN MINUTES (OPTIONAL)</value></data>
   <data name="ItemFlexibilityLabel" xml:space="preserve"><value>PLANNING STATUS</value></data>
   <data name="ItemFlexibilityFlexible" xml:space="preserve"><value>Flexible activity</value></data>
   <data name="ItemFlexibilityFixed" xml:space="preserve"><value>Time fixed by me</value></data>

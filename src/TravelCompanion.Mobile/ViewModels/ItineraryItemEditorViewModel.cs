@@ -29,7 +29,7 @@ public sealed partial class ItineraryItemEditorViewModel(
     private string _selectedPeriod = "Tarde";
     private bool _useExactTime;
     private TimeSpan _time = new(15, 0, 0);
-    private string _durationMinutes = "60";
+    private string _durationMinutes = string.Empty;
     private ItineraryFlexibilityOption _selectedFlexibility = FlexibilityChoices[0];
     private string _notes = string.Empty;
     private string _titleText = string.Empty;
@@ -164,7 +164,7 @@ public sealed partial class ItineraryItemEditorViewModel(
         _fallbackCity = string.Empty;
         _applyingPlaceSelection = true;
         TitleText = string.Empty;
-        DurationMinutes = "60";
+        DurationMinutes = string.Empty;
         SelectedFlexibility = FlexibilityChoices[0];
         LocationName = string.Empty;
         Address = string.Empty;
@@ -200,8 +200,8 @@ public sealed partial class ItineraryItemEditorViewModel(
         UseExactTime = item.HasExactTime;
         Time = item.StartsAt.ToTimeSpan();
         DurationMinutes = (item.DurationMinutes ?? (item.EndsAt.HasValue
-            ? Math.Max(15, (int)(item.EndsAt.Value.ToTimeSpan() - item.StartsAt.ToTimeSpan()).TotalMinutes) : 60))
-            .ToString(CultureInfo.InvariantCulture);
+            ? Math.Max(15, (int)(item.EndsAt.Value.ToTimeSpan() - item.StartsAt.ToTimeSpan()).TotalMinutes) : (int?)null))
+            ?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
         SelectedFlexibility = FlexibilityChoices.First(option => option.Value == item.Flexibility);
         OnPropertyChanged(nameof(HeaderTitle));
         OnPropertyChanged(nameof(Subtitle));
@@ -392,8 +392,7 @@ public sealed partial class ItineraryItemEditorViewModel(
         Guid? recommendationId = _recommendation is not null && _recommendation.Id != Guid.Empty
             ? _recommendation.Id
             : _existingItem?.RecommendationId;
-        if (!int.TryParse(DurationMinutes, NumberStyles.Integer, CultureInfo.InvariantCulture, out var duration)
-            || duration is < 15 or > 1440)
+        if (!ItineraryDurationInput.TryParse(DurationMinutes, out var duration))
         {
             ErrorMessage = "La duración debe estar entre 15 y 1440 minutos.";
             return;
@@ -402,7 +401,7 @@ public sealed partial class ItineraryItemEditorViewModel(
         var mutation = new ItineraryItemMutationRequest(
             recommendationId,
             recommendationId.HasValue ? null : _selectedGooglePlaceId, TitleText.Trim(), DateOnly.FromDateTime(Date), periodKey,
-            UseExactTime, startsAt, startsAt?.AddMinutes(duration),
+            UseExactTime, startsAt, duration.HasValue ? startsAt?.AddMinutes(duration.Value) : null,
             recommendationId.HasValue ? _recommendation?.Neighborhood.Split(',')[0] ?? CurrentCity : CurrentCity,
             LocationName, Address,
             Notes, _recommendation?.Latitude ?? _selectedLatitude, _recommendation?.Longitude ?? _selectedLongitude,
