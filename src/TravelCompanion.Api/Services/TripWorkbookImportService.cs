@@ -1,6 +1,6 @@
+using static TravelCompanion.Api.Services.WorkbookText;
 using System.Globalization;
 using System.Text;
-using System.Text.RegularExpressions;
 using ClosedXML.Excel;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -1577,21 +1577,6 @@ public sealed partial class TripWorkbookImportService(
         return NormalizeSearchText(value);
     }
 
-    private static string NormalizeSearchText(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return string.Empty;
-        }
-
-        var noDiacritics = RemoveDiacritics(value)
-            .Replace('/', ' ')
-            .Replace('(', ' ')
-            .Replace(')', ' ')
-            .Replace('-', ' ');
-        return WhitespaceRegex().Replace(noDiacritics, " ").Trim().ToLowerInvariant();
-    }
-
     private static string Slugify(string value)
     {
         var normalized = NormalizeSearchText(value);
@@ -1620,26 +1605,8 @@ public sealed partial class TripWorkbookImportService(
         return string.IsNullOrWhiteSpace(slug) ? "unknown" : slug;
     }
 
-    private static string RemoveDiacritics(string value)
-    {
-        var normalized = value.Normalize(NormalizationForm.FormD);
-        var builder = new StringBuilder(normalized.Length);
-        foreach (var character in normalized)
-        {
-            if (CharUnicodeInfo.GetUnicodeCategory(character) != UnicodeCategory.NonSpacingMark)
-            {
-                builder.Append(character);
-            }
-        }
-
-        return builder.ToString().Normalize(NormalizationForm.FormC);
-    }
-
     private static string TrimToMax(string value, int maxLength) =>
         value.Length <= maxLength ? value : value[..maxLength];
-
-    [GeneratedRegex(@"\s+")]
-    private static partial Regex WhitespaceRegex();
 
     private sealed record ParsedTripWorkbook(
         TripWorkbookMetadata? Metadata,

@@ -15,7 +15,6 @@ public sealed partial class TravelChatViewModel(
     AuthSessionService sessionService,
     ILocationService locationService,
     MobileBootstrapStore bootstrapStore,
-    OfflineMutationQueueService mutationQueueService,
     OfflineSyncCoordinator syncCoordinator,
     PendingItineraryActionStore pendingItineraryActionStore) : ViewModelBase, ISessionStateResettable
 {
@@ -265,6 +264,8 @@ public sealed partial class TravelChatViewModel(
         }
 
         _isFullDayFlow = true;
+        Messages.Clear();
+        OnMessagesChanged();
         _guidedCriteria = null;
         _pendingGuidedAction = null;
         _pendingReplacementCard = null;
@@ -276,19 +277,8 @@ public sealed partial class TravelChatViewModel(
         ClearMissingContext();
         IsFreeTextVisible = false;
         IsSecondaryMenuVisible = false;
-        var token = await sessionService.GetTokenAsync();
-        if (!string.IsNullOrWhiteSpace(token))
-        {
-            var profile = await GetSavedPreferencesAsync(token);
-            if (TryUseSavedPreferences(profile))
-            {
-                await SendGuidedPlanAsync(alternative: false);
-                return;
-            }
-        }
-
-        ShowGuidedStep("category", Resource("AssistantGuidedCategoryQuestion"),
-            CreateCategoryOptions(includeContinue: true), addHistory: false);
+        HasGuidedQuestion = false;
+        await RunDayPlanAsync(new GuidedTravelActionDto(GuidedTravelActions.FullDay, Guid.NewGuid().ToString("N")));
     }
 
     public void ResetForNewSession()
@@ -736,6 +726,7 @@ public sealed partial class TravelChatViewModel(
     [RelayCommand]
     private async Task SaveItineraryItemAsync(TravelChatCardViewModel? card)
     {
+        if (IsBusy) return;
         if (card is null || !card.CanSave || !card.RecommendationId.HasValue)
         {
             StatusMessage = Resource("AssistantNoReadyPlan");
@@ -773,6 +764,13 @@ public sealed partial class TravelChatViewModel(
             {
                 pendingItineraryActionStore.Set(recommendation);
                 await Shell.Current.GoToAsync(nameof(BuilderSetupPage));
+                return;
+            }
+
+            if (card.IsDayPlanCard)
+            {
+                var saved = await SaveFullDayCardsAsync([card], token, CancellationToken.None);
+                StatusMessage = saved == 1 ? Resource("AssistantSavedButton") : Resource("PlanningTryAgain");
                 return;
             }
 
@@ -850,6 +848,8 @@ public sealed partial class TravelChatViewModel(
     [RelayCommand]
     private Task ReplaceRecommendationAsync(TravelChatCardViewModel? card)
     {
+        if (card?.IsDayPlanCard == true)
+            return ChangeDayStopAsync(card, closer: false);
         if (_guidedCriteria is not null)
         {
             return SendGuidedPlanAsync(alternative: true, card);
@@ -1014,7 +1014,7 @@ public sealed partial class TravelChatViewModel(
         Func<TravelChatCardViewModel, int, int, Task>? onCardProcessed = null)
     {
         var savedCount = 0;
-        var cardsToProcess = cards.Take(5).ToList();
+        var cardsToProcess = cards.ToList();
         var savedItems = new List<ScheduleItemDto>(cardsToProcess.Count);
         int? latestRevision = null;
         for (var index = 0; index < cardsToProcess.Count; index++)
@@ -1032,14 +1032,16 @@ public sealed partial class TravelChatViewModel(
                         token,
                         new SaveItineraryItemRequest(
                             card.RecommendationId.Value,
-                            DateOnly.FromDateTime(PlanningDate),
+                            card.PlanningDate ?? DateOnly.FromDateTime(PlanningDate),
                             card.StartsAt.Value,
                             card.EndsAt,
-                            Guid.NewGuid(),
-                            card.TimePrecision),
+                            card.SaveMutationId,
+                            card.TimePrecision,
+                            card.ReservationId,
+                            card.ReplacesRecommendationId),
                         cancellationToken);
                 }
-                catch (OperationCanceledException) { throw; }
+                catch (OperationCanceledException) { break; }
                 catch (Exception ex) when (IsTransientNetworkException(ex))
                 {
                     // Keep the generated card visible so the user can save it later.
@@ -1047,6 +1049,7 @@ public sealed partial class TravelChatViewModel(
 
                 if (result?.Saved == true)
                 {
+                    card.ReservationId = result.Item?.Id ?? card.ReservationId;
                     card.IsSaved = true;
                     savedCount++;
                     if (result.Item is not null)
@@ -1054,6 +1057,10 @@ public sealed partial class TravelChatViewModel(
                         savedItems.Add(result.Item);
                         latestRevision = result.Revision ?? latestRevision;
                     }
+                }
+                else
+                {
+                    card.FeedbackStatusMessage = result?.Message ?? Resource("PlanningTryAgain");
                 }
             }
 
@@ -1171,32 +1178,6 @@ public sealed partial class TravelChatViewModel(
         }
 
         return false;
-    }
-
-    private async Task QueueSaveItineraryItemAsync(
-        TravelChatCardViewModel card,
-        string reason,
-        Guid? clientMutationId = null)
-    {
-        if (!card.RecommendationId.HasValue || !card.StartsAt.HasValue)
-        {
-            ErrorMessage = string.Format(CultureInfo.CurrentCulture, Resource("AssistantSaveErrorWithReason"), reason);
-            return;
-        }
-
-        await mutationQueueService.EnqueueSaveItineraryItemAsync(
-            new SaveItineraryItemRequest(
-                card.RecommendationId.Value,
-                DateOnly.FromDateTime(PlanningDate),
-                card.StartsAt.Value,
-                card.EndsAt,
-                clientMutationId));
-        await syncCoordinator.PublishPendingCountAsync();
-        card.IsSaved = true;
-        var pendingCount = await mutationQueueService.GetPendingCountAsync();
-        StatusMessage = pendingCount == 1
-            ? Resource("AssistantOfflineQueuedSingle")
-            : string.Format(CultureInfo.CurrentCulture, Resource("AssistantOfflineQueuedMany"), pendingCount);
     }
 
     private async Task ReplayPendingMutationsAsync(string token, CancellationToken cancellationToken)
@@ -1424,6 +1405,9 @@ public sealed partial class TravelChatViewModel(
     private void ApplyPlanningContext(TripScheduleDto? schedule)
     {
         if (schedule is null) return;
+        // Returning from the replacement dialog must keep the day being edited.
+        var selectedDate = DateOnly.FromDateTime(PlanningDate);
+        if (_isFullDayFlow && selectedDate >= schedule.StartsOn && selectedDate <= schedule.EndsOn) return;
         var firstUsefulDay = schedule.Items
             .Where(item => !sessionService.IsFreeMapPreview || FreePlanningPolicy.CanPlanDate(schedule.StartsOn, item.Date))
             .GroupBy(item => item.Date)

@@ -12,7 +12,7 @@ using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Api.Services;
 
-public sealed class TravelChatService(
+public sealed partial class TravelChatService(
     TravelCompanionDbContext dbContext,
     IUserProfileService userProfileService,
     ITravelAssistantActionPlanner actionPlanner,
@@ -77,6 +77,10 @@ public sealed class TravelChatService(
         var conversationId = string.IsNullOrWhiteSpace(request.ConversationId)
             ? Guid.NewGuid().ToString("N")
             : request.ConversationId.Trim();
+        if (request.GuidedAction?.Action == GuidedTravelActions.FullDay)
+        {
+            return await CreateUnfilteredDayAsync(user, request, conversationId, locale, cancellationToken);
+        }
         var conversation = await conversationStateService.LoadAsync(conversationId, user.Id, cancellationToken);
         if (conversation is not null && conversation.UserId != user.Id)
         {
@@ -86,10 +90,8 @@ public sealed class TravelChatService(
 
         var conversationState = conversationStateService.ReadState(conversation);
         var guidedCriteria = NormalizeGuidedCriteria(request.Criteria ?? conversationState.GuidedCriteria);
-        var isFullDayRequest = request.GuidedAction?.Action == GuidedTravelActions.FullDay;
         var isGuidedRequest = request.GuidedAction?.Action is GuidedTravelActions.Recommend
                 or GuidedTravelActions.Alternative
-                or GuidedTravelActions.FullDay
             && guidedCriteria is not null;
         var isAlternativeRequest = request.GuidedAction?.Action == GuidedTravelActions.Alternative
             || IsAlternativeRequest(request.Message);
@@ -103,9 +105,7 @@ public sealed class TravelChatService(
         {
             request = request with
             {
-                Message = isFullDayRequest
-                    ? CreateFullDayPlanningMessage(locale)
-                    : CreateGuidedPlanningMessage(guidedCriteria!, isAlternativeRequest, locale),
+                Message = CreateGuidedPlanningMessage(guidedCriteria!, isAlternativeRequest, locale),
                 Criteria = guidedCriteria
             };
         }
@@ -310,9 +310,7 @@ public sealed class TravelChatService(
                 promptVersion: promptVersion);
         }
 
-        var responseMode = isFullDayRequest
-            ? BalancedMode
-            : isGuidedRequest
+        var responseMode = isGuidedRequest
             ? ResolveGuidedResponseMode(guidedCriteria!.Category)
             : isAlternativeRequest
             ? string.IsNullOrWhiteSpace(conversationState.LastResponseMode) ? BalancedMode : conversationState.LastResponseMode
@@ -331,13 +329,6 @@ public sealed class TravelChatService(
             .Concat(explicitRecommendationIds)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        if (isFullDayRequest)
-        {
-            excludedRecommendationIds.UnionWith(trips
-                .SelectMany(trip => trip.Reservations)
-                .Where(item => item.RecommendationId.HasValue)
-                .Select(item => item.RecommendationId!.Value.ToString()));
-        }
         var profile = CreateProfile(user, effectivePreferences, responseMode, request.Message, guidedCriteria);
         ApplyHiddenConversationTags(profile, conversationState.HiddenTags);
         if (isGuidedRequest
@@ -387,7 +378,7 @@ public sealed class TravelChatService(
             reservations,
             context,
             responseMode,
-            isFullDayRequest ? guidedCriteria! with { Category = null, Categories = [] } : guidedCriteria,
+            guidedCriteria,
             excludedRecommendationIds,
             cancellationToken);
 
@@ -432,52 +423,20 @@ public sealed class TravelChatService(
                 promptVersion: promptVersion);
         }
 
-        var fullDayStops = isFullDayRequest
-            ? SelectFullDayStops(
-                planningResult.RankedRecommendations,
-                guidedCriteria!,
-                request.GuidedAction?.OptionId ?? conversationId,
-                locale)
-            : [];
-        var ranked = isFullDayRequest
-            ? fullDayStops.Select(stop => stop.Recommendation).ToList()
-            : isTargetedReplacement
+        var ranked = isTargetedReplacement
                 ? planningResult.RankedRecommendations.Take(1).ToList()
                 : isGuidedRequest
                     ? planningResult.RankedRecommendations.Take(2).ToList()
                     : responseMode == BalancedMode
                         ? SelectDiverseRecommendations(planningResult.RankedRecommendations, 3)
                         : planningResult.RankedRecommendations.Take(3).ToList();
-        var cards = isFullDayRequest
-            ? fullDayStops.Select(stop =>
-            {
-                var cardContext = context with
-                {
-                    WindowStart = stop.StartsAt,
-                    WindowEnd = stop.StartsAt.AddMinutes(stop.Recommendation.Recommendation.SuggestedDurationMinutes),
-                    AvailableMinutes = stop.Recommendation.Recommendation.SuggestedDurationMinutes
-                };
-                var card = responseComposer.ToRecommendationCard(stop.Recommendation, cardContext);
-                return card with
-                {
-                    Subtitle = $"{stop.Label} · {card.Subtitle}",
-                    Description = RecommendationPresentation.ToDto(
-                        stop.Recommendation.Recommendation,
-                        locale: locale).DisplayDescription,
-                    IsPeriodOnly = true
-                };
-            }).ToList()
-            : ranked.Select(scored => responseComposer.ToRecommendationCard(scored, context) with
+        var cards = ranked.Select(scored => responseComposer.ToRecommendationCard(scored, context) with
             {
                 Description = RecommendationPresentation.ToDto(scored.Recommendation, locale: locale).DisplayDescription
             }).ToList();
         var defaultSuggestedReplies = responseComposer.CreateSuggestedReplies(responseMode, locale);
-        var defaultMessage = isFullDayRequest
-            ? CreateFullDayResponseMessage(cards.Count, locale)
-            : responseComposer.CreateAssistantMessage(city, planningWindow.Value, ranked, responseMode, locale);
-        var modelResult = isFullDayRequest
-            ? null
-            : await CreateModelResponseAsync(
+        var defaultMessage = responseComposer.CreateAssistantMessage(city, planningWindow.Value, ranked, responseMode, locale);
+        var modelResult = await CreateModelResponseAsync(
                 conversationId,
                 request,
                 profile,
@@ -488,8 +447,7 @@ public sealed class TravelChatService(
                 promptVersion,
                 cancellationToken);
 
-        var useModelResponse = !isFullDayRequest
-            && responseMode == BalancedMode
+        var useModelResponse = responseMode == BalancedMode
             && modelResult is not null
             && !string.IsNullOrWhiteSpace(modelResult.Message)
             && !MentionsSavedState(modelResult.Message);
@@ -1162,106 +1120,6 @@ public sealed class TravelChatService(
             : $"{(IsEnglish(locale) ? "Plan for" : "Plan para")} {category}";
     }
 
-    private static string CreateFullDayPlanningMessage(string locale)
-    {
-        return IsEnglish(locale)
-            ? "Build a day with morning coffee and a visit, lunch, an afternoon place, and dinner"
-            : "Armá un día con café y una visita por la mañana, almuerzo, un lugar por la tarde y cena";
-    }
-
-    private static string CreateFullDayResponseMessage(int stopCount, string locale)
-    {
-        if (IsEnglish(locale))
-        {
-            return stopCount == 4
-                ? "I prepared four different plans for this day."
-                : $"I found {stopCount} compatible stops for this day. I left out slots without a suitable place.";
-        }
-
-        return stopCount == 4
-            ? "Preparé cuatro planes diferentes para este día."
-            : $"Encontré {stopCount} paradas compatibles para este día. Dejé libres los momentos sin un lugar adecuado.";
-    }
-
-    private static List<FullDayStop> SelectFullDayStops(
-        IReadOnlyList<ScoredRecommendation> ranked,
-        GuidedPlanCriteriaDto criteria,
-        string requestSeed,
-        string locale)
-    {
-        var english = IsEnglish(locale);
-        var used = new HashSet<Guid>();
-        var stops = new List<FullDayStop>(5);
-
-        AddFullDayStop(stops, used, ranked, requestSeed, "coffee", new TimeOnly(9, 0),
-            english ? "Morning coffee" : "Café de mañana",
-            recommendation => ContainsRecommendationTerms(recommendation, "cafe", "café", "coffee", "cafeteria", "breakfast", "desayuno"),
-            IsFoodRecommendation);
-        AddFullDayStop(stops, used, ranked, requestSeed, "visit", new TimeOnly(10, 30),
-            english ? "Morning visit" : "Visita de mañana",
-            recommendation => !IsFoodRecommendation(recommendation) && MatchesAnyInterest(recommendation, criteria),
-            recommendation => !IsFoodRecommendation(recommendation) && IsSightseeingRecommendation(recommendation));
-        AddFullDayStop(stops, used, ranked, requestSeed, "lunch", new TimeOnly(13, 0),
-            english ? "Lunch" : "Almuerzo",
-            recommendation => IsFoodRecommendation(recommendation)
-                && ContainsRecommendationTerms(recommendation, "lunch", "almuerzo", "ramen", "sushi"),
-            IsFoodRecommendation);
-        AddFullDayStop(stops, used, ranked, requestSeed, "afternoon", new TimeOnly(16, 0),
-            english ? "Afternoon place" : "Lugar de tarde",
-            recommendation => !IsFoodRecommendation(recommendation) && MatchesAnyInterest(recommendation, criteria),
-            recommendation => !IsFoodRecommendation(recommendation));
-        AddFullDayStop(stops, used, ranked, requestSeed, "dinner", new TimeOnly(19, 30),
-            english ? "Dinner" : "Cena",
-            recommendation => IsFoodRecommendation(recommendation)
-                && ContainsRecommendationTerms(recommendation, "dinner", "cena", "izakaya", "yakitori", "omakase"),
-            IsFoodRecommendation);
-
-        return stops.OrderBy(stop => stop.StartsAt).ToList();
-    }
-
-    private static bool MatchesAnyInterest(Recommendation recommendation, GuidedPlanCriteriaDto criteria)
-    {
-        var categories = criteria.Categories.Append(criteria.Category)
-            .Where(GuidedTravelCategories.IsValid)
-            .Select(value => value!)
-            .Distinct(StringComparer.OrdinalIgnoreCase);
-        return categories.Any(category => MatchesInterest(recommendation, category));
-    }
-
-    private static void AddFullDayStop(
-        ICollection<FullDayStop> stops,
-        ISet<Guid> used,
-        IReadOnlyList<ScoredRecommendation> ranked,
-        string requestSeed,
-        string slotId,
-        TimeOnly startsAt,
-        string label,
-        Func<Recommendation, bool> preferred,
-        Func<Recommendation, bool> fallback)
-    {
-        var available = ranked.Where(candidate => !used.Contains(candidate.Recommendation.Id)).ToList();
-        var candidate = ChooseStableRandom(available.Where(item => preferred(item.Recommendation)), requestSeed, slotId)
-            ?? ChooseStableRandom(available.Where(item => fallback(item.Recommendation)), requestSeed, slotId)
-            ?? ChooseStableRandom(available, requestSeed, slotId);
-        if (candidate is null)
-        {
-            return;
-        }
-
-        used.Add(candidate.Recommendation.Id);
-        stops.Add(new FullDayStop(candidate, startsAt, label));
-    }
-
-    private static ScoredRecommendation? ChooseStableRandom(
-        IEnumerable<ScoredRecommendation> candidates,
-        string requestSeed,
-        string slotId)
-    {
-        return candidates
-            .Take(20)
-            .OrderBy(candidate => StableRandomOrder(requestSeed, slotId, candidate.Recommendation.Id))
-            .FirstOrDefault();
-    }
 
     private static List<ScoredRecommendation> SelectDiverseRecommendations(
         IReadOnlyList<ScoredRecommendation> ranked,
@@ -1354,7 +1212,6 @@ public sealed class TravelChatService(
         return terms.Any(term => searchable.Contains(term, StringComparison.OrdinalIgnoreCase));
     }
 
-    private sealed record FullDayStop(ScoredRecommendation Recommendation, TimeOnly StartsAt, string Label);
 
     private static GuidedQuestionDto CreateAdjustQuestion(string locale)
     {

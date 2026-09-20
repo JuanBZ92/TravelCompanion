@@ -1,3 +1,4 @@
+using TravelCompanion.Mobile.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using TravelCompanion.Shared;
 using TravelCompanion.Shared.Dtos;
@@ -17,7 +18,7 @@ public sealed class RecommendationListItemViewModel(RecommendationDto recommenda
     public string Description => Recommendation.Description;
     public int SuggestedDurationMinutes => Recommendation.SuggestedDurationMinutes;
     public string AccessLevel => ProductAccessModel.GetLabel(Recommendation.AccessLevel);
-    public string CostLabel => $"Coste: {FormatPriceLevel(Recommendation.PriceLevel)}";
+    public string CostLabel => $"Coste: {RecommendationPriceFormatter.Format(Recommendation.PriceLevel)}";
     public decimal? DistanceKm => Recommendation.DistanceKm;
     public IReadOnlyList<string> VisibleTags => GetDisplayTags().Take(3).ToList();
     public bool HasVisibleTags => VisibleTags.Count > 0;
@@ -63,15 +64,4 @@ public sealed class RecommendationListItemViewModel(RecommendationDto recommenda
             : [Recommendation.Category.ToLowerInvariant()];
     }
 
-    private static string FormatPriceLevel(string? priceLevel)
-    {
-        return priceLevel?.Trim().ToLowerInvariant() switch
-        {
-            "free" or "gratis" => "Gratis",
-            "low" or "budget" or "cheap" or "barato" => "Bajo",
-            "medium" or "moderate" or "medio" => "Medio",
-            "high" or "expensive" or "premium" or "alto" => "Alto",
-            _ => string.IsNullOrWhiteSpace(priceLevel) ? "Medio" : priceLevel.Trim()
-        };
-    }
 }

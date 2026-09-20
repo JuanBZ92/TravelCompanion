@@ -32,7 +32,12 @@ public sealed record TravelChatResponse(
 public sealed record GuidedTravelActionDto(
     string Action,
     string? OptionId = null,
-    string? RecommendationId = null);
+    string? RecommendationId = null)
+{
+    public IReadOnlyList<Guid> ReplaceReservationIds { get; init; } = [];
+    public string? DistanceAdjustment { get; init; }
+    public string? BudgetAdjustment { get; init; }
+}
 
 public sealed record GuidedPlanCriteriaDto(
     string? Category = null,
@@ -44,6 +49,8 @@ public sealed record GuidedPlanCriteriaDto(
     public IReadOnlyList<string> Categories { get; init; } = [];
     public IReadOnlyList<string> Budgets { get; init; } = [];
     public IReadOnlyList<int> WalkingMinuteOptions { get; init; } = [];
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public bool IgnorePreferences { get; init; }
 }
 
 public sealed record GuidedQuestionDto(
@@ -75,6 +82,12 @@ public sealed record TravelCardDto(
     public bool IsPeriodOnly { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public string? ProviderPlaceId { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public bool HasLongTransfer { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public bool IsDayPlan { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public Guid? ReplacesRecommendationId { get; init; }
 }
 
 public sealed record MissingContextDto(
@@ -112,7 +125,9 @@ public sealed record SaveItineraryItemRequest(
     TimeOnly StartsAt,
     TimeOnly? EndsAt,
     Guid? ClientMutationId = null,
-    ItineraryTimePrecision TimePrecision = ItineraryTimePrecision.PeriodOnly);
+    ItineraryTimePrecision TimePrecision = ItineraryTimePrecision.PeriodOnly,
+    Guid? ReplaceReservationId = null,
+    Guid? ExpectedRecommendationId = null);
 
 public sealed record SaveItineraryItemResponse(
     bool Saved,

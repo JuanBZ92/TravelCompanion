@@ -122,6 +122,25 @@ public sealed class TravelChatMobilePresentationTests
     }
 
     [Fact]
+    public void Day_plan_card_keeps_replacement_identity_and_exposes_distance_action()
+    {
+        var reservationId = Guid.NewGuid();
+        var originalId = Guid.NewGuid();
+        var card = new TravelCardDto("recommendation", "Museum", "Morning", null, "10:30", "11:30",
+            "low", 4.2, null, [], ["4.2 km in a straight line"], Guid.NewGuid().ToString(), reservationId.ToString())
+        { IsDayPlan = true, HasLongTransfer = true, ReplacesRecommendationId = originalId, IsPeriodOnly = true };
+        var normalized = MobilePayloadNormalizer.Normalize(new TravelChatResponse("day", "", "day_plan", [card], [], null));
+        var viewModel = new TravelChatCardViewModel(Assert.Single(normalized!.Cards));
+        Assert.Equal(reservationId, viewModel.ReservationId);
+        Assert.Equal(originalId, viewModel.ReplacesRecommendationId);
+        Assert.True(viewModel.HasLongTransfer);
+        Assert.True(viewModel.HasWarnings);
+        Assert.False(viewModel.ShowPreferenceAdjustment);
+        Assert.False(viewModel.HasTimeLabel);
+        Assert.NotEqual(Guid.Empty, viewModel.SaveMutationId);
+    }
+
+    [Fact]
     public void Recommendation_message_shows_the_card_without_repeating_the_introductory_text()
     {
         var recommendation = new TravelChatCardViewModel(new TravelCardDto(

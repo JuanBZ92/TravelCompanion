@@ -18,6 +18,7 @@ public sealed partial class TravelChatCardViewModel : ObservableObject
     public TravelChatCardViewModel(TravelCardDto card)
     {
         _card = card;
+        ReservationId = Guid.TryParse(card.ReservationId, out var reservationId) ? reservationId : null;
         RecommendationId = Guid.TryParse(card.RecommendationId, out var recommendationId)
             ? recommendationId
             : null;
@@ -50,6 +51,13 @@ public sealed partial class TravelChatCardViewModel : ObservableObject
     public bool HasWalkingLabel => !string.IsNullOrWhiteSpace(WalkingLabel);
     public Guid? RecommendationId { get; }
     public bool HasRecommendationId => RecommendationId.HasValue;
+    public Guid? ReservationId { get; set; }
+    public Guid SaveMutationId { get; } = Guid.NewGuid();
+    public DateOnly? PlanningDate { get; set; }
+    public bool IsDayPlanCard => _card.IsDayPlan;
+    public bool ShowPreferenceAdjustment => !IsDayPlanCard;
+    public Guid? ReplacesRecommendationId => _card.ReplacesRecommendationId;
+    public bool HasLongTransfer => _card.HasLongTransfer;
     public bool HasDetailAction => HasRecommendationId;
     public string RecommendationReference => RecommendationId?.ToString() ?? Title;
     public TimeOnly? StartsAt { get; }

@@ -29,6 +29,7 @@
                                  Spacing="2"
                                  HorizontalOptions="End">
                 <DatePicker Date="{Binding PlanningDate}"
+                            IsEnabled="{Binding IsNotBusy}"
                             FontSize="13"
                             TextColor="#1A1714"
                             HorizontalOptions="End"
@@ -238,7 +239,7 @@
                                                     Padding="14"
                                                     BackgroundColor="#F6F1EA"
                                                     Stroke="#D8CFC4">
-                                                <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="6">
+                                                <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="6">
                                                     <Grid ColumnDefinitions="*,Auto"
                                                           ColumnSpacing="8">
                                                         <Label Text="{Binding Title}"
@@ -325,6 +326,10 @@
                                                             </DataTemplate>
                                                         </BindableLayout.ItemTemplate>
                                                     </VerticalStackLayout>
+                                                    <Button Grid.Row="9" Text="{Binding NearbyButtonText}"
+                                                            IsVisible="{Binding HasLongTransfer}"
+                                                            Clicked="OnFindCloserDayStopClicked"
+                                                            Style="{StaticResource GhostButton}" />
                                                     <Grid Grid.Row="7"
                                                           ColumnDefinitions="*,*,*"
                                                           ColumnSpacing="8"
@@ -333,7 +338,6 @@
                                                                 Clicked="OnSaveItineraryItemClicked"
                                                                 SemanticProperties.Description="{Binding SaveButtonText}"
                                                                 IsEnabled="{Binding CanSave}"
-                                                                IsVisible="{Binding CanEditItinerary, Source={RelativeSource AncestorType={x:Type viewModels:TravelChatViewModel}}, x:DataType=viewModels:TravelChatViewModel}"
                                                                 TextColor="{StaticResource Ink}"
                                                                 BackgroundColor="{StaticResource AccentSoft}"
                                                                 BorderColor="{StaticResource Gold}"
@@ -354,6 +358,7 @@
                                                                 MinimumHeightRequest="44" />
                                                         <Button Grid.Column="2"
                                                                 Text="{Binding AdjustButtonText}"
+                                                                IsVisible="{Binding ShowPreferenceAdjustment}"
                                                                 Clicked="OnAdjustGuidedPlanClicked"
                                                                 SemanticProperties.Description="{Binding AdjustButtonText}"
                                                                 Style="{StaticResource GhostButton}"

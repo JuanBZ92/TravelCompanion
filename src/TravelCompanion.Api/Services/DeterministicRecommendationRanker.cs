@@ -132,8 +132,8 @@ public sealed class DeterministicRecommendationRanker : IRecommendationRanker
         List<string> negatives,
         ref double score)
     {
-        var profileBudget = BudgetRank(profile.BudgetLevel);
-        var recommendationBudget = BudgetRank(recommendation.PriceLevel);
+        var profileBudget = RecommendationBudget.GetRank(profile.BudgetLevel);
+        var recommendationBudget = RecommendationBudget.GetRank(recommendation.PriceLevel);
 
         if (recommendationBudget <= profileBudget)
         {
@@ -275,18 +275,6 @@ public sealed class DeterministicRecommendationRanker : IRecommendationRanker
         return MatchesAny(
             searchableText,
             ["food", "comida", "snack", "restaurant", "restaurante", "cafe", "sake", "market"]);
-    }
-
-    private static int BudgetRank(string? value)
-    {
-        return value?.Trim().ToLowerInvariant() switch
-        {
-            "free" or "gratis" => 0,
-            "low" or "budget" or "cheap" or "barato" => 1,
-            "medium" or "moderate" or "medio" => 2,
-            "high" or "expensive" or "premium" or "alto" => 3,
-            _ => 2
-        };
     }
 
     private static bool HasDietaryConflict(

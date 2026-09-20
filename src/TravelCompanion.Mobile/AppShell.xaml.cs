@@ -6,6 +6,7 @@ namespace TravelCompanion.Mobile;
 public partial class AppShell : Shell
 {
     private bool _logoutInProgress;
+    private bool _paywallInProgress;
     private int _pendingMutationCount;
 
     public AppShell()
@@ -50,7 +51,7 @@ public partial class AppShell : Shell
             && !sessionService.IsBuilder;
         MapTab.IsVisible = usesMainTabs;
         ScheduleTab.IsVisible = usesMainTabs;
-        AssistantTab.IsVisible = sessionService.IsBuilder && sessionService.CanEditItinerary;
+        AssistantTab.IsVisible = sessionService.IsBuilder;
         DocsTab.IsVisible = sessionService.HasCuratedDocs;
         AccountTab.IsVisible = sessionService.HasSession && !sessionService.IsFreeMapPreview;
         LogoutTab.IsVisible = sessionService.HasSession;
@@ -71,6 +72,23 @@ public partial class AppShell : Shell
     protected override void OnNavigating(ShellNavigatingEventArgs args)
     {
         base.OnNavigating(args);
+        var target = args.Target.Location.OriginalString.Split('?')[0].TrimEnd('/');
+        if (target.EndsWith("/assistant", StringComparison.OrdinalIgnoreCase)
+            && !MauiProgram.Services.GetRequiredService<AuthSessionService>().CanEditItinerary
+            && args.CanCancel)
+        {
+            args.Cancel();
+            if (!_paywallInProgress)
+            {
+                _paywallInProgress = true;
+                Dispatcher.Dispatch(async () =>
+                {
+                    try { await PaywallNavigation.OpenAsync(TravelCompanion.Shared.Dtos.PaywallEntryPoint.Today); }
+                    finally { _paywallInProgress = false; }
+                });
+            }
+            return;
+        }
         if (!args.Target.Location.OriginalString.TrimEnd('/').EndsWith("/logout", StringComparison.OrdinalIgnoreCase))
         {
             return;

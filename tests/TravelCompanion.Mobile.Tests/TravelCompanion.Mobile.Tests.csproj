@@ -24,6 +24,7 @@
   </ItemGroup>
 
   <ItemGroup>
+	<Compile Include="..\..\src\TravelCompanion.Mobile\Services\RecommendationPriceFormatter.cs" Link="RecommendationPriceFormatter.cs" />
 	<Compile Include="..\..\src\TravelCompanion.Mobile\Services\ItineraryDurationInput.cs" Link="ItineraryDurationInput.cs" />
 	<Compile Include="..\..\src\TravelCompanion.Mobile\Services\ApiCallResult.cs" Link="ApiCallResult.cs" />
 	<Compile Include="..\..\src\TravelCompanion.Mobile\Services\CacheFreshness.cs" Link="CacheFreshness.cs" />

@@ -59,7 +59,9 @@ public sealed class TravelRecommendationPlanningService(
 
         var rankedCandidates = ApplyGuidedCriteria(
                 ApplyResponseMode(
-                    ranker.Rank(profile, reservations, unlockedRecommendations, context),
+                    guidedCriteria?.IgnorePreferences == true
+                        ? unlockedRecommendations.Select(item => new ScoredRecommendation(item, 0, null, null, [], [])).ToList()
+                        : ranker.Rank(profile, reservations, unlockedRecommendations, context),
                     responseMode),
                 guidedCriteria)
             .ToList();
@@ -137,17 +139,17 @@ public sealed class TravelRecommendationPlanningService(
                 "medium" => [2],
                 _ => [3]
             }).ToHashSet();
-            return matches.Where(candidate => acceptedRanks.Contains(PriceRank(candidate.Recommendation.PriceLevel)))
+            return matches.Where(candidate => acceptedRanks.Contains(RecommendationBudget.GetRank(candidate.Recommendation.PriceLevel)))
                 .OrderByDescending(candidate => candidate.Score);
         }
 
         return criteria.Budget switch
         {
-            "low" => matches.OrderBy(candidate => PriceRank(candidate.Recommendation.PriceLevel))
+            "low" => matches.OrderBy(candidate => RecommendationBudget.GetRank(candidate.Recommendation.PriceLevel))
                 .ThenByDescending(candidate => candidate.Score),
-            "medium" => matches.OrderBy(candidate => Math.Abs(PriceRank(candidate.Recommendation.PriceLevel) - 2))
+            "medium" => matches.OrderBy(candidate => Math.Abs(RecommendationBudget.GetRank(candidate.Recommendation.PriceLevel) - 2))
                 .ThenByDescending(candidate => candidate.Score),
-            "high" => matches.OrderByDescending(candidate => PriceRank(candidate.Recommendation.PriceLevel))
+            "high" => matches.OrderByDescending(candidate => RecommendationBudget.GetRank(candidate.Recommendation.PriceLevel))
                 .ThenByDescending(candidate => candidate.Score),
             _ => matches
         };
@@ -219,31 +221,7 @@ public sealed class TravelRecommendationPlanningService(
             .Where(entitlement => entitlement.ExpiresAt is null || entitlement.ExpiresAt > now)
             .ToList();
 
-        return new UserEntitlementsDto(
-            user.Id,
-            user.Email,
-            user.DisplayName,
-            activeEntitlements.Select(entitlement => entitlement.AccessLevel).Distinct().ToList(),
-            activeEntitlements
-                .Where(entitlement => entitlement.DestinationId.HasValue)
-                .Select(entitlement => entitlement.DestinationId!.Value)
-                .Distinct()
-                .ToList(),
-            activeEntitlements
-                .Where(entitlement => entitlement.TravelPackageId.HasValue)
-                .Select(entitlement => entitlement.TravelPackageId!.Value)
-                .Distinct()
-                .ToList(),
-            activeEntitlements
-                .Select(entitlement => new UserEntitlementDto(
-                    entitlement.Id,
-                    entitlement.AccessLevel,
-                    entitlement.DestinationId,
-                    entitlement.TravelPackageId,
-                    entitlement.GrantedAt,
-                    entitlement.ExpiresAt,
-                    entitlement.Source))
-                .ToList());
+        return UserEntitlementProjection.Map(user, activeEntitlements);
     }
 
     private static IEnumerable<ScoredRecommendation> ApplyResponseMode(
@@ -358,16 +336,16 @@ public sealed class TravelRecommendationPlanningService(
                 ranked,
                 IsNeighborhoodRecommendation),
             TravelChatResponseModes.Cheaper => ranked
-                .OrderBy(scored => PriceRank(scored.Recommendation.PriceLevel))
+                .OrderBy(scored => RecommendationBudget.GetRank(scored.Recommendation.PriceLevel))
                 .ThenBy(scored => scored.Recommendation.AccessLevel == ContentAccessLevel.Free ? 0 : 1)
                 .ThenByDescending(scored => scored.Score)
                 .ThenBy(scored => scored.Recommendation.Title),
             TravelChatResponseModes.MediumCost => ranked
-                .OrderBy(scored => Math.Abs(PriceRank(scored.Recommendation.PriceLevel) - 2))
+                .OrderBy(scored => Math.Abs(RecommendationBudget.GetRank(scored.Recommendation.PriceLevel) - 2))
                 .ThenByDescending(scored => scored.Score)
                 .ThenBy(scored => scored.Recommendation.Title),
             TravelChatResponseModes.HighCost => ranked
-                .OrderByDescending(scored => PriceRank(scored.Recommendation.PriceLevel))
+                .OrderByDescending(scored => RecommendationBudget.GetRank(scored.Recommendation.PriceLevel))
                 .ThenByDescending(scored => scored.Score)
                 .ThenBy(scored => scored.Recommendation.Title),
             TravelChatResponseModes.WalkIn => ranked
@@ -404,18 +382,6 @@ public sealed class TravelRecommendationPlanningService(
         }
 
         return [];
-    }
-
-    private static int PriceRank(string? value)
-    {
-        return value?.Trim().ToLowerInvariant() switch
-        {
-            "free" or "gratis" => 0,
-            "low" or "budget" or "cheap" or "barato" => 1,
-            "medium" or "moderate" or "medio" => 2,
-            "high" or "expensive" or "premium" or "alto" => 3,
-            _ => 2
-        };
     }
 
     private static bool IsFoodRecommendation(Recommendation recommendation)

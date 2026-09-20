@@ -245,6 +245,31 @@ public sealed record TravelCardDto(
 }
 ```
 
+## Improve day and replace events
+
+`GuidedAction.Action = "full_day"` requires `Date` and ignores saved preferences, conversation filters, and submitted `Criteria`.
+It fills missing slots with a morning café, a morning visit, lunch, an afternoon visit, and dinner.
+Existing events occupy their corresponding slot; exact reservations and flights block overlapping start times. Lodging does not occupy activity slots.
+Recommendations already used in the trip are excluded. An unavailable category stays empty rather than being replaced by an unrelated activity.
+
+A full day returns `Intent = "day_complete"` and `existing_day_stop` cards for editable events. This response does not consume an Assistant result quota.
+The client offers multiple selection and sends the selected reservation IDs in `GuidedAction.ReplaceReservationIds`.
+Only flexible, traveler-owned events on the requested date can be replaced; confirmed reservations cannot be replaced through this flow.
+Batch replacement leaves both adjustment fields unset and does not use preferences.
+
+For one event, optional `DistanceAdjustment` accepts `closer` or `farther`, and optional `BudgetAdjustment` accepts `cheaper` or `dearer`.
+Both filters apply together. Distance compares the longest known transfer to the immediately preceding and following plans, and price compares known catalog price levels against the original event.
+With both fields omitted, the server selects a random compatible alternative. Missing reference coordinates, unknown prices, or no matching candidates never relax an explicitly selected constraint.
+
+Day-plan cards set `IsDayPlan`. Replacement cards carry the original `ReservationId` and `ReplacesRecommendationId`.
+Transfers exceeding 2 km in a straight line set `HasLongTransfer` and include a warning naming the adjacent plan; these are estimates, not route distances.
+The client offers a closer replacement from that warning.
+
+The existing itinerary-save request accepts optional `ReplaceReservationId` and `ExpectedRecommendationId`.
+The server validates ownership, date, editability, catalog access, and the expected original recommendation before replacing the event in place.
+Its ID, ordering, and start time remain stable. Each replacement saves atomically; the client reports partial batch success and keeps failed alternatives available for retry.
+`ClientMutationId` remains stable across retries of one card. Existing clients can omit the new fields.
+
 ## Server-side AI configuration
 
 The MAUI app must keep calling only `POST /api/ai/travel-chat`. OpenAI is configured only in the backend:

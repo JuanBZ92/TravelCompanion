@@ -100,7 +100,7 @@ public sealed class AiController(
         try
         {
             response = await travelChatService.CreatePlanAsync(user, request, cancellationToken);
-            if (usageLease is not null && response.Cards.Count > 0)
+            if (usageLease is not null && response.Cards.Count > 0 && response.Intent != "day_complete")
             {
                 await assistantUsageService.CompleteAsync(usageLease.LeaseId, cancellationToken);
                 await analytics.RecordServerEventAsync(user.Id, access?.TripId, "first_useful_response",

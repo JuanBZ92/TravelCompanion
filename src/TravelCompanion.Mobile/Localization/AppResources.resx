@@ -312,4 +312,18 @@
   <data name="FreePlanningLockedDay" xml:space="preserve"><value>Your trial includes planning the first 3 days. Activate your pass to plan the whole trip.</value></data>
   <data name="FreePlanningUnlockTrip" xml:space="preserve"><value>Plan the whole trip · Activate pass</value></data>
   <data name="PlanningTryAgain" xml:space="preserve"><value>We could not open this option. Please try again.</value></data>
+  <data name="AssistantDayComplete" xml:space="preserve"><value>Day already complete</value></data>
+  <data name="AssistantChangeOptions" xml:space="preserve"><value>What would you like to change?</value></data>
+  <data name="AssistantDistanceCategory" xml:space="preserve"><value>Distance (optional)</value></data>
+  <data name="AssistantBudgetCategory" xml:space="preserve"><value>Budget (optional)</value></data>
+  <data name="AssistantNoAdjustment" xml:space="preserve"><value>No adjustment</value></data>
+  <data name="AssistantCloser" xml:space="preserve"><value>Closer</value></data>
+  <data name="AssistantFarther" xml:space="preserve"><value>Farther</value></data>
+  <data name="AssistantCheaper" xml:space="preserve"><value>Cheaper</value></data>
+  <data name="AssistantDearer" xml:space="preserve"><value>More expensive</value></data>
+  <data name="AssistantChangeSelected" xml:space="preserve"><value>Replace selected events at random</value></data>
+  <data name="AssistantApplyChange" xml:space="preserve"><value>Find and replace</value></data>
+  <data name="AssistantRandomAlternative" xml:space="preserve"><value>Another random recommendation</value></data>
+  <data name="AssistantSelectEvents" xml:space="preserve"><value>Select at least one event to change.</value></data>
+  <data name="AssistantSaveBeforeChange" xml:space="preserve"><value>Save the plan before finding a replacement.</value></data>
 </root>

@@ -59,15 +59,8 @@ public sealed class SlowDbCommandLoggingInterceptor(
         return ValueTask.FromResult(result);
     }
 
-    public override void CommandFailed(DbCommand command, CommandErrorEventData eventData)
-    {
-        logger.LogError(
-            eventData.Exception,
-            "Database dependency failed after {ElapsedMs}ms. CommandType={CommandType}. Sql={SqlSnippet}",
-            eventData.Duration.TotalMilliseconds,
-            command.CommandType,
-            ToSqlSnippet(command.CommandText));
-    }
+    public override void CommandFailed(DbCommand command, CommandErrorEventData eventData) =>
+        LogFailedDependency(command, eventData);
 
     public override Task CommandFailedAsync(
         DbCommand command,

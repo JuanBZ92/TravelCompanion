@@ -55,7 +55,6 @@ public partial class SchedulePage : ContentPage
     protected override void OnDisappearing()
     {
         _viewModel.CancelLoading();
-        _viewModel.CancelRouteLoading();
         _trialTimer?.Stop();
         base.OnDisappearing();
     }
@@ -118,35 +117,11 @@ public partial class SchedulePage : ContentPage
         }
     }
 
-    private void OnTypeFilterTapped(object? sender, TappedEventArgs e)
-    {
-        if ((sender as BindableObject)?.BindingContext is ScheduleTypeFilterViewModel filter)
-        {
-            _viewModel.ToggleTypeFilterCommand.Execute(filter.Type);
-        }
-    }
-
-    private void OnCityFilterTapped(object? sender, TappedEventArgs e)
-    {
-        if ((sender as BindableObject)?.BindingContext is CityFilterViewModel filter)
-        {
-            _viewModel.ToggleCityFilterCommand.Execute(filter.CityName);
-        }
-    }
-
     private void OnDayFilterTapped(object? sender, TappedEventArgs e)
     {
         if ((sender as BindableObject)?.BindingContext is ScheduleDayFilterViewModel day)
         {
             _viewModel.SelectDayCommand.ExecuteAsync(day);
-        }
-    }
-
-    private async void OnScheduleItemTapped(object? sender, TappedEventArgs e)
-    {
-        if ((sender as BindableObject)?.BindingContext is ScheduleItemDto item)
-        {
-            await _viewModel.OpenScheduleItemCommand.ExecuteAsync(item);
         }
     }
 
@@ -187,14 +162,6 @@ public partial class SchedulePage : ContentPage
         else if (action == "Compartir itinerario")
         {
             await _viewModel.ShareItineraryCommand.ExecuteAsync(null);
-        }
-    }
-
-    private async void OnTimelineItemTapped(object? sender, TappedEventArgs e)
-    {
-        if ((sender as BindableObject)?.BindingContext is ScheduleTimelineItemViewModel timelineItem)
-        {
-            await _viewModel.OpenScheduleItemCommand.ExecuteAsync(timelineItem.Item);
         }
     }
 

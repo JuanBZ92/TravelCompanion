@@ -51,7 +51,6 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     private GeoPointDto? _currentLocation;
     private bool _hasRequestedLocation;
     private readonly HashSet<Guid> _nearbyVisitPrompts = [];
-    private CancellationTokenSource? _routeLoad;
     private readonly Dictionary<string, (DateTimeOffset SavedAt, ItineraryRouteDto Value)> _routeCache = [];
     private readonly Dictionary<DateOnly, string> _citiesByDate = [];
     private readonly Dictionary<DateOnly, TodayHotelBaseDto> _hotelsByDate = [];
@@ -61,49 +60,6 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     private TodayHotelBaseDto? _selectedHotelBase;
     private DayReviewViewModel? _selectedDayReview;
     private string _destinationName = "Tu viaje";
-
-    public void CancelRouteLoading() => _routeLoad?.Cancel();
-
-    private async Task LoadRoutesAsync()
-    {
-        _routeLoad?.Cancel();
-        var load = _routeLoad = new CancellationTokenSource();
-        try
-        {
-            if (!_sessionService.IsBuilder) return;
-            var token = await _sessionService.GetTokenAsync();
-            if (string.IsNullOrWhiteSpace(token)) return;
-            var tasks = TodaySections.SelectMany(s => s.Reservations)
-                .Where(r => r.HasRoutes)
-                .SelectMany(reservation => reservation.Routes.Select(route => LoadRouteAsync(token, reservation, route, load)))
-                .ToArray();
-            await Task.WhenAll(tasks);
-        }
-        catch (OperationCanceledException) { }
-        catch (Exception ex)
-        {
-            _logger.LogWarning("Route UI load failed ({ErrorType}).", ex.GetType().Name);
-        }
-    }
-
-    private async Task LoadRouteAsync(string token, TodayReservationViewModel reservation,
-        ItineraryRouteViewModel route, CancellationTokenSource load)
-    {
-        load.Token.ThrowIfCancellationRequested();
-        var request = new ItineraryRouteRequest(route.Mode, _currentLocation?.Latitude, _currentLocation?.Longitude);
-        var key = $"{reservation.Item.Id}:{reservation.Item.Date}:{reservation.Item.StartsAt}:{request}";
-        ItineraryRouteDto? result;
-        if (_routeCache.TryGetValue(key, out var cached) && DateTimeOffset.UtcNow - cached.SavedAt < TimeSpan.FromMinutes(5)) result = cached.Value;
-        else
-        {
-            try { result = await _apiClient.GetItineraryRouteAsync(token, reservation.Item.Id, request, load.Token); }
-            catch (HttpRequestException) { result = null; }
-            catch (TaskCanceledException) when (!load.IsCancellationRequested) { result = null; }
-            load.Token.ThrowIfCancellationRequested();
-            if (result is not null) _routeCache[key] = (DateTimeOffset.UtcNow, result);
-        }
-        route.Apply(result);
-    }
 
     [RelayCommand]
     private async Task CalculateRouteAsync(ItineraryRouteViewModel? route)
@@ -326,7 +282,6 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     public void ResetForNewSession()
     {
         CancelSelectedDayLoading();
-        CancelRouteLoading();
         _routeCache.Clear();
         _citiesByDate.Clear();
         _hotelsByDate.Clear();
@@ -1534,58 +1489,6 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         return candidates;
     }
 
-    private HashSet<Guid> CreateAllocatedRecommendationIdsBefore(DateOnly selectedDate)
-    {
-        var allocatedRecommendationIds = _allItems
-            .Where(item => item.RecommendationId.HasValue)
-            .Select(item => item.RecommendationId!.Value)
-            .ToHashSet();
-        if (!_tripStartsOn.HasValue || selectedDate <= _tripStartsOn.Value)
-        {
-            return allocatedRecommendationIds;
-        }
-
-        var selectedFreePeriodCount = TodayPeriod.All.Count(period => !_allItems.Any(item =>
-            item.Date == selectedDate && period.Contains(item.StartsAt)));
-        var availableRecommendationCount = _recommendations.Count(recommendation =>
-            !allocatedRecommendationIds.Contains(recommendation.Id));
-        var reservedForSelectedDate = Math.Min(
-            selectedFreePeriodCount * 2,
-            availableRecommendationCount);
-
-        for (var allocationDate = _tripStartsOn.Value;
-             allocationDate < selectedDate;
-             allocationDate = allocationDate.AddDays(1))
-        {
-            foreach (var period in TodayPeriod.All)
-            {
-                var hasPlannedItem = _allItems.Any(item =>
-                    item.Date == allocationDate && period.Contains(item.StartsAt));
-                if (!hasPlannedItem)
-                {
-                    var availableForHistoricalAllocation = _recommendations.Count(recommendation =>
-                        !allocatedRecommendationIds.Contains(recommendation.Id));
-                    var maxSuggestions = Math.Min(
-                        2,
-                        Math.Max(0, availableForHistoricalAllocation - reservedForSelectedDate));
-                    if (maxSuggestions == 0)
-                    {
-                        continue;
-                    }
-
-                    SelectRecommendationsForPeriod(
-                        period,
-                        allocationDate,
-                        allocatedRecommendationIds,
-                        rankingLocation: null,
-                        maxSuggestions: maxSuggestions);
-                }
-            }
-        }
-
-        return allocatedRecommendationIds;
-    }
-
     private static int ScoreRecommendationForPeriod(
         RecommendationDto recommendation,
         TodayPeriod period,
@@ -1836,18 +1739,6 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         ShowScheduleSection(_selectedType, selectedCities, allCitiesSelected);
     }
 
-    private void RebuildDefaultTypeSections()
-    {
-        _sectionCache.Clear();
-        TypeSections.Clear();
-        foreach (var type in new[] { ReservationType.Event, ReservationType.Flight, ReservationType.Lodging })
-        {
-            var section = CreateScheduleSection(type, new HashSet<string>(StringComparer.OrdinalIgnoreCase), allCitiesSelected: true);
-            _sectionCache[section.CacheKey] = section;
-            TypeSections.Add(section);
-        }
-    }
-
     private void ShowScheduleSection(
         ReservationType type,
         IReadOnlySet<string> selectedCities,
@@ -1930,17 +1821,6 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     private static string NormalizeCity(string? city)
     {
         return string.IsNullOrWhiteSpace(city) ? "Unknown City" : city.Trim();
-    }
-
-    private static ReservationType GetInitialScheduleType(IReadOnlyList<ScheduleItemDto> items)
-    {
-        var now = DateTime.Now;
-        return items
-            .Where(item => !IsPast(item, now))
-            .OrderBy(item => GetTimelineSortValue(item, now))
-            .ThenBy(item => item.StartsAt)
-            .Select(item => item.Type)
-            .FirstOrDefault(ReservationType.Event);
     }
 
     private static DateOnly? GetInitialSelectedDate(TripScheduleDto schedule, IReadOnlyList<ScheduleItemDto> items)
@@ -2109,11 +1989,6 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         var culture = CultureInfo.CurrentCulture;
         var dayName = culture.TextInfo.ToTitleCase(date.ToString("dddd", culture));
         return $"{dayName} · {date.Day} de {date.ToString("MMMM", culture)}";
-    }
-
-    private static string FormatShortDate(DateOnly date)
-    {
-        return $"{date.Day} de {date.ToString("MMMM", CultureInfo.CurrentCulture)}";
     }
 
     private static string GetAmbientGlyph(string city)

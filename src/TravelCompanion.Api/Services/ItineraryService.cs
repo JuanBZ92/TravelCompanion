@@ -15,6 +15,11 @@ public sealed class ItineraryService(
         SaveItineraryItemRequest request,
         CancellationToken cancellationToken)
     {
+        if (DbExecutionStrategy.ShouldExecute(dbContext))
+            return await DbExecutionStrategy.ExecuteAsync(dbContext,
+                () => SaveItineraryItemAsync(user, request, cancellationToken), cancellationToken);
+        await using var transaction = request.ReplaceReservationId.HasValue && dbContext.Database.IsRelational()
+            ? await dbContext.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, cancellationToken) : null;
         var recommendation = await dbContext.Recommendations
             .AsNoTracking()
             .Include(existing => existing.Destination)
@@ -75,11 +80,22 @@ public sealed class ItineraryService(
             }
         }
 
+        var replaced = request.ReplaceReservationId.HasValue
+            ? trip.Reservations.SingleOrDefault(item => item.Id == request.ReplaceReservationId.Value) : null;
+        if (request.ReplaceReservationId.HasValue && (replaced is null
+            || replaced.Owner != ItineraryItemOwner.Traveler || replaced.Type != ReservationType.Event
+            || replaced.PlanningKind == ScheduleItemKind.ConfirmedReservation
+            || replaced.Flexibility != ItineraryFlexibility.Flexible || replaced.Date != request.Date
+            || replaced.RecommendationId != request.ExpectedRecommendationId))
+            return new(false, "El evento cambió o no se puede reemplazar. Actualiza el día e inténtalo de nuevo.", null);
+
         var existingReservation = trip.Reservations.FirstOrDefault(reservation =>
             reservation.RecommendationId == recommendation.Id
             || string.Equals(reservation.Title, recommendation.Title, StringComparison.OrdinalIgnoreCase));
         if (existingReservation is not null)
         {
+            if (replaced is not null)
+                return new(false, "La alternativa ya está en tu itinerario. El evento original se conserva.", null);
             return new SaveItineraryItemResponse(
                 true,
                 "Ese plan ya estaba guardado en tu itinerario.",
@@ -92,7 +108,7 @@ public sealed class ItineraryService(
             : null;
         var reservation = new Reservation
         {
-            Id = Guid.NewGuid(),
+            Id = replaced?.Id ?? Guid.NewGuid(),
             ClientMutationId = request.ClientMutationId,
             TripId = trip.Id,
             RecommendationId = recommendation.Id,
@@ -121,16 +137,31 @@ public sealed class ItineraryService(
             SourceName = "Travel Assistant"
         };
 
-        dbContext.Reservations.Add(reservation);
+        if (replaced is null)
+            dbContext.Reservations.Add(reservation);
+        else
+        {
+            reservation.SortOrder = replaced.SortOrder;
+            reservation.StartsAt = replaced.StartsAt;
+            reservation.TimePrecision = replaced.TimePrecision;
+            reservation.EndsAt = replaced.TimePrecision == ItineraryTimePrecision.Exact
+                ? replaced.StartsAt.AddMinutes(recommendation.SuggestedDurationMinutes) : null;
+            reservation.Notes = replaced.Notes;
+            reservation.TimeZoneId = replaced.TimeZoneId;
+            reservation.TripDayBlockId = replaced.TripDayBlockId;
+            dbContext.Entry(replaced).CurrentValues.SetValues(reservation);
+        }
         dbContext.RecommendationInteractionSignals.Add(CreateSavedSignal(user, trip.Id, recommendation.Id));
         trip.PlanRevision++;
         trip.UpdatedAtUtc = DateTimeOffset.UtcNow;
         try
         {
             await dbContext.SaveChangesAsync(cancellationToken);
+            if (transaction is not null) await transaction.CommitAsync(cancellationToken);
         }
         catch (DbUpdateException) when (request.ClientMutationId.HasValue)
         {
+            if (transaction is not null) await transaction.RollbackAsync(cancellationToken);
             // A retry may race the original request. The unique database index is the
             // authority; reload the first committed result instead of creating a duplicate.
             dbContext.ChangeTracker.Clear();

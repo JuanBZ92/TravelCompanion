@@ -118,22 +118,6 @@ public partial class TravelChatPage : ContentPage, IQueryAttributable
         }
     }
 
-    private async void OnOpenRecommendationDetailClicked(object? sender, EventArgs e)
-    {
-        if ((sender as BindableObject)?.BindingContext is TravelChatCardViewModel card)
-        {
-            await _viewModel.OpenRecommendationDetailCommand.ExecuteAsync(card);
-        }
-    }
-
-    private async void OnRequestLessWalkingClicked(object? sender, EventArgs e)
-    {
-        if ((sender as BindableObject)?.BindingContext is TravelChatCardViewModel card)
-        {
-            await _viewModel.RequestLessWalkingCommand.ExecuteAsync(card);
-        }
-    }
-
     private async void OnReplaceRecommendationClicked(object? sender, EventArgs e)
     {
         if ((sender as BindableObject)?.BindingContext is TravelChatCardViewModel card)
@@ -142,28 +126,10 @@ public partial class TravelChatPage : ContentPage, IQueryAttributable
         }
     }
 
-    private async void OnMarkUsefulClicked(object? sender, EventArgs e)
+    private async void OnFindCloserDayStopClicked(object? sender, EventArgs e)
     {
         if ((sender as BindableObject)?.BindingContext is TravelChatCardViewModel card)
-        {
-            await _viewModel.MarkUsefulCommand.ExecuteAsync(card);
-        }
-    }
-
-    private async void OnMarkNotUsefulClicked(object? sender, EventArgs e)
-    {
-        if ((sender as BindableObject)?.BindingContext is TravelChatCardViewModel card)
-        {
-            await _viewModel.MarkNotUsefulCommand.ExecuteAsync(card);
-        }
-    }
-
-    private async void OnHideSimilarClicked(object? sender, EventArgs e)
-    {
-        if ((sender as BindableObject)?.BindingContext is TravelChatCardViewModel card)
-        {
-            await _viewModel.HideSimilarCommand.ExecuteAsync(card);
-        }
+            await _viewModel.FindCloserDayStopCommand.ExecuteAsync(card);
     }
 
     private async void OnTagActionTapped(object? sender, TappedEventArgs e)

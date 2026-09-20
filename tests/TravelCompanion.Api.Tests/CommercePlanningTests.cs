@@ -39,15 +39,19 @@ public sealed class CommercePlanningTests
         for (var i = 0; i < 3; i++)
         {
             var lease = await usage.ReserveAsync(user.Id, trip.Id, $"full-day:{i}", default);
+            Assert.Equal(lease.LeaseId, (await usage.ReserveAsync(user.Id, trip.Id, $"full-day:{i}", default)).LeaseId);
             await usage.CompleteAsync(lease.LeaseId, default);
             await usage.CompleteAsync(lease.LeaseId, default);
+            Assert.Equal(lease.LeaseId, (await usage.ReserveAsync(user.Id, trip.Id, $"full-day:{i}", default)).LeaseId);
         }
         Assert.Equal(0, grant.TrialAssistantRequestsUsed);
         await Assert.ThrowsAsync<TrialUpgradeRequiredException>(() => usage.ReserveAsync(user.Id, trip.Id, "full-day:fourth", default));
         for (var i = 0; i < 3; i++)
         {
             var lease = await usage.ReserveAsync(user.Id, trip.Id, $"chat:{i}", default);
+            Assert.Equal(lease.LeaseId, (await usage.ReserveAsync(user.Id, trip.Id, $"chat:{i}", default)).LeaseId);
             await usage.CompleteAsync(lease.LeaseId, default);
+            Assert.Equal(lease.LeaseId, (await usage.ReserveAsync(user.Id, trip.Id, $"chat:{i}", default)).LeaseId);
         }
         Assert.Equal(3, grant.TrialAssistantRequestsUsed);
         await Assert.ThrowsAsync<TrialUpgradeRequiredException>(() => usage.ReserveAsync(user.Id, trip.Id, "chat:fourth", default));

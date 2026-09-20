@@ -99,41 +99,6 @@ public sealed class FreeTrialAccessService(
         return status;
     }
 
-    public async Task<TrialAccessStatusDto> RequireAssistantQuotaAsync(Guid userId, CancellationToken cancellationToken = default)
-    {
-        var status = await GetStatusAsync(userId, cancellationToken);
-        if (!status.CanUseAssistant)
-        {
-            logger.LogInformation("Free trial assistant paywall reached. UserId={UserId}.", userId);
-            throw new TrialUpgradeRequiredException(status);
-        }
-
-        return status;
-    }
-
-    public async Task<TrialAccessStatusDto> RecordSuccessfulAssistantRequestAsync(Guid userId, CancellationToken cancellationToken = default)
-    {
-        var grant = await GetGrantAsync(userId, cancellationToken);
-        if (grant is null || !grant.IsTrial || grant.ConvertedAtUtc.HasValue)
-        {
-            return ToStatus(grant);
-        }
-
-        var limit = Math.Clamp(options.Value.AssistantRequestLimit, 0, 3);
-        if (grant.TrialAssistantRequestsUsed < limit)
-        {
-            grant.TrialAssistantRequestsUsed++;
-            await dbContext.SaveChangesAsync(cancellationToken);
-            logger.LogInformation(
-                "Free trial assistant request consumed. UserId={UserId}; Used={Used}; Limit={Limit}.",
-                userId,
-                grant.TrialAssistantRequestsUsed,
-                limit);
-        }
-
-        return ToStatus(grant);
-    }
-
     public async Task<IReadOnlyList<Recommendation>> FilterToFreeRadiusAsync(
         IEnumerable<Recommendation> recommendations,
         Guid destinationId,

@@ -55,7 +55,7 @@ public sealed partial class RecommendationDetailViewModel(
         : GetAccessLevelText(Recommendation.AccessLevel);
     public string CostLevelText => Recommendation is null
         ? string.Empty
-        : FormatPriceLevel(Recommendation.PriceLevel);
+        : RecommendationPriceFormatter.Format(Recommendation.PriceLevel);
     public IReadOnlyList<string> RecommendationTags => Recommendation is null
         ? []
         : Recommendation.Tags.Count > 0
@@ -146,15 +146,4 @@ public sealed partial class RecommendationDetailViewModel(
     private static string GetAccessLevelText(ContentAccessLevel accessLevel) =>
         ProductAccessModel.GetLabel(accessLevel);
 
-    private static string FormatPriceLevel(string? priceLevel)
-    {
-        return priceLevel?.Trim().ToLowerInvariant() switch
-        {
-            "free" or "gratis" => "Gratis",
-            "low" or "budget" or "cheap" or "barato" => "Bajo",
-            "medium" or "moderate" or "medio" => "Medio",
-            "high" or "expensive" or "premium" or "alto" => "Alto",
-            _ => string.IsNullOrWhiteSpace(priceLevel) ? "Medio" : priceLevel.Trim()
-        };
-    }
 }

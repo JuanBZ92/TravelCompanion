@@ -853,31 +853,7 @@ public sealed class TodayRecommendationService(
             .Where(entitlement => entitlement.ExpiresAt is null || entitlement.ExpiresAt > now)
             .ToList();
 
-        return new UserEntitlementsDto(
-            user.Id,
-            user.Email,
-            user.DisplayName,
-            activeEntitlements.Select(entitlement => entitlement.AccessLevel).Distinct().ToList(),
-            activeEntitlements
-                .Where(entitlement => entitlement.DestinationId.HasValue)
-                .Select(entitlement => entitlement.DestinationId!.Value)
-                .Distinct()
-                .ToList(),
-            activeEntitlements
-                .Where(entitlement => entitlement.TravelPackageId.HasValue)
-                .Select(entitlement => entitlement.TravelPackageId!.Value)
-                .Distinct()
-                .ToList(),
-            activeEntitlements
-                .Select(entitlement => new UserEntitlementDto(
-                    entitlement.Id,
-                    entitlement.AccessLevel,
-                    entitlement.DestinationId,
-                    entitlement.TravelPackageId,
-                    entitlement.GrantedAt,
-                    entitlement.ExpiresAt,
-                    entitlement.Source))
-                .ToList());
+        return UserEntitlementProjection.Map(user, activeEntitlements);
     }
 
     private static bool ContainsAny(string text, IReadOnlyList<string>? values)
