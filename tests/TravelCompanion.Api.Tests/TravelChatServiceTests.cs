@@ -359,11 +359,16 @@ public sealed class TravelChatServiceTests
             request,
             CancellationToken.None);
         var replayedResponse = await service.SaveItineraryItemAsync(user, request, CancellationToken.None);
+        var differentDayResponse = await service.SaveItineraryItemAsync(
+            user,
+            request with { Date = new DateOnly(2026, 10, 7), ClientMutationId = Guid.NewGuid() },
+            CancellationToken.None);
 
         Assert.True(response.Saved);
         Assert.NotNull(response.Item);
         Assert.True(replayedResponse.Saved);
         Assert.Equal(response.Item.Id, replayedResponse.Item?.Id);
+        Assert.Equal(response.Item.Id, differentDayResponse.Item?.Id);
         Assert.Equal(ScheduleItemKind.Recommendation, response.Item.PlanningKind);
         Assert.Equal("Plan guardado en tu itinerario.", response.Message);
         Assert.Equal(1, await dbContext.Reservations.CountAsync(reservation =>
@@ -1745,7 +1750,7 @@ public sealed class TravelChatServiceTests
     }
 
     [Fact]
-    public async Task Full_day_plan_returns_five_distinct_timed_stops()
+    public async Task Full_day_plan_returns_four_distinct_timed_stops()
     {
         await using var dbContext = CreateDbContext();
         var destinationId = Guid.NewGuid();
@@ -1759,7 +1764,15 @@ public sealed class TravelChatServiceTests
         neighborhood.Tags = ["culture", "walk", "neighborhood"];
         var dinner = CreateRecommendation(destinationId, "Izakaya dinner", "Food", "Izakaya dinner in Tokyo.", 90, "medium");
         dinner.Tags = ["food", "dinner", "izakaya"];
-        var user = await SeedPlanningWorldAsync(dbContext, destinationId, cafe, temple, lunch, neighborhood, dinner);
+        var alreadyUsed = CreateRecommendation(destinationId, "Used garden", "Nature", "Garden in Tokyo.", 60, "free");
+        alreadyUsed.Tags = ["nature", "garden"];
+        var user = await SeedPlanningWorldAsync(dbContext, destinationId, cafe, temple, lunch, neighborhood, dinner, alreadyUsed);
+        var trip = await dbContext.Trips.AsNoTracking().SingleAsync();
+        var usedReservation = CreateReservation(alreadyUsed.Title, new TimeOnly(14, 0), "Tokyo", new DateOnly(2026, 10, 7));
+        usedReservation.TripId = trip.Id;
+        usedReservation.RecommendationId = alreadyUsed.Id;
+        dbContext.Reservations.Add(usedReservation);
+        await dbContext.SaveChangesAsync();
         var service = CreateService(dbContext);
 
         var response = await service.CreatePlanAsync(
@@ -1776,12 +1789,13 @@ public sealed class TravelChatServiceTests
             CancellationToken.None);
 
         Assert.Null(response.MissingContext);
-        Assert.Equal(5, response.Cards.Count);
-        Assert.Equal(5, response.Cards.Select(card => card.RecommendationId).Distinct().Count());
-        Assert.Equal(["09:00", "10:30", "13:00", "15:30", "19:30"], response.Cards.Select(card => card.StartTime));
+        Assert.Equal(4, response.Cards.Count);
+        Assert.Equal(4, response.Cards.Select(card => card.RecommendationId).Distinct().Count());
+        Assert.Equal(["09:00", "10:30", "13:00", "15:30"], response.Cards.Select(card => card.StartTime));
         Assert.Contains("Café de mañana", response.Cards[0].Subtitle);
         Assert.Contains("Almuerzo", response.Cards[2].Subtitle);
-        Assert.Contains("Cena", response.Cards[4].Subtitle);
+        Assert.Contains("Recorrido de tarde", response.Cards[3].Subtitle);
+        Assert.DoesNotContain(response.Cards, card => card.RecommendationId == alreadyUsed.Id.ToString());
     }
 
     [Fact]

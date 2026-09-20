@@ -34,6 +34,7 @@ public partial class MapPage : ContentPage
     private readonly Dictionary<Pin, EventHandler<PinClickedEventArgs>> _pinHandlers =
         new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<string, RecommendationMapPin> _pinsBySelectionKey = new(StringComparer.Ordinal);
+    private Circle? _selectionIndicator;
     private bool _isSubscribedToRecommendations;
     private bool _hasRenderedPins;
     private bool _mapPinsRefreshPending;
@@ -282,9 +283,16 @@ public partial class MapPage : ContentPage
                 pin.Label = recommendation.Title;
                 pin.Address = recommendation.Neighborhood;
                 pin.Location = new Location((double)recommendation.Latitude, (double)recommendation.Longitude);
-                pin.IsSelected = selectionKey == _viewModel.SelectedRecommendation?.SelectionKey;
             }
+
+            pin.IsSelected = selectionKey == _viewModel.SelectedRecommendation?.SelectionKey;
+            pin.Handler?.UpdateValue(nameof(RecommendationMapPin.IsSelected));
+#if IOS || MACCATALYST
+            UpdateApplePinSelection(pin);
+#endif
         }
+
+        UpdateSelectionIndicator();
 
         if (moveToBounds)
         {
@@ -356,7 +364,46 @@ public partial class MapPage : ContentPage
         }
     }
 
+    private void UpdateSelectionIndicator()
+    {
+        if (_selectionIndicator is not null)
+        {
+            _map.MapElements.Remove(_selectionIndicator);
+            _selectionIndicator = null;
+        }
+
+        var selected = _viewModel.SelectedRecommendation;
+        if (selected is null)
+        {
+            return;
+        }
+
+        _selectionIndicator = new Circle
+        {
+            Center = new Location((double)selected.Latitude, (double)selected.Longitude),
+            Radius = Distance.FromMeters(115),
+            StrokeColor = Color.FromArgb("#C59D3E"),
+            FillColor = Color.FromArgb("#35C59D3E"),
+            StrokeWidth = 5
+        };
+        _map.MapElements.Add(_selectionIndicator);
+    }
+
 #if IOS || MACCATALYST
+    private void UpdateApplePinSelection(RecommendationMapPin pin)
+    {
+        if (_map.Handler?.PlatformView is not MKMapView nativeMap
+            || pin.MarkerId is not IMKAnnotation annotation
+            || nativeMap.ViewForAnnotation(annotation) is not MKMarkerAnnotationView annotationView)
+        {
+            return;
+        }
+
+        annotationView.MarkerTintColor = pin.IsSelected
+            ? UIColor.FromRGB(197, 157, 62)
+            : UIColor.SystemRed;
+    }
+
     private void OnMapHandlerChanged(object? sender, EventArgs e)
     {
         if (_map.Handler?.PlatformView is not MKMapView nativeMap)

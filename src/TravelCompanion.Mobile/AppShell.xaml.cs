@@ -33,13 +33,11 @@ public partial class AppShell : Shell
 
         if (sessionService.HasSession)
         {
-            var route = sessionService.IsFreeMapPreview
-                ? "//free-map"
-                : sessionService.MustChangePassword
+            var route = sessionService.MustChangePassword
                 ? "//change-password"
                 : sessionService.IsBiometricEnabled
                     ? "//biometric-unlock"
-                    : "//main/schedule";
+                    : GetAuthenticatedLandingRoute(sessionService);
 
             Dispatcher.Dispatch(async () => await GoToAsync(route));
         }
@@ -47,13 +45,29 @@ public partial class AppShell : Shell
 
     public void ApplySessionTabs(AuthSessionService sessionService)
     {
-        FreeMapTab.IsVisible = sessionService.IsFreeMapPreview;
-        MapTab.IsVisible = !sessionService.IsFreeMapPreview;
-        ScheduleTab.IsVisible = sessionService.IsBuilder;
+        var usesMainTabs = sessionService.HasSession
+            && (!sessionService.IsFreeMapPreview || sessionService.IsBuilder);
+        FreeMapTab.IsVisible = sessionService.HasSession
+            && sessionService.IsFreeMapPreview
+            && !sessionService.IsBuilder;
+        MapTab.IsVisible = usesMainTabs;
+        ScheduleTab.IsVisible = usesMainTabs;
         AssistantTab.IsVisible = sessionService.IsBuilder && sessionService.CanEditItinerary;
         DocsTab.IsVisible = sessionService.HasCuratedDocs;
         AccountTab.IsVisible = sessionService.HasSession && !sessionService.IsFreeMapPreview;
-        LogoutTab.IsVisible = sessionService.HasSession && !sessionService.IsFreeMapPreview;
+        LogoutTab.IsVisible = sessionService.HasSession;
+    }
+
+    public static string GetAuthenticatedLandingRoute(AuthSessionService sessionService)
+    {
+        if (sessionService.IsFreeMapPreview && !sessionService.IsBuilder)
+        {
+            return "//free-map";
+        }
+
+        return sessionService.RequiresTripSetup || !sessionService.CurrentTripId.HasValue
+            ? "//main/map"
+            : "//main/schedule";
     }
 
     protected override void OnNavigating(ShellNavigatingEventArgs args)

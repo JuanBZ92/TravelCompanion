@@ -264,10 +264,19 @@ public sealed class TravelAssistantConversationStateService(
 
     private static GuidedPlanCriteriaDto? SanitizeCriteria(GuidedPlanCriteriaDto? criteria)
     {
-        if (criteria is null || !GuidedTravelCategories.IsValid(criteria.Category))
+        if (criteria is null)
         {
             return null;
         }
+
+        var categories = criteria.Categories
+            .Append(criteria.Category)
+            .Where(GuidedTravelCategories.IsValid)
+            .Select(value => value!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(9)
+            .ToList();
+        if (categories.Count == 0) return null;
 
         var priority = GuidedTravelPriorities.IsValid(criteria.Priority)
             ? criteria.Priority
@@ -275,7 +284,19 @@ public sealed class TravelAssistantConversationStateService(
         var budget = criteria.Budget is "low" or "medium" or "high" ? criteria.Budget : null;
         var walking = criteria.MaxWalkingMinutes is 15 or 30 ? criteria.MaxWalkingMinutes : null;
         var duration = criteria.MaxDurationMinutes is 60 or 120 ? criteria.MaxDurationMinutes : null;
-        return new GuidedPlanCriteriaDto(criteria.Category, priority, budget, walking, duration);
+        var budgets = criteria.Budgets.Append(criteria.Budget)
+            .Where(value => value is "low" or "medium" or "high")
+            .Select(value => value!)
+            .Distinct(StringComparer.OrdinalIgnoreCase).Take(3).ToList();
+        var walkingOptions = criteria.WalkingMinuteOptions.Append(criteria.MaxWalkingMinutes ?? 0)
+            .Where(value => value is 15 or 30).Distinct().Order().ToList();
+        return new GuidedPlanCriteriaDto(categories[0], priority, budgets.FirstOrDefault(),
+            walkingOptions.Count == 0 ? null : walkingOptions.Max(), duration)
+        {
+            Categories = categories,
+            Budgets = budgets,
+            WalkingMinuteOptions = walkingOptions
+        };
     }
 
     private static List<string> ParseRecommendationIds(string? recommendationIds)

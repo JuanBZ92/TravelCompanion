@@ -117,7 +117,7 @@
                                 BindableLayout.ItemsSource="{Binding GuidedOptions}">
                         <BindableLayout.ItemTemplate>
                             <DataTemplate x:DataType="viewModels:TravelChatGuidedOptionViewModel">
-                                <Button Text="{Binding Label}"
+                                <Button Text="{Binding DisplayLabel}"
                                         Clicked="OnGuidedOptionClicked"
                                         FlexLayout.Basis="48%"
                                         TextColor="{StaticResource Ink}"

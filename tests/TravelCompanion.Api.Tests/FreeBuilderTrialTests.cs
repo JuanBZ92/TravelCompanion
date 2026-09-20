@@ -101,6 +101,39 @@ public sealed class FreeBuilderTrialTests
     }
 
     [Fact]
+    public async Task Free_full_day_never_returns_a_place_outside_the_free_radius()
+    {
+        await using var factory = new TrialApiFactory();
+        var seed = await factory.SeedAsync();
+        using var client = factory.CreateClient();
+        var login = await LoginAsync(client, "full-day-radius");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login.Token);
+        var date = new DateOnly(2026, 10, 5);
+        var setup = await client.PutAsJsonAsync(
+            "/api/mobile/builder/setup",
+            new SaveBuilderTripSetupRequest(
+                date, date.AddDays(2), "Asia/Tokyo", 0,
+                [new BuilderTripSetupSegmentDto("Tokyo", date, date.AddDays(2))]),
+            JsonOptions);
+        setup.EnsureSuccessStatusCode();
+
+        var response = await client.PostAsJsonAsync(
+            "/api/ai/travel-chat",
+            new TravelChatRequest(
+                "full day", null, "Tokyo", date, null, "es-ES",
+                new GuidedTravelActionDto(GuidedTravelActions.FullDay, "free-radius-test"),
+                new GuidedPlanCriteriaDto(GuidedTravelCategories.Food, Budget: "low")),
+            JsonOptions);
+        response.EnsureSuccessStatusCode();
+        var plan = await response.Content.ReadFromJsonAsync<TravelChatResponse>(JsonOptions);
+
+        Assert.NotNull(plan);
+        Assert.NotEmpty(plan.Cards);
+        Assert.All(plan.Cards, card => Assert.Equal(seed.InsideRecommendationId.ToString(), card.RecommendationId));
+        Assert.DoesNotContain(plan.Cards, card => card.RecommendationId == seed.OutsideRecommendationId.ToString());
+    }
+
+    [Fact]
     public async Task Paid_pin_promotes_the_same_draft_to_builder_access()
     {
         await using var factory = new TrialApiFactory();

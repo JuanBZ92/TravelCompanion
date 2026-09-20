@@ -74,11 +74,9 @@ public sealed partial class LoginViewModel(
             }
             Pin = string.Empty;
 
-            var route = session.AccessMode == SessionAccessMode.FreeMapPreview
-                ? "//free-map"
-                : session.MustChangePassword
+            var route = session.MustChangePassword
                     ? "//change-password"
-                    : "//main/schedule";
+                    : AppShell.GetAuthenticatedLandingRoute(sessionService);
             await Shell.Current.GoToAsync(route);
         });
     }

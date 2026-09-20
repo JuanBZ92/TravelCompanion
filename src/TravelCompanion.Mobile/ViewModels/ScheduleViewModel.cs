@@ -641,7 +641,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
                 shell.ApplySessionTabs(_sessionService);
             }
 
-            await Shell.Current.GoToAsync("//main/map");
+            await Shell.Current.GoToAsync(AppShell.GetAuthenticatedLandingRoute(_sessionService));
         });
     }
 

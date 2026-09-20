@@ -73,13 +73,10 @@ public sealed class ItineraryService(
         }
 
         var existingReservation = trip.Reservations.FirstOrDefault(reservation =>
-            reservation.Date == request.Date
-            && (reservation.RecommendationId == recommendation.Id
-                || string.Equals(reservation.Title, recommendation.Title, StringComparison.OrdinalIgnoreCase)));
+            reservation.RecommendationId == recommendation.Id
+            || string.Equals(reservation.Title, recommendation.Title, StringComparison.OrdinalIgnoreCase));
         if (existingReservation is not null)
         {
-            dbContext.RecommendationInteractionSignals.Add(CreateSavedSignal(user, trip.Id, recommendation.Id));
-            await dbContext.SaveChangesAsync(cancellationToken);
             return new SaveItineraryItemResponse(
                 true,
                 "Ese plan ya estaba guardado en tu itinerario.",

@@ -41,6 +41,9 @@ public sealed partial class TravelChatViewModel(
     private bool _isExplicitlyCancelled;
     private bool _isFullDayFlow;
     private readonly Stack<string> _guidedHistory = new();
+    private readonly HashSet<string> _selectedCategories = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _selectedBudgets = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<int> _selectedWalkingMinutes = [];
 
     public ObservableCollection<TravelChatMessageViewModel> Messages { get; } = [];
     public ObservableCollection<string> SuggestedReplies { get; } =
@@ -52,7 +55,7 @@ public sealed partial class TravelChatViewModel(
     ];
     public ObservableCollection<string> MissingContextSuggestions { get; } = [];
     public ObservableCollection<TravelChatGuidedOptionViewModel> GuidedOptions { get; } =
-        new(CreateCategoryOptions(includeMore: true));
+        new(CreateCategoryOptions(includeContinue: true));
     public ObservableCollection<TravelChatGuidedOptionViewModel> SecondaryMenuOptions { get; } =
         new(CreateSecondaryMenuOptions());
     public bool CanEditItinerary => sessionService.CanEditItinerary;
@@ -224,11 +227,11 @@ public sealed partial class TravelChatViewModel(
         });
     }
 
-    public Task RequestDayAlternativeAsync(DateOnly date, string? city, string? reviewSummary)
+    public async Task RequestDayAlternativeAsync(DateOnly date, string? city, string? reviewSummary)
     {
         if (IsBusy)
         {
-            return Task.CompletedTask;
+            return;
         }
 
         PlanningDate = date.ToDateTime(TimeOnly.MinValue);
@@ -242,18 +245,26 @@ public sealed partial class TravelChatViewModel(
         _pendingGuidedAction = null;
         _pendingReplacementCard = null;
         _guidedHistory.Clear();
+        ClearGuidedSelections();
         MessageText = string.Empty;
         ErrorMessage = null;
         StatusMessage = null;
         ClearMissingContext();
         IsFreeTextVisible = false;
         IsSecondaryMenuVisible = false;
-        ShowGuidedStep(
-            "category",
-            Resource("AssistantGuidedCategoryQuestion"),
-            CreateCategoryOptions(includeMore: true),
-            addHistory: false);
-        return Task.CompletedTask;
+        var token = await sessionService.GetTokenAsync();
+        if (!string.IsNullOrWhiteSpace(token))
+        {
+            var profile = await apiClient.GetTravelPreferenceProfileAsync(token);
+            if (TryUseSavedPreferences(profile))
+            {
+                await SendGuidedPlanAsync(alternative: false);
+                return;
+            }
+        }
+
+        ShowGuidedStep("category", Resource("AssistantGuidedCategoryQuestion"),
+            CreateCategoryOptions(includeContinue: true), addHistory: false);
     }
 
     public async Task RequestThematicRouteAsync(DateOnly date, string? city, string theme)
@@ -300,9 +311,11 @@ public sealed partial class TravelChatViewModel(
         }
 
         var id = option.Id;
-        if (id == "category.more")
+        if (id == "category.continue")
         {
-            ShowGuidedStep("category_more", Resource("AssistantGuidedMoreQuestion"), CreateMoreCategoryOptions());
+            if (_selectedCategories.Count == 0) return;
+            UpdateGuidedCriteriaFromSelections();
+            ShowGuidedStep("budget", Resource("AssistantGuidedBudgetQuestion"), CreateBudgetOptions());
             return;
         }
 
@@ -314,8 +327,9 @@ public sealed partial class TravelChatViewModel(
                 return;
             }
 
-            _guidedCriteria = new GuidedPlanCriteriaDto(Category: category);
-            ShowGuidedStep("budget", Resource("AssistantGuidedBudgetQuestion"), CreateBudgetOptions());
+            ToggleSelection(_selectedCategories, category);
+            UpdateGuidedCriteriaFromSelections();
+            RefreshGuidedSelectionState();
             return;
         }
 
@@ -340,17 +354,38 @@ public sealed partial class TravelChatViewModel(
             case "budget.low":
             case "budget.medium":
             case "budget.high":
-                _guidedCriteria = _guidedCriteria! with { Budget = id["budget.".Length..] };
+                ToggleSelection(_selectedBudgets, id["budget.".Length..]);
+                UpdateGuidedCriteriaFromSelections();
+                RefreshGuidedSelectionState();
+                return;
+            case "budget.continue":
+                if (_selectedBudgets.Count == 0) return;
+                UpdateGuidedCriteriaFromSelections();
                 ShowGuidedStep("distance", Resource("AssistantGuidedDistanceQuestion"), CreateDistanceOptions());
                 return;
             case "distance.15":
             case "distance.30":
-                _guidedCriteria = _guidedCriteria! with { MaxWalkingMinutes = int.Parse(id["distance.".Length..], CultureInfo.InvariantCulture) };
+                _selectedWalkingMinutes.Remove(0);
+                var minutes = int.Parse(id["distance.".Length..], CultureInfo.InvariantCulture);
+                if (!_selectedWalkingMinutes.Add(minutes)) _selectedWalkingMinutes.Remove(minutes);
+                UpdateGuidedCriteriaFromSelections();
+                RefreshGuidedSelectionState();
+                return;
+            case "distance.continue":
+                if (_selectedWalkingMinutes.Count == 0) return;
+                UpdateGuidedCriteriaFromSelections();
                 await SendGuidedPlanAsync(alternative: false);
                 return;
             case "distance.none":
+                _selectedWalkingMinutes.Clear();
+                _selectedWalkingMinutes.Add(0);
+                UpdateGuidedCriteriaFromSelections();
+                RefreshGuidedSelectionState();
+                return;
             case "location.skip":
-                _guidedCriteria = _guidedCriteria! with { MaxWalkingMinutes = null, Priority = GuidedTravelPriorities.Direct };
+                _selectedWalkingMinutes.Clear();
+                _selectedWalkingMinutes.Add(0);
+                UpdateGuidedCriteriaFromSelections();
                 await SendGuidedPlanAsync(alternative: false);
                 return;
             case "location.retry":
@@ -369,7 +404,7 @@ public sealed partial class TravelChatViewModel(
                 await SendGuidedPlanAsync(alternative: false);
                 return;
             case "adjust.category":
-                ShowGuidedStep("category", Resource("AssistantGuidedCategoryQuestion"), CreateCategoryOptions(includeMore: true));
+                ShowGuidedStep("category", Resource("AssistantGuidedCategoryQuestion"), CreateCategoryOptions(includeContinue: true));
                 return;
             case "adjust.budget":
                 ShowGuidedStep("budget", Resource("AssistantGuidedBudgetQuestion"), CreateBudgetOptions());
@@ -457,6 +492,7 @@ public sealed partial class TravelChatViewModel(
         try
         {
             var isGuidedSubmission = _pendingGuidedAction is not null;
+            var isFullDaySubmission = _pendingGuidedAction?.Action == GuidedTravelActions.FullDay;
             var replacementCard = _pendingReplacementCard;
             var isTargetedReplacement = replacementCard is not null
                 && _pendingGuidedAction?.Action == GuidedTravelActions.Alternative;
@@ -517,6 +553,14 @@ public sealed partial class TravelChatViewModel(
             var cards = (response.Cards ?? [])
                 .Select(card => new TravelChatCardViewModel(card))
                 .ToList();
+            var responseMessage = response.Message;
+            if (isFullDaySubmission && response.MissingContext is null && cards.Count > 0)
+            {
+                var savedCount = await SaveFullDayCardsAsync(cards, token, activeRequest.Token);
+                responseMessage = savedCount == cards.Count
+                    ? string.Format(CultureInfo.CurrentCulture, Resource("AssistantFullDaySaved"), savedCount)
+                    : string.Format(CultureInfo.CurrentCulture, Resource("AssistantFullDayPartiallySaved"), savedCount, cards.Count);
+            }
             if (isTargetedReplacement && replacementCard is not null)
             {
                 var replacement = cards.FirstOrDefault();
@@ -530,7 +574,7 @@ public sealed partial class TravelChatViewModel(
             }
             else if (!DuplicatesMissingContext(response))
             {
-                Messages.Add(new TravelChatMessageViewModel(response.Message, isFromUser: false, cards));
+                Messages.Add(new TravelChatMessageViewModel(responseMessage, isFromUser: false, cards));
             }
             SuggestedReplies.Clear();
             foreach (var reply in response.SuggestedReplies ?? [])
@@ -848,6 +892,50 @@ public sealed partial class TravelChatViewModel(
         await SendMessageAsync();
     }
 
+    private async Task<int> SaveFullDayCardsAsync(
+        IReadOnlyList<TravelChatCardViewModel> cards,
+        string token,
+        CancellationToken cancellationToken)
+    {
+        if (!sessionService.CanEditItinerary || sessionService.RequiresTripSetup)
+        {
+            return 0;
+        }
+
+        var savedCount = 0;
+        foreach (var card in cards.Take(4))
+        {
+            if (!card.RecommendationId.HasValue || !card.StartsAt.HasValue) continue;
+            SaveItineraryItemResponse? result;
+            try
+            {
+                result = await apiClient.SaveItineraryItemAsync(
+                    token,
+                    new SaveItineraryItemRequest(
+                        card.RecommendationId.Value,
+                        DateOnly.FromDateTime(PlanningDate),
+                        card.StartsAt.Value,
+                        card.EndsAt,
+                        Guid.NewGuid()),
+                    cancellationToken);
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex) when (IsTransientNetworkException(ex))
+            {
+                continue;
+            }
+            if (result?.Saved != true) continue;
+            card.IsSaved = true;
+            savedCount++;
+        }
+
+        if (savedCount > 0)
+        {
+            await bootstrapStore.RefreshAsync(token, cancellationToken: CancellationToken.None);
+        }
+        return savedCount;
+    }
+
     private async Task ApplyChatOfflineFallbackAsync(string message)
     {
         _lastFailedMessage = message;
@@ -1058,7 +1146,7 @@ public sealed partial class TravelChatViewModel(
             ShowGuidedStep(
                 "category",
                 Resource("AssistantGuidedCategoryQuestion"),
-                CreateCategoryOptions(includeMore: true),
+                CreateCategoryOptions(includeContinue: true),
                 addHistory: false);
             return;
         }
@@ -1194,9 +1282,10 @@ public sealed partial class TravelChatViewModel(
         _pendingGuidedAction = null;
         _pendingReplacementCard = null;
         _guidedHistory.Clear();
+        ClearGuidedSelections();
         IsFreeTextVisible = false;
         IsSecondaryMenuVisible = false;
-        ShowGuidedStep("category", Resource("AssistantGuidedCategoryQuestion"), CreateCategoryOptions(includeMore: true), addHistory: false);
+        ShowGuidedStep("category", Resource("AssistantGuidedCategoryQuestion"), CreateCategoryOptions(includeContinue: true), addHistory: false);
     }
 
     private void ShowGuidedStep(
@@ -1217,6 +1306,7 @@ public sealed partial class TravelChatViewModel(
         {
             GuidedOptions.Add(option);
         }
+        RefreshGuidedSelectionState();
 
         HasGuidedQuestion = true;
         OnPropertyChanged(nameof(CanGoBack));
@@ -1246,12 +1336,12 @@ public sealed partial class TravelChatViewModel(
                 ShowGuidedStep(step, Resource("AssistantGuidedAdjustQuestion"), CreateAdjustOptions(), addHistory);
                 break;
             default:
-                ShowGuidedStep("category", Resource("AssistantGuidedCategoryQuestion"), CreateCategoryOptions(includeMore: true), addHistory);
+                ShowGuidedStep("category", Resource("AssistantGuidedCategoryQuestion"), CreateCategoryOptions(includeContinue: true), addHistory);
                 break;
         }
     }
 
-    private static IReadOnlyList<TravelChatGuidedOptionViewModel> CreateCategoryOptions(bool includeMore)
+    private static IReadOnlyList<TravelChatGuidedOptionViewModel> CreateCategoryOptions(bool includeContinue)
     {
         var options = new List<TravelChatGuidedOptionViewModel>
         {
@@ -1259,11 +1349,15 @@ public sealed partial class TravelChatViewModel(
             new("category.relax", Resource("AssistantGuidedRelax")),
             new("category.culture", Resource("AssistantGuidedCulture")),
             new("category.walk", Resource("AssistantGuidedWalk")),
-            new("category.dance", Resource("AssistantGuidedDance"))
+            new("category.dance", Resource("AssistantGuidedDance")),
+            new("category.nature", Resource("AssistantGuidedNature")),
+            new("category.shopping", Resource("AssistantGuidedShopping")),
+            new("category.viewpoint", Resource("AssistantGuidedViewpoint")),
+            new("category.nightlife", Resource("AssistantGuidedNightlife"))
         };
-        if (includeMore)
+        if (includeContinue)
         {
-            options.Add(new("category.more", Resource("AssistantGuidedMore")));
+            options.Add(new("category.continue", Resource("CommonContinue")));
         }
         return options;
     }
@@ -1288,15 +1382,100 @@ public sealed partial class TravelChatViewModel(
     [
         new("budget.low", Resource("AssistantGuidedBudgetLow")),
         new("budget.medium", Resource("AssistantGuidedBudgetMedium")),
-        new("budget.high", Resource("AssistantGuidedBudgetHigh"))
+        new("budget.high", Resource("AssistantGuidedBudgetHigh")),
+        new("budget.continue", Resource("CommonContinue"))
     ];
 
     private static IReadOnlyList<TravelChatGuidedOptionViewModel> CreateDistanceOptions() =>
     [
         new("distance.15", Resource("AssistantGuidedWalk15")),
         new("distance.30", Resource("AssistantGuidedWalk30")),
-        new("distance.none", Resource("AssistantGuidedNoPreference"))
+        new("distance.none", Resource("AssistantGuidedNoPreference")),
+        new("distance.continue", Resource("CommonContinue"))
     ];
+
+    private void ClearGuidedSelections()
+    {
+        _selectedCategories.Clear();
+        _selectedBudgets.Clear();
+        _selectedWalkingMinutes.Clear();
+    }
+
+    private static void ToggleSelection<T>(ISet<T> selections, T value)
+    {
+        if (!selections.Add(value)) selections.Remove(value);
+    }
+
+    private void UpdateGuidedCriteriaFromSelections()
+    {
+        var categories = _selectedCategories.Order(StringComparer.OrdinalIgnoreCase).ToList();
+        var budgets = _selectedBudgets.Order(StringComparer.OrdinalIgnoreCase).ToList();
+        var walking = _selectedWalkingMinutes.Where(value => value > 0).Order().ToList();
+        _guidedCriteria = new GuidedPlanCriteriaDto(
+            categories.FirstOrDefault(),
+            GuidedTravelPriorities.Direct,
+            budgets.FirstOrDefault(),
+            walking.Count == 0 ? null : walking.Max(),
+            _guidedCriteria?.MaxDurationMinutes)
+        {
+            Categories = categories,
+            Budgets = budgets,
+            WalkingMinuteOptions = walking
+        };
+    }
+
+    private void RefreshGuidedSelectionState()
+    {
+        foreach (var option in GuidedOptions)
+        {
+            option.IsSelected = option.Id switch
+            {
+                var id when id.StartsWith("category.", StringComparison.Ordinal) && id != "category.continue" =>
+                    _selectedCategories.Contains(id["category.".Length..]),
+                var id when id.StartsWith("budget.", StringComparison.Ordinal) && id != "budget.continue" =>
+                    _selectedBudgets.Contains(id["budget.".Length..]),
+                "distance.none" => _selectedWalkingMinutes.Contains(0),
+                var id when id is "distance.15" or "distance.30" =>
+                    _selectedWalkingMinutes.Contains(int.Parse(id["distance.".Length..], CultureInfo.InvariantCulture)),
+                _ => false
+            };
+        }
+    }
+
+    private bool TryUseSavedPreferences(TravelPreferenceProfileDto? profile)
+    {
+        if (profile is null || !profile.HasMinimumPreferences || profile.Interests.Count == 0
+            || profile.BudgetLevel is not ("low" or "medium" or "high")
+            || profile.MaxWalkingMinutes <= 0)
+        {
+            return false;
+        }
+
+        foreach (var interest in profile.Interests)
+        {
+            var normalized = interest.Trim().ToLowerInvariant();
+            var category = normalized switch
+            {
+                var value when value.Contains("food") || value.Contains("comida") => GuidedTravelCategories.Food,
+                var value when value.Contains("relax") || value.Contains("onsen") => GuidedTravelCategories.Relax,
+                var value when value.Contains("culture") || value.Contains("cultura") || value.Contains("history") => GuidedTravelCategories.Culture,
+                var value when value.Contains("walk") || value.Contains("pase") => GuidedTravelCategories.Walk,
+                var value when value.Contains("dance") || value.Contains("bail") => GuidedTravelCategories.Dance,
+                var value when value.Contains("nature") || value.Contains("natur") || value.Contains("garden") => GuidedTravelCategories.Nature,
+                var value when value.Contains("shop") || value.Contains("compra") => GuidedTravelCategories.Shopping,
+                var value when value.Contains("view") || value.Contains("mirador") || value.Contains("photo") => GuidedTravelCategories.Viewpoint,
+                var value when value.Contains("night") || value.Contains("noche") || value.Contains("bar") => GuidedTravelCategories.Nightlife,
+                _ => null
+            };
+            if (category is not null) _selectedCategories.Add(category);
+        }
+        if (_selectedCategories.Count == 0) return false;
+
+        _selectedBudgets.Add(profile.BudgetLevel);
+        _selectedWalkingMinutes.Add(profile.MaxWalkingMinutes <= 15 ? 15 : 30);
+        UpdateGuidedCriteriaFromSelections();
+        return true;
+    }
 
     private static IReadOnlyList<TravelChatGuidedOptionViewModel> CreateDurationOptions() =>
     [
@@ -1364,8 +1543,18 @@ public sealed partial class TravelChatViewModel(
 
 }
 
-public sealed class TravelChatGuidedOptionViewModel(string id, string label)
+public sealed class TravelChatGuidedOptionViewModel(string id, string label) : CommunityToolkit.Mvvm.ComponentModel.ObservableObject
 {
+    private bool _isSelected;
     public string Id { get; } = id;
     public string Label { get; } = label;
+    public string DisplayLabel => IsSelected ? $"✓  {Label}" : Label;
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set
+        {
+            if (SetProperty(ref _isSelected, value)) OnPropertyChanged(nameof(DisplayLabel));
+        }
+    }
 }

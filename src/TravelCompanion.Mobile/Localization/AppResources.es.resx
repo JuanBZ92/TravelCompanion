@@ -215,6 +215,8 @@
   <data name="AccountAnalyticsTitle" xml:space="preserve"><value>Ayuda a mejorar YUKU</value></data>
   <data name="AccountAnalyticsDescription" xml:space="preserve"><value>Comparte uso anónimo del producto. Nunca incluimos textos del chat, notas, códigos de reserva ni ubicaciones precisas.</value></data>
   <data name="CommonContinue" xml:space="preserve"><value>Continuar</value></data>
+  <data name="AssistantFullDaySaved" xml:space="preserve"><value>Se agregaron {0} planes directamente a este día.</value></data>
+  <data name="AssistantFullDayPartiallySaved" xml:space="preserve"><value>Se agregaron {0} de {1} planes. Volvé a intentar para completar el día sin duplicados.</value></data>
   <data name="CommonSave" xml:space="preserve"><value>Guardar</value></data>
   <data name="CommerceConfigureTrip" xml:space="preserve"><value>Configura primero tu viaje.</value></data>
   <data name="CommerceSessionExpired" xml:space="preserve"><value>Tu sesión venció.</value></data>

@@ -102,8 +102,14 @@ public sealed class TravelRecommendationPlanningService(
             return ranked;
         }
 
-        var matches = GuidedTravelCategories.IsValid(criteria.Category)
-            ? ranked.Where(candidate => MatchesGuidedCategory(candidate.Recommendation, criteria.Category!))
+        var categories = criteria.Categories
+            .Append(criteria.Category)
+            .Where(GuidedTravelCategories.IsValid)
+            .Select(value => value!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var matches = categories.Count > 0
+            ? ranked.Where(candidate => categories.Any(category => MatchesGuidedCategory(candidate.Recommendation, category)))
             : ranked;
 
         if (criteria.MaxWalkingMinutes.HasValue)
@@ -117,6 +123,22 @@ public sealed class TravelRecommendationPlanningService(
         {
             matches = matches.Where(candidate =>
                 candidate.Recommendation.SuggestedDurationMinutes <= criteria.MaxDurationMinutes.Value);
+        }
+
+        var budgets = criteria.Budgets.Append(criteria.Budget)
+            .Where(value => value is "low" or "medium" or "high")
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (budgets.Count > 1)
+        {
+            var acceptedRanks = budgets.SelectMany(value => value switch
+            {
+                "low" => new[] { 0, 1 },
+                "medium" => [2],
+                _ => [3]
+            }).ToHashSet();
+            return matches.Where(candidate => acceptedRanks.Contains(PriceRank(candidate.Recommendation.PriceLevel)))
+                .OrderByDescending(candidate => candidate.Score);
         }
 
         return criteria.Budget switch

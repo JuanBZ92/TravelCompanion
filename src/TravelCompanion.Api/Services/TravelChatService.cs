@@ -331,6 +331,13 @@ public sealed class TravelChatService(
             .Concat(explicitRecommendationIds)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (isFullDayRequest)
+        {
+            excludedRecommendationIds.UnionWith(trips
+                .SelectMany(trip => trip.Reservations)
+                .Where(item => item.RecommendationId.HasValue)
+                .Select(item => item.RecommendationId!.Value.ToString()));
+        }
         var profile = CreateProfile(user, effectivePreferences, responseMode, request.Message, guidedCriteria);
         ApplyHiddenConversationTags(profile, conversationState.HiddenTags);
         if (isGuidedRequest
@@ -380,7 +387,7 @@ public sealed class TravelChatService(
             reservations,
             context,
             responseMode,
-            isFullDayRequest ? guidedCriteria! with { Category = null } : guidedCriteria,
+            isFullDayRequest ? guidedCriteria! with { Category = null, Categories = [] } : guidedCriteria,
             excludedRecommendationIds,
             cancellationToken);
 
@@ -1082,17 +1089,35 @@ public sealed class TravelChatService(
 
     private static GuidedPlanCriteriaDto? NormalizeGuidedCriteria(GuidedPlanCriteriaDto? criteria)
     {
-        if (criteria is null || !GuidedTravelCategories.IsValid(criteria.Category))
+        if (criteria is null)
         {
             return null;
         }
 
+        var categories = criteria.Categories.Append(criteria.Category)
+            .Where(GuidedTravelCategories.IsValid)
+            .Select(value => value!)
+            .Distinct(StringComparer.OrdinalIgnoreCase).Take(9).ToList();
+        if (categories.Count == 0) return null;
+
+        var budgets = criteria.Budgets.Append(criteria.Budget)
+            .Where(value => value is "low" or "medium" or "high")
+            .Select(value => value!)
+            .Distinct(StringComparer.OrdinalIgnoreCase).Take(3).ToList();
+        var walkingOptions = criteria.WalkingMinuteOptions.Append(criteria.MaxWalkingMinutes ?? 0)
+            .Where(value => value is 15 or 30).Distinct().Order().ToList();
+
         return new GuidedPlanCriteriaDto(
-            criteria.Category,
+            categories[0],
             GuidedTravelPriorities.IsValid(criteria.Priority) ? criteria.Priority : GuidedTravelPriorities.Direct,
-            criteria.Budget is "low" or "medium" or "high" ? criteria.Budget : null,
-            criteria.MaxWalkingMinutes is 15 or 30 ? criteria.MaxWalkingMinutes : null,
-            criteria.MaxDurationMinutes is 60 or 120 ? criteria.MaxDurationMinutes : null);
+            budgets.FirstOrDefault(),
+            walkingOptions.Count == 0 ? null : walkingOptions.Max(),
+            criteria.MaxDurationMinutes is 60 or 120 ? criteria.MaxDurationMinutes : null)
+        {
+            Categories = categories,
+            Budgets = budgets,
+            WalkingMinuteOptions = walkingOptions
+        };
     }
 
     private static string ResolveGuidedResponseMode(string? category) => category switch
@@ -1135,21 +1160,21 @@ public sealed class TravelChatService(
     private static string CreateFullDayPlanningMessage(string locale)
     {
         return IsEnglish(locale)
-            ? "Build a full day with morning coffee, a visit, lunch, an afternoon outing, and dinner"
-            : "Armá un día completo con café por la mañana, una visita, almuerzo, un recorrido por la tarde y cena";
+            ? "Build a day with morning coffee, a visit, lunch, and an afternoon outing"
+            : "Armá un día con café por la mañana, una visita, almuerzo y un recorrido por la tarde";
     }
 
     private static string CreateFullDayResponseMessage(int stopCount, string locale)
     {
         if (IsEnglish(locale))
         {
-            return stopCount == 5
-                ? "I built a full day with five different stops. Review each place before adding it to your itinerary."
+            return stopCount == 4
+                ? "I prepared four different plans for this day."
                 : $"I found {stopCount} compatible stops for this day. I left out slots without a suitable place.";
         }
 
-        return stopCount == 5
-            ? "Te armé un día completo con cinco paradas diferentes. Revisá cada lugar antes de sumarlo al itinerario."
+        return stopCount == 4
+            ? "Preparé cuatro planes diferentes para este día."
             : $"Encontré {stopCount} paradas compatibles para este día. Dejé libres los momentos sin un lugar adecuado.";
     }
 
@@ -1161,7 +1186,7 @@ public sealed class TravelChatService(
     {
         var english = IsEnglish(locale);
         var used = new HashSet<Guid>();
-        var stops = new List<FullDayStop>(5);
+        var stops = new List<FullDayStop>(4);
 
         AddFullDayStop(stops, used, ranked, requestSeed, "coffee", new TimeOnly(9, 0),
             english ? "Morning coffee" : "Café de mañana",
@@ -1169,7 +1194,7 @@ public sealed class TravelChatService(
             IsFoodRecommendation);
         AddFullDayStop(stops, used, ranked, requestSeed, "visit", new TimeOnly(10, 30),
             english ? "Morning visit" : "Visita de mañana",
-            recommendation => !IsFoodRecommendation(recommendation) && MatchesInterest(recommendation, criteria.Category),
+            recommendation => !IsFoodRecommendation(recommendation) && MatchesAnyInterest(recommendation, criteria),
             recommendation => !IsFoodRecommendation(recommendation) && IsSightseeingRecommendation(recommendation));
         AddFullDayStop(stops, used, ranked, requestSeed, "lunch", new TimeOnly(13, 0),
             english ? "Lunch" : "Almuerzo",
@@ -1178,15 +1203,19 @@ public sealed class TravelChatService(
             IsFoodRecommendation);
         AddFullDayStop(stops, used, ranked, requestSeed, "afternoon", new TimeOnly(15, 30),
             english ? "Afternoon outing" : "Recorrido de tarde",
-            recommendation => !IsFoodRecommendation(recommendation) && MatchesInterest(recommendation, criteria.Category),
+            recommendation => !IsFoodRecommendation(recommendation) && MatchesAnyInterest(recommendation, criteria),
             recommendation => !IsFoodRecommendation(recommendation));
-        AddFullDayStop(stops, used, ranked, requestSeed, "dinner", new TimeOnly(19, 30),
-            english ? "Dinner" : "Cena",
-            recommendation => IsFoodRecommendation(recommendation)
-                && ContainsRecommendationTerms(recommendation, "dinner", "cena", "izakaya", "yakitori", "omakase"),
-            IsFoodRecommendation);
 
         return stops.OrderBy(stop => stop.StartsAt).ToList();
+    }
+
+    private static bool MatchesAnyInterest(Recommendation recommendation, GuidedPlanCriteriaDto criteria)
+    {
+        var categories = criteria.Categories.Append(criteria.Category)
+            .Where(GuidedTravelCategories.IsValid)
+            .Select(value => value!)
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+        return categories.Any(category => MatchesInterest(recommendation, category));
     }
 
     private static void AddFullDayStop(

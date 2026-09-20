@@ -215,6 +215,8 @@
   <data name="AccountAnalyticsTitle" xml:space="preserve"><value>Help improve YUKU</value></data>
   <data name="AccountAnalyticsDescription" xml:space="preserve"><value>Share anonymous product usage. Chat text, notes, booking codes, and precise locations are never included.</value></data>
   <data name="CommonContinue" xml:space="preserve"><value>Continue</value></data>
+  <data name="AssistantFullDaySaved" xml:space="preserve"><value>{0} plans were added directly to this day.</value></data>
+  <data name="AssistantFullDayPartiallySaved" xml:space="preserve"><value>{0} of {1} plans were added. Try again to complete the day without duplicates.</value></data>
   <data name="CommonSave" xml:space="preserve"><value>Save</value></data>
   <data name="CommerceConfigureTrip" xml:space="preserve"><value>Set up your trip first.</value></data>
   <data name="CommerceSessionExpired" xml:space="preserve"><value>Your session has expired.</value></data>

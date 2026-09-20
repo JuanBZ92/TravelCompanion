@@ -38,7 +38,12 @@ public sealed record GuidedPlanCriteriaDto(
     string? Priority = null,
     string? Budget = null,
     int? MaxWalkingMinutes = null,
-    int? MaxDurationMinutes = null);
+    int? MaxDurationMinutes = null)
+{
+    public IReadOnlyList<string> Categories { get; init; } = [];
+    public IReadOnlyList<string> Budgets { get; init; } = [];
+    public IReadOnlyList<int> WalkingMinuteOptions { get; init; } = [];
+}
 
 public sealed record GuidedQuestionDto(
     string Id,

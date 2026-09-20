@@ -66,8 +66,7 @@ public sealed partial class AccountViewModel(
         await logout.ResetContentAsync(session.UserId);
         await sessions.SaveAsync(session);
         if (Shell.Current is AppShell shell) shell.ApplySessionTabs(sessions);
-        var route = session.AccessMode == SessionAccessMode.FreeMapPreview ? "//free-map" : "//main/schedule";
-        await Shell.Current.GoToAsync(route);
+        await Shell.Current.GoToAsync(AppShell.GetAuthenticatedLandingRoute(sessions));
     });
 
     [RelayCommand]
