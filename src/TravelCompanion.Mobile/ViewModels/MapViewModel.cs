@@ -23,6 +23,9 @@ public sealed partial class MapViewModel(
     private readonly List<CatalogSearchEntry> _catalogSearchIndex = [];
     private string? _temporaryMapRecommendationKey;
     private UserEntitlementsDto? _entitlements;
+    private MobileBootstrapDto? _appliedBootstrap;
+    private DateTimeOffset _lastAutomaticRefresh;
+    private string? _loadedMapScope;
     private RecommendationDto? _selectedRecommendation;
     private int _currentPage = 1;
     private int _totalPages = 1;
@@ -172,6 +175,8 @@ public sealed partial class MapViewModel(
 
     public void ResetForNewSession()
     {
+        _appliedBootstrap = null;
+        _lastAutomaticRefresh = default;
         ResetLoadState();
         _allNearbyRecommendations.Clear();
         _mapRecommendations.Clear();
@@ -196,6 +201,30 @@ public sealed partial class MapViewModel(
     [RelayCommand]
     private Task LoadNearbyRecommendationsAsync()
     {
+        bootstrapStore.Invalidate();
+        return LoadAsync(ct => LoadNearbyRecommendationsLocalFirstAsync(ct));
+    }
+
+    public Task EnsureLoadedAsync()
+    {
+        var scope = $"{sessionService.CurrentUserId}-{sessionService.CurrentTripId}-{sessionService.AccessMode}-{sessionService.ExperienceMode}-{System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName}";
+        if (_loadedMapScope != scope)
+        {
+            ResetForNewSession();
+            _loadedMapScope = scope;
+        }
+        if (!sessionService.HasSession || !sessionService.HasKnownValidAccess)
+        {
+            ResetForNewSession();
+            sessionService.Clear();
+            return LoadAsync(ct => LoadNearbyRecommendationsLocalFirstAsync(ct));
+        }
+        if (HasLoaded && sessionService.HasSession && sessionService.HasKnownValidAccess
+            && bootstrapStore.HasFreshSnapshot()) return ApplyCachedSnapshotAsync();
+        if (HasLoaded && DateTimeOffset.UtcNow - _lastAutomaticRefresh < TimeSpan.FromMinutes(5))
+            return ApplyCachedSnapshotAsync();
+        _lastAutomaticRefresh = DateTimeOffset.UtcNow;
+        if (HasLoaded) return LoadNearbyRecommendationsLocalFirstAsync(CancellationToken.None);
         return LoadAsync(async ct =>
         {
             await LoadNearbyRecommendationsLocalFirstAsync(ct);
@@ -455,6 +484,7 @@ public sealed partial class MapViewModel(
 
     private async Task LoadNearbyRecommendationsLocalFirstAsync(CancellationToken cancellationToken = default)
     {
+        var contextVersion = sessionService.ContextVersion;
         var usableContentStopwatch = Stopwatch.StartNew();
         var usableContentLogged = false;
         var token = await sessionService.GetTokenAsync();
@@ -467,6 +497,7 @@ public sealed partial class MapViewModel(
 
         var resetPage = _allNearbyRecommendations.Count == 0;
         var cached = await bootstrapStore.GetCachedAsync(cancellationToken: cancellationToken);
+        if (contextVersion != sessionService.ContextVersion || cancellationToken.IsCancellationRequested) return;
         if (cached is not null)
         {
             ApplyBootstrap(cached.Value, resetPage);
@@ -490,6 +521,7 @@ public sealed partial class MapViewModel(
         try
         {
             var result = await bootstrapStore.RefreshResultAsync(token, cancellationToken: cancellationToken);
+            if (contextVersion != sessionService.ContextVersion || cancellationToken.IsCancellationRequested) return;
             if (result.IsUnauthorized)
             {
                 sessionService.Clear();
@@ -528,6 +560,8 @@ public sealed partial class MapViewModel(
 
     private void ApplyBootstrap(MobileBootstrapDto bootstrap, bool resetPage)
     {
+        if (ReferenceEquals(_appliedBootstrap, bootstrap)) return;
+        _appliedBootstrap = bootstrap;
         _entitlements = bootstrap.Entitlements;
         var recommendations = (bootstrap.Recommendations ?? [])
             .Where(IsUnlocked)
@@ -546,8 +580,17 @@ public sealed partial class MapViewModel(
         ApplyRecommendations(recommendations, resetPage);
     }
 
+    private async Task ApplyCachedSnapshotAsync()
+    {
+        var version = sessionService.ContextVersion;
+        var cached = await bootstrapStore.GetCachedAsync();
+        if (version == sessionService.ContextVersion && cached is not null) ApplyBootstrap(cached.Value, resetPage: false);
+    }
+
     private void ApplyRecommendations(IReadOnlyList<RecommendationDto> recommendations, bool resetPage)
     {
+        if (!resetPage && System.Text.Json.JsonSerializer.Serialize(_allNearbyRecommendations)
+            == System.Text.Json.JsonSerializer.Serialize(recommendations)) return;
         var selectedKey = SelectedRecommendation?.SelectionKey;
         _allNearbyRecommendations.Clear();
         _allNearbyRecommendations.AddRange(recommendations);

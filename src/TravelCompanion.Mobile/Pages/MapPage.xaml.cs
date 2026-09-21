@@ -37,6 +37,8 @@ public partial class MapPage : ContentPage
     private bool _isSubscribedToRecommendations;
     private bool _hasRenderedPins;
     private bool _mapPinsRefreshPending;
+    private string? _focusedSelectionKey;
+    private MapSpan? _retainedRegion;
 #endif
 
     public MapPage()
@@ -70,6 +72,11 @@ public partial class MapPage : ContentPage
         MapContainer.Children.Clear();
         MapContainer.Children.Add(_map);
         _map.MapClicked += (_, _) => DismissSearchKeyboard();
+        _map.HandlerChanging += (_, _) => _retainedRegion = _map.VisibleRegion ?? _retainedRegion;
+        _map.HandlerChanged += (_, _) =>
+        {
+            if (_retainedRegion is { } region) Dispatcher.Dispatch(() => _map.MoveToRegion(region));
+        };
 #if IOS || MACCATALYST
         _map.HandlerChanged += OnMapHandlerChanged;
 #endif
@@ -95,19 +102,24 @@ public partial class MapPage : ContentPage
 #endif
 
         var wasLoaded = _viewModel.HasLoaded;
+        if (!wasLoaded)
+        {
+#if !WINDOWS
+            _hasRenderedPins = false;
+            _focusedSelectionKey = null;
+            _retainedRegion = null;
+#endif
+        }
         if (wasLoaded)
         {
 #if !WINDOWS
-            if (!_hasRenderedPins)
-            {
-                TryRefreshMapPins();
-            }
+            TryRefreshMapPins();
 #endif
         }
 
         try
         {
-            await _viewModel.LoadNearbyRecommendationsCommand.ExecuteAsync(null);
+            await _viewModel.EnsureLoadedAsync();
         }
         catch (Exception ex)
         {
@@ -133,7 +145,6 @@ public partial class MapPage : ContentPage
         base.OnDisappearing();
 #if !WINDOWS
         UnsubscribeFromRecommendations();
-        _hasRenderedPins = false;
 #endif
     }
 
@@ -281,12 +292,14 @@ public partial class MapPage : ContentPage
             {
                 pin.Label = recommendation.Title;
                 pin.Address = recommendation.Neighborhood;
-                pin.Location = new Location((double)recommendation.Latitude, (double)recommendation.Longitude);
+                if (pin.Location.Latitude != (double)recommendation.Latitude
+                    || pin.Location.Longitude != (double)recommendation.Longitude)
+                    pin.Location = new Location((double)recommendation.Latitude, (double)recommendation.Longitude);
             }
 
             var wasSelected = pin.IsSelected;
             pin.IsSelected = selectionKey == _viewModel.SelectedRecommendation?.SelectionKey;
-            pin.Handler?.UpdateValue(nameof(RecommendationMapPin.IsSelected));
+            if (wasSelected != pin.IsSelected) pin.Handler?.UpdateValue(nameof(RecommendationMapPin.IsSelected));
 #if ANDROID
             // Android applies MarkerOptions when creating a marker, not to the displayed marker.
             if (wasSelected != pin.IsSelected)
@@ -301,12 +314,12 @@ public partial class MapPage : ContentPage
         }
 
 
-        if (moveToBounds)
+        if (moveToBounds && !_hasRenderedPins)
         {
             MoveToRecommendationBounds(_viewModel.MapRecommendations);
         }
 
-        _hasRenderedPins = true;
+        _hasRenderedPins = _map.Pins.Count > 0;
         stopwatch.Stop();
         _logger.LogInformation(
             "Map pins refreshed in {ElapsedMs}ms. Pins={PinCount}.",
@@ -348,6 +361,8 @@ public partial class MapPage : ContentPage
 
     private void FocusRecommendation(RecommendationDto? recommendation)
     {
+        if (_focusedSelectionKey == recommendation?.SelectionKey) return;
+        _focusedSelectionKey = recommendation?.SelectionKey;
         if (recommendation is null)
         {
             return;

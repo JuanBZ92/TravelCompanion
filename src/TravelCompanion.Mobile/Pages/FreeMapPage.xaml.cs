@@ -17,6 +17,9 @@ public partial class FreeMapPage : ContentPage
 
 #if !WINDOWS
     private readonly MauiMap _map;
+    private FreeMapPreviewDto? _renderedPreview;
+    private string? _focusedMarkerKey;
+    private MapSpan? _retainedRegion;
     private readonly Dictionary<Pin, EventHandler<PinClickedEventArgs>> _pinHandlers =
         new(ReferenceEqualityComparer.Instance);
 #endif
@@ -39,24 +42,30 @@ public partial class FreeMapPage : ContentPage
         };
         MapContainer.Children.Insert(0, _map);
         MapFallback.IsVisible = false;
+        _map.HandlerChanging += (_, _) => _retainedRegion = _map.VisibleRegion ?? _retainedRegion;
+        _map.HandlerChanged += (_, _) =>
+        {
+            if (_retainedRegion is { } region) Dispatcher.Dispatch(() => _map.MoveToRegion(region));
+        };
 #endif
     }
 
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
         _viewModel.PropertyChanged += OnViewModelPropertyChanged;
-        await _viewModel.LoadCommand.ExecuteAsync(null);
+        var load = _viewModel.LoadCommand.ExecuteAsync(null);
         RefreshMap();
+        await load;
+        RefreshMap();
+        FocusSelectedMarker();
     }
 
     protected override void OnDisappearing()
     {
         base.OnDisappearing();
         _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
-#if !WINDOWS
-        ClearPins();
-#endif
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -75,12 +84,26 @@ public partial class FreeMapPage : ContentPage
     {
 #if !WINDOWS
         var preview = _viewModel.Preview;
+        if (ReferenceEquals(preview, _renderedPreview)) return;
+        var changedCity = preview?.City.Slug != _renderedPreview?.City.Slug;
+        _renderedPreview = preview;
         if (preview is null)
         {
+            _focusedMarkerKey = null;
+            _retainedRegion = null;
+            ClearPins();
+            _map.MapElements.Clear();
             return;
         }
 
-        ClearPins();
+        var keys = preview.Markers.Select(marker => marker.MarkerKey).ToHashSet();
+        foreach (var pin in _pinHandlers.Keys.ToArray())
+        {
+            if (pin.BindingContext is FreeMapMarkerDto old && keys.Contains(old.MarkerKey)) continue;
+            pin.MarkerClicked -= _pinHandlers[pin];
+            _pinHandlers.Remove(pin);
+            _map.Pins.Remove(pin);
+        }
         _map.MapElements.Clear();
 
         var center = new Location(
@@ -95,26 +118,31 @@ public partial class FreeMapPage : ContentPage
             StrokeWidth = 4
         });
 
+        var pinsByKey = _pinHandlers.Keys.OfType<RecommendationMapPin>()
+            .ToDictionary(pin => ((FreeMapMarkerDto)pin.BindingContext).MarkerKey, StringComparer.Ordinal);
         foreach (var marker in preview.Markers)
         {
             var isUnlocked = marker.Access == FreeMapMarkerAccess.Unlocked;
-            var pin = new RecommendationMapPin
+            pinsByKey.TryGetValue(marker.MarkerKey, out var pin);
+            if (pin is null)
             {
-                Label = isUnlocked ? marker.Recommendation?.Title ?? "YUKU" : "Contenido YUKU",
-                Address = isUnlocked ? marker.Recommendation?.Neighborhood ?? string.Empty : string.Empty,
-                BindingContext = marker,
-                IsSelected = ReferenceEquals(marker, _viewModel.SelectedMarker),
-                Type = isUnlocked ? PinType.Place : PinType.Generic,
-                Location = new Location((double)marker.Latitude, (double)marker.Longitude)
-            };
-            EventHandler<PinClickedEventArgs> handler = (_, args) =>
-            {
-                args.HideInfoWindow = true;
-                _viewModel.SelectMarker(marker);
-            };
-            pin.MarkerClicked += handler;
-            _pinHandlers[pin] = handler;
-            _map.Pins.Add(pin);
+                pin = new RecommendationMapPin { IsSelected = marker.MarkerKey == _viewModel.SelectedMarker?.MarkerKey };
+                var capturedPin = pin;
+                EventHandler<PinClickedEventArgs> handler = (_, args) =>
+                {
+                    args.HideInfoWindow = true;
+                    if (capturedPin.BindingContext is FreeMapMarkerDto current) _viewModel.SelectMarker(current);
+                };
+                pin.MarkerClicked += handler;
+                _pinHandlers[pin] = handler;
+            }
+            pin.Label = isUnlocked ? marker.Recommendation?.Title ?? "YUKU" : "Contenido YUKU";
+            pin.Address = isUnlocked ? marker.Recommendation?.Neighborhood ?? string.Empty : string.Empty;
+            pin.BindingContext = marker;
+            pin.Type = isUnlocked ? PinType.Place : PinType.Generic;
+            if (pin.Location is null || pin.Location.Latitude != (double)marker.Latitude || pin.Location.Longitude != (double)marker.Longitude)
+                pin.Location = new Location((double)marker.Latitude, (double)marker.Longitude);
+            if (!_map.Pins.Contains(pin)) _map.Pins.Add(pin);
 
             if (!isUnlocked)
             {
@@ -133,7 +161,7 @@ public partial class FreeMapPage : ContentPage
         foreach (var marker in preview.Markers)
             radiusKm = Math.Max(radiusKm, Location.CalculateDistance(center,
                 new Location((double)marker.Latitude, (double)marker.Longitude), DistanceUnits.Kilometers) * 1.15);
-        _map.MoveToRegion(MapSpan.FromCenterAndRadius(center, Distance.FromKilometers(radiusKm)));
+        if (changedCity) _map.MoveToRegion(MapSpan.FromCenterAndRadius(center, Distance.FromKilometers(radiusKm)));
 #endif
     }
 
@@ -142,7 +170,8 @@ public partial class FreeMapPage : ContentPage
 #if !WINDOWS
         foreach (var pin in _map.Pins.OfType<RecommendationMapPin>().ToList())
         {
-            var selected = ReferenceEquals(pin.BindingContext, _viewModel.SelectedMarker);
+            var selected = pin.BindingContext is FreeMapMarkerDto current
+                && current.MarkerKey == _viewModel.SelectedMarker?.MarkerKey;
             if (pin.IsSelected == selected) continue;
             pin.IsSelected = selected;
             pin.Handler?.UpdateValue(nameof(RecommendationMapPin.IsSelected));
@@ -151,6 +180,8 @@ public partial class FreeMapPage : ContentPage
         }
 
         var marker = _viewModel.SelectedMarker;
+        if (_focusedMarkerKey == marker?.MarkerKey) return;
+        _focusedMarkerKey = marker?.MarkerKey;
         if (marker is null)
         {
             return;

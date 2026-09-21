@@ -14,6 +14,10 @@ public sealed partial class FreeMapViewModel(
     private FreeMapCityDto? _selectedCity;
     private FreeMapPreviewDto? _preview;
     private FreeMapMarkerDto? _selectedMarker;
+    private string? _loadedContext;
+    private DateTimeOffset _lastRevalidation;
+    private long _revalidatedGeneration = -1;
+    private string? _revalidatedCity;
 
     public ObservableCollection<FreeMapCityDto> Cities { get; } = [];
 
@@ -34,6 +38,10 @@ public sealed partial class FreeMapViewModel(
         get => _preview;
         private set
         {
+            if (_preview is not null && value is not null
+                && System.Text.Json.JsonSerializer.Serialize(_preview with { GeneratedAtUtc = default })
+                    == System.Text.Json.JsonSerializer.Serialize(value with { GeneratedAtUtc = default })) return;
+            var selectedKey = _selectedMarker?.MarkerKey;
             if (SetProperty(ref _preview, value))
             {
                 OnPropertyChanged(nameof(HasPreview));
@@ -41,7 +49,7 @@ public sealed partial class FreeMapViewModel(
                 OnPropertyChanged(nameof(MapSummary));
                 OnPropertyChanged(nameof(HasContactUrl));
                 OnPropertyChanged(nameof(ShowPinOnlyAction));
-                SelectedMarker = null;
+                SelectedMarker = value?.Markers.FirstOrDefault(marker => marker.MarkerKey == selectedKey);
             }
         }
     }
@@ -108,7 +116,42 @@ public sealed partial class FreeMapViewModel(
     }
 
     [RelayCommand]
-    private Task LoadAsync() => LoadAsync(LoadInitialAsync);
+    private Task LoadAsync()
+    {
+        if (_loadedContext != freeMapStore.ContextKey)
+        {
+            ResetForNewSession();
+            _loadedContext = freeMapStore.ContextKey;
+        }
+        if (Preview is not null)
+        {
+            if (freeMapStore.HasFreshSnapshot(Preview.City.Slug)) return Task.CompletedTask;
+            return RevalidateAsync();
+        }
+        return LoadInitialThenRevalidateAsync();
+    }
+
+    private async Task LoadInitialThenRevalidateAsync()
+    {
+        await LoadAsync(LoadInitialAsync);
+        if (Preview is not null && !freeMapStore.HasFreshSnapshot(Preview.City.Slug)) await RevalidateAsync();
+    }
+
+    private async Task RevalidateAsync()
+    {
+        if (_revalidatedGeneration == freeMapStore.Generation && _revalidatedCity == SelectedCity?.Slug
+            && DateTimeOffset.UtcNow - _lastRevalidation < TimeSpan.FromMinutes(5)) return;
+        _lastRevalidation = DateTimeOffset.UtcNow;
+        _revalidatedGeneration = freeMapStore.Generation;
+        _revalidatedCity = SelectedCity?.Slug;
+        try
+        {
+            var token = await RequireTokenAsync();
+            await syncCoordinator.SynchronizeVersionsAsync(token, force: false);
+            await RefreshSelectedCityAsync(token, CancellationToken.None, allowCacheFallback: true);
+        }
+        catch (Exception) { /* Keep the current map available when offline. */ }
+    }
 
     [RelayCommand]
     private Task RefreshAsync()
@@ -118,7 +161,8 @@ public sealed partial class FreeMapViewModel(
         {
             var token = await RequireTokenAsync();
             await syncCoordinator.SynchronizeVersionsAsync(token, force: true, cancellationToken);
-            await LoadInitialAsync(cancellationToken);
+            if (SelectedCity is null) await LoadInitialAsync(cancellationToken);
+            await RefreshSelectedCityAsync(token, cancellationToken, allowCacheFallback: true);
         });
     }
 
@@ -175,6 +219,10 @@ public sealed partial class FreeMapViewModel(
 
     public void ResetForNewSession()
     {
+        _loadedContext = null;
+        _lastRevalidation = default;
+        _revalidatedGeneration = -1;
+        _revalidatedCity = null;
         _cityLoad?.Cancel();
         _cityLoad?.Dispose();
         _cityLoad = null;
@@ -187,8 +235,10 @@ public sealed partial class FreeMapViewModel(
 
     private async Task LoadInitialAsync(CancellationToken cancellationToken)
     {
+        var context = freeMapStore.ContextKey;
         var token = await RequireTokenAsync();
         var cachedCities = await freeMapStore.GetCachedCitiesAsync(cancellationToken);
+        if (context != freeMapStore.ContextKey) return;
         if (cachedCities is not null)
         {
             ApplyCities(cachedCities.Value, SelectedCity?.Slug);
@@ -200,6 +250,7 @@ public sealed partial class FreeMapViewModel(
         try
         {
             var remoteCities = await freeMapStore.RefreshCitiesAsync(token, cancellationToken);
+            if (context != freeMapStore.ContextKey) return;
             if (remoteCities is null || remoteCities.Count == 0)
             {
                 throw new InvalidOperationException("No hay ciudades disponibles para el mapa gratuito.");
@@ -219,6 +270,7 @@ public sealed partial class FreeMapViewModel(
 
     private async Task LoadSelectedCityAsync(FreeMapCityDto city)
     {
+        var context = freeMapStore.ContextKey;
         _cityLoad?.Cancel();
         _cityLoad?.Dispose();
         var operation = _cityLoad = new CancellationTokenSource();
@@ -230,18 +282,20 @@ public sealed partial class FreeMapViewModel(
         {
             var token = await RequireTokenAsync();
             var cached = await freeMapStore.GetCachedCityAsync(city.Slug, cancellationToken);
-            if (cancellationToken.IsCancellationRequested || SelectedCity?.Slug != city.Slug) return;
+            if (cancellationToken.IsCancellationRequested || SelectedCity?.Slug != city.Slug || context != freeMapStore.ContextKey) return;
             if (cached is not null)
             {
                 Preview = cached.Value;
                 StatusMessage = null;
+                IsBusy = false;
+                if (!freeMapStore.HasFreshSnapshot(city.Slug)) await RevalidateAsync();
                 return;
             }
 
             try
             {
                 var remote = await freeMapStore.RefreshCityAsync(token, city.Slug, cancellationToken);
-                if (cancellationToken.IsCancellationRequested || SelectedCity?.Slug != city.Slug) return;
+                if (cancellationToken.IsCancellationRequested || SelectedCity?.Slug != city.Slug || context != freeMapStore.ContextKey) return;
                 if (remote is null)
                 {
                     throw new InvalidOperationException("No pudimos cargar esta ciudad.");
@@ -278,8 +332,9 @@ public sealed partial class FreeMapViewModel(
         }
 
         var slug = SelectedCity.Slug;
+        var context = freeMapStore.ContextKey;
         var remote = await freeMapStore.RefreshCityAsync(token, slug, cancellationToken);
-        if (SelectedCity?.Slug != slug) return;
+        if (SelectedCity?.Slug != slug || context != freeMapStore.ContextKey) return;
         if (remote is not null)
         {
             Preview = remote;
@@ -289,6 +344,7 @@ public sealed partial class FreeMapViewModel(
         if (allowCacheFallback)
         {
             var cached = await freeMapStore.GetCachedCityAsync(SelectedCity.Slug, cancellationToken);
+            if (SelectedCity?.Slug != slug || context != freeMapStore.ContextKey) return;
             if (cached is not null)
             {
                 Preview = cached.Value;
@@ -306,10 +362,18 @@ public sealed partial class FreeMapViewModel(
             return;
         }
 
-        var cached = await freeMapStore.GetCachedCityAsync(SelectedCity.Slug, cancellationToken);
+        var slug = SelectedCity.Slug;
+        var context = freeMapStore.ContextKey;
+        var cached = await freeMapStore.GetCachedCityAsync(slug, cancellationToken);
+        if (SelectedCity?.Slug != slug || context != freeMapStore.ContextKey) return;
         if (cached is not null)
         {
             Preview = cached.Value;
+        }
+        else
+        {
+            var token = await RequireTokenAsync();
+            await RefreshSelectedCityAsync(token, cancellationToken, allowCacheFallback: false);
         }
     }
 
