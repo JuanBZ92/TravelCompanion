@@ -45,6 +45,15 @@ public sealed class ReservationNotifications : ILocalReservationNotifications
         }
     }
 
+    public async Task ShowTestAsync(string title, string body)
+    {
+        var center = UNUserNotificationCenter.Current;
+        center.Delegate = ForegroundDelegate;
+        using var content = new UNMutableNotificationContent { Title = title, Body = body, Sound = UNNotificationSound.Default };
+        using var request = UNNotificationRequest.FromIdentifier("reminder-test", content, null);
+        await center.AddNotificationRequestAsync(request);
+    }
+
     private sealed class ReminderDelegate : UNUserNotificationCenterDelegate
     {
         public override void WillPresentNotification(UNUserNotificationCenter center, UNNotification notification,

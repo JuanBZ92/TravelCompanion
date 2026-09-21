@@ -7,10 +7,10 @@ public static class ReservationReminderPolicy
     public static IReadOnlyList<int> LeadMinutes(ReservationType type) =>
         type is ReservationType.Flight or ReservationType.Lodging ? [1440, 180, 45] : [180, 45];
     public static bool IsEligible(ReservationType type, ItineraryTimePrecision precision,
-        ScheduleItemKind kind, ItineraryFlexibility flexibility) => precision == ItineraryTimePrecision.Exact
-        && (type is ReservationType.Flight or ReservationType.Lodging
+        ScheduleItemKind kind, ItineraryFlexibility flexibility, bool? reminderEnabled = null) => precision == ItineraryTimePrecision.Exact
+        && (reminderEnabled ?? (type is ReservationType.Flight or ReservationType.Lodging
             || kind == ScheduleItemKind.ConfirmedReservation
-            || flexibility == ItineraryFlexibility.ConfirmedReservation);
+            || flexibility == ItineraryFlexibility.ConfirmedReservation));
 
     public static IReadOnlyList<ReservationReminderDto> Create(Guid id, ReservationType type,
         DateOnly date, TimeOnly time, string timeZoneId, string title, DateTimeOffset now, bool english)

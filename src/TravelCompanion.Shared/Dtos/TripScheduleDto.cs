@@ -41,7 +41,9 @@ public sealed record ScheduleItemDto(
     decimal? Latitude = null,
     decimal? Longitude = null,
     ItineraryFlexibility Flexibility = ItineraryFlexibility.Flexible,
-    int? DurationMinutes = null)
+    int? DurationMinutes = null,
+    bool? ReminderEnabled = null,
+    string? TimeZoneId = null)
 {
     public string TypeLabel => Type switch
     {

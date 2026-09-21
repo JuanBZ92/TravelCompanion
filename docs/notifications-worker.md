@@ -170,3 +170,7 @@ Para enviar push real al celular:
 Vuelos y check-in con hora exacta también reciben un aviso 24 horas antes; las reservas comunes mantienen solo 180/45 minutos. Los avisos cuyo momento ya pasó no se envían retroactivamente.
 
 Cambios de ciudad: se comparan días consecutivos del itinerario. Si cambia la ciudad, se programa un aviso de preparación a las 09:00 del día anterior en la zona del viaje, sin inferir hora de salida. El DTO usa `reservationId: null`, `tripDayId` y un ID estable `city-change-{dayId}`. Editar/eliminar el cambio lo reemplaza/cancela en la siguiente sincronización.
+
+### Explicit reminder preference
+
+The itinerary editor offers `ReminderEnabled` when an exact start time is selected, independently of flexibility. Opting in enables the existing 180/45-minute reminders (also 1440 minutes for flights/check-in); opting out suppresses them. Period-only items never schedule reminders. The nullable API/database field preserves the legacy confirmed-reservation policy for older clients and existing rows. Deploy the `AddReservationReminderPreference` migration and backend before distributing the updated mobile app. Editing/removing items refreshes the device notification snapshot; notification permissions remain required.

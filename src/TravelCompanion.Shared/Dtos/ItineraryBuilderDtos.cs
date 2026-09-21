@@ -55,7 +55,8 @@ public sealed record ItineraryItemMutationRequest(
     [param: Required, MaxLength(80)] string IdempotencyKey,
     bool ConfirmOverlap = false,
     ItineraryFlexibility Flexibility = ItineraryFlexibility.Flexible,
-    int? DurationMinutes = null);
+    int? DurationMinutes = null,
+    bool? ReminderEnabled = null);
 
 public sealed record ItineraryItemMutationResponse(
     bool Success,

@@ -217,7 +217,11 @@
   <data name="CommonContinue" xml:space="preserve"><value>Continue</value></data>
   <data name="AssistantFullDaySaved" xml:space="preserve"><value>{0} plans were added directly to this day.</value></data>
   <data name="AssistantFullDayPartiallySaved" xml:space="preserve"><value>{0} of {1} plans were added. Try again to complete the day without duplicates.</value></data>
-  <data name="TodayImproveDay" xml:space="preserve"><value>Improve my day</value></data>
+  <data name="TodayImproveDay" xml:space="preserve"><value>Improve my day with AI</value></data>
+  <data name="TodayImproveSubtitle" xml:space="preserve"><value>Get personalized recommendations</value></data>
+  <data name="TodayEmptyTitle" xml:space="preserve"><value>Free time</value></data>
+  <data name="TodayEmptySubtitle" xml:space="preserve"><value>No plans for this time of day yet</value></data>
+  <data name="TodayEmptyHint" xml:space="preserve"><value>Tap “Improve my day” to discover ideas based on your interests.</value></data>
   <data name="AssistantFullDayPreparing" xml:space="preserve"><value>Building your day...</value></data>
   <data name="AssistantFullDayProgress" xml:space="preserve"><value>{0} of {1} plans ready.</value></data>
   <data name="CommonSave" xml:space="preserve"><value>Save</value></data>
@@ -329,4 +333,14 @@
   <data name="ItineraryDeleteRefreshFailed" xml:space="preserve"><value>We couldn't check the latest itinerary. Check your connection and try deleting it again.</value></data>
   <data name="ItineraryDeleteConflict" xml:space="preserve"><value>The itinerary changed while you were confirming. Tap Delete itinerary again to confirm the latest version.</value></data>
   <data name="AssistantChangeReason" xml:space="preserve"><value>What would you like to change? Applies to all selected plans.</value></data>
+  <data name="ItemReminderQuestion" xml:space="preserve"><value>Would you like a reminder?</value></data>
+  <data name="ItemReminderHint" xml:space="preserve"><value>We’ll remind you 3 hours and 45 minutes before. Flights and check-in also 24 hours before. Notification permission is required.</value></data>
+  <data name="ItemTimeZone" xml:space="preserve"><value>Reservation time zone: {0}</value></data>
+  <data name="ItemJapanTime" xml:space="preserve"><value>Japan (Asia/Tokyo)</value></data>
+  <data name="ItemNextReminder" xml:space="preserve"><value>Next reminder: {0}, your phone’s local time. Scheduled when you save.</value></data>
+  <data name="ItemNoUpcomingReminder" xml:space="preserve"><value>No future reminders remain for this time. Check the reservation date and time zone.</value></data>
+  <data name="ItemReminderPermission" xml:space="preserve"><value>Allow notifications in your phone settings to receive reminders.</value></data>
+  <data name="ItemTestReminder" xml:space="preserve"><value>Test notification</value></data>
+  <data name="ItemTestReminderBody" xml:space="preserve"><value>This tests notification delivery. It does not change your reservations or test alarm timing.</value></data>
+  <data name="ItemTestReminderSent" xml:space="preserve"><value>Test sent. Check your phone notifications.</value></data>
 </root>

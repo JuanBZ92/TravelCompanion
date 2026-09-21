@@ -143,6 +143,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     public string LockedDayMessage => LocalizationResourceManager.Instance["FreePlanningLockedDay"];
     public string UnlockTripLabel => LocalizationResourceManager.Instance["FreePlanningUnlockTrip"];
     public string ImproveDayLabel => IsSelectedDayLocked ? UnlockTripLabel : LocalizationResourceManager.Instance["TodayImproveDay"];
+    public string ImproveDaySubtitle => LocalizationResourceManager.Instance["TodayImproveSubtitle"];
     public bool HasFreshVisibleData => _bootstrapStore.HasFreshSnapshot()
         && (!_selectedDate.HasValue || _todayStore.HasFreshSnapshot(_selectedDate.Value));
 

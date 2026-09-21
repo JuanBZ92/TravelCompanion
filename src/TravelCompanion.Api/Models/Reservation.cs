@@ -18,6 +18,7 @@ public sealed class Reservation
     public ItineraryItemOwner Owner { get; set; } = ItineraryItemOwner.Yuku;
     public ItineraryItemSource ItemSource { get; set; } = ItineraryItemSource.Manual;
     public ItineraryTimePrecision TimePrecision { get; set; } = ItineraryTimePrecision.Exact;
+    public bool? ReminderEnabled { get; set; }
     public ItineraryFlexibility Flexibility { get; set; } = ItineraryFlexibility.Flexible;
     public int? DurationMinutes { get; set; }
     public int SortOrder { get; set; }

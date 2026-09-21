@@ -51,6 +51,12 @@ public partial class ItineraryItemEditorPage : ContentPage, IQueryAttributable
         PlaceEntry.Unfocus();
     }
 
+    protected override void OnAppearing()
+    {
+        base.OnAppearing();
+        _viewModel.RefreshReminderPreview();
+    }
+
     protected override void OnDisappearing()
     {
         _viewModel.CancelPlaceSearches();

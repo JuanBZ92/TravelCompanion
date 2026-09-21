@@ -70,7 +70,18 @@
                 <VerticalStackLayout Spacing="6"><Label Text="DÍA" Style="{StaticResource Eyebrow}"/><DatePicker Date="{Binding Date}" MinimumDate="{Binding MinimumDate}" MaximumDate="{Binding MaximumDate}" /></VerticalStackLayout>
                 <VerticalStackLayout Spacing="6"><Label Text="MOMENTO" Style="{StaticResource Eyebrow}"/><Picker ItemsSource="{Binding Periods}" SelectedItem="{Binding SelectedPeriod}" /></VerticalStackLayout>
                 <Grid ColumnDefinitions="*,Auto" Padding="0,6"><Label Text="Definir hora exacta" VerticalOptions="Center"/><Switch Grid.Column="1" IsToggled="{Binding UseExactTime}" /></Grid>
+                <Label Text="{Binding ReservationTimeZoneLabel}" IsVisible="{Binding UseExactTime}" FontSize="12" TextColor="#6E675F" />
                 <TimePicker Time="{Binding Time}" IsVisible="{Binding UseExactTime}" />
+                <VerticalStackLayout IsVisible="{Binding UseExactTime}" Spacing="4">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <Label Text="{Binding [ItemReminderQuestion], Source={x:Static services:LocalizationResourceManager.Instance}}" VerticalOptions="Center" />
+                        <Switch Grid.Column="1" IsToggled="{Binding ReminderEnabled}" SemanticProperties.Description="{Binding [ItemReminderQuestion], Source={x:Static services:LocalizationResourceManager.Instance}}" />
+                    </Grid>
+                    <Label Text="{Binding [ItemReminderHint], Source={x:Static services:LocalizationResourceManager.Instance}}" FontSize="12" TextColor="#6E675F" />
+                </VerticalStackLayout>
+                <Label Text="{Binding ReminderPreview}" IsVisible="{Binding ReminderEnabled}" FontSize="13" TextColor="#6E675F" />
+                <Button Text="{Binding [ItemTestReminder], Source={x:Static services:LocalizationResourceManager.Instance}}" Command="{Binding TestReminderCommand}" Style="{StaticResource GhostButton}" />
+                <Label Text="{Binding StatusMessage}" IsVisible="{Binding HasStatus}" FontSize="12" TextColor="#6E675F" />
                 <Label Text="{Binding [ItemExactTimeHint], Source={x:Static services:LocalizationResourceManager.Instance}}" IsVisible="{Binding UseExactTime}" FontSize="12" TextColor="#6E675F" />
                 <VerticalStackLayout Spacing="6"><Label Text="{Binding [ItemDurationLabel], Source={x:Static services:LocalizationResourceManager.Instance}}" Style="{StaticResource Eyebrow}"/><Entry Text="{Binding DurationMinutes}" Keyboard="Numeric" /></VerticalStackLayout>
                 <VerticalStackLayout Spacing="6"><Label Text="{Binding [ItemFlexibilityLabel], Source={x:Static services:LocalizationResourceManager.Instance}}" Style="{StaticResource Eyebrow}"/><Picker ItemsSource="{Binding FlexibilityOptions}" ItemDisplayBinding="{Binding Label}" SelectedItem="{Binding SelectedFlexibility}" /></VerticalStackLayout>

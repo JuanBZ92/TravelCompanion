@@ -27,7 +27,7 @@ public sealed class NotificationsController(
         var now = DateTimeOffset.UtcNow;
         var english = locale?.StartsWith("en", StringComparison.OrdinalIgnoreCase) == true;
         var reminders = trips.SelectMany(trip => trip.Reservations
-                .Where(item => ReservationReminderPolicy.IsEligible(item.Type, item.TimePrecision, item.PlanningKind, item.Flexibility))
+                .Where(item => ReservationReminderPolicy.IsEligible(item.Type, item.TimePrecision, item.PlanningKind, item.Flexibility, item.ReminderEnabled))
                 .SelectMany(item => ReservationReminderPolicy.Create(item.Id, item.Type, item.Date, item.StartsAt,
                     item.TimeZoneId ?? trip.TimeZoneId, item.Title, now, english))
                 .Concat(ReservationReminderPolicy.CityChanges(trip.DayPlans.Select(day => (day.Id, day.Date, day.City)),

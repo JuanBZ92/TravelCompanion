@@ -5,7 +5,7 @@ namespace TravelCompanion.Mobile.ViewModels;
 public sealed partial class ScheduleDayFilterViewModel : ObservableObject
 {
     private static readonly Color InkColor = Color.FromArgb("#1A1714");
-    private static readonly Color PaperColor = Color.FromArgb("#FFFFFF");
+    private static readonly Color PaperColor = Color.FromArgb("#FAF6F0");
     private static readonly Color MutedColor = Color.FromArgb("#8A8078");
     private static readonly Color LineColor = Color.FromArgb("#1A171414");
     private static readonly Color TransparentColor = Color.FromArgb("#00FFFFFF");
@@ -34,7 +34,7 @@ public sealed partial class ScheduleDayFilterViewModel : ObservableObject
         private set => SetProperty(ref _city, value);
     }
     public bool IsLocked { get; }
-    public string DayLabel => $"{(IsLocked ? "🔒 " : "")}DIA {TripDayNumber}";
+    public string DayLabel => $"{(IsLocked ? "🔒 " : "")}D{TripDayNumber}";
     public string DateLabel => $"{Date.Day}/{Date.Month}";
 
     public bool IsSelected

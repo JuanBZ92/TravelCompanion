@@ -92,6 +92,7 @@ public sealed class TravelerItineraryService(
                 : ItineraryItemSource.Manual,
             TimePrecision = request.UseExactTime ? ItineraryTimePrecision.Exact : ItineraryTimePrecision.PeriodOnly,
             Flexibility = request.Flexibility,
+            ReminderEnabled = request.UseExactTime ? request.ReminderEnabled : false,
             DurationMinutes = request.DurationMinutes ?? recommendation?.SuggestedDurationMinutes,
             ProviderPlaceId = recommendation?.ProviderPlaceId ?? request.GooglePlaceId?.Trim(),
             Date = request.Date,
@@ -157,6 +158,7 @@ public sealed class TravelerItineraryService(
         item.EndsAt = request.UseExactTime ? request.EndsAt : null;
         item.TimePrecision = request.UseExactTime ? ItineraryTimePrecision.Exact : ItineraryTimePrecision.PeriodOnly;
         item.Flexibility = request.Flexibility;
+        item.ReminderEnabled = request.UseExactTime ? request.ReminderEnabled ?? item.ReminderEnabled : false;
         item.DurationMinutes = request.DurationMinutes ?? item.Recommendation?.SuggestedDurationMinutes;
         item.Title = request.Title.Trim();
         item.City = request.City?.Trim() ?? block.TripDayPlan?.City ?? item.City;
@@ -311,5 +313,5 @@ public sealed class TravelerItineraryService(
         item.Title, item.City, item.LocationName, item.Address, item.ConfirmationCode, item.Notes,
         item.Airline, item.FlightNumber, item.OriginName, item.DestinationName, item.OriginAirport,
         item.DestinationAirport, item.PlanningKind, item.Owner, item.ItemSource, item.TimePrecision,
-        item.SortOrder, item.ProviderPlaceId, item.Latitude, item.Longitude, item.Flexibility, item.DurationMinutes);
+        item.SortOrder, item.ProviderPlaceId, item.Latitude, item.Longitude, item.Flexibility, item.DurationMinutes, item.ReminderEnabled, item.TimeZoneId);
 }

@@ -237,6 +237,22 @@ public sealed class ItineraryBuilderServiceTests
         Assert.Equal(35.0116m, preservedItem.Latitude);
         Assert.Equal(135.7681m, preservedItem.Longitude);
 
+        // The editor must round-trip location metadata when only the start time changes.
+        var timed = await service.UpdateAsync(httpContext, item.Id, request with
+        {
+            UseExactTime = true, StartsAt = new TimeOnly(13, 48), EndsAt = new TimeOnly(14, 48),
+            Latitude = preserved.Item!.Latitude, Longitude = preserved.Item.Longitude,
+            GooglePlaceId = preserved.Item.ProviderPlaceId,
+            ExpectedRevision = preserved.Revision
+        });
+        Assert.Equal(new TimeOnly(13, 48), timed.Item!.StartsAt);
+        Assert.Equal(preserved.Item.ProviderPlaceId, timed.Item.ProviderPlaceId);
+        Assert.Equal(preserved.Item.Latitude, timed.Item.Latitude);
+        Assert.Equal(preserved.Item.Longitude, timed.Item.Longitude);
+        Assert.Equal(preserved.Item.Address, timed.Item.Address);
+        Assert.Equal(preserved.Item.LocationName, timed.Item.LocationName);
+        Assert.Equal(preserved.Item.Notes, timed.Item.Notes);
+
         var updated = await service.UpdateAsync(httpContext, item.Id, request with
         {
             GooglePlaceId = null,
@@ -245,12 +261,28 @@ public sealed class ItineraryBuilderServiceTests
             Address = "Dirección escrita a mano",
             Latitude = null,
             Longitude = null,
-            ExpectedRevision = preserved.Revision
+            ExpectedRevision = timed.Revision
         });
 
         Assert.Equal(ItineraryItemSource.Manual, updated.Item!.ItemSource);
         Assert.Null(updated.Item.ProviderPlaceId);
         Assert.Empty((await new ExternalPlaceInsightsService(dbContext).GetReportAsync()).Places);
+        var coordinateRequest = request with
+        {
+            GooglePlaceId = null, ExpectedRevision = updated.Revision,
+            UseExactTime = true, StartsAt = new TimeOnly(13, 0), Notes = "Keep my notes",
+            Latitude = 35.0116m, Longitude = 135.7681m
+        };
+        var coordinateOnly = await service.UpdateAsync(httpContext, item.Id, coordinateRequest);
+        var rescheduled = await service.UpdateAsync(httpContext, item.Id, coordinateRequest with
+        {
+            StartsAt = new TimeOnly(14, 0), ExpectedRevision = coordinateOnly.Revision,
+            Latitude = coordinateOnly.Item!.Latitude, Longitude = coordinateOnly.Item.Longitude
+        });
+        Assert.Null(rescheduled.Item!.ProviderPlaceId);
+        Assert.Equal(35.0116m, rescheduled.Item.Latitude);
+        Assert.Equal(135.7681m, rescheduled.Item.Longitude);
+        Assert.Equal("Keep my notes", rescheduled.Item.Notes);
     }
 
     [Fact]

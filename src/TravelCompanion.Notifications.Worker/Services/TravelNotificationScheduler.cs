@@ -42,7 +42,7 @@ public sealed class TravelNotificationScheduler(
         foreach (var reservation in reservations)
         {
             if (!ReservationReminderPolicy.IsEligible(reservation.Type, reservation.TimePrecision,
-                reservation.PlanningKind, reservation.Flexibility)) continue;
+                reservation.PlanningKind, reservation.Flexibility, reservation.ReminderEnabled)) continue;
             var userId = reservation.Trip!.AppUserId!.Value;
             var timeZone = ResolveReservationTimeZone(reservation, fallbackTimeZone);
             var reservationStartUtc = ToUtc(reservation.Date, reservation.StartsAt, timeZone);
@@ -131,7 +131,7 @@ public sealed class TravelNotificationScheduler(
                 var stillValid = reservation?.Trip is { IsArchived: false } trip
                     && trip.AppUserId == notification.UserId
                     && ReservationReminderPolicy.IsEligible(reservation.Type, reservation.TimePrecision,
-                        reservation.PlanningKind, reservation.Flexibility)
+                        reservation.PlanningKind, reservation.Flexibility, reservation.ReminderEnabled)
                     && ReservationReminderPolicy.Create(reservation.Id, reservation.Type, reservation.Date,
                         reservation.StartsAt, reservation.TimeZoneId ?? trip.TimeZoneId, reservation.Title,
                         now.AddMinutes(-workerOptions.StaleNotificationGraceMinutes), false)

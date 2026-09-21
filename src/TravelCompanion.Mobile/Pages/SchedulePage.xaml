@@ -43,7 +43,7 @@
                               ColumnSpacing="12">
                             <Label Text="{Binding SelectedCity}"
                                    FontFamily="serif"
-                                   FontSize="34"
+                                   FontSize="40"
                                    SemanticProperties.HeadingLevel="Level1"
                                    TextColor="#1A1714"
                                    LineBreakMode="TailTruncation"
@@ -55,10 +55,13 @@
                                    TranslationY="-14" />
                         </Grid>
 
-                        <Label Grid.Row="2"
+                        <HorizontalStackLayout Grid.Row="2" Spacing="8">
+                        <Image Source="tab_trip.svg" HeightRequest="20" WidthRequest="20" Opacity="0.55" />
+                        <Label
                                Text="{Binding SelectedDateLabel}"
                                FontSize="17"
                                TextColor="#6E675F" />
+                        </HorizontalStackLayout>
 
                         <Grid Grid.Row="3"
                               ColumnDefinitions="2,*"
@@ -94,30 +97,29 @@
                     </Border>
 
                     <Border Padding="16,14"
-                            BackgroundColor="#F6F1EA"
-                            Stroke="#D8CFC4"
+                            BackgroundColor="#FAF6F0"
+                            Stroke="#E5DED5"
                             StrokeThickness="1"
                             IsVisible="{Binding HasStayCard}">
                         <Border.StrokeShape>
-                            <RoundRectangle CornerRadius="0" />
+                            <RoundRectangle CornerRadius="10" />
                         </Border.StrokeShape>
-                        <Grid ColumnDefinitions="*,44" ColumnSpacing="12">
-                            <VerticalStackLayout Spacing="8">
-                            <Label Text="HOTEL"
-                                   CharacterSpacing="4"
-                                   FontSize="10"
-                                   FontAttributes="Bold"
-                                   TextColor="#9B9288" />
+                        <Grid ColumnDefinitions="36,*,1,36" ColumnSpacing="12">
+                            <Border BackgroundColor="#EFE7DC" StrokeThickness="0" WidthRequest="36" HeightRequest="36" StrokeShape="RoundRectangle 18" VerticalOptions="Center">
+                                <Image Source="today_hotel.svg" WidthRequest="20" HeightRequest="20" />
+                            </Border>
+                            <VerticalStackLayout Grid.Column="1" Spacing="4" VerticalOptions="Center">
                             <Label Text="{Binding StayTitle}"
                                    FontSize="16"
                                    FontAttributes="Bold"
                                    TextColor="#1A1714"
                                    LineBreakMode="TailTruncation"
                                    MaxLines="2" />
-                            <Label Text="{Binding StayAddress}" FontSize="13" TextColor="#6E675F" IsVisible="{Binding CanOpenStayMap}" />
+                            <Label Text="{Binding StayAddress}" FontSize="12" TextColor="#8E867D" MaxLines="2" LineBreakMode="TailTruncation" IsVisible="{Binding CanOpenStayMap}" />
                             <Label Text="{Binding StayAttribution}" FontSize="11" TextColor="#6E675F" IsVisible="{Binding CanOpenStayMap}" />
                             </VerticalStackLayout>
-                            <ImageButton Grid.Column="1"
+                            <BoxView Grid.Column="2" BackgroundColor="#E5DED5" IsVisible="{Binding CanOpenStayMap}" />
+                            <ImageButton Grid.Column="3"
                                          Source="tab_map.svg"
                                          Command="{Binding OpenStayMapCommand}"
                                          IsVisible="{Binding CanOpenStayMap}"
@@ -130,7 +132,7 @@
 
                     <CollectionView ItemsSource="{Binding DayFilters}"
                                     SelectionMode="None"
-                                    HeightRequest="84"
+                                    HeightRequest="88"
                                     HorizontalScrollBarVisibility="Never">
                         <CollectionView.ItemsLayout>
                             <LinearItemsLayout Orientation="Horizontal"
@@ -139,13 +141,13 @@
                         <CollectionView.ItemTemplate>
                             <DataTemplate x:DataType="viewModels:ScheduleDayFilterViewModel">
                                 <Border WidthRequest="68"
-                                        HeightRequest="80"
+                                        HeightRequest="84"
                                         Padding="10,9"
                                         BackgroundColor="{Binding BackgroundColor}"
                                         Stroke="{Binding BorderColor}"
                                         StrokeThickness="1">
                                     <Border.StrokeShape>
-                                        <RoundRectangle CornerRadius="0" />
+                                        <RoundRectangle CornerRadius="10" />
                                     </Border.StrokeShape>
                                     <Border.GestureRecognizers>
                                         <TapGestureRecognizer Tapped="OnDayFilterTapped" />
@@ -175,7 +177,8 @@
                     <Border IsVisible="{Binding IsSelectedDayLocked}" Style="{StaticResource NoticePanel}">
                         <Label Text="{Binding LockedDayMessage}" TextColor="#5F4B25" />
                     </Border>
-                    <Button Text="{Binding ImproveDayLabel}"
+                    <Grid IsVisible="{Binding ShowImproveDay}" MinimumHeightRequest="68">
+                    <Button Text=""
                             Command="{Binding ImproveDayCommand}"
                             IsVisible="{Binding ShowImproveDay}"
                             IsEnabled="{Binding IsNotBusy}"
@@ -183,10 +186,23 @@
                             HorizontalOptions="Fill"
                             BackgroundColor="{StaticResource Gold}"
                             TextColor="White"
-                            CornerRadius="0"
+                            CornerRadius="36"
                             FontSize="14"
                             Padding="16,12"
-                            MinimumHeightRequest="48" />
+                            MinimumHeightRequest="68">
+                        <Button.Shadow><Shadow Brush="#BD9568" Offset="0,5" Radius="16" Opacity="0.35" /></Button.Shadow>
+                    </Button>
+                    <Grid ColumnDefinitions="36,*,36" ColumnSpacing="12" Padding="22,12" InputTransparent="True">
+                        <Image Source="today_sparkles.svg" HeightRequest="30" WidthRequest="30" />
+                        <VerticalStackLayout Grid.Column="1" Spacing="3" VerticalOptions="Center">
+                            <Label Text="{Binding ImproveDayLabel}" TextColor="White" FontSize="16" />
+                            <Label Text="{Binding ImproveDaySubtitle}" TextColor="#F1E5D5" FontSize="10" />
+                        </VerticalStackLayout>
+                        <Border Grid.Column="2" BackgroundColor="#30FFFFFF" StrokeThickness="0" StrokeShape="RoundRectangle 18" HeightRequest="36" VerticalOptions="Center">
+                            <Label Text="→" FontSize="24" TextColor="White" HorizontalTextAlignment="Center" VerticalTextAlignment="Center" />
+                        </Border>
+                    </Grid>
+                    </Grid>
 
                     <Border Padding="18,16"
                             BackgroundColor="{Binding SelectedDayReview.BackgroundColor}"
@@ -413,7 +429,23 @@
                                                FontSize="16"
                                                LineHeight="1.35"
                                                TextColor="#4D4741"
-                                               IsVisible="{Binding HasDescription}" />
+                                               IsVisible="{Binding ShowDescription}" />
+
+                                        <VerticalStackLayout IsVisible="{Binding IsEmpty}" Spacing="14">
+                                            <Border Padding="16,18" Stroke="#E4DCD1" StrokeDashArray="4,3" StrokeShape="RoundRectangle 8" BackgroundColor="#FAF6F0">
+                                                <Grid ColumnDefinitions="34,*" ColumnSpacing="14">
+                                                    <Image Source="today_folded_map.svg" WidthRequest="26" HeightRequest="26" />
+                                                    <VerticalStackLayout Grid.Column="1" Spacing="4">
+                                                        <Label Text="{Binding EmptyTitle}" FontFamily="serif" FontSize="20" TextColor="#1A1714" />
+                                                        <Label Text="{Binding EmptySubtitle}" FontSize="12" TextColor="#8E867D" />
+                                                    </VerticalStackLayout>
+                                                </Grid>
+                                            </Border>
+                                            <Grid ColumnDefinitions="24,*" ColumnSpacing="10" IsVisible="{Binding CanAddItem}">
+                                                <Image Source="today_bulb.svg" HeightRequest="24" WidthRequest="24" VerticalOptions="Start" />
+                                                <Label Grid.Column="1" Text="{Binding EmptyHint}" FontSize="12" TextColor="#8E867D" />
+                                            </Grid>
+                                        </VerticalStackLayout>
 
                                         <VerticalStackLayout Spacing="8"
                                                              IsVisible="{Binding HasLocations}">
@@ -426,7 +458,7 @@
                                                                  BindableLayout.ItemsSource="{Binding Locations}">
                                                 <BindableLayout.ItemTemplate>
                                                     <DataTemplate x:DataType="viewModels:TodayLocationViewModel">
-                                                        <Grid ColumnDefinitions="*,Auto"
+                                                        <Grid ColumnDefinitions="*,44"
                                                               ColumnSpacing="12"
                                                               Padding="0,2">
                                                             <VerticalStackLayout Spacing="3">
@@ -476,8 +508,9 @@
                                                                 </HorizontalStackLayout>
                                                             </VerticalStackLayout>
                                                             <VerticalStackLayout Grid.Column="1"
-                                                                                 Spacing="20"
-                                                                                 VerticalOptions="Center">
+                                                                                 Spacing="0"
+                                                                                 VerticalOptions="Start"
+                                                                                 HorizontalOptions="Center">
                                                                 <Image Source="tab_map.svg"
                                                                        WidthRequest="24"
                                                                        HeightRequest="24"

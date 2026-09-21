@@ -7,6 +7,7 @@ public interface ILocalReservationNotifications
 {
     Task<bool> RequestPermissionAsync();
     Task ReplaceAsync(IReadOnlyList<ReservationReminderDto> reminders);
+    Task ShowTestAsync(string title, string body);
 }
 
 public sealed class ReservationReminderService(AuthSessionService session, TravelCompanionApiClient api,
@@ -95,4 +96,5 @@ public sealed class UnsupportedReservationNotifications : ILocalReservationNotif
 {
     public Task<bool> RequestPermissionAsync() => Task.FromResult(false);
     public Task ReplaceAsync(IReadOnlyList<ReservationReminderDto> reminders) => Task.CompletedTask;
+    public Task ShowTestAsync(string title, string body) => Task.CompletedTask;
 }

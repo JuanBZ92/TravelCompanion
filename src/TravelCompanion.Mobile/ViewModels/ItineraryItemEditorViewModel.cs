@@ -14,7 +14,8 @@ public sealed partial class ItineraryItemEditorViewModel(
     MobileTodayStore todayStore,
     MobileSyncStateStore syncStateStore,
     MapViewModel mapViewModel,
-    BuilderTripStore builderTripStore) : ViewModelBase
+    BuilderTripStore builderTripStore,
+    ILocalReservationNotifications notifications) : ViewModelBase
 {
     private static readonly IReadOnlyList<ItineraryFlexibilityOption> FlexibilityChoices =
     [
@@ -28,6 +29,40 @@ public sealed partial class ItineraryItemEditorViewModel(
     private DateTime _maximumDate = DateTime.Today.AddYears(2);
     private string _selectedPeriod = "Tarde";
     private bool _useExactTime;
+    private bool _reminderEnabled;
+    public bool ReminderEnabled { get => _reminderEnabled; set { if (SetProperty(ref _reminderEnabled, value)) RefreshReminderPreview(); } }
+    private string? _tripTimeZone;
+    private string _reminderPreview = string.Empty;
+    public string ReminderPreview { get => _reminderPreview; private set => SetProperty(ref _reminderPreview, value); }
+    private string? ReservationTimeZone => _existingItem?.TimeZoneId ?? _tripTimeZone;
+    public string ReservationTimeZoneLabel => string.Format(CultureInfo.CurrentUICulture,
+        LocalizationResourceManager.Instance["ItemTimeZone"],
+        ReservationTimeZone == "Asia/Tokyo" ? LocalizationResourceManager.Instance["ItemJapanTime"] : ReservationTimeZone ?? "—");
+
+    public void RefreshReminderPreview()
+    {
+        OnPropertyChanged(nameof(ReservationTimeZoneLabel));
+        if (!UseExactTime || !ReminderEnabled) { ReminderPreview = string.Empty; return; }
+        var next = ReservationReminderPolicy.Create(Guid.Empty, _existingItem?.Type ?? ReservationType.Event,
+            DateOnly.FromDateTime(Date), TimeOnly.FromTimeSpan(Time), ReservationTimeZone ?? "", TitleText,
+            DateTimeOffset.UtcNow, false).FirstOrDefault();
+        ReminderPreview = next is null ? LocalizationResourceManager.Instance["ItemNoUpcomingReminder"]
+            : string.Format(CultureInfo.CurrentUICulture, LocalizationResourceManager.Instance["ItemNextReminder"],
+                next.NotifyAtUtc.ToLocalTime().ToString("f", CultureInfo.CurrentUICulture));
+    }
+
+    [RelayCommand]
+    private Task TestReminderAsync() => LoadAsync(async () =>
+    {
+        if (!await notifications.RequestPermissionAsync())
+        {
+            ErrorMessage = LocalizationResourceManager.Instance["ItemReminderPermission"];
+            return;
+        }
+        await notifications.ShowTestAsync(LocalizationResourceManager.Instance["ItemTestReminder"],
+            LocalizationResourceManager.Instance["ItemTestReminderBody"]);
+        StatusMessage = LocalizationResourceManager.Instance["ItemTestReminderSent"];
+    });
     private TimeSpan _time = new(15, 0, 0);
     private string _durationMinutes = string.Empty;
     private ItineraryFlexibilityOption _selectedFlexibility = FlexibilityChoices[0];
@@ -88,14 +123,15 @@ public sealed partial class ItineraryItemEditorViewModel(
             {
                 CancelPlaceSearch();
                 RefreshCurrentCity();
+                RefreshReminderPreview();
             }
         }
     }
     public DateTime MinimumDate { get => _minimumDate; private set => SetProperty(ref _minimumDate, value); }
     public DateTime MaximumDate { get => _maximumDate; private set => SetProperty(ref _maximumDate, value); }
     public string SelectedPeriod { get => _selectedPeriod; set => SetProperty(ref _selectedPeriod, value); }
-    public bool UseExactTime { get => _useExactTime; set => SetProperty(ref _useExactTime, value); }
-    public TimeSpan Time { get => _time; set => SetProperty(ref _time, value); }
+    public bool UseExactTime { get => _useExactTime; set { if (SetProperty(ref _useExactTime, value)) RefreshReminderPreview(); } }
+    public TimeSpan Time { get => _time; set { if (SetProperty(ref _time, value)) RefreshReminderPreview(); } }
     public string DurationMinutes { get => _durationMinutes; set => SetProperty(ref _durationMinutes, value); }
     public ItineraryFlexibilityOption SelectedFlexibility { get => _selectedFlexibility; set => SetProperty(ref _selectedFlexibility, value); }
     public string Notes { get => _notes; set => SetProperty(ref _notes, value); }
@@ -121,6 +157,7 @@ public sealed partial class ItineraryItemEditorViewModel(
     {
         CancelPlaceSearch();
         _existingItem = null;
+        ReminderEnabled = false;
         _recommendation = recommendation;
         _fallbackCity = recommendation.Neighborhood.Split(',')[0].Trim();
         _applyingPlaceSelection = true;
@@ -161,6 +198,7 @@ public sealed partial class ItineraryItemEditorViewModel(
     {
         CancelPlaceSearch();
         _existingItem = null;
+        ReminderEnabled = false;
         _recommendation = null;
         _fallbackCity = string.Empty;
         _applyingPlaceSelection = true;
@@ -193,12 +231,14 @@ public sealed partial class ItineraryItemEditorViewModel(
         _selectedGooglePlaceId = item.ItemSource == ItineraryItemSource.GooglePlace
             ? item.ProviderPlaceId
             : null;
-        _selectedLatitude = null;
-        _selectedLongitude = null;
+        // Keep coordinate-only locations too (catalog suggestions need not have a Google ID).
+        _selectedLatitude = item.Latitude;
+        _selectedLongitude = item.Longitude;
         Notes = item.Notes;
         Date = item.Date.ToDateTime(TimeOnly.MinValue);
         SelectedPeriod = item.StartsAt.Hour switch { < 12 => "Mañana", < 15 => "Medio día", < 19 => "Tarde", _ => "Noche" };
         UseExactTime = item.HasExactTime;
+        ReminderEnabled = ReservationReminderPolicy.IsEligible(item.Type, item.TimePrecision, item.PlanningKind, item.Flexibility, item.ReminderEnabled);
         Time = item.StartsAt.ToTimeSpan();
         DurationMinutes = (item.DurationMinutes ?? (item.EndsAt.HasValue
             ? Math.Max(15, (int)(item.EndsAt.Value.ToTimeSpan() - item.StartsAt.ToTimeSpan()).TotalMinutes) : (int?)null))
@@ -413,7 +453,8 @@ public sealed partial class ItineraryItemEditorViewModel(
             recommendationId.HasValue ? _recommendation?.Neighborhood.Split(',')[0] ?? CurrentCity : CurrentCity,
             LocationName, Address,
             Notes, _recommendation?.Latitude ?? _selectedLatitude, _recommendation?.Longitude ?? _selectedLongitude,
-            _revision, Guid.NewGuid().ToString("N"), Flexibility: SelectedFlexibility.Value, DurationMinutes: duration);
+            _revision, Guid.NewGuid().ToString("N"), Flexibility: SelectedFlexibility.Value, DurationMinutes: duration,
+            ReminderEnabled: UseExactTime && ReminderEnabled);
         var result = await SaveMutationAsync(mutation);
         if (!_editorContext.IsCurrent(sessionService.ContextVersion)) return;
         if (result?.HasOverlap == true)
@@ -493,6 +534,8 @@ public sealed partial class ItineraryItemEditorViewModel(
             return null;
         }
         if (setup is null) return null;
+        _tripTimeZone = setup.TimeZoneId;
+        RefreshReminderPreview();
         _segments = setup?.Segments ?? [];
         if (setup?.ArrivalDate is { } arrivalDate)
         {

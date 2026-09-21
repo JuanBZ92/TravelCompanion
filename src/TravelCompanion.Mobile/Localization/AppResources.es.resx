@@ -217,7 +217,11 @@
   <data name="CommonContinue" xml:space="preserve"><value>Continuar</value></data>
   <data name="AssistantFullDaySaved" xml:space="preserve"><value>Se agregaron {0} planes directamente a este día.</value></data>
   <data name="AssistantFullDayPartiallySaved" xml:space="preserve"><value>Se agregaron {0} de {1} planes. Volvé a intentar para completar el día sin duplicados.</value></data>
-  <data name="TodayImproveDay" xml:space="preserve"><value>Mejorar el día</value></data>
+  <data name="TodayImproveDay" xml:space="preserve"><value>Mejorar el día con IA</value></data>
+  <data name="TodayImproveSubtitle" xml:space="preserve"><value>Genera recomendaciones personalizadas</value></data>
+  <data name="TodayEmptyTitle" xml:space="preserve"><value>Libre</value></data>
+  <data name="TodayEmptySubtitle" xml:space="preserve"><value>Aún no hay planes para esta franja</value></data>
+  <data name="TodayEmptyHint" xml:space="preserve"><value>Pulsa “Mejorar el día” para descubrir ideas según tus intereses.</value></data>
   <data name="AssistantFullDayPreparing" xml:space="preserve"><value>Armando tu día...</value></data>
   <data name="AssistantFullDayProgress" xml:space="preserve"><value>{0} de {1} planes listos.</value></data>
   <data name="CommonSave" xml:space="preserve"><value>Guardar</value></data>
@@ -329,4 +333,14 @@
   <data name="ItineraryDeleteRefreshFailed" xml:space="preserve"><value>No pudimos consultar el itinerario actualizado. Comprueba la conexión y vuelve a intentar eliminarlo.</value></data>
   <data name="ItineraryDeleteConflict" xml:space="preserve"><value>El itinerario cambió mientras confirmabas. Pulsa de nuevo Eliminar itinerario para confirmar la versión actualizada.</value></data>
   <data name="AssistantChangeReason" xml:space="preserve"><value>¿Qué querés cambiar? Se aplica a todos los planes seleccionados.</value></data>
+  <data name="ItemReminderQuestion" xml:space="preserve"><value>¿Quieres un recordatorio?</value></data>
+  <data name="ItemReminderHint" xml:space="preserve"><value>Te avisaremos 3 horas y 45 minutos antes. Vuelos y check-in también 24 horas antes. Requiere permitir notificaciones.</value></data>
+  <data name="ItemTimeZone" xml:space="preserve"><value>Horario de la reserva: {0}</value></data>
+  <data name="ItemJapanTime" xml:space="preserve"><value>Japón (Asia/Tokyo)</value></data>
+  <data name="ItemNextReminder" xml:space="preserve"><value>Próximo aviso: {0}, hora de tu teléfono. Se programará al guardar.</value></data>
+  <data name="ItemNoUpcomingReminder" xml:space="preserve"><value>No quedan avisos futuros para este horario. Revisa la fecha y la zona horaria de la reserva.</value></data>
+  <data name="ItemReminderPermission" xml:space="preserve"><value>Permite las notificaciones en los ajustes del teléfono para recibir los avisos.</value></data>
+  <data name="ItemTestReminder" xml:space="preserve"><value>Probar notificación</value></data>
+  <data name="ItemTestReminderBody" xml:space="preserve"><value>Esta es una prueba de recepción. No modifica tus reservas ni comprueba la puntualidad de las alarmas.</value></data>
+  <data name="ItemTestReminderSent" xml:space="preserve"><value>Prueba enviada. Revisa las notificaciones del teléfono.</value></data>
 </root>

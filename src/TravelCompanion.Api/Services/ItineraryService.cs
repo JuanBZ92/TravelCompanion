@@ -264,7 +264,7 @@ public sealed class ItineraryService(
             reservation.DestinationAirport,
             reservation.PlanningKind, reservation.Owner, reservation.ItemSource, reservation.TimePrecision,
             reservation.SortOrder, reservation.ProviderPlaceId, reservation.Latitude, reservation.Longitude,
-            reservation.Flexibility, reservation.DurationMinutes);
+            reservation.Flexibility, reservation.DurationMinutes, reservation.ReminderEnabled, reservation.TimeZoneId);
     }
 
     private static RecommendationInteractionSignal CreateSavedSignal(

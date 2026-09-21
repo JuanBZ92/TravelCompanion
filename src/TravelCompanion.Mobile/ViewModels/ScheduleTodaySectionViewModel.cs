@@ -51,6 +51,11 @@ public sealed class ScheduleTodaySectionViewModel(
     public bool HasLocations => Locations.Count > 0;
     public bool HasReservations => Reservations.Count > 0;
     public bool HasContent => HasLocations || HasReservations;
+    public bool IsEmpty => !HasContent;
+    public bool ShowDescription => HasContent && HasDescription;
+    public string EmptyTitle => LocalizationResourceManager.Instance["TodayEmptyTitle"];
+    public string EmptySubtitle => LocalizationResourceManager.Instance["TodayEmptySubtitle"];
+    public string EmptyHint => LocalizationResourceManager.Instance["TodayEmptyHint"];
     public string Description { get; } = NormalizeDescription(
         periodLabel,
         description,

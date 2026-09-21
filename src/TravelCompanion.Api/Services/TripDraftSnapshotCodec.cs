@@ -32,7 +32,7 @@ public static class TripDraftSnapshotCodec
                 item.EndsAt, item.TimeZoneId, item.Title, item.City, item.LocationName, item.Address,
                 item.ConfirmationCode, item.Notes, item.Latitude, item.Longitude, item.Airline, item.FlightNumber,
                 item.OriginName, item.DestinationName, item.OriginAirport, item.DestinationAirport,
-                item.SourceName, item.SourceUrl)).ToList(),
+                item.SourceName, item.SourceUrl, item.ReminderEnabled)).ToList(),
             trip.Documents.Select(item => new DocumentSnapshot(item.Id, item.ExternalId, item.Category,
                 item.Title, item.Subtitle, item.FileUrl, item.SortOrder)).ToList(),
             trip.PlanDraft is null ? null : new PlanDraftSnapshot(trip.PlanDraft.BasePlanRevision,
@@ -85,7 +85,7 @@ public static class TripDraftSnapshotCodec
                 Id = item.Id, ClientMutationId = item.ClientMutationId, ExternalId = item.ExternalId, TripId = trip.Id,
                 TripDayBlockId = item.TripDayBlockId, RecommendationId = item.RecommendationId, Type = item.Type,
                 PlanningKind = item.PlanningKind, Owner = item.Owner, ItemSource = item.ItemSource,
-                TimePrecision = item.TimePrecision, Flexibility = item.Flexibility, DurationMinutes = item.DurationMinutes,
+                ReminderEnabled = item.ReminderEnabled, TimePrecision = item.TimePrecision, Flexibility = item.Flexibility, DurationMinutes = item.DurationMinutes,
                 SortOrder = item.SortOrder, ProviderPlaceId = item.ProviderPlaceId, Date = item.Date,
                 StartsAt = item.StartsAt, EndsOn = item.EndsOn, EndsAt = item.EndsAt, TimeZoneId = item.TimeZoneId,
                 Title = item.Title, City = item.City, LocationName = item.LocationName, Address = item.Address,
@@ -143,5 +143,5 @@ public static class TripDraftSnapshotCodec
         string Title, string City, string LocationName, string Address, string ConfirmationCode, string Notes,
         decimal? Latitude, decimal? Longitude, string? Airline, string? FlightNumber, string? OriginName,
         string? DestinationName, string? OriginAirport, string? DestinationAirport, string? SourceName,
-        string? SourceUrl);
+        string? SourceUrl, bool? ReminderEnabled = null);
 }

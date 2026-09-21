@@ -20,8 +20,10 @@ public sealed class ReservationReminderEndpointTests
         Assert.IsType<UnauthorizedResult>((await controller.GetReminders("es", default)).Result);
     }
 
-    [Fact]
-    public async Task Only_selected_owned_trip_exact_reservations_are_returned_and_deletion_removes_them()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Only_selected_owned_trip_exact_reservations_are_returned_and_deletion_removes_them(bool optInFlexible)
     {
         await using var db = Database();
         var user = new AppUser { Id = Guid.NewGuid(), Email = "reminders@test.invalid", DisplayName = "Test" };
@@ -31,6 +33,15 @@ public sealed class ReservationReminderEndpointTests
         var foreign = new Trip { Id = Guid.NewGuid(), AppUserId = Guid.NewGuid(), TravelerName = "Foreign" };
         db.Trips.AddRange(trip, another, foreign);
         var reservation = Item(trip.Id);
+        if (optInFlexible)
+        {
+            reservation.PlanningKind = ScheduleItemKind.ManualEvent;
+            reservation.Flexibility = ItineraryFlexibility.Flexible;
+            reservation.ReminderEnabled = true;
+        }
+        var optedOut = Item(trip.Id);
+        optedOut.ReminderEnabled = false;
+        db.Reservations.Add(optedOut);
         var flexible = Item(trip.Id); flexible.TimePrecision = ItineraryTimePrecision.PeriodOnly;
         db.Reservations.AddRange(reservation, flexible, Item(another.Id), Item(foreign.Id));
         await db.SaveChangesAsync();

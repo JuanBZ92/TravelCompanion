@@ -778,7 +778,7 @@ public sealed class DayProposalService(
     private static ReservationSnapshot ToSnapshot(Reservation item) => new(item.Id, item.TripId, item.TripDayBlockId, item.RecommendationId,
         item.Type, item.PlanningKind, item.Owner, item.ItemSource, item.TimePrecision, item.Flexibility, item.DurationMinutes, item.SortOrder,
         item.ProviderPlaceId, item.Date, item.StartsAt, item.EndsOn, item.EndsAt, item.TimeZoneId, item.Title, item.City, item.LocationName,
-        item.Address, item.ConfirmationCode, item.Notes, item.Latitude, item.Longitude, item.SourceName, item.SourceUrl);
+        item.Address, item.ConfirmationCode, item.Notes, item.Latitude, item.Longitude, item.SourceName, item.SourceUrl, item.ReminderEnabled);
     private static Reservation FromSnapshot(ReservationSnapshot x) => new()
     {
         Id=x.Id, TripId=x.TripId, TripDayBlockId=x.TripDayBlockId, RecommendationId=x.RecommendationId, Type=x.Type,
@@ -786,7 +786,7 @@ public sealed class DayProposalService(
         DurationMinutes=x.DurationMinutes, SortOrder=x.SortOrder, ProviderPlaceId=x.ProviderPlaceId, Date=x.Date, StartsAt=x.StartsAt,
         EndsOn=x.EndsOn, EndsAt=x.EndsAt, TimeZoneId=x.TimeZoneId, Title=x.Title, City=x.City, LocationName=x.LocationName,
         Address=x.Address, ConfirmationCode=x.ConfirmationCode, Notes=x.Notes, Latitude=x.Latitude, Longitude=x.Longitude,
-        SourceName=x.SourceName, SourceUrl=x.SourceUrl
+        ReminderEnabled=x.ReminderEnabled, SourceName=x.SourceName, SourceUrl=x.SourceUrl
     };
     private static void RestoreSnapshot(Reservation item, ReservationSnapshot x)
     {
@@ -796,14 +796,14 @@ public sealed class DayProposalService(
         item.ProviderPlaceId=x.ProviderPlaceId; item.Date=x.Date; item.StartsAt=x.StartsAt; item.EndsOn=x.EndsOn; item.EndsAt=x.EndsAt;
         item.TimeZoneId=x.TimeZoneId; item.Title=x.Title; item.City=x.City; item.LocationName=x.LocationName; item.Address=x.Address;
         item.ConfirmationCode=x.ConfirmationCode; item.Notes=x.Notes; item.Latitude=x.Latitude; item.Longitude=x.Longitude;
-        item.SourceName=x.SourceName; item.SourceUrl=x.SourceUrl;
+        item.ReminderEnabled=x.ReminderEnabled; item.SourceName=x.SourceName; item.SourceUrl=x.SourceUrl;
     }
     private sealed record ReservationSnapshot(Guid Id, Guid TripId, Guid? TripDayBlockId, Guid? RecommendationId,
         ReservationType Type, ScheduleItemKind PlanningKind, ItineraryItemOwner Owner, ItineraryItemSource ItemSource,
         ItineraryTimePrecision TimePrecision, ItineraryFlexibility Flexibility, int? DurationMinutes, int SortOrder,
         string? ProviderPlaceId, DateOnly Date, TimeOnly StartsAt, DateOnly? EndsOn, TimeOnly? EndsAt, string? TimeZoneId,
         string Title, string City, string LocationName, string Address, string ConfirmationCode, string Notes,
-        decimal? Latitude, decimal? Longitude, string? SourceName, string? SourceUrl);
+        decimal? Latitude, decimal? Longitude, string? SourceName, string? SourceUrl, bool? ReminderEnabled = null);
     private sealed record RouteLinkSnapshot(Guid StopId, Guid ItineraryItemId);
     private sealed record OperationSnapshot(IReadOnlyList<ReservationSnapshot> Reservations,
         IReadOnlyList<RouteLinkSnapshot> RouteLinks);

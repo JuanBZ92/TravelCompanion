@@ -5,6 +5,35 @@ namespace TravelCompanion.Shared.Tests;
 public sealed class ReservationReminderPolicyTests
 {
     [Fact]
+    public void Tokyo_reservation_has_same_instant_in_Barcelona_and_Japan()
+    {
+        var now = new DateTimeOffset(2026, 9, 21, 9, 30, 0, TimeSpan.Zero);
+        var reminder = ReservationReminderPolicy.Create(Guid.NewGuid(), ReservationType.Event,
+            new(2026, 9, 21), new(21, 31), "Asia/Tokyo", "Test", now, true).First();
+        Assert.Equal(now.AddMinutes(1), reminder.NotifyAtUtc);
+        var barcelona = TimeZoneInfo.ConvertTime(reminder.NotifyAtUtc, TimeZoneInfo.FindSystemTimeZoneById("Europe/Madrid"));
+        var tokyo = TimeZoneInfo.ConvertTime(reminder.NotifyAtUtc, TimeZoneInfo.FindSystemTimeZoneById("Asia/Tokyo"));
+        Assert.Equal(11, barcelona.Hour);
+        Assert.Equal(31, barcelona.Minute);
+        Assert.Equal(18, tokyo.Hour);
+        Assert.Equal(barcelona.UtcDateTime, tokyo.UtcDateTime);
+    }
+
+    [Theory]
+    [InlineData(ItineraryFlexibility.Flexible)]
+    [InlineData(ItineraryFlexibility.FixedByTraveler)]
+    [InlineData(ItineraryFlexibility.ConfirmedReservation)]
+    public void Explicit_preference_overrides_flexibility_but_requires_time(ItineraryFlexibility flexibility)
+    {
+        Assert.True(ReservationReminderPolicy.IsEligible(ReservationType.Event, ItineraryTimePrecision.Exact,
+            ScheduleItemKind.ManualEvent, flexibility, true));
+        Assert.False(ReservationReminderPolicy.IsEligible(ReservationType.Event, ItineraryTimePrecision.Exact,
+            ScheduleItemKind.ConfirmedReservation, flexibility, false));
+        Assert.False(ReservationReminderPolicy.IsEligible(ReservationType.Event, ItineraryTimePrecision.PeriodOnly,
+            ScheduleItemKind.ManualEvent, flexibility, true));
+    }
+
+    [Fact]
     public void City_change_notifies_previous_day_at_nine_local_once_and_disappears_if_removed()
     {
         var id = Guid.NewGuid();

@@ -115,24 +115,35 @@ public sealed class ReservationNotifications : ILocalReservationNotifications
         {
             var reminder = Read().FirstOrDefault(item => item.Id == id && item.NotifyAtUtc.ToUnixTimeMilliseconds() == at);
             if (reminder is null || DateTimeOffset.UtcNow > reminder.NotifyAtUtc.AddMinutes(30)) return;
+            ShowNotification(reminder.Id, reminder.Title, reminder.Body);
+        }
+    }
+
+    public Task ShowTestAsync(string title, string body)
+    {
+        ShowNotification("reminder-test", title, body);
+        return Task.CompletedTask;
+    }
+
+    private static void ShowNotification(string id, string title, string body)
+    {
             EnsureChannel();
             using var launch = new Intent(Context, typeof(MainActivity));
             launch.AddFlags(ActivityFlags.SingleTop | ActivityFlags.ClearTop);
             using var tap = PendingIntent.GetActivity(Context, 0, launch, PendingIntentFlags.UpdateCurrent | PendingIntentFlags.Immutable);
             using var builder = new NotificationCompat.Builder(Context, Channel);
             builder.SetSmallIcon(Resource.Drawable.reminder_notification);
-            builder.SetContentTitle(reminder.Title);
-            builder.SetContentText(reminder.Body);
+            builder.SetContentTitle(title);
+            builder.SetContentText(body);
             using var style = new NotificationCompat.BigTextStyle();
-            style.BigText(reminder.Body);
+            style.BigText(body);
             builder.SetStyle(style);
             builder.SetContentIntent(tap);
             builder.SetAutoCancel(true);
             builder.SetVisibility(NotificationCompat.VisibilityPrivate);
             using var notification = builder.Build();
             if (NotificationManagerCompat.From(Context)!.AreNotificationsEnabled())
-                NotificationManagerCompat.From(Context)!.Notify(reminder.Id, 0, notification);
-        }
+                NotificationManagerCompat.From(Context)!.Notify(id, 0, notification);
     }
 
     private static void EnsureChannel()
