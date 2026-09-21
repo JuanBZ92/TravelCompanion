@@ -37,3 +37,9 @@ This implementation has not been deployed or uploaded as a new APK in this chang
 - Crear/editar respeta PeriodKey incluso cuando no coincide con StartsAt. Se reutiliza la relación persistida TripDayBlock; no requiere migración. El contrato de agenda incorpora PeriodKey y CuratedNotes opcionales.
 - La agrupación remota/local y el editor conservan el momento al recargar o convertir la hora local. Los registros históricos sin bloque mantienen la agrupación por hora.
 - Validación: pruebas de resumen y prioridad personal; caso Noche a las 15:00 al editar, consultar Today y recargar setup. Android compilado sin errores. Pendiente prueba visual en dispositivo.
+## Visibilidad de autocompletado con teclado (2026-09-21)
+
+- Ciudad y hotel en Tu viaje, y lugar en el editor de eventos, desplazan el campo enfocado al inicio del ScrollView.
+- Se recalcula tras cambios de tamaño del formulario/teclado y al aparecer resultados. Un espacio inferior permite subir también el último campo.
+- Al perder foco se conserva la posición. Al salir se desconectan los eventos y se invalidan las acciones demoradas. SafeAreaEdges All se declara explícitamente en ambos formularios.
+- Validación pendiente en dispositivo: enfocar ciudad/hotel de la última ciudad, buscar con teclado abierto, tocar resultados, cambiar rápidamente de campo, cerrar teclado y salir antes de terminar una búsqueda; repetir con lugar de evento y letra grande.

@@ -7,9 +7,10 @@
              x:Name="PageRoot"
              x:DataType="viewModels:BuilderSetupViewModel"
              Title="Tu viaje"
+             SafeAreaEdges="All"
              BackgroundColor="#F8F3ED">
     <Grid RowDefinitions="*,Auto">
-        <ScrollView>
+        <ScrollView x:Name="FormScroll">
             <VerticalStackLayout Padding="24,20" Spacing="22">
                 <VerticalStackLayout Spacing="6">
                     <Label Text="{Binding HeaderEyebrow}" CharacterSpacing="3" FontSize="11" TextColor="#8E867D" />
@@ -41,6 +42,7 @@
                                            Grid.ColumnSpan="2"
                                            Placeholder="Hotel o base (opcional)"
                                            Text="{Binding HotelName}"
+                                           Focused="OnSuggestionInputFocused"
                                            TextChanged="OnHotelTextChanged" />
                                     <VerticalStackLayout Grid.Row="4" Grid.ColumnSpan="2">
                                         <VerticalStackLayout BindableLayout.ItemsSource="{Binding HotelSuggestions}">
@@ -81,6 +83,8 @@
                 </Border>
                 <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
                 <Label Text="{Binding StatusMessage}" IsVisible="{Binding HasStatus}" FontSize="13" TextColor="#6E675F" />
+                <BoxView x:Name="SuggestionScrollSpace" HeightRequest="0" InputTransparent="True"
+                         Color="Transparent" AutomationProperties.IsInAccessibleTree="False" />
             </VerticalStackLayout>
         </ScrollView>
         <Grid Grid.Row="1" Padding="20,12" ColumnDefinitions="*,*" ColumnSpacing="12" BackgroundColor="#FFFDF9">

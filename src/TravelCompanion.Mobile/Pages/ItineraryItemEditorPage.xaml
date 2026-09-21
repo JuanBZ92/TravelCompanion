@@ -7,9 +7,10 @@
              x:Class="TravelCompanion.Mobile.Pages.ItineraryItemEditorPage"
              x:DataType="viewModels:ItineraryItemEditorViewModel"
              Title="Agregar al itinerario"
+             SafeAreaEdges="All"
              BackgroundColor="#F8F3ED">
     <Grid RowDefinitions="*,Auto">
-        <ScrollView>
+        <ScrollView x:Name="FormScroll">
             <VerticalStackLayout Padding="24" Spacing="20">
                 <Label Text="AGREGAR AL ITINERARIO" CharacterSpacing="3" FontSize="11" TextColor="#8E867D" />
                 <Label Text="{Binding HeaderTitle}" FontFamily="serif" FontSize="32" TextColor="#1A1714" />
@@ -19,6 +20,7 @@
                     <Entry x:Name="PlaceEntry"
                            Placeholder="Lugar (opcional)"
                            Text="{Binding LocationName}"
+                           Focused="OnSuggestionInputFocused"
                            TextChanged="OnPlaceTextChanged"
                            SemanticProperties.Hint="Escribe un lugar para ver sugerencias" />
                     <VerticalStackLayout Spacing="0"
@@ -80,6 +82,8 @@
                 <Editor Placeholder="Notas personales (opcional)" Text="{Binding Notes}" AutoSize="TextChanges" MinimumHeightRequest="100" />
                 <Border IsVisible="{Binding HasError}" Style="{StaticResource ErrorPanel}"><Label Text="{Binding ErrorMessage}" /></Border>
                 <ActivityIndicator IsVisible="{Binding IsBusy}" IsRunning="{Binding IsBusy}" />
+                <BoxView x:Name="SuggestionScrollSpace" HeightRequest="0" InputTransparent="True"
+                         Color="Transparent" AutomationProperties.IsInAccessibleTree="False" />
             </VerticalStackLayout>
         </ScrollView>
         <Grid Grid.Row="1" Padding="20,12" ColumnDefinitions="*,*" ColumnSpacing="12" BackgroundColor="#FFFDF9">

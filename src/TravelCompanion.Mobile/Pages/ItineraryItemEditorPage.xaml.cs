@@ -1,3 +1,4 @@
+using TravelCompanion.Mobile.Services;
 using TravelCompanion.Mobile.ViewModels;
 using TravelCompanion.Shared.Dtos;
 
@@ -5,10 +6,12 @@ namespace TravelCompanion.Mobile.Pages;
 
 public partial class ItineraryItemEditorPage : ContentPage, IQueryAttributable
 {
+    private readonly SuggestionInputScroller _suggestionScroller;
     private readonly ItineraryItemEditorViewModel _viewModel;
     public ItineraryItemEditorPage(ItineraryItemEditorViewModel viewModel)
     {
         InitializeComponent();
+        _suggestionScroller = new(FormScroll, SuggestionScrollSpace);
         BindingContext = _viewModel = viewModel;
     }
 
@@ -36,6 +39,11 @@ public partial class ItineraryItemEditorPage : ContentPage, IQueryAttributable
         }
     }
 
+    private void OnSuggestionInputFocused(object? sender, FocusEventArgs e)
+    {
+        if (sender is Entry entry) _suggestionScroller.Focus(entry);
+    }
+
     private async void OnPlaceTextChanged(object? sender, TextChangedEventArgs e)
     {
         await Task.Yield();
@@ -59,6 +67,7 @@ public partial class ItineraryItemEditorPage : ContentPage, IQueryAttributable
 
     protected override void OnDisappearing()
     {
+        _suggestionScroller.Stop();
         _viewModel.CancelPlaceSearches();
         base.OnDisappearing();
     }
