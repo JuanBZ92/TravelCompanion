@@ -3,6 +3,16 @@ using TravelCompanion.Mobile.Services;
 
 namespace TravelCompanion.Mobile.ViewModels;
 
+internal static class ItineraryNotePreview
+{
+    public static string Resolve(string? personal, string? curated)
+    {
+        if (!string.IsNullOrWhiteSpace(personal)) return personal;
+        var text = curated?.Trim() ?? string.Empty;
+        return text.Length <= 180 ? text : text[..179].TrimEnd() + "…";
+    }
+}
+
 internal static class ScheduleRecommendationFallback
 {
     public static RecommendationDto Create(ScheduleItemDto item) => new(
@@ -11,7 +21,7 @@ internal static class ScheduleRecommendationFallback
         item.Title,
         "Lugar",
         string.IsNullOrWhiteSpace(item.Address) ? item.City : item.Address,
-        item.Notes,
+        item.CuratedNotes ?? string.Empty,
         [],
         "medium",
         item.Latitude ?? 0,
@@ -181,7 +191,7 @@ public sealed class TodayLocationViewModel
     public bool CanMarkVisited => !IsAssigned;
     public bool CanRemove => AssignedItem?.IsTravelerOwned == true;
     public bool CanEdit => CanRemove;
-    public string Notes => AssignedItem?.Notes ?? string.Empty;
+    public string Notes => ItineraryNotePreview.Resolve(AssignedItem?.Notes, IsAssigned ? Recommendation.DisplayDescription : null);
     public bool HasNotes => !string.IsNullOrWhiteSpace(Notes);
     public bool HasDistance => !string.IsNullOrWhiteSpace(DistanceLabel);
     public bool HasRankReason => false;
@@ -258,7 +268,7 @@ public sealed class TodayReservationViewModel
     public string DistanceFromHotelLabel { get; }
     public bool HasDistanceFromHotel => !string.IsNullOrWhiteSpace(DistanceFromHotelLabel);
     public bool CanEdit => Item.IsTravelerOwned;
-    public string Notes => Item.Notes ?? string.Empty;
+    public string Notes => ItineraryNotePreview.Resolve(Item.Notes, Item.CuratedNotes);
     public bool HasNotes => !string.IsNullOrWhiteSpace(Notes);
     public bool HasRoutes { get; }
     public IReadOnlyList<ItineraryRouteViewModel> Routes { get; }

@@ -45,6 +45,12 @@ public sealed record ScheduleItemDto(
     bool? ReminderEnabled = null,
     string? TimeZoneId = null)
 {
+    public string? PeriodKey { get; init; }
+    public string? CuratedNotes { get; init; }
+    public bool UsesFullCard => HasExactTime || PlanningKind != ScheduleItemKind.Recommendation || !RecommendationId.HasValue;
+    public string EffectivePeriodKey => PeriodKey is "morning" or "midday" or "afternoon" or "night"
+        ? PeriodKey : StartsAt.Hour switch { < 5 => "night", < 12 => "morning", < 15 => "midday", < 20 => "afternoon", _ => "night" };
+
     public string TypeLabel => Type switch
     {
         ReservationType.Flight => "Vuelo",

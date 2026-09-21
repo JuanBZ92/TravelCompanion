@@ -137,7 +137,8 @@ public sealed class UsersController(
         var tripsQuery = dbContext.Trips
             .AsNoTracking()
             .Include(existingTrip => existingTrip.Destination)
-            .Include(existingTrip => existingTrip.Reservations)
+            .Include(existingTrip => existingTrip.Reservations).ThenInclude(reservation => reservation.Recommendation)
+            .Include(existingTrip => existingTrip.Reservations).ThenInclude(reservation => reservation.TripDayBlock)
             .Where(existingTrip => existingTrip.PublicationStatus == TripPublicationStatus.Published
                 && existingTrip.AppUserId == userId);
 

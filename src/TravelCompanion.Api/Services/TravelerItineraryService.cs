@@ -83,6 +83,7 @@ public sealed class TravelerItineraryService(
             ExternalId = externalId,
             TripId = trip.Id,
             TripDayBlockId = block.Id,
+            TripDayBlock = block,
             RecommendationId = recommendation?.Id,
             Type = ReservationType.Event,
             PlanningKind = ResolveKind(recommendation is not null || isGooglePlace, request.Flexibility),
@@ -155,6 +156,7 @@ public sealed class TravelerItineraryService(
         var timeZoneId = ResolveTimeZone(request, item.TimeZoneId ?? trip.TimeZoneId);
         item.TimeZoneId = timeZoneId;
         item.TripDayBlockId = block.Id;
+        item.TripDayBlock = block;
         item.Date = request.Date;
         item.StartsAt = request.UseExactTime ? request.StartsAt ?? period.StartsAt : period.StartsAt;
         item.EndsAt = request.UseExactTime ? request.EndsAt : null;
@@ -220,7 +222,8 @@ public sealed class TravelerItineraryService(
             ? await dbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken) : null;
         await TripConcurrencyLock.LockAsync(dbContext, access.TripId.Value, cancellationToken);
 
-        var trip = await dbContext.Trips.Include(item => item.Reservations)
+        var trip = await dbContext.Trips.Include(item => item.Reservations).ThenInclude(reservation => reservation.Recommendation)
+            .Include(item => item.Reservations).ThenInclude(reservation => reservation.TripDayBlock)
             .SingleAsync(item => item.Id == access.TripId && item.AppUserId == access.User.Id, cancellationToken);
         EnsureRevision(trip, expectedRevision);
         var item = trip.Reservations.SingleOrDefault(existing => existing.Id == id) ?? throw new KeyNotFoundException();
@@ -251,7 +254,8 @@ public sealed class TravelerItineraryService(
 
         var period = TripPlanPeriods.Find(periodKey) ?? throw new ArgumentException("Momento del dia invalido.");
         var trip = await dbContext.Trips
-            .Include(item => item.Reservations)
+            .Include(item => item.Reservations).ThenInclude(reservation => reservation.Recommendation)
+            .Include(item => item.Reservations).ThenInclude(reservation => reservation.TripDayBlock)
             .Include(item => item.DayPlans).ThenInclude(day => day.Blocks)
             .SingleAsync(item => item.Id == access.TripId && item.AppUserId == access.User.Id && item.ExperienceMode == ExperienceMode.SelfServiceBuilder, cancellationToken);
         EnsureRevision(trip, expectedRevision);
@@ -305,9 +309,8 @@ public sealed class TravelerItineraryService(
 
     private static string ResolvePeriod(ItineraryItemMutationRequest request)
     {
-        if (!request.UseExactTime) return request.PeriodKey;
-        if (request.StartsAt is null) throw new ArgumentException("Indica la hora de inicio.");
-        return TripPlanPeriods.Resolve(request.StartsAt.Value).Key;
+        if (request.UseExactTime && request.StartsAt is null) throw new ArgumentException("Indica la hora de inicio.");
+        return request.PeriodKey;
     }
 
     private static void EnsureRevision(Trip trip, int expectedRevision)
@@ -331,5 +334,12 @@ public sealed class TravelerItineraryService(
         item.Title, item.City, item.LocationName, item.Address, item.ConfirmationCode, item.Notes,
         item.Airline, item.FlightNumber, item.OriginName, item.DestinationName, item.OriginAirport,
         item.DestinationAirport, item.PlanningKind, item.Owner, item.ItemSource, item.TimePrecision,
-        item.SortOrder, item.ProviderPlaceId, item.Latitude, item.Longitude, item.Flexibility, item.DurationMinutes, item.ReminderEnabled, item.TimeZoneId);
+        item.SortOrder, item.ProviderPlaceId ?? item.Recommendation?.ProviderPlaceId,
+        item.Latitude ?? item.Recommendation?.Latitude, item.Longitude ?? item.Recommendation?.Longitude,
+        item.Flexibility, item.DurationMinutes, item.ReminderEnabled, item.TimeZoneId)
+    {
+        PeriodKey = item.TripDayBlock?.PeriodKey,
+        CuratedNotes = item.Recommendation is { } recommendation
+            ? RecommendationPresentation.ToDto(recommendation).DisplayDescription : null
+    };
 }

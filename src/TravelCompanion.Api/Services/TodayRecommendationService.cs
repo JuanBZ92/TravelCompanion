@@ -126,7 +126,7 @@ public sealed class TodayRecommendationService(
         {
             var selectedBlock = FindDayBlock(trip, selectedDate, period.Key);
             var selectedPeriodHasPlan = trip.Reservations.Any(reservation =>
-                    reservation.Date == selectedDate && period.Contains(reservation.StartsAt))
+                    reservation.Date == selectedDate && (reservation.TripDayBlock is { } assignedBlock ? assignedBlock.PeriodKey == period.Key : period.Contains(reservation.StartsAt)))
                 || selectedBlock?.AutofillEnabled == false;
             if (selectedPeriodHasPlan)
             {
@@ -156,7 +156,7 @@ public sealed class TodayRecommendationService(
             {
                 var dayBlock = FindDayBlock(trip, allocationDate, period.Key);
                 var periodItems = trip.Reservations
-                    .Where(reservation => reservation.Date == allocationDate && period.Contains(reservation.StartsAt))
+                    .Where(reservation => reservation.Date == allocationDate && (reservation.TripDayBlock is { } assignedBlock ? assignedBlock.PeriodKey == period.Key : period.Contains(reservation.StartsAt)))
                     .OrderBy(reservation => reservation.StartsAt)
                     .ToList();
                 var automaticSuggestions = new List<TodayRecommendationDto>();
@@ -237,11 +237,11 @@ public sealed class TodayRecommendationService(
 
                 var reservations = periodItems
                     .Where(item => item.PlanningKind != ScheduleItemKind.Recommendation
-                        || !item.RecommendationId.HasValue)
+                        || !item.RecommendationId.HasValue || item.TimePrecision == ItineraryTimePrecision.Exact)
                     .Select(ToScheduleItemDto)
                     .ToList();
                 var assignedRecommendations = periodItems
-                    .Where(item => item.PlanningKind == ScheduleItemKind.Recommendation && item.RecommendationId.HasValue)
+                    .Where(item => item.PlanningKind == ScheduleItemKind.Recommendation && item.RecommendationId.HasValue && item.TimePrecision != ItineraryTimePrecision.Exact)
                     .Select(item => recommendationsById.GetValueOrDefault(item.RecommendationId!.Value))
                     .Where(recommendation => recommendation is not null)
                     .Select(recommendation => CreateAssignedRecommendation(
@@ -563,7 +563,8 @@ public sealed class TodayRecommendationService(
         var query = dbContext.Trips
             .AsSplitQuery()
             .Include(trip => trip.Destination)
-            .Include(trip => trip.Reservations)
+            .Include(trip => trip.Reservations).ThenInclude(reservation => reservation.Recommendation)
+            .Include(trip => trip.Reservations).ThenInclude(reservation => reservation.TripDayBlock)
             .Include(trip => trip.DayPlans)
                 .ThenInclude(day => day.Blocks)
             .Where(trip => trip.AppUserId == userId
@@ -730,34 +731,7 @@ public sealed class TodayRecommendationService(
     }
 
     private static ScheduleItemDto ToScheduleItemDto(Reservation reservation) =>
-        new(
-            reservation.Id,
-            reservation.RecommendationId,
-            reservation.Type,
-            reservation.Date,
-            reservation.StartsAt,
-            reservation.EndsOn,
-            reservation.EndsAt,
-            reservation.Title,
-            reservation.City,
-            reservation.LocationName,
-            reservation.Address,
-            reservation.ConfirmationCode,
-            reservation.Notes,
-            reservation.Airline,
-            reservation.FlightNumber,
-            reservation.OriginName,
-            reservation.DestinationName,
-            reservation.OriginAirport,
-            reservation.DestinationAirport,
-            reservation.PlanningKind,
-            reservation.Owner,
-            reservation.ItemSource,
-            reservation.TimePrecision,
-            reservation.SortOrder,
-            reservation.ProviderPlaceId,
-            reservation.Latitude,
-            reservation.Longitude);
+        TravelerItineraryService.ToDto(reservation);
 
     private static RecommendationDto ToRecommendationDto(
         Recommendation recommendation,

@@ -35,7 +35,8 @@ public sealed class TripsController(
         var trip = await dbContext.Trips
             .AsNoTracking()
             .Include(existingTrip => existingTrip.Destination)
-            .Include(existingTrip => existingTrip.Reservations)
+            .Include(existingTrip => existingTrip.Reservations).ThenInclude(reservation => reservation.Recommendation)
+            .Include(existingTrip => existingTrip.Reservations).ThenInclude(reservation => reservation.TripDayBlock)
             .SingleOrDefaultAsync(existingTrip =>
                 existingTrip.Id == id
                 && existingTrip.PublicationStatus == TripPublicationStatus.Published,

@@ -30,3 +30,10 @@ This implementation has not been deployed or uploaded as a new APK in this chang
 - El buscador del editor consulta ambas ciudades; distribuye resultados de catálogo y Google entre ellas y conserva la ciudad del lugar seleccionado.
 - Validación: 44 pruebas Shared (incluidas fechas compartidas), 90 Mobile y 7 API Free (incluido día de traslado) aprobadas.
 - Pendiente: validación visual en Android con catálogo real de ambas ciudades y evento con notas personales/editoriales; eventos antiguos sin RecommendationId requieren volver a seleccionar el lugar.
+## Tarjetas y momento elegido (2026-09-21)
+
+- Today muestra la nota personal; si está vacía, usa un resumen editorial de hasta 180 caracteres con puntos suspensivos. El detalle conserva el contenido completo.
+- Los eventos con hora exacta usan la tarjeta completa independientemente de su flexibilidad o tipo de planificación. Rutas requieren ubicación y los permisos existentes.
+- Crear/editar respeta PeriodKey incluso cuando no coincide con StartsAt. Se reutiliza la relación persistida TripDayBlock; no requiere migración. El contrato de agenda incorpora PeriodKey y CuratedNotes opcionales.
+- La agrupación remota/local y el editor conservan el momento al recargar o convertir la hora local. Los registros históricos sin bloque mantienen la agrupación por hora.
+- Validación: pruebas de resumen y prioridad personal; caso Noche a las 15:00 al editar, consultar Today y recargar setup. Android compilado sin errores. Pendiente prueba visual en dispositivo.

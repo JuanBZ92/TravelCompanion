@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.Input;
 using TravelCompanion.Mobile.Services;
@@ -259,7 +259,7 @@ public sealed partial class ItineraryItemEditorViewModel(
         _selectedLongitude = item.Longitude;
         Notes = item.Notes;
         Date = item.Date.ToDateTime(TimeOnly.MinValue);
-        SelectedPeriod = item.StartsAt.Hour switch { < 12 => "Mañana", < 15 => "Medio día", < 19 => "Tarde", _ => "Noche" };
+        SelectedPeriod = item.EffectivePeriodKey switch { "morning" => "Mañana", "midday" => "Medio día", "afternoon" => "Tarde", _ => "Noche" };
         UseExactTime = item.HasExactTime;
         ReminderEnabled = ReservationReminderPolicy.IsEligible(item.Type, item.TimePrecision, item.PlanningKind, item.Flexibility, item.ReminderEnabled);
         Time = item.StartsAt.ToTimeSpan();
@@ -279,7 +279,7 @@ public sealed partial class ItineraryItemEditorViewModel(
             {
                 Date = local.Value.Date;
                 Time = local.Value.TimeOfDay;
-                SelectedPeriod = local.Value.Hour switch { < 12 => "Mañana", < 15 => "Medio día", < 19 => "Tarde", _ => "Noche" };
+
             }
             else
             {

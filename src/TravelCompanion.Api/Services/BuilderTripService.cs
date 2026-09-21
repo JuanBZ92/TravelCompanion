@@ -42,7 +42,8 @@ public sealed class BuilderTripService(
             .AsNoTracking()
             .AsSplitQuery()
             .Include(item => item.DayPlans)
-            .Include(item => item.Reservations)
+            .Include(item => item.Reservations).ThenInclude(reservation => reservation.Recommendation)
+            .Include(item => item.Reservations).ThenInclude(reservation => reservation.TripDayBlock)
             .Include(item => item.Destination)
             .FirstOrDefaultAsync(item => item.Id == grant.TripId && item.AppUserId == access.User.Id, cancellationToken);
         return trip is null || trip.ExperienceMode != ExperienceMode.SelfServiceBuilder
@@ -78,7 +79,8 @@ public sealed class BuilderTripService(
             trip = await dbContext.Trips
                 .AsSplitQuery()
                 .Include(item => item.DayPlans).ThenInclude(day => day.Blocks)
-                .Include(item => item.Reservations)
+                .Include(item => item.Reservations).ThenInclude(reservation => reservation.Recommendation)
+                .Include(item => item.Reservations).ThenInclude(reservation => reservation.TripDayBlock)
                 .Include(item => item.Destination)
                 .SingleAsync(item => item.Id == grant.TripId && item.AppUserId == access.User.Id, cancellationToken);
             if (trip.ExperienceMode != ExperienceMode.SelfServiceBuilder)
@@ -174,7 +176,8 @@ public sealed class BuilderTripService(
         }
 
         var trip = await dbContext.Trips
-            .Include(item => item.Reservations)
+            .Include(item => item.Reservations).ThenInclude(reservation => reservation.Recommendation)
+            .Include(item => item.Reservations).ThenInclude(reservation => reservation.TripDayBlock)
             .Include(item => item.DayPlans).ThenInclude(day => day.Blocks)
             .Include(item => item.Documents)
             .Include(item => item.PlanDraft)

@@ -1400,18 +1400,18 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
             .Select(period =>
             {
                 var periodItems = selectedReservations
-                    .Where(item => period.Contains(item.StartsAt))
+                    .Where(item => item.EffectivePeriodKey == PeriodKey(period.Label))
                     .OrderBy(item => item.StartsAt)
                     .ToList();
                 var reservations = periodItems
-                    .Where(item => item.PlanningKind != ScheduleItemKind.Recommendation)
+                    .Where(item => item.UsesFullCard)
                     .Select(item => new TodayReservationViewModel(
                         item,
                         _hotelsByDate.GetValueOrDefault(selectedDate),
                         _sessionService.CanCalculateRoutes))
                     .ToList();
                 var assignedLocations = periodItems
-                    .Where(item => item.PlanningKind == ScheduleItemKind.Recommendation && item.RecommendationId.HasValue)
+                    .Where(item => !item.UsesFullCard && item.RecommendationId.HasValue)
                     .Select(item => new
                     {
                         Item = item,
@@ -1453,7 +1453,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
             item.Date == date
             && item.RecommendationId == recommendationId
             && string.Equals(
-                PeriodKey(TodayPeriod.All.First(period => period.Contains(item.StartsAt)).Label),
+                item.EffectivePeriodKey,
                 periodKey,
                 StringComparison.OrdinalIgnoreCase)
             && item.IsTravelerOwned);

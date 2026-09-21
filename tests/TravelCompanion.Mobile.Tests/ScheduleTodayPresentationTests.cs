@@ -6,6 +6,18 @@ namespace TravelCompanion.Mobile.Tests;
 
 public sealed class ScheduleTodayPresentationTests
 {
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Editorial_preview_is_used_only_when_personal_note_is_empty(string? personal)
+    {
+        var longNote = new string('a', 240);
+        Assert.Equal(new string('a', 179) + "…", ItineraryNotePreview.Resolve(personal, longNote));
+        Assert.Equal("Short note", ItineraryNotePreview.Resolve(personal, "Short note"));
+        Assert.Equal("Personal note", ItineraryNotePreview.Resolve("Personal note", longNote));
+    }
+
     [Fact]
     public void Traveler_activity_uses_edited_title_and_personal_notes_and_can_be_edited()
     {

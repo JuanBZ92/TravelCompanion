@@ -46,7 +46,8 @@ public sealed class ItineraryService(
         var trip = await dbContext.Trips
             .AsSplitQuery()
             .Include(existing => existing.Destination)
-            .Include(existing => existing.Reservations)
+            .Include(existing => existing.Reservations).ThenInclude(item => item.Recommendation)
+            .Include(existing => existing.Reservations).ThenInclude(item => item.TripDayBlock)
             .Include(existing => existing.DayPlans)
                 .ThenInclude(day => day.Blocks)
             .Where(existing =>
@@ -240,32 +241,7 @@ public sealed class ItineraryService(
             ?? "Destino";
     }
 
-    private static ScheduleItemDto ToDto(Reservation reservation)
-    {
-        return new ScheduleItemDto(
-            reservation.Id,
-            reservation.RecommendationId,
-            reservation.Type,
-            reservation.Date,
-            reservation.StartsAt,
-            reservation.EndsOn,
-            reservation.EndsAt,
-            reservation.Title,
-            reservation.City,
-            reservation.LocationName,
-            reservation.Address,
-            reservation.ConfirmationCode,
-            reservation.Notes,
-            reservation.Airline,
-            reservation.FlightNumber,
-            reservation.OriginName,
-            reservation.DestinationName,
-            reservation.OriginAirport,
-            reservation.DestinationAirport,
-            reservation.PlanningKind, reservation.Owner, reservation.ItemSource, reservation.TimePrecision,
-            reservation.SortOrder, reservation.ProviderPlaceId, reservation.Latitude, reservation.Longitude,
-            reservation.Flexibility, reservation.DurationMinutes, reservation.ReminderEnabled, reservation.TimeZoneId);
-    }
+    private static ScheduleItemDto ToDto(Reservation reservation) => TravelerItineraryService.ToDto(reservation);
 
     private static RecommendationInteractionSignal CreateSavedSignal(
         AppUser user,

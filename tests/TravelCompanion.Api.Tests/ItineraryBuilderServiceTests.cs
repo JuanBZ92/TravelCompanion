@@ -113,15 +113,30 @@ public sealed class ItineraryBuilderServiceTests
         Assert.Equal(ItineraryTimePrecision.PeriodOnly, result.Item?.TimePrecision);
         Assert.Equal(recommendation.Id, result.Item?.RecommendationId);
         var timed = new ItineraryItemMutationRequest(recommendation.Id, null, recommendation.Title, startsOn,
-            "morning", true, new TimeOnly(20, 0), null, "Tokyo", recommendation.Title, "", null,
+            "night", true, new TimeOnly(15, 0), null, "Tokyo", recommendation.Title, "", null,
             null, null, result.Revision, "test-edit", true);
         var updated = await itineraryService.UpdateAsync(httpContext, result.Item!.Id, timed);
         Assert.Equal(ScheduleItemKind.Recommendation, updated.Item!.PlanningKind);
         Assert.Equal(ItineraryFlexibility.Flexible, updated.Item.Flexibility);
-        Assert.Equal(new TimeOnly(20, 0), updated.Item.StartsAt);
+        Assert.Equal(new TimeOnly(15, 0), updated.Item.StartsAt);
+        Assert.Equal("night", updated.Item.PeriodKey);
+        Assert.True(updated.Item.UsesFullCard);
+        var today = await new TodayRecommendationService(dbContext, NullLogger<TodayRecommendationService>.Instance)
+            .GetTodayAsync(user, setup.TripId, startsOn, null, CancellationToken.None);
+        var night = Assert.Single(today!.Sections, section => section.PeriodKey == "night");
+        var timedCard = Assert.Single(night.Reservations);
+        Assert.Equal(updated.Item.Id, timedCard.Id);
+        Assert.Equal("Test", timedCard.CuratedNotes);
+        Assert.Empty(night.Recommendations);
+        Assert.DoesNotContain(today.Sections.Where(section => section.PeriodKey != "night").SelectMany(section => section.Reservations), card => card.Id == timedCard.Id);
         var persisted = await dbContext.Reservations.SingleAsync();
         Assert.Equal("night", trip.DayPlans.SelectMany(d => d.Blocks).Single(b => b.Id == persisted.TripDayBlockId).PeriodKey);
         Assert.Equal(recommendation.Latitude, persisted.Latitude);
+        var reloaded = await setupService.GetAsync(httpContext);
+        var reloadedCard = Assert.Single(reloaded!.Schedule!.Items);
+        Assert.Equal("night", reloadedCard.PeriodKey);
+        Assert.Equal(new TimeOnly(15, 0), reloadedCard.StartsAt);
+        Assert.Equal("Test", reloadedCard.CuratedNotes);
         var untimed = await itineraryService.UpdateAsync(httpContext, result.Item.Id,
             timed with { UseExactTime = false, StartsAt = null, ExpectedRevision = updated.Revision });
         Assert.Equal(ScheduleItemKind.Recommendation, untimed.Item!.PlanningKind);
