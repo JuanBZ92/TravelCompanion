@@ -98,7 +98,7 @@ public sealed class TravelerItineraryService(
             Date = request.Date,
             StartsAt = startsAt,
             EndsAt = request.UseExactTime ? request.EndsAt : null,
-            TimeZoneId = trip.TimeZoneId,
+            TimeZoneId = ResolveTimeZone(request, trip.TimeZoneId),
             Title = recommendation?.Title ?? request.Title.Trim(),
             City = recommendation?.Neighborhood.Split(',')[0].Trim() ?? request.City?.Trim() ?? block.TripDayPlan?.City ?? string.Empty,
             LocationName = recommendation?.Title ?? request.LocationName?.Trim() ?? request.Title.Trim(),
@@ -152,6 +152,8 @@ public sealed class TravelerItineraryService(
         var startsAt = request.UseExactTime ? request.StartsAt!.Value : period.StartsAt;
         if (!request.ConfirmOverlap && trip.Reservations.Any(other => other.Id != id && other.Date == request.Date && other.StartsAt == startsAt))
             return new(false, "Ya hay otro item en ese horario. Confirma para agregarlo igualmente.", trip.PlanRevision, HasOverlap: true);
+        var timeZoneId = ResolveTimeZone(request, item.TimeZoneId ?? trip.TimeZoneId);
+        item.TimeZoneId = timeZoneId;
         item.TripDayBlockId = block.Id;
         item.Date = request.Date;
         item.StartsAt = request.UseExactTime ? request.StartsAt ?? period.StartsAt : period.StartsAt;
@@ -284,6 +286,22 @@ public sealed class TravelerItineraryService(
         flexibility == ItineraryFlexibility.ConfirmedReservation
             ? ScheduleItemKind.ConfirmedReservation
             : place ? ScheduleItemKind.Recommendation : ScheduleItemKind.ManualEvent;
+
+    internal static string ResolveTimeZone(ItineraryItemMutationRequest request, string fallback)
+    {
+        var id = request.UseExactTime ? request.TimeZoneId ?? fallback : fallback;
+        TimeZoneInfo zone;
+        try { zone = TimeZoneInfo.FindSystemTimeZoneById(id); }
+        catch (Exception ex) when (ex is TimeZoneNotFoundException or InvalidTimeZoneException)
+        { throw new ArgumentException("La zona horaria de la reserva no es válida."); }
+        if (request.UseExactTime && request.StartsAt is { } time)
+        {
+            var local = request.Date.ToDateTime(time, DateTimeKind.Unspecified);
+            if (zone.IsInvalidTime(local) || zone.IsAmbiguousTime(local))
+                throw new ArgumentException("Ese horario coincide con un cambio de hora. Elige otra hora de inicio.");
+        }
+        return zone.Id;
+    }
 
     private static string ResolvePeriod(ItineraryItemMutationRequest request)
     {

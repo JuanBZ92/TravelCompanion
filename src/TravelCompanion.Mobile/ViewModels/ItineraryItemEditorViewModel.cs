@@ -32,12 +32,13 @@ public sealed partial class ItineraryItemEditorViewModel(
     private bool _reminderEnabled;
     public bool ReminderEnabled { get => _reminderEnabled; set { if (SetProperty(ref _reminderEnabled, value)) RefreshReminderPreview(); } }
     private string? _tripTimeZone;
+    private bool _editingTimeZoneValid = true;
     private string _reminderPreview = string.Empty;
     public string ReminderPreview { get => _reminderPreview; private set => SetProperty(ref _reminderPreview, value); }
-    private string? ReservationTimeZone => _existingItem?.TimeZoneId ?? _tripTimeZone;
+    private string ReservationTimeZone => TimeZoneInfo.Local.Id;
     public string ReservationTimeZoneLabel => string.Format(CultureInfo.CurrentUICulture,
         LocalizationResourceManager.Instance["ItemTimeZone"],
-        ReservationTimeZone == "Asia/Tokyo" ? LocalizationResourceManager.Instance["ItemJapanTime"] : ReservationTimeZone ?? "—");
+        ReservationTimeZone);
 
     public void RefreshReminderPreview()
     {
@@ -157,6 +158,7 @@ public sealed partial class ItineraryItemEditorViewModel(
     {
         CancelPlaceSearch();
         _existingItem = null;
+        _editingTimeZoneValid = true;
         ReminderEnabled = false;
         _recommendation = recommendation;
         _fallbackCity = recommendation.Neighborhood.Split(',')[0].Trim();
@@ -198,6 +200,7 @@ public sealed partial class ItineraryItemEditorViewModel(
     {
         CancelPlaceSearch();
         _existingItem = null;
+        _editingTimeZoneValid = true;
         ReminderEnabled = false;
         _recommendation = null;
         _fallbackCity = string.Empty;
@@ -221,6 +224,7 @@ public sealed partial class ItineraryItemEditorViewModel(
     {
         CancelPlaceSearch();
         _existingItem = item;
+        _editingTimeZoneValid = true;
         _recommendation = null;
         _fallbackCity = item.City;
         _applyingPlaceSelection = true;
@@ -248,6 +252,22 @@ public sealed partial class ItineraryItemEditorViewModel(
         OnPropertyChanged(nameof(Subtitle));
         OnPropertyChanged(nameof(CanSearchPlaces));
         await LoadSetupAsync();
+        if (item.HasExactTime)
+        {
+            var local = ReservationLocalTime.ConvertStart(item.Date, item.StartsAt,
+                item.TimeZoneId ?? _tripTimeZone, TimeZoneInfo.Local);
+            if (local.HasValue)
+            {
+                Date = local.Value.Date;
+                Time = local.Value.TimeOfDay;
+                SelectedPeriod = local.Value.Hour switch { < 12 => "Mañana", < 15 => "Medio día", < 19 => "Tarde", _ => "Noche" };
+            }
+            else
+            {
+                _editingTimeZoneValid = false;
+                ErrorMessage = LocalizationResourceManager.Instance["ItemUnknownTimeZone"];
+            }
+        }
     }
 
     public async Task SearchPlaceSuggestionsAsync()
@@ -259,7 +279,14 @@ public sealed partial class ItineraryItemEditorViewModel(
 
         var query = NormalizeSearchText(LocationName);
         var city = CurrentCity.Trim();
-        if (query.Length < 2 || string.IsNullOrWhiteSpace(city)) return;
+        if (query.Length < 2) return;
+        if (string.IsNullOrWhiteSpace(city))
+        {
+            PlaceSearchMessage = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "es"
+                ? "Aún no se cargó la ciudad del itinerario. Si el problema continúa, vuelve a abrir el editor."
+                : "The itinerary city has not loaded yet. If this continues, reopen the editor.";
+            return;
+        }
 
         var operation = new CancellationTokenSource();
         _placeSearch = operation;
@@ -356,7 +383,12 @@ public sealed partial class ItineraryItemEditorViewModel(
             _selectedGooglePlaceId = null;
             _selectedLatitude = suggestion.Latitude;
             _selectedLongitude = suggestion.Longitude;
-            if (string.IsNullOrWhiteSpace(TitleText)) TitleText = suggestion.Name;
+            if (!_editingTimeZoneValid)
+        {
+            ErrorMessage = LocalizationResourceManager.Instance["ItemUnknownTimeZone"];
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(TitleText)) TitleText = suggestion.Name;
             PlaceSuggestions.Clear();
             PlaceSearchMessage = null;
             return;
@@ -454,7 +486,7 @@ public sealed partial class ItineraryItemEditorViewModel(
             LocationName, Address,
             Notes, _recommendation?.Latitude ?? _selectedLatitude, _recommendation?.Longitude ?? _selectedLongitude,
             _revision, Guid.NewGuid().ToString("N"), Flexibility: SelectedFlexibility.Value, DurationMinutes: duration,
-            ReminderEnabled: UseExactTime && ReminderEnabled);
+            ReminderEnabled: UseExactTime && ReminderEnabled, TimeZoneId: UseExactTime ? ReservationTimeZone : null);
         var result = await SaveMutationAsync(mutation);
         if (!_editorContext.IsCurrent(sessionService.ContextVersion)) return;
         if (result?.HasOverlap == true)
@@ -533,7 +565,13 @@ public sealed partial class ItineraryItemEditorViewModel(
                 : "Could not refresh the itinerary. Check your connection and reopen the editor.";
             return null;
         }
-        if (setup is null) return null;
+        if (setup is null)
+        {
+            ErrorMessage = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "es"
+                ? "No se pudo cargar el itinerario. Vuelve a abrir el editor para reintentar."
+                : "Could not load the itinerary. Reopen the editor to retry.";
+            return null;
+        }
         _tripTimeZone = setup.TimeZoneId;
         RefreshReminderPreview();
         _segments = setup?.Segments ?? [];
@@ -543,6 +581,9 @@ public sealed partial class ItineraryItemEditorViewModel(
             MaximumDate = (setup.DepartureDate ?? arrivalDate).ToDateTime(TimeOnly.MinValue);
         }
         RefreshCurrentCity();
+        if (CanSearchPlaces && string.IsNullOrWhiteSpace(_selectedGooglePlaceId)
+            && !_selectedLatitude.HasValue && NormalizeSearchText(LocationName).Length >= 2)
+            await SearchPlaceSuggestionsAsync();
         return setup;
     }
 

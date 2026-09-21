@@ -56,7 +56,8 @@ public sealed record ItineraryItemMutationRequest(
     bool ConfirmOverlap = false,
     ItineraryFlexibility Flexibility = ItineraryFlexibility.Flexible,
     int? DurationMinutes = null,
-    bool? ReminderEnabled = null);
+    bool? ReminderEnabled = null,
+    [param: MaxLength(128)] string? TimeZoneId = null);
 
 public sealed record ItineraryItemMutationResponse(
     bool Success,

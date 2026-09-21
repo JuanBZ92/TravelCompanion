@@ -241,11 +241,13 @@ public sealed class ItineraryBuilderServiceTests
         var timed = await service.UpdateAsync(httpContext, item.Id, request with
         {
             UseExactTime = true, StartsAt = new TimeOnly(13, 48), EndsAt = new TimeOnly(14, 48),
+            TimeZoneId = "Europe/Madrid",
             Latitude = preserved.Item!.Latitude, Longitude = preserved.Item.Longitude,
             GooglePlaceId = preserved.Item.ProviderPlaceId,
             ExpectedRevision = preserved.Revision
         });
         Assert.Equal(new TimeOnly(13, 48), timed.Item!.StartsAt);
+        Assert.Equal("Europe/Madrid", timed.Item.TimeZoneId);
         Assert.Equal(preserved.Item.ProviderPlaceId, timed.Item.ProviderPlaceId);
         Assert.Equal(preserved.Item.Latitude, timed.Item.Latitude);
         Assert.Equal(preserved.Item.Longitude, timed.Item.Longitude);
@@ -283,6 +285,19 @@ public sealed class ItineraryBuilderServiceTests
         Assert.Equal(35.0116m, rescheduled.Item.Latitude);
         Assert.Equal(135.7681m, rescheduled.Item.Longitude);
         Assert.Equal("Keep my notes", rescheduled.Item.Notes);
+        var localRequest = coordinateRequest with
+        {
+            StartsAt = new TimeOnly(15, 0), ExpectedRevision = rescheduled.Revision,
+            TimeZoneId = "Europe/Madrid", IdempotencyKey = "phone-local-create"
+        };
+        var localCreated = await service.CreateAsync(httpContext, localRequest);
+        Assert.Equal("Europe/Madrid", localCreated.Item!.TimeZoneId);
+        Assert.Equal(new TimeOnly(15, 0), localCreated.Item.StartsAt);
+        await Assert.ThrowsAsync<ArgumentException>(() => service.CreateAsync(httpContext, localRequest with
+        {
+            StartsAt = new TimeOnly(16, 0), TimeZoneId = "Invalid/Zone",
+            ExpectedRevision = localCreated.Revision, IdempotencyKey = "bad-time-zone"
+        }));
     }
 
     [Fact]

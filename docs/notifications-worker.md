@@ -174,3 +174,7 @@ Cambios de ciudad: se comparan días consecutivos del itinerario. Si cambia la c
 ### Explicit reminder preference
 
 The itinerary editor offers `ReminderEnabled` when an exact start time is selected, independently of flexibility. Opting in enables the existing 180/45-minute reminders (also 1440 minutes for flights/check-in); opting out suppresses them. Period-only items never schedule reminders. The nullable API/database field preserves the legacy confirmed-reservation policy for older clients and existing rows. Deploy the `AddReservationReminderPreference` migration and backend before distributing the updated mobile app. Editing/removing items refreshes the device notification snapshot; notification permissions remain required.
+
+### Phone-local event entry
+
+New mobile editor requests include `TimeZoneId` for exact times: the entered date/time belongs to the phone zone, not the trip zone. The API validates and persists this existing reservation field; older requests without it retain the trip/existing zone. Reminders resolve the saved zone to UTC, so travelling does not move an existing event. The editor converts existing exact events to the current phone zone before editing. Invalid or ambiguous DST times are rejected. Deploy the compatible API before the updated APK; no new database migration is required for this change.

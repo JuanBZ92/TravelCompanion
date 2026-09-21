@@ -34,7 +34,6 @@ public partial class MapPage : ContentPage
     private readonly Dictionary<Pin, EventHandler<PinClickedEventArgs>> _pinHandlers =
         new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<string, RecommendationMapPin> _pinsBySelectionKey = new(StringComparer.Ordinal);
-    private Circle? _selectionIndicator;
     private bool _isSubscribedToRecommendations;
     private bool _hasRenderedPins;
     private bool _mapPinsRefreshPending;
@@ -285,14 +284,22 @@ public partial class MapPage : ContentPage
                 pin.Location = new Location((double)recommendation.Latitude, (double)recommendation.Longitude);
             }
 
+            var wasSelected = pin.IsSelected;
             pin.IsSelected = selectionKey == _viewModel.SelectedRecommendation?.SelectionKey;
             pin.Handler?.UpdateValue(nameof(RecommendationMapPin.IsSelected));
+#if ANDROID
+            // Android applies MarkerOptions when creating a marker, not to the displayed marker.
+            if (wasSelected != pin.IsSelected)
+            {
+                _map.Pins.Remove(pin);
+                _map.Pins.Add(pin);
+            }
+#endif
 #if IOS || MACCATALYST
             UpdateApplePinSelection(pin);
 #endif
         }
 
-        UpdateSelectionIndicator();
 
         if (moveToBounds)
         {
@@ -362,31 +369,6 @@ public partial class MapPage : ContentPage
         {
             _logger.LogDebug(exception, "Could not focus the selected map recommendation.");
         }
-    }
-
-    private void UpdateSelectionIndicator()
-    {
-        if (_selectionIndicator is not null)
-        {
-            _map.MapElements.Remove(_selectionIndicator);
-            _selectionIndicator = null;
-        }
-
-        var selected = _viewModel.SelectedRecommendation;
-        if (selected is null)
-        {
-            return;
-        }
-
-        _selectionIndicator = new Circle
-        {
-            Center = new Location((double)selected.Latitude, (double)selected.Longitude),
-            Radius = Distance.FromMeters(115),
-            StrokeColor = Color.FromArgb("#C59D3E"),
-            FillColor = Color.FromArgb("#35C59D3E"),
-            StrokeWidth = 5
-        };
-        _map.MapElements.Add(_selectionIndicator);
     }
 
 #if IOS || MACCATALYST

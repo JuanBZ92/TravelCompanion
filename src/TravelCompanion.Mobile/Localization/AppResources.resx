@@ -335,7 +335,7 @@
   <data name="AssistantChangeReason" xml:space="preserve"><value>What would you like to change? Applies to all selected plans.</value></data>
   <data name="ItemReminderQuestion" xml:space="preserve"><value>Would you like a reminder?</value></data>
   <data name="ItemReminderHint" xml:space="preserve"><value>We’ll remind you 3 hours and 45 minutes before. Flights and check-in also 24 hours before. Notification permission is required.</value></data>
-  <data name="ItemTimeZone" xml:space="preserve"><value>Reservation time zone: {0}</value></data>
+  <data name="ItemTimeZone" xml:space="preserve"><value>Phone local time: {0}</value></data>
   <data name="ItemJapanTime" xml:space="preserve"><value>Japan (Asia/Tokyo)</value></data>
   <data name="ItemNextReminder" xml:space="preserve"><value>Next reminder: {0}, your phone’s local time. Scheduled when you save.</value></data>
   <data name="ItemNoUpcomingReminder" xml:space="preserve"><value>No future reminders remain for this time. Check the reservation date and time zone.</value></data>
@@ -343,4 +343,5 @@
   <data name="ItemTestReminder" xml:space="preserve"><value>Test notification</value></data>
   <data name="ItemTestReminderBody" xml:space="preserve"><value>This tests notification delivery. It does not change your reservations or test alarm timing.</value></data>
   <data name="ItemTestReminderSent" xml:space="preserve"><value>Test sent. Check your phone notifications.</value></data>
+<data name="ItemUnknownTimeZone" xml:space="preserve"><value>Could not convert this reservation’s time zone. Reopen the editor online before saving.</value></data>
 </root>

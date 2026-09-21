@@ -335,7 +335,7 @@
   <data name="AssistantChangeReason" xml:space="preserve"><value>¿Qué querés cambiar? Se aplica a todos los planes seleccionados.</value></data>
   <data name="ItemReminderQuestion" xml:space="preserve"><value>¿Quieres un recordatorio?</value></data>
   <data name="ItemReminderHint" xml:space="preserve"><value>Te avisaremos 3 horas y 45 minutos antes. Vuelos y check-in también 24 horas antes. Requiere permitir notificaciones.</value></data>
-  <data name="ItemTimeZone" xml:space="preserve"><value>Horario de la reserva: {0}</value></data>
+  <data name="ItemTimeZone" xml:space="preserve"><value>Hora local del teléfono: {0}</value></data>
   <data name="ItemJapanTime" xml:space="preserve"><value>Japón (Asia/Tokyo)</value></data>
   <data name="ItemNextReminder" xml:space="preserve"><value>Próximo aviso: {0}, hora de tu teléfono. Se programará al guardar.</value></data>
   <data name="ItemNoUpcomingReminder" xml:space="preserve"><value>No quedan avisos futuros para este horario. Revisa la fecha y la zona horaria de la reserva.</value></data>
@@ -343,4 +343,5 @@
   <data name="ItemTestReminder" xml:space="preserve"><value>Probar notificación</value></data>
   <data name="ItemTestReminderBody" xml:space="preserve"><value>Esta es una prueba de recepción. No modifica tus reservas ni comprueba la puntualidad de las alarmas.</value></data>
   <data name="ItemTestReminderSent" xml:space="preserve"><value>Prueba enviada. Revisa las notificaciones del teléfono.</value></data>
+<data name="ItemUnknownTimeZone" xml:space="preserve"><value>No se pudo convertir la zona horaria de esta reserva. Vuelve a abrir el editor con conexión antes de guardar.</value></data>
 </root>

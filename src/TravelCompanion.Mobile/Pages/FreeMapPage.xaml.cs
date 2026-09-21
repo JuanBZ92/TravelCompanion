@@ -1,3 +1,4 @@
+using TravelCompanion.Mobile.Controls;
 using System.ComponentModel;
 using TravelCompanion.Mobile.ViewModels;
 using TravelCompanion.Shared.Dtos;
@@ -18,7 +19,6 @@ public partial class FreeMapPage : ContentPage
     private readonly MauiMap _map;
     private readonly Dictionary<Pin, EventHandler<PinClickedEventArgs>> _pinHandlers =
         new(ReferenceEqualityComparer.Instance);
-    private Circle? _selectionIndicator;
 #endif
 
     public FreeMapPage()
@@ -98,10 +98,12 @@ public partial class FreeMapPage : ContentPage
         foreach (var marker in preview.Markers)
         {
             var isUnlocked = marker.Access == FreeMapMarkerAccess.Unlocked;
-            var pin = new Pin
+            var pin = new RecommendationMapPin
             {
                 Label = isUnlocked ? marker.Recommendation?.Title ?? "YUKU" : "Contenido YUKU",
                 Address = isUnlocked ? marker.Recommendation?.Neighborhood ?? string.Empty : string.Empty,
+                BindingContext = marker,
+                IsSelected = ReferenceEquals(marker, _viewModel.SelectedMarker),
                 Type = isUnlocked ? PinType.Place : PinType.Generic,
                 Location = new Location((double)marker.Latitude, (double)marker.Longitude)
             };
@@ -138,10 +140,14 @@ public partial class FreeMapPage : ContentPage
     private void FocusSelectedMarker()
     {
 #if !WINDOWS
-        if (_selectionIndicator is not null)
+        foreach (var pin in _map.Pins.OfType<RecommendationMapPin>().ToList())
         {
-            _map.MapElements.Remove(_selectionIndicator);
-            _selectionIndicator = null;
+            var selected = ReferenceEquals(pin.BindingContext, _viewModel.SelectedMarker);
+            if (pin.IsSelected == selected) continue;
+            pin.IsSelected = selected;
+            pin.Handler?.UpdateValue(nameof(RecommendationMapPin.IsSelected));
+            _map.Pins.Remove(pin);
+            _map.Pins.Add(pin);
         }
 
         var marker = _viewModel.SelectedMarker;
@@ -151,15 +157,6 @@ public partial class FreeMapPage : ContentPage
         }
 
         var location = new Location((double)marker.Latitude, (double)marker.Longitude);
-        _selectionIndicator = new Circle
-        {
-            Center = location,
-            Radius = Distance.FromMeters(110),
-            StrokeColor = Color.FromArgb("#8C6841"),
-            FillColor = Color.FromArgb("#338C6841"),
-            StrokeWidth = 4
-        };
-        _map.MapElements.Add(_selectionIndicator);
         _map.MoveToRegion(MapSpan.FromCenterAndRadius(location, Distance.FromKilometers(1.2)));
 #endif
     }
