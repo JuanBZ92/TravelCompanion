@@ -135,7 +135,7 @@ public sealed class TodayLocationViewModel
         AssignedItem = assignedItem;
         DistanceKm = distanceKm;
         IsAssigned = isAssigned;
-        Title = recommendation.Title;
+        Title = assignedItem?.Title ?? recommendation.Title;
         RefinedCategory = GetRefinedCategory(recommendation);
         Detail = string.IsNullOrWhiteSpace(recommendation.Neighborhood)
             ? RefinedCategory
@@ -180,6 +180,9 @@ public sealed class TodayLocationViewModel
     public bool CanDismiss => !IsAssigned;
     public bool CanMarkVisited => !IsAssigned;
     public bool CanRemove => AssignedItem?.IsTravelerOwned == true;
+    public bool CanEdit => CanRemove;
+    public string Notes => AssignedItem?.Notes ?? string.Empty;
+    public bool HasNotes => !string.IsNullOrWhiteSpace(Notes);
     public bool HasDistance => !string.IsNullOrWhiteSpace(DistanceLabel);
     public bool HasRankReason => false;
     public bool HasVisitStatus => !IsAssigned && !string.IsNullOrWhiteSpace(VisitStatusLabel);
@@ -255,6 +258,8 @@ public sealed class TodayReservationViewModel
     public string DistanceFromHotelLabel { get; }
     public bool HasDistanceFromHotel => !string.IsNullOrWhiteSpace(DistanceFromHotelLabel);
     public bool CanEdit => Item.IsTravelerOwned;
+    public string Notes => Item.Notes ?? string.Empty;
+    public bool HasNotes => !string.IsNullOrWhiteSpace(Notes);
     public bool HasRoutes { get; }
     public IReadOnlyList<ItineraryRouteViewModel> Routes { get; }
     public ItineraryRouteViewModel CurrentLocationRoute { get; }

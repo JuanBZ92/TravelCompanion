@@ -190,6 +190,8 @@ public partial class SchedulePage : ContentPage
     {
         if ((sender as BindableObject)?.BindingContext is TodayReservationViewModel reservation)
             await _viewModel.EditPersonalItemCommand.ExecuteAsync(reservation);
+        else if ((sender as BindableObject)?.BindingContext is TodayLocationViewModel { AssignedItem: { } item })
+            await _viewModel.EditPersonalItemCommand.ExecuteAsync(new TodayReservationViewModel(item));
     }
 
     private async void OnDeletePersonalItemClicked(object? sender, EventArgs e)

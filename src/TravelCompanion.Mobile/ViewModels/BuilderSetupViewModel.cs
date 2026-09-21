@@ -70,6 +70,7 @@ public sealed partial class BuilderSetupViewModel(
     [RelayCommand]
     private Task LoadSetupAsync() => LoadAsync(async ct =>
     {
+        var preserveDraft = Segments.Count > 0;
         var token = await sessionService.GetTokenAsync();
         if (string.IsNullOrWhiteSpace(token))
         {
@@ -89,10 +90,11 @@ public sealed partial class BuilderSetupViewModel(
             ErrorMessage = "No pudimos cargar la configuración del viaje. Reintenta en unos segundos.";
             return;
         }
-        Segments.Clear();
         sessionService.ApplyTrialAccess(setup.TrialAccess);
         SetTripId(setup.TripId);
         _revision = setup.Revision;
+        if (preserveDraft) return;
+        Segments.Clear();
         ArrivalDate = setup.ArrivalDate?.ToDateTime(TimeOnly.MinValue) ?? DateTime.Today;
         DepartureDate = setup.DepartureDate?.ToDateTime(TimeOnly.MinValue) ?? DateTime.Today.AddDays(6);
         foreach (var segment in setup.Segments)
@@ -205,6 +207,7 @@ public sealed partial class BuilderSetupViewModel(
     public async Task SearchHotelSuggestionsAsync(BuilderSegmentViewModel segment)
     {
         if (segment.ApplyingHotelSelection) return;
+        if (!string.IsNullOrWhiteSpace(segment.HotelPlaceId)) return;
         foreach (var other in Segments.Where(item => !ReferenceEquals(item, segment)))
         {
             other.CancelHotelSearch();
@@ -367,8 +370,14 @@ public sealed partial class BuilderSetupViewModel(
             System.Globalization.CompareOptions.IgnoreCase | System.Globalization.CompareOptions.IgnoreNonSpace) >= 0;
 
     [RelayCommand]
+    private Task RetryAsync() => _saveAttempted ? SaveSetupAsync() : LoadSetupAsync();
+
+    private bool _saveAttempted;
+
+    [RelayCommand]
     private Task SaveSetupAsync() => LoadAsync(async ct =>
     {
+        _saveAttempted = true;
         if (Segments.Count == 0)
         {
             ErrorMessage = "Agrega al menos una ciudad.";
@@ -498,9 +507,11 @@ public sealed partial class BuilderSetupViewModel(
                 return false;
             }
 
-            if (segment.StartsOn.Date != expectedStart || segment.EndsOn.Date < segment.StartsOn.Date)
+            if ((segment.StartsOn.Date != expectedStart
+                    && (ReferenceEquals(segment, Segments[0]) || segment.StartsOn.Date != expectedStart.AddDays(-1)))
+                || segment.EndsOn.Date < segment.StartsOn.Date)
             {
-                error = $"Revisa las fechas de {segment.City}: las ciudades deben cubrir el viaje sin huecos ni días repetidos.";
+                error = $"Revisa las fechas de {segment.City}: solo el día de traslado puede compartirse entre ciudades.";
                 return false;
             }
 

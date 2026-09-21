@@ -20,6 +20,8 @@ public partial class BuilderSetupPage : ContentPage
 
     private async void OnHotelTextChanged(object? sender, TextChangedEventArgs e)
     {
+        if (sender is not Entry { IsFocused: true, BindingContext: BuilderSegmentViewModel current }
+            || current.ApplyingHotelSelection) return;
         await Task.Yield();
         if ((sender as BindableObject)?.BindingContext is BuilderSegmentViewModel segment)
             await _viewModel.SearchHotelSuggestionsAsync(segment);

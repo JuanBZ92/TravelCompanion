@@ -139,6 +139,7 @@ public sealed class BuilderTripService(
             grant.ExpiresAtUtc = recalculated;
         }
         SynchronizeDays(trip, request.Segments);
+        trip.BuilderSegmentsJson = System.Text.Json.JsonSerializer.Serialize(request.Segments.OrderBy(segment => segment.StartsOn).ToList());
         trip.PlanRevision++;
         trip.UpdatedAtUtc = DateTimeOffset.UtcNow;
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -263,14 +264,18 @@ public sealed class BuilderTripService(
         }
 
         var cursor = request.ArrivalDate;
+        var firstSegment = true;
         foreach (var segment in request.Segments.OrderBy(item => item.StartsOn))
         {
-            if (string.IsNullOrWhiteSpace(segment.City) || segment.StartsOn != cursor || segment.EndsOn < segment.StartsOn)
+            if (string.IsNullOrWhiteSpace(segment.City)
+                || (segment.StartsOn != cursor && (firstSegment || segment.StartsOn != cursor.AddDays(-1)))
+                || segment.EndsOn < segment.StartsOn)
             {
                 throw new ArgumentException("City segments must cover every trip day without gaps or overlaps.");
             }
 
             cursor = segment.EndsOn.AddDays(1);
+            firstSegment = false;
         }
 
         if (cursor != request.DepartureDate.AddDays(1))
@@ -288,7 +293,8 @@ public sealed class BuilderTripService(
 
         foreach (var date in desiredDates.Order())
         {
-            var segment = segments.Single(item => date >= item.StartsOn && date <= item.EndsOn);
+            // A shared transfer day uses the arriving city's hotel/base.
+            var segment = segments.OrderBy(item => item.StartsOn).Last(item => date >= item.StartsOn && date <= item.EndsOn);
             if (!byDate.TryGetValue(date, out var day))
             {
                 day = new TripDayPlan { Id = Guid.NewGuid(), TripId = trip.Id, Date = date };
@@ -345,6 +351,13 @@ public sealed class BuilderTripService(
             {
                 segments.Add(new(day.City, day.Date, day.Date, day.HotelBase, day.BaseAddress, day.BaseLatitude, day.BaseLongitude, day.BaseProviderPlaceId));
             }
+        }
+
+        if (!string.IsNullOrWhiteSpace(trip.BuilderSegmentsJson))
+        {
+            var savedSegments = System.Text.Json.JsonSerializer.Deserialize<List<BuilderTripSetupSegmentDto>>(trip.BuilderSegmentsJson);
+            if (savedSegments is { Count: > 0 } && savedSegments[0].StartsOn == trip.StartsOn
+                && savedSegments[^1].EndsOn == trip.EndsOn) segments = savedSegments;
         }
 
         var scheduleItems = trip.Reservations

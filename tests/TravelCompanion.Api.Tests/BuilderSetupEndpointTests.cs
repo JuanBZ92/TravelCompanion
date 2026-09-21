@@ -17,6 +17,49 @@ namespace TravelCompanion.Api.Tests;
 public sealed class BuilderSetupEndpointTests
 {
     [Fact]
+    public async Task Transfer_day_can_be_shared_and_original_city_dates_survive_reload()
+    {
+        await using var factory = new BuilderApiFactory();
+        var token = await factory.SeedBuilderAsync();
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new("Bearer", token);
+        var arrival = new DateOnly(2026, 9, 1);
+        var transfer = arrival.AddDays(3);
+        var segments = new List<BuilderTripSetupSegmentDto>
+        {
+            new("Tokyo", arrival, transfer, "Tokyo hotel"),
+            new("Kyoto", transfer, arrival.AddDays(6), "Kyoto hotel")
+        };
+        var response = await client.PutAsJsonAsync("/api/mobile/builder/setup",
+            new SaveBuilderTripSetupRequest(arrival, arrival.AddDays(6), "Asia/Tokyo", 0, segments));
+        response.EnsureSuccessStatusCode();
+        var setup = await client.GetFromJsonAsync<BuilderTripSetupDto>("/api/mobile/builder/setup");
+        Assert.Equal(segments, setup!.Segments);
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<TravelCompanionDbContext>();
+        var days = await db.TripDayPlans.Where(day => day.TripId == setup.TripId).ToListAsync();
+        Assert.Equal(7, days.Count);
+        Assert.Equal("Kyoto", days.Single(day => day.Date == transfer).City);
+        Assert.Equal("Kyoto hotel", days.Single(day => day.Date == transfer).HotelBase);
+    }
+
+    [Theory]
+    [InlineData(2)]
+    [InlineData(5)]
+    public async Task Multiple_day_overlap_or_gap_is_rejected(int secondStartOffset)
+    {
+        await using var factory = new BuilderApiFactory();
+        var token = await factory.SeedBuilderAsync();
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new("Bearer", token);
+        var arrival = new DateOnly(2026, 9, 1);
+        var response = await client.PutAsJsonAsync("/api/mobile/builder/setup",
+            new SaveBuilderTripSetupRequest(arrival, arrival.AddDays(6), "Asia/Tokyo", 0,
+                [new("Tokyo", arrival, arrival.AddDays(3)), new("Kyoto", arrival.AddDays(secondStartOffset), arrival.AddDays(6))]));
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Revoked_builder_grant_invalidates_existing_session()
     {
         await using var factory = new BuilderApiFactory();

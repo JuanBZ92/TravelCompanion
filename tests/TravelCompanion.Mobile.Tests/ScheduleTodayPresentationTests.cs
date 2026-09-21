@@ -7,6 +7,27 @@ namespace TravelCompanion.Mobile.Tests;
 public sealed class ScheduleTodayPresentationTests
 {
     [Fact]
+    public void Traveler_activity_uses_edited_title_and_personal_notes_and_can_be_edited()
+    {
+        var recommendation = CreateRecommendation("Catalog name", "cafe");
+        var item = new ScheduleItemDto(Guid.NewGuid(), recommendation.Id, ReservationType.Event,
+            new DateOnly(2026, 10, 1), new TimeOnly(9, 0), null, null,
+            "My breakfast", "Tokyo", "Cafe", "Address", "", "Ask for oat milk",
+            null, null, null, null, null, null, ScheduleItemKind.Recommendation,
+            ItineraryItemOwner.Traveler, ItineraryItemSource.YukuRecommendation, ItineraryTimePrecision.PeriodOnly);
+        var activity = new TodayLocationViewModel(recommendation, 4m, true, item);
+        Assert.Equal("My breakfast", activity.Title);
+        Assert.Equal("Ask for oat milk", activity.Notes);
+        Assert.True(activity.HasNotes);
+        Assert.True(activity.CanEdit);
+        var reservation = new TodayReservationViewModel(item);
+        Assert.Equal(activity.Notes, reservation.Notes);
+        Assert.True(reservation.HasNotes);
+        Assert.False(new TodayLocationViewModel(recommendation, 4m).CanEdit);
+        Assert.False(new TodayLocationViewModel(recommendation, 4m).HasNotes);
+    }
+
+    [Fact]
     public void Assigned_recommendation_is_rendered_as_a_curated_location()
     {
         var recommendation = new RecommendationDto(

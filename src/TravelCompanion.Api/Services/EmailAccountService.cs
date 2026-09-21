@@ -319,6 +319,7 @@ public sealed class EmailAccountService(
         foreach (var trip in trips)
         {
             trip.TravelerName = "Deleted traveler";
+            trip.BuilderSegmentsJson = null;
             trip.AccessPinHash = null;
             trip.AccessPinUpdatedAt = null;
             trip.ExternalId = null;

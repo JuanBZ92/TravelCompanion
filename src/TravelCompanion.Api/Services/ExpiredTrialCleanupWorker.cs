@@ -134,6 +134,7 @@ public sealed class ExpiredTrialCleanupWorker(
                 .Where(item => item.TripId == trip.Id).ToListAsync(cancellationToken));
             trip.IsArchived = true;
             trip.DraftPurgedAtUtc = now;
+            trip.BuilderSegmentsJson = null;
             trip.PlanRevision++;
             trip.UpdatedAtUtc = now;
             var grant = grants.Single(item => item.TripId == trip.Id);

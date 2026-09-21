@@ -347,18 +347,14 @@
                                     <VerticalStackLayout Grid.Column="1"
                                                          Spacing="14"
                                                          Padding="12,0,0,8">
-                                        <Grid ColumnDefinitions="68,*"
+                                        <Grid ColumnDefinitions="*"
                                               ColumnSpacing="8"
                                               HeightRequest="36">
-                                            <Label Text="{Binding Title}"
-                                                   FontFamily="serif"
-                                                   FontSize="16"
-                                                   TextColor="#8A8178"
-                                                   VerticalOptions="Center" />
-                                            <Label Grid.Column="1"
+
+                                            <Label Grid.Column="0"
                                                    Text="{Binding PeriodLabel}"
-                                                   CharacterSpacing="4"
-                                                   FontSize="10"
+                                                   CharacterSpacing="1"
+                                                   FontSize="16"
                                                    FontAttributes="Bold"
                                                    TextColor="#AAA198"
                                                    VerticalOptions="Center" />
@@ -401,25 +397,19 @@
                                     <VerticalStackLayout Grid.Column="1"
                                                          Spacing="13"
                                                          Padding="12,0,0,8">
-                                        <Grid ColumnDefinitions="68,*,44"
+                                        <Grid ColumnDefinitions="*,44"
                                               ColumnSpacing="8"
                                               HeightRequest="44">
-                                            <Label Text="{Binding Title}"
-                                                   FontFamily="serif"
+
+                                            <Label Grid.Column="0" Text="{Binding PeriodLabel}"
+                                                   CharacterSpacing="1"
                                                    FontSize="16"
-                                                   TextColor="#5A5148"
-                                                   VerticalOptions="Center"
-                                                   VerticalTextAlignment="Center"
-                                                   LineBreakMode="NoWrap" />
-                                            <Label Grid.Column="1" Text="{Binding PeriodLabel}"
-                                                   CharacterSpacing="4"
-                                                   FontSize="10"
                                                    FontAttributes="Bold"
                                                    TextColor="#9B9288"
                                                    VerticalOptions="Center"
                                                    VerticalTextAlignment="Center"
                                                    LineBreakMode="NoWrap" />
-                                            <Button Grid.Column="2" Text="+" ToolTipProperties.Text="Agregar plan personal"
+                                            <Button Grid.Column="1" Text="+" ToolTipProperties.Text="Agregar plan personal"
                                                     Command="{Binding AddPersonalItemCommand, Source={RelativeSource AncestorType={x:Type viewModels:ScheduleViewModel}}, x:DataType=viewModels:ScheduleViewModel}"
                                                     CommandParameter="{Binding .}" IsVisible="{Binding CanAddItem}"
                                                     Style="{StaticResource GhostButton}" WidthRequest="44" HeightRequest="44" Padding="0" />
@@ -449,11 +439,7 @@
 
                                         <VerticalStackLayout Spacing="8"
                                                              IsVisible="{Binding HasLocations}">
-                                            <Label Text="LOCATIONS"
-                                                   CharacterSpacing="3"
-                                                   FontSize="10"
-                                                   FontAttributes="Bold"
-                                                   TextColor="#9B9288" />
+
                                             <VerticalStackLayout Spacing="9"
                                                                  BindableLayout.ItemsSource="{Binding Locations}">
                                                 <BindableLayout.ItemTemplate>
@@ -474,15 +460,8 @@
                                                                        TextColor="#1A1714"
                                                                        LineBreakMode="WordWrap"
                                                                        MaxLines="2" />
-                                                                <Label Text="{Binding Detail}"
-                                                                       FontSize="13"
-                                                                       TextColor="#8A8078"
-                                                                       LineBreakMode="TailTruncation"
-                                                                       MaxLines="1" />
-                                                                <Label Text="{Binding DistanceLabel}"
-                                                                       FontSize="12"
-                                                                       TextColor="#6E675F"
-                                                                       IsVisible="{Binding HasDistance}" />
+                                                                <Label Text="{Binding Notes}" IsVisible="{Binding HasNotes}" FontSize="13" TextColor="#6E675F" LineBreakMode="WordWrap" />
+
                                                                 <Label Text="{Binding VisitStatusLabel}"
                                                                        FontSize="11"
                                                                        FontAttributes="Bold"
@@ -518,6 +497,9 @@
                                                                        Opacity="0.78"
                                                                        InputTransparent="True"
                                                                        SemanticProperties.Description="Abrir en el mapa" />
+                                                                <ImageButton Source="action_edit.svg" Clicked="OnEditPersonalItemClicked"
+                                                                             BackgroundColor="Transparent" WidthRequest="44" HeightRequest="44" Padding="10"
+                                                                             IsVisible="{Binding CanEdit}" SemanticProperties.Description="Editar evento" />
                                                                 <ImageButton Source="action_delete.svg"
                                                                              Clicked="OnRemovePersonalRecommendationClicked"
                                                                              BackgroundColor="Transparent"
@@ -591,23 +573,15 @@
                                                                                  SemanticProperties.Description="Eliminar reserva"
                                                                                  ToolTipProperties.Text="Eliminar reserva" />
                                                                 </Grid>
-                                                                <Label Text="{Binding Place}"
-                                                                       FontSize="13"
-                                                                       TextColor="#6E675F"
-                                                                       IsVisible="{Binding HasPlace}"
-                                                                       LineBreakMode="TailTruncation"
-                                                                       MaxLines="2" />
+                                                                <Label Text="{Binding Notes}" IsVisible="{Binding HasNotes}" FontSize="13" TextColor="#6E675F" LineBreakMode="WordWrap" />
+
                                                                 <Label Text="{Binding Confirmation}"
                                                                        FontSize="12"
                                                                        TextColor="#8A8078"
                                                                        IsVisible="{Binding HasConfirmation}"
                                                                        LineBreakMode="TailTruncation"
                                                                        MaxLines="1" />
-                                                                <Label Text="{Binding DistanceFromHotelLabel}"
-                                                                       FontSize="11"
-                                                                       TextColor="#8A8078"
-                                                                       IsVisible="{Binding HasDistanceFromHotel}"
-                                                                       Margin="0,3,0,0" />
+
                                                                 <FlexLayout Direction="Row" Wrap="NoWrap" AlignItems="Start" IsVisible="{Binding HasRoutes}" BindableLayout.ItemsSource="{Binding Routes}" Margin="0,10,0,0">
                                                                     <BindableLayout.ItemTemplate>
                                                                         <DataTemplate x:DataType="viewModels:ItineraryRouteViewModel">

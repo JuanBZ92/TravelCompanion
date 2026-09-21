@@ -16,6 +16,7 @@ public sealed class Trip
     public DateOnly StartsOn { get; set; }
     public DateOnly EndsOn { get; set; }
     public string TimeZoneId { get; set; } = "UTC";
+    public string? BuilderSegmentsJson { get; set; }
     public ExperienceMode ExperienceMode { get; set; } = ExperienceMode.CuratedPremium;
     public TripPublicationStatus PublicationStatus { get; set; } = TripPublicationStatus.Published;
     public int PlanRevision { get; set; }

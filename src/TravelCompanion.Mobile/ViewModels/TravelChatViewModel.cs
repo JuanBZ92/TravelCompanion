@@ -590,18 +590,12 @@ public sealed partial class TravelChatViewModel(
                 }
 
                 var processedCardCount = Math.Min(cards.Count, 5);
-                var savedCount = await SaveFullDayCardsAsync(
-                    cards,
-                    token,
-                    activeRequest.Token,
-                    (card, completed, total) => PublishFullDayCardAsync(
-                        fullDayProgressMessage,
-                        card,
-                        completed,
-                        total));
-                responseMessage = savedCount == processedCardCount
-                    ? string.Format(CultureInfo.CurrentCulture, Resource("AssistantFullDaySaved"), savedCount)
-                    : string.Format(CultureInfo.CurrentCulture, Resource("AssistantFullDayPartiallySaved"), savedCount, processedCardCount);
+                for (var index = 0; index < processedCardCount; index++)
+                {
+                    cards[index].PlanningDate = DateOnly.FromDateTime(PlanningDate);
+                    await PublishFullDayCardAsync(fullDayProgressMessage, cards[index], index + 1, processedCardCount);
+                }
+                responseMessage = response.Message;
                 fullDayProgressMessage.UpdateProgress(responseMessage, isLoading: false);
                 if (!sessionService.CanEditItinerary)
                 {

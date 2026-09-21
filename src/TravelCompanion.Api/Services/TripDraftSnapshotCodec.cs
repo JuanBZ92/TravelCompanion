@@ -39,7 +39,8 @@ public static class TripDraftSnapshotCodec
                 trip.PlanDraft.PayloadJson, trip.PlanDraft.PendingAccessPinHash, trip.PlanDraft.UpdatedAtUtc),
             trip.ThematicRoutes.SelectMany(route => route.Stops)
                 .Where(stop => stop.ItineraryItemId.HasValue)
-                .Select(stop => new RouteLinkSnapshot(stop.Id, stop.ItineraryItemId!.Value)).ToList());
+                .Select(stop => new RouteLinkSnapshot(stop.Id, stop.ItineraryItemId!.Value)).ToList(),
+            trip.BuilderSegmentsJson);
         return JsonSerializer.Serialize(snapshot, JsonOptions);
     }
 
@@ -59,6 +60,7 @@ public static class TripDraftSnapshotCodec
         trip.StartsOn = snapshot.StartsOn;
         trip.EndsOn = snapshot.EndsOn;
         trip.TimeZoneId = snapshot.TimeZoneId;
+        trip.BuilderSegmentsJson = snapshot.BuilderSegmentsJson;
         trip.PlanRevision = snapshot.PlanRevision;
         trip.IsArchived = false;
         trip.DraftPurgedAtUtc = null;
@@ -124,7 +126,8 @@ public static class TripDraftSnapshotCodec
     private sealed record TripDraftSnapshot(int Version, Guid TripId, string TravelerName, DateOnly StartsOn,
         DateOnly EndsOn, string TimeZoneId, int PlanRevision, IReadOnlyList<DaySnapshot> Days,
         IReadOnlyList<ReservationSnapshot> Reservations, IReadOnlyList<DocumentSnapshot> Documents,
-        PlanDraftSnapshot? PlanDraft, IReadOnlyList<RouteLinkSnapshot>? RouteLinks = null);
+        PlanDraftSnapshot? PlanDraft, IReadOnlyList<RouteLinkSnapshot>? RouteLinks = null,
+        string? BuilderSegmentsJson = null);
     private sealed record RouteLinkSnapshot(Guid StopId, Guid ItineraryItemId);
     private sealed record DaySnapshot(Guid Id, DateOnly Date, int DayNumber, string City, string HotelBase,
         string BaseAddress, string? BaseProviderPlaceId, decimal? BaseLatitude, decimal? BaseLongitude,

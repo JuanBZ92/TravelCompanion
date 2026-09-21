@@ -95,21 +95,7 @@ public sealed partial class TravelChatViewModel
             var pendingMessage = new TravelChatMessageViewModel(string.Empty, false, cards);
             Messages.Add(pendingMessage);
             OnMessagesChanged();
-            var saved = await SaveFullDayCardsAsync(cards, token, cancellationToken);
-            foreach (var card in cards)
-            {
-                var old = Messages.Where(message => message != pendingMessage).SelectMany(message => message.Cards)
-                    .FirstOrDefault(item => card.ReservationId.HasValue && item.ReservationId == card.ReservationId);
-                var message = old is null ? null : Messages.FirstOrDefault(item => item.Cards.Contains(old));
-                if (message is not null && card.IsSaved)
-                {
-                    message.ReplaceCard(old!, card);
-                    pendingMessage.Cards.Remove(card);
-                }
-            }
-            if (pendingMessage.Cards.Count == 0) Messages.Remove(pendingMessage);
-            StatusMessage = saved == cards.Count ? response.Message
-                : string.Format(CultureInfo.CurrentCulture, Resource("AssistantFullDayPartiallySaved"), saved, cards.Count);
+            StatusMessage = response.Message;
             SuggestedReplies.Clear();
             OnMessagesChanged();
         }

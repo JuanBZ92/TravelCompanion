@@ -71,7 +71,7 @@
                         <Label Text="{Binding ErrorMessage}" VerticalTextAlignment="Center" />
                         <Button Grid.Column="1"
                                 Text="Reintentar"
-                                Command="{Binding LoadSetupCommand}"
+                                Command="{Binding RetryCommand}"
                                 IsEnabled="{Binding IsNotBusy}"
                                 Style="{StaticResource GhostButton}"
                                 FontSize="12"
