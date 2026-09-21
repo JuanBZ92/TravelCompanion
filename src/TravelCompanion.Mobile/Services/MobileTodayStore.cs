@@ -21,10 +21,7 @@ public sealed class MobileTodayStore(
     private DateOnly? _currentDate;
     private string? _currentLocale;
     private static string Locale => System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
-    private readonly object _refreshLock = new();
-    private Task<ApiCallResult<TodayDto>>? _refreshTask;
-    private string? _refreshKey;
-    private CancellationTokenSource? _refreshCancellation;
+    private readonly InFlightRefresh<ApiCallResult<TodayDto>> _refresh = new();
 
     public async Task<OfflineCacheResult<TodayDto>?> GetCachedAsync(
         DateOnly date,
@@ -98,43 +95,11 @@ public sealed class MobileTodayStore(
         CancellationToken cancellationToken = default)
     {
         var context = CaptureContext(date);
-        Task<ApiCallResult<TodayDto>> refreshTask;
-        lock (_refreshLock)
-        {
-            if (_refreshTask is null || _refreshTask.IsCompleted || !string.Equals(_refreshKey, context.Key, StringComparison.Ordinal))
-            {
-                _refreshCancellation?.Dispose();
-                _refreshCancellation = new CancellationTokenSource();
-                _refreshKey = context.Key;
-                _refreshTask = RefreshCoreAsync(token, date, currentLocation, context, _refreshCancellation.Token);
-            }
-            else
-            {
-                logger.LogInformation("Mobile today refresh joined existing in-flight request. Date={Date}.", date);
-            }
-            refreshTask = _refreshTask;
-        }
-
-        try
-        {
-            return await refreshTask.WaitAsync(cancellationToken).ConfigureAwait(false);
-        }
-        finally
-        {
-            if (refreshTask.IsCompleted)
-            {
-                lock (_refreshLock)
-                {
-                    if (ReferenceEquals(_refreshTask, refreshTask))
-                    {
-                        _refreshTask = null;
-                        _refreshKey = null;
-                        _refreshCancellation?.Dispose();
-                        _refreshCancellation = null;
-                    }
-                }
-            }
-        }
+        return await _refresh.RunAsync(
+            context.Key,
+            ct => RefreshCoreAsync(token, date, currentLocation, context, ct),
+            cancellationToken,
+            () => logger.LogInformation("Mobile today refresh joined existing in-flight request. Date={Date}.", date)).ConfigureAwait(false);
     }
 
     private async Task<ApiCallResult<TodayDto>> RefreshCoreAsync(
@@ -261,17 +226,7 @@ public sealed class MobileTodayStore(
         && context.Generation == Interlocked.Read(ref _generation)
         && string.Equals(context.Locale, Locale, StringComparison.Ordinal);
 
-    private void DetachActiveRefresh()
-    {
-        lock (_refreshLock)
-        {
-            _refreshCancellation?.Cancel();
-            _refreshCancellation?.Dispose();
-            _refreshCancellation = null;
-            _refreshTask = null;
-            _refreshKey = null;
-        }
-    }
+    private void DetachActiveRefresh() => _refresh.CancelAndDetach();
 
     private sealed record CacheContext(Guid? UserId, Guid? TripId, string Locale, long ContextVersion, long Generation, string Key);
 }

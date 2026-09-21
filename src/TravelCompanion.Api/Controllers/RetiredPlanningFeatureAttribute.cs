@@ -7,6 +7,9 @@ namespace TravelCompanion.Api.Controllers;
 public sealed class RetiredPlanningFeatureAttribute : ActionFilterAttribute
 {
     public override void OnActionExecuting(ActionExecutingContext context) =>
-        context.Result = new ObjectResult(new { message = "Rutas y reorganización ya no están disponibles. Usa Mejorar el día desde Today." })
+        context.Result = CreateResult();
+
+    internal static ObjectResult CreateResult() =>
+        new(new { message = "Rutas y reorganización ya no están disponibles. Usa Mejorar el día desde Today." })
         { StatusCode = StatusCodes.Status410Gone };
 }

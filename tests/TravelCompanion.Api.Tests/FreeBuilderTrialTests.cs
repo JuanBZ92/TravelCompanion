@@ -147,43 +147,81 @@ public sealed class FreeBuilderTrialTests
         Assert.DoesNotContain(plan.Cards, card => card.RecommendationId == seed.OutsideRecommendationId.ToString());
     }
 
-    [Fact]
-    public async Task Retired_planning_features_are_not_available_to_older_clients()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Retired_planning_features_are_not_available_to_older_clients(bool paidAccount)
     {
         await using var factory = new TrialApiFactory();
-        var seed = await factory.SeedAsync();
+        await factory.SeedAsync();
         using var client = factory.CreateClient();
-        var login = await LoginAsync(client, "proposal-radius");
+        var login = await LoginAsync(client, "retired-planning");
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login.Token);
         var date = new DateOnly(2026, 10, 5);
-        var setupResponse = await client.PutAsJsonAsync(
+        using var setupResponse = await client.PutAsJsonAsync(
             "/api/mobile/builder/setup",
             new SaveBuilderTripSetupRequest(
                 date, date.AddDays(2), "Asia/Tokyo", 0,
                 [new BuilderTripSetupSegmentDto("Tokyo", date, date.AddDays(2))]),
             JsonOptions);
         setupResponse.EnsureSuccessStatusCode();
-        var setup = await setupResponse.Content.ReadFromJsonAsync<BuilderTripSetupDto>(JsonOptions);
 
-        var response = await client.PostAsJsonAsync(
-            "/api/mobile/proposals",
-            new DayProposalRequestDto(
-                date,
-                DayPlanningGoal.Balance,
-                setup!.Revision,
-                new TimeOnly(9, 0),
-                new TimeOnly(21, 0),
-                "free-proposal-radius"),
-            JsonOptions);
+        if (paidAccount)
+        {
+            using var redeem = await client.PostAsJsonAsync(
+                "/api/mobile/pass/redeem", new RedeemTravelPassRequest("4321"), JsonOptions);
+            redeem.EnsureSuccessStatusCode();
+            var paid = await redeem.Content.ReadFromJsonAsync<AuthSessionDto>(JsonOptions);
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", paid!.Token);
+        }
 
-        Assert.Equal(HttpStatusCode.Gone, response.StatusCode);
-        var redeem = await client.PostAsJsonAsync("/api/mobile/pass/redeem", new RedeemTravelPassRequest("4321"), JsonOptions);
-        redeem.EnsureSuccessStatusCode();
-        var paid = await redeem.Content.ReadFromJsonAsync<AuthSessionDto>(JsonOptions);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", paid!.Token);
-        var routes = await client.GetAsync("/api/mobile/thematic-routes");
-        Assert.Equal(HttpStatusCode.Gone, routes.StatusCode);
+        var id = Guid.NewGuid();
+        var start = new TimeOnly(9, 0);
+        var end = new TimeOnly(21, 0);
+        (HttpMethod Method, string Path, object? Payload)[] requests =
+        [
+            (HttpMethod.Post, "/api/mobile/proposals",
+                new DayProposalRequestDto(date, DayPlanningGoal.Balance, 0, start, end, "retired-create")),
+            (HttpMethod.Get, $"/api/mobile/proposals/{id}", null),
+            (HttpMethod.Patch, $"/api/mobile/proposals/{id}", new ReviseDayProposalDto(1, [], [])),
+            (HttpMethod.Post, $"/api/mobile/proposals/{id}/apply", new ApplyDayProposalDto(1, 0, "retired-apply")),
+            (HttpMethod.Post, $"/api/mobile/proposals/operations/{id}/undo", null),
+            (HttpMethod.Get, "/api/mobile/thematic-routes", null),
+            (HttpMethod.Post, "/api/mobile/thematic-routes",
+                new CreateThematicRouteDto("Legacy route", default, "Tokyo", date, start, end)),
+            (HttpMethod.Put, $"/api/mobile/thematic-routes/{id}", new UpdateThematicRouteDto("Legacy route", 1, [])),
+            (HttpMethod.Post, $"/api/mobile/thematic-routes/{id}/copy", null),
+            (HttpMethod.Post, $"/api/mobile/thematic-routes/{id}/prepare-application",
+                new ApplyThematicRouteDto(date, start, end, 0, "retired-route")),
+            (HttpMethod.Delete, $"/api/mobile/thematic-routes/{id}?removeActivities=true&expectedRevision=0", null)
+        ];
 
+        foreach (var (method, path, payload) in requests)
+        {
+            using var request = new HttpRequestMessage(method, path);
+            if (payload is not null)
+                request.Content = JsonContent.Create(payload, payload.GetType(), options: JsonOptions);
+
+            using var response = await client.SendAsync(request);
+            // The free-preview guard still blocks thematic routes before the retirement filter.
+            var expected = !paidAccount && path.StartsWith("/api/mobile/thematic-routes", StringComparison.Ordinal)
+                ? HttpStatusCode.Forbidden : HttpStatusCode.Gone;
+            Assert.True(response.StatusCode == expected,
+                $"{method} {path}: expected {(int)expected}, got {(int)response.StatusCode}");
+            var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+            if (expected == HttpStatusCode.Gone)
+                Assert.Equal("Rutas y reorganización ya no están disponibles. Usa Mejorar el día desde Today.",
+                    body.GetProperty("message").GetString());
+            else
+                Assert.Equal("This session only provides access to the free map preview.",
+                    body.GetProperty("title").GetString());
+        }
+
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<TravelCompanionDbContext>();
+        Assert.Empty(await db.ItineraryProposals.ToListAsync());
+        Assert.Empty(await db.ItineraryOperations.ToListAsync());
+        Assert.Empty(await db.ThematicRoutes.ToListAsync());
     }
 
     [Fact]

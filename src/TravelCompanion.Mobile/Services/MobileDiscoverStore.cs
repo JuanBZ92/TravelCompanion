@@ -20,10 +20,7 @@ public sealed class MobileDiscoverStore(
     private Guid? _currentTripId;
     private string? _currentLocale;
     private static string Locale => System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
-    private readonly object _refreshLock = new();
-    private Task<ApiCallResult<MobileDiscoverDto>>? _refreshTask;
-    private string? _refreshKey;
-    private CancellationTokenSource? _refreshCancellation;
+    private readonly InFlightRefresh<ApiCallResult<MobileDiscoverDto>> _refresh = new();
 
     public async Task<OfflineCacheResult<MobileDiscoverDto>?> GetCachedAsync(
         string? destinationSlug = null,
@@ -96,43 +93,11 @@ public sealed class MobileDiscoverStore(
         CancellationToken cancellationToken = default)
     {
         var context = CaptureContext(destinationSlug);
-        Task<ApiCallResult<MobileDiscoverDto>> refreshTask;
-        lock (_refreshLock)
-        {
-            if (_refreshTask is null || _refreshTask.IsCompleted || !string.Equals(_refreshKey, context.Key, StringComparison.Ordinal))
-            {
-                _refreshCancellation?.Dispose();
-                _refreshCancellation = new CancellationTokenSource();
-                _refreshKey = context.Key;
-                _refreshTask = RefreshCoreAsync(token, destinationSlug, context, _refreshCancellation.Token);
-            }
-            else
-            {
-                logger.LogInformation("Mobile discover refresh joined existing in-flight request.");
-            }
-            refreshTask = _refreshTask;
-        }
-
-        try
-        {
-            return await refreshTask.WaitAsync(cancellationToken).ConfigureAwait(false);
-        }
-        finally
-        {
-            if (refreshTask.IsCompleted)
-            {
-                lock (_refreshLock)
-                {
-                    if (ReferenceEquals(_refreshTask, refreshTask))
-                    {
-                        _refreshTask = null;
-                        _refreshKey = null;
-                        _refreshCancellation?.Dispose();
-                        _refreshCancellation = null;
-                    }
-                }
-            }
-        }
+        return await _refresh.RunAsync(
+            context.Key,
+            ct => RefreshCoreAsync(token, destinationSlug, context, ct),
+            cancellationToken,
+            () => logger.LogInformation("Mobile discover refresh joined existing in-flight request.")).ConfigureAwait(false);
     }
 
     private async Task<ApiCallResult<MobileDiscoverDto>> RefreshCoreAsync(
@@ -284,13 +249,7 @@ public sealed class MobileDiscoverStore(
         && context.Generation == Interlocked.Read(ref _generation)
         && string.Equals(context.Locale, Locale, StringComparison.Ordinal);
 
-    private void CancelActiveRefresh()
-    {
-        lock (_refreshLock)
-        {
-            _refreshCancellation?.Cancel();
-        }
-    }
+    private void CancelActiveRefresh() => _refresh.Cancel();
 
     private sealed record CacheContext(Guid? UserId, Guid? TripId, string Locale, long ContextVersion, long Generation, string Key);
 }

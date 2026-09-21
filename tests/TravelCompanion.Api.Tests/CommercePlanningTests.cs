@@ -92,134 +92,6 @@ public sealed class CommercePlanningTests
     }
 
     [Fact]
-    public async Task Proposal_preserves_confirmed_reservation_and_can_undo_atomic_change()
-    {
-        await using var db = CreateDb();
-        var destination = new Destination { Id = Guid.NewGuid(), Name = "Japan", Slug = "japan", Country = "Japan", ShortDescription = "", HeroImageUrl = "", TimeZoneId = "Asia/Tokyo" };
-        var user = new AppUser { Id = Guid.NewGuid(), Email = "verified@example.com", DisplayName = "Traveler", EmailVerified = true };
-        var date = new DateOnly(2027, 3, 10);
-        var trip = new Trip
-        {
-            Id = Guid.NewGuid(), AppUserId = user.Id, DestinationId = destination.Id, TravelerName = user.DisplayName,
-            StartsOn = date, EndsOn = date, TimeZoneId = "Asia/Tokyo", ExperienceMode = ExperienceMode.SelfServiceBuilder,
-            DayPlans = [new TripDayPlan
-            {
-                Id = Guid.NewGuid(), Date = date, DayNumber = 1, City = "Tokyo", HotelBase = "", BaseAddress = "",
-                Blocks = TripPlanPeriods.All.Select(period => new TripDayBlock { Id = Guid.NewGuid(), PeriodKey = period.Key, SortOrder = period.SortOrder }).ToList()
-            }]
-        };
-        foreach (var block in trip.DayPlans[0].Blocks) block.TripDayPlanId = trip.DayPlans[0].Id;
-        var protectedItem = Reservation(trip.Id, date, "Reserva", new TimeOnly(10, 0), ItineraryFlexibility.ConfirmedReservation, trip.DayPlans[0].Blocks[0].Id);
-        var fixedItem = Reservation(trip.Id, date, "Horario fijado", new TimeOnly(16, 0), ItineraryFlexibility.FixedByTraveler, trip.DayPlans[0].Blocks[2].Id);
-        var flexibleItem = Reservation(trip.Id, date, "Paseo", new TimeOnly(14, 0), ItineraryFlexibility.Flexible, trip.DayPlans[0].Blocks[1].Id);
-        trip.Reservations.AddRange([protectedItem, fixedItem, flexibleItem]);
-        var grant = new BuilderAccessGrant
-        {
-            Id = Guid.NewGuid(), AppUserId = user.Id, DestinationId = destination.Id, TripId = trip.Id,
-            PinHash = null, IsTrial = false, Status = BuilderAccessStatus.Active, ExpiresAtUtc = DateTimeOffset.UtcNow.AddMonths(2)
-        };
-        db.AddRange(destination, user, trip, grant);
-        await db.SaveChangesAsync();
-
-        var sessions = new UserSessionService(db);
-        var (_, token) = await sessions.CreateSessionAsync(user, tripId: trip.Id, accessMode: SessionAccessMode.Builder);
-        var http = new DefaultHttpContext(); http.Request.Headers.Authorization = $"Bearer {token}";
-        var freeOptions = Microsoft.Extensions.Options.Options.Create(new FreePreviewOptions());
-        var free = new FreeTrialAccessService(db, freeOptions, NullLogger<FreeTrialAccessService>.Instance);
-        var access = new TravelerAccessService(sessions, free);
-        var usage = new AssistantUsageService(db, freeOptions, Microsoft.Extensions.Options.Options.Create(new StorePurchaseOptions()));
-        var service = new DayProposalService(db, sessions, access, usage);
-
-        var proposal = await service.CreateAsync(http,
-            new(date, DayPlanningGoal.Balance, 0, new TimeOnly(9, 0), new TimeOnly(21, 0), "proposal-1"), default);
-        Assert.Single(proposal.Changes);
-        Assert.Contains("Protected reservations remain unchanged", proposal.Narrative);
-        var applied = await service.ApplyAsync(http, proposal.Id,
-            new(proposal.Version, proposal.BasedOnRevision, "apply-1"), default);
-        Assert.Equal(new TimeOnly(10, 0), (await db.Reservations.SingleAsync(item => item.Id == protectedItem.Id)).StartsAt);
-        Assert.Equal(new TimeOnly(16, 0), (await db.Reservations.SingleAsync(item => item.Id == fixedItem.Id)).StartsAt);
-        Assert.Equal(new TimeOnly(9, 0), (await db.Reservations.SingleAsync(item => item.Id == flexibleItem.Id)).StartsAt);
-        await service.UndoAsync(http, applied.OperationId, default);
-        Assert.Equal(new TimeOnly(14, 0), (await db.Reservations.SingleAsync(item => item.Id == flexibleItem.Id)).StartsAt);
-    }
-
-    [Fact]
-    public async Task Targeted_issue_proposal_replaces_only_the_flexible_problem_item()
-    {
-        await using var db = CreateDb();
-        var destination = new Destination
-        {
-            Id = Guid.NewGuid(), Name = "Japan", Slug = "targeted-proposal", Country = "Japan",
-            ShortDescription = "", HeroImageUrl = "", TimeZoneId = "Asia/Tokyo"
-        };
-        var user = new AppUser
-        {
-            Id = Guid.NewGuid(), Email = "targeted@example.com", DisplayName = "Traveler", EmailVerified = true
-        };
-        var date = new DateOnly(2027, 3, 12);
-        var trip = new Trip
-        {
-            Id = Guid.NewGuid(), AppUserId = user.Id, DestinationId = destination.Id,
-            TravelerName = user.DisplayName, StartsOn = date, EndsOn = date, TimeZoneId = "Asia/Tokyo",
-            ExperienceMode = ExperienceMode.SelfServiceBuilder,
-            DayPlans = [new TripDayPlan
-            {
-                Id = Guid.NewGuid(), Date = date, DayNumber = 1, City = "Tokyo", HotelBase = "", BaseAddress = "",
-                Blocks = TripPlanPeriods.All.Select(period => new TripDayBlock
-                {
-                    Id = Guid.NewGuid(), PeriodKey = period.Key, SortOrder = period.SortOrder
-                }).ToList()
-            }]
-        };
-        foreach (var block in trip.DayPlans[0].Blocks) block.TripDayPlanId = trip.DayPlans[0].Id;
-        var protectedItem = Reservation(trip.Id, date, "Reserva", new TimeOnly(10, 0),
-            ItineraryFlexibility.ConfirmedReservation, trip.DayPlans[0].Blocks[0].Id);
-        var flexibleItem = Reservation(trip.Id, date, "Plan con conflicto", new TimeOnly(10, 30),
-            ItineraryFlexibility.Flexible, trip.DayPlans[0].Blocks[0].Id);
-        trip.Reservations.AddRange([protectedItem, flexibleItem]);
-        var replacement = Recommendation(destination.Id, "Alternativa tranquila");
-        replacement.SuggestedDurationMinutes = 45;
-        replacement.Rating = 4.8;
-        var grant = new BuilderAccessGrant
-        {
-            Id = Guid.NewGuid(), AppUserId = user.Id, DestinationId = destination.Id, TripId = trip.Id,
-            IsTrial = false, Status = BuilderAccessStatus.Active, ExpiresAtUtc = DateTimeOffset.UtcNow.AddMonths(2)
-        };
-        db.AddRange(destination, user, trip, replacement, grant);
-        await db.SaveChangesAsync();
-
-        var sessions = new UserSessionService(db);
-        var (_, token) = await sessions.CreateSessionAsync(user, tripId: trip.Id, accessMode: SessionAccessMode.Builder);
-        var http = new DefaultHttpContext();
-        http.Request.Headers.Authorization = $"Bearer {token}";
-        var freeOptions = Microsoft.Extensions.Options.Options.Create(new FreePreviewOptions());
-        var free = new FreeTrialAccessService(db, freeOptions, NullLogger<FreeTrialAccessService>.Instance);
-        var access = new TravelerAccessService(sessions, free);
-        var usage = new AssistantUsageService(db, freeOptions,
-            Microsoft.Extensions.Options.Options.Create(new StorePurchaseOptions()));
-        var service = new DayProposalService(db, sessions, access, usage, freeTrialAccessService: free);
-
-        var proposal = await service.CreateAsync(http,
-            new(date, DayPlanningGoal.Reorganize, 0, new TimeOnly(9, 0), new TimeOnly(21, 0),
-                "targeted-proposal-1", flexibleItem.Id, DayReviewIssueKinds.Overlap), default);
-
-        var change = Assert.Single(proposal.Changes);
-        Assert.Equal(ItineraryChangeKind.Replace, change.Kind);
-        Assert.Equal(flexibleItem.Id, change.ExistingItemId);
-        Assert.Equal(replacement.Id, change.RecommendationId);
-        var applied = await service.ApplyAsync(http, proposal.Id,
-            new(proposal.Version, proposal.BasedOnRevision, "targeted-apply-1"), default);
-
-        Assert.Equal(2, await db.Reservations.CountAsync(item => item.TripId == trip.Id));
-        var protectedAfter = await db.Reservations.SingleAsync(item => item.Id == protectedItem.Id);
-        var flexibleAfter = await db.Reservations.SingleAsync(item => item.Id == flexibleItem.Id);
-        Assert.Equal(new TimeOnly(10, 0), protectedAfter.StartsAt);
-        Assert.Equal(replacement.Id, flexibleAfter.RecommendationId);
-        Assert.NotEqual(new TimeOnly(10, 30), flexibleAfter.StartsAt);
-        Assert.Equal(1, applied.Revision);
-    }
-
-    [Fact]
     public void Google_order_money_uses_units_and_nanos()
     {
         using var document = JsonDocument.Parse("""
@@ -231,78 +103,6 @@ public sealed class CommercePlanningTests
         Assert.NotNull(amount);
         Assert.Equal("EUR", amount.Currency);
         Assert.Equal(24.99m, amount.Amount);
-    }
-
-    [Fact]
-    public async Task Removing_route_activities_keeps_protected_items()
-    {
-        await using var db = CreateDb();
-        var destination = new Destination { Id = Guid.NewGuid(), Name = "Japan", Slug = "route-delete", Country = "Japan", ShortDescription = "", HeroImageUrl = "", TimeZoneId = "Asia/Tokyo" };
-        var user = new AppUser { Id = Guid.NewGuid(), Email = "route-delete@example.com", DisplayName = "Traveler", EmailVerified = true };
-        var trip = new Trip
-        {
-            Id = Guid.NewGuid(), AppUserId = user.Id, DestinationId = destination.Id, TravelerName = user.DisplayName,
-            StartsOn = new DateOnly(2027, 4, 1), EndsOn = new DateOnly(2027, 4, 2), TimeZoneId = "Asia/Tokyo",
-            ExperienceMode = ExperienceMode.SelfServiceBuilder
-        };
-        var flexible = Reservation(trip.Id, trip.StartsOn, "Flexible", new TimeOnly(9, 0), ItineraryFlexibility.Flexible, null);
-        var confirmed = Reservation(trip.Id, trip.StartsOn, "Confirmed", new TimeOnly(11, 0), ItineraryFlexibility.ConfirmedReservation, null);
-        trip.Reservations.AddRange([flexible, confirmed]);
-        var recommendation1 = Recommendation(destination.Id, "Stop one");
-        var recommendation2 = Recommendation(destination.Id, "Stop two");
-        var route = new ThematicRoute
-        {
-            Id = Guid.NewGuid(), AppUserId = user.Id, TripId = trip.Id, DestinationId = destination.Id,
-            Name = "Personal route", Theme = RouteTheme.HistoryAndTemples, City = "Tokyo",
-            Origin = RouteOrigin.Personal, Status = RoutePublicationStatus.Published, WarningsJson = "[]",
-            CreatedAtUtc = DateTimeOffset.UtcNow, UpdatedAtUtc = DateTimeOffset.UtcNow
-        };
-        var stop1 = new ThematicRouteStop { Id = Guid.NewGuid(), ThematicRouteId = route.Id, RecommendationId = recommendation1.Id, DurationMinutes = 60, SortOrder = 0 };
-        var stop2 = new ThematicRouteStop { Id = Guid.NewGuid(), ThematicRouteId = route.Id, RecommendationId = recommendation2.Id, DurationMinutes = 60, SortOrder = 1 };
-        route.Stops.AddRange([stop1, stop2]);
-        var operation = new ItineraryOperation
-        {
-            Id = Guid.NewGuid(), TripId = trip.Id, AppUserId = user.Id, IdempotencyKey = "route-apply",
-            PreviousStateJson = "[]", AppliedRevision = 0, AppliedAtUtc = DateTimeOffset.UtcNow,
-            UndoAvailableUntilUtc = DateTimeOffset.UtcNow.AddHours(24)
-        };
-        var application = new ThematicRouteApplication
-        {
-            Id = Guid.NewGuid(), ThematicRouteId = route.Id, TripId = trip.Id, ItineraryOperationId = operation.Id,
-            Date = trip.StartsOn, CreatedAtUtc = DateTimeOffset.UtcNow,
-            Stops =
-            [
-                new() { Id = Guid.NewGuid(), ThematicRouteStopId = stop1.Id, ItineraryItemId = flexible.Id, ItineraryItem = flexible },
-                new() { Id = Guid.NewGuid(), ThematicRouteStopId = stop2.Id, ItineraryItemId = confirmed.Id, ItineraryItem = confirmed }
-            ]
-        };
-        route.Applications.Add(application);
-        var grant = new BuilderAccessGrant
-        {
-            Id = Guid.NewGuid(), AppUserId = user.Id, DestinationId = destination.Id, TripId = trip.Id,
-            IsTrial = false, Status = BuilderAccessStatus.Active, CreatedAtUtc = DateTimeOffset.UtcNow,
-            ExpiresAtUtc = DateTimeOffset.UtcNow.AddMonths(2)
-        };
-        db.AddRange(destination, user, trip, recommendation1, recommendation2, route, operation, grant);
-        await db.SaveChangesAsync();
-
-        var sessions = new UserSessionService(db);
-        var (_, token) = await sessions.CreateSessionAsync(user, tripId: trip.Id, accessMode: SessionAccessMode.Builder);
-        var http = new DefaultHttpContext(); http.Request.Headers.Authorization = $"Bearer {token}";
-        var freeOptions = Microsoft.Extensions.Options.Options.Create(new FreePreviewOptions());
-        var free = new FreeTrialAccessService(db, freeOptions, NullLogger<FreeTrialAccessService>.Instance);
-        var access = new TravelerAccessService(sessions, free);
-        var usage = new AssistantUsageService(db, freeOptions, Microsoft.Extensions.Options.Options.Create(new StorePurchaseOptions()));
-        var proposals = new DayProposalService(db, sessions, access, usage);
-        var service = new ThematicRouteService(db, access, usage, proposals,
-            Microsoft.Extensions.Options.Options.Create(new ProductFeatureOptions()));
-
-        await service.DeleteAsync(http, route.Id, removeActivities: true, expectedRevision: 0, default);
-
-        Assert.False(await db.ThematicRoutes.AnyAsync(item => item.Id == route.Id));
-        Assert.False(await db.Reservations.AnyAsync(item => item.Id == flexible.Id));
-        Assert.True(await db.Reservations.AnyAsync(item => item.Id == confirmed.Id));
-        Assert.Equal(1, (await db.Trips.SingleAsync()).PlanRevision);
     }
 
     [Fact]
@@ -617,51 +417,6 @@ public sealed class CommercePlanningTests
         Assert.Equal("Night walk", restoredItem.Title);
     }
 
-    [Fact]
-    public async Task Editorial_route_without_a_trip_creates_a_proposal_for_the_current_trip()
-    {
-        await using var db = CreateDb();
-        var (user, trip, sessions, http) = await SeedPurchaseTripAsync(db);
-        var grant = new BuilderAccessGrant
-        {
-            Id = Guid.NewGuid(), AppUserId = user.Id, DestinationId = trip.DestinationId, TripId = trip.Id,
-            IsTrial = false, Status = BuilderAccessStatus.Active, ExpiresAtUtc = DateTimeOffset.UtcNow.AddMonths(1)
-        };
-        db.BuilderAccessGrants.Add(grant);
-        (await db.AppUserSessions.SingleAsync(item => item.UserId == user.Id)).AccessMode = SessionAccessMode.Builder;
-        var recommendations = Enumerable.Range(1, 2).Select(index => new Recommendation
-        {
-            Id = Guid.NewGuid(), DestinationId = trip.DestinationId, ExternalId = $"route-{index}",
-            Title = $"Stop {index}", Category = "History", Neighborhood = "Tokyo",
-            Description = "", SuggestedDurationMinutes = 60, AccessLevel = ContentAccessLevel.Free
-        }).ToList();
-        db.Recommendations.AddRange(recommendations);
-        await db.SaveChangesAsync();
-        var route = new ThematicRoute
-        {
-            Id = Guid.NewGuid(), DestinationId = trip.DestinationId, Name = "Editorial", City = "Tokyo",
-            Theme = RouteTheme.HistoryAndTemples, Origin = RouteOrigin.Yuku, Status = RoutePublicationStatus.Published,
-            WarningsJson = "[]", CreatedAtUtc = DateTimeOffset.UtcNow, UpdatedAtUtc = DateTimeOffset.UtcNow,
-            Stops = recommendations.Select((item, index) => new ThematicRouteStop
-            {
-                Id = Guid.NewGuid(), RecommendationId = item.Id, Recommendation = item,
-                DurationMinutes = 60, SortOrder = index
-            }).ToList()
-        };
-        var freeOptions = Microsoft.Extensions.Options.Options.Create(new FreePreviewOptions());
-        var access = new TravelerAccessService(sessions,
-            new FreeTrialAccessService(db, freeOptions, NullLogger<FreeTrialAccessService>.Instance));
-        var usage = new AssistantUsageService(db, freeOptions,
-            Microsoft.Extensions.Options.Options.Create(new StorePurchaseOptions()));
-        var service = new DayProposalService(db, sessions, access, usage);
-
-        var proposal = await service.CreateForRouteAsync(http, route,
-            new(trip.StartsOn, new TimeOnly(9, 0), new TimeOnly(18, 0), 0, "editorial-route"), default);
-
-        Assert.Equal(trip.Id, proposal.TripId);
-        Assert.Equal(2, proposal.Changes.Count);
-    }
-
     private static Reservation Reservation(Guid tripId, DateOnly date, string title, TimeOnly start,
         ItineraryFlexibility flexibility, Guid? blockId) => new()
     {
@@ -670,12 +425,6 @@ public sealed class CommercePlanningTests
         Owner = ItineraryItemOwner.Traveler, ItemSource = ItineraryItemSource.Manual, TimePrecision = ItineraryTimePrecision.Exact,
         Flexibility = flexibility, DurationMinutes = 60, Date = date, StartsAt = start, EndsAt = start.AddMinutes(60),
         TimeZoneId = "Asia/Tokyo", Title = title, City = "Tokyo", LocationName = title, Address = "", ConfirmationCode = "", Notes = ""
-    };
-    private static Recommendation Recommendation(Guid destinationId, string title) => new()
-    {
-        Id = Guid.NewGuid(), DestinationId = destinationId, ExternalId = $"route-{Guid.NewGuid():N}",
-        Title = title, Category = "History", Neighborhood = "Tokyo", Description = "",
-        SuggestedDurationMinutes = 60, AccessLevel = ContentAccessLevel.Free
     };
     private static TravelCompanionDbContext CreateDb() => new(new DbContextOptionsBuilder<TravelCompanionDbContext>()
         .UseInMemoryDatabase($"commerce-planning-{Guid.NewGuid():N}").Options);
