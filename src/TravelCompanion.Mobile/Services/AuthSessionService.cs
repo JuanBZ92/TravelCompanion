@@ -31,8 +31,9 @@ public sealed class AuthSessionService
     private const string TrialCurrencyKey = "auth_trial_currency";
     private const string TrialPurchaseUrlKey = "auth_trial_purchase_url";
     private const string TokenKey = "auth_token";
+    private const string SignedOutKey = "auth_signed_out";
 
-    public bool HasSession => CurrentUserId.HasValue;
+    public bool HasSession => !Preferences.Default.Get(SignedOutKey, false) && CurrentUserId.HasValue;
     public long ContextVersion => Interlocked.Read(ref _contextVersion);
     public bool MustChangePassword => Preferences.Default.Get(MustChangePasswordKey, false);
     public SessionAccessMode AccessMode
@@ -88,7 +89,7 @@ public sealed class AuthSessionService
     public bool HasKnownValidAccess => KnownAccessExpiresAtUtc is not { } expiresAt || expiresAt > DateTimeOffset.UtcNow;
     public bool IsBiometricEnabled
     {
-        get => Preferences.Default.Get(BiometricEnabledKey, false);
+        get => HasSession && Preferences.Default.Get(BiometricEnabledKey, false);
         set => Preferences.Default.Set(BiometricEnabledKey, value);
     }
 
@@ -176,12 +177,14 @@ public sealed class AuthSessionService
             session.AccessMode != SessionAccessMode.FreeMapPreview && !session.MustChangePassword);
         ApplyTrialAccess(session.TrialAccess);
         await SecureStorage.Default.SetAsync(TokenKey, session.Token).ConfigureAwait(false);
+        Preferences.Default.Set(SignedOutKey, false);
         Interlocked.Increment(ref _contextVersion);
         StateChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public async Task<string?> GetTokenAsync()
     {
+        if (!HasSession) return null;
         try
         {
             return await SecureStorage.Default.GetAsync(TokenKey).ConfigureAwait(false);
@@ -254,8 +257,17 @@ public sealed class AuthSessionService
         Interlocked.Increment(ref _contextVersion);
     }
 
+    public void BeginLogout()
+    {
+        // Persist before navigation/native cleanup: a killed process must reopen at PIN.
+        Preferences.Default.Set(SignedOutKey, true);
+        Preferences.Default.Remove(BiometricEnabledKey);
+        Interlocked.Increment(ref _contextVersion);
+    }
+
     public void Clear()
     {
+        BeginLogout();
         Preferences.Default.Remove(UserIdKey);
         Preferences.Default.Remove(EmailKey);
         Preferences.Default.Remove(EmailVerifiedKey);

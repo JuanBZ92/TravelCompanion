@@ -35,7 +35,8 @@ public sealed partial class ItineraryItemEditorViewModel(
     private string _titleText = string.Empty;
     private string _locationName = string.Empty;
     private string _address = string.Empty;
-    private int _revision;
+    private readonly ItineraryEditorContext _editorContext = new();
+    private int _revision { get => _editorContext.Revision; set => _editorContext.Revision = value; }
     private ScheduleItemDto? _existingItem;
     private IReadOnlyList<BuilderTripSetupSegmentDto> _segments = [];
     private CancellationTokenSource? _placeSearch;
@@ -382,6 +383,13 @@ public sealed partial class ItineraryItemEditorViewModel(
         }
         var token = await sessionService.GetTokenAsync();
         if (string.IsNullOrWhiteSpace(token)) return;
+        if (!_editorContext.IsCurrent(sessionService.ContextVersion))
+        {
+            ErrorMessage = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "es"
+                ? "Vuelve a abrir el editor para cargar el itinerario actualizado. Tus datos siguen en el formulario."
+                : "Reopen the editor to load the current itinerary. Your entries are still in the form.";
+            return;
+        }
         var periodKey = SelectedPeriod switch
         {
             "Mañana" => "morning",
@@ -407,6 +415,7 @@ public sealed partial class ItineraryItemEditorViewModel(
             Notes, _recommendation?.Latitude ?? _selectedLatitude, _recommendation?.Longitude ?? _selectedLongitude,
             _revision, Guid.NewGuid().ToString("N"), Flexibility: SelectedFlexibility.Value, DurationMinutes: duration);
         var result = await SaveMutationAsync(mutation);
+        if (!_editorContext.IsCurrent(sessionService.ContextVersion)) return;
         if (result?.HasOverlap == true)
         {
             var confirmed = await Shell.Current.DisplayAlertAsync(
@@ -420,7 +429,9 @@ public sealed partial class ItineraryItemEditorViewModel(
                 return;
             }
 
+            if (!_editorContext.IsCurrent(sessionService.ContextVersion)) return;
             result = await SaveMutationAsync(mutation with { ConfirmOverlap = true });
+            if (!_editorContext.IsCurrent(sessionService.ContextVersion)) return;
         }
 
         if (result is null || !result.Success)
@@ -438,6 +449,8 @@ public sealed partial class ItineraryItemEditorViewModel(
             ErrorMessage = result?.Message ?? "No se pudo guardar. Comprueba tu conexión.";
             return;
         }
+        _revision = result.Revision;
+        await builderTripStore.UpdateRevisionAsync(result.Revision, ct);
         await todayStore.InvalidateAllAsync();
         if (result.Item is not null) await bootstrapStore.UpsertScheduleItemAsync(result.Item, result.Revision, ct);
         await syncStateStore.AcknowledgeItineraryVersionAsync(result.Revision, ct);
@@ -460,9 +473,26 @@ public sealed partial class ItineraryItemEditorViewModel(
 
     private async Task<BuilderTripSetupDto?> LoadSetupAsync()
     {
-        var token = await sessionService.GetTokenAsync();
-        var setup = string.IsNullOrWhiteSpace(token) ? null : await builderTripStore.GetAsync(token);
-        _revision = setup?.Revision ?? 0;
+        var version = sessionService.ContextVersion;
+        var tripId = sessionService.CurrentTripId;
+        BuilderTripSetupDto? setup;
+        try
+        {
+            // An offline/cached setup may predate changes from Today or Assistant.
+            setup = await _editorContext.LoadAsync(version, tripId, async () =>
+            {
+                var token = await sessionService.GetTokenAsync();
+                return string.IsNullOrWhiteSpace(token) ? null : await apiClient.GetBuilderTripSetupAsync(token);
+            }, () => sessionService.ContextVersion);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or IOException or OperationCanceledException)
+        {
+            ErrorMessage = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "es"
+                ? "No se pudo actualizar el itinerario. Comprueba tu conexión y vuelve a abrir el editor."
+                : "Could not refresh the itinerary. Check your connection and reopen the editor.";
+            return null;
+        }
+        if (setup is null) return null;
         _segments = setup?.Segments ?? [];
         if (setup?.ArrivalDate is { } arrivalDate)
         {

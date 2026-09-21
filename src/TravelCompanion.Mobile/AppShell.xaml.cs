@@ -118,6 +118,13 @@ public partial class AppShell : Shell
         Dispatcher.Dispatch(async () => await LogoutFromTabAsync());
     }
 
+    public Task SignOutAsync()
+    {
+        if (_logoutInProgress) return Task.CompletedTask;
+        _logoutInProgress = true;
+        return LogoutFromTabAsync();
+    }
+
     private async Task LogoutFromTabAsync()
     {
         IsEnabled = false;
@@ -125,8 +132,7 @@ public partial class AppShell : Shell
         {
             var logoutService = MauiProgram.Services.GetRequiredService<SessionLogoutService>();
             // Leave the native map before resetting its bindings or removing active tabs.
-            await GoToAsync("//login");
-            await logoutService.LogoutAsync();
+            await logoutService.LogoutAsync(() => GoToAsync("//login"));
             ApplySessionTabs(MauiProgram.Services.GetRequiredService<AuthSessionService>());
         }
         catch (Exception exception)

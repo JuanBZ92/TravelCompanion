@@ -21,6 +21,8 @@
 
   <ItemGroup>
     <Using Include="Xunit" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\Services\AuthSessionService.cs" Link="AuthSessionService.cs" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\Services\ItineraryEditorContext.cs" Link="ItineraryEditorContext.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\BuilderTripDeletionFlow.cs" Link="BuilderTripDeletionFlow.cs" />
   </ItemGroup>
 

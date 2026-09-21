@@ -34,12 +34,13 @@ public sealed partial class BiometricUnlockViewModel(
     {
         return LoadAsync(async () =>
         {
-            if (!sessionService.HasSession)
+            if (!sessionService.HasSession || !sessionService.IsBiometricEnabled)
             {
                 await Shell.Current.GoToAsync("//login");
                 return;
             }
 
+            var contextVersion = sessionService.ContextVersion;
             var token = await sessionService.GetTokenAsync();
             if (string.IsNullOrWhiteSpace(token))
             {
@@ -54,9 +55,14 @@ public sealed partial class BiometricUnlockViewModel(
                 return;
             }
 
+            if (!sessionService.HasSession || !sessionService.IsBiometricEnabled
+                || contextVersion != sessionService.ContextVersion) return;
+
             if (await biometricUnlockService.UnlockAsync())
             {
-                await Shell.Current.GoToAsync("//main/schedule");
+                if (!sessionService.HasSession || !sessionService.IsBiometricEnabled
+                    || contextVersion != sessionService.ContextVersion) return;
+                await Shell.Current.GoToAsync(AppShell.GetAuthenticatedLandingRoute(sessionService));
                 return;
             }
 

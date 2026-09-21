@@ -84,8 +84,11 @@ public sealed partial class LoginViewModel(
     [RelayCommand]
     private async Task UnlockWithBiometricsAsync()
     {
+        if (!CanUseBiometricUnlock) return;
         await Shell.Current.GoToAsync("//biometric-unlock");
     }
+
+    public void RefreshAuthenticationOptions() => OnPropertyChanged(nameof(CanUseBiometricUnlock));
 
     [RelayCommand]
     private Task RecoverWithEmailAsync() => LoadAsync(async cancellationToken =>

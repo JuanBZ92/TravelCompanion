@@ -19,13 +19,24 @@ public sealed class SessionLogoutService(
 {
     private readonly SemaphoreSlim _logoutLock = new(1, 1);
 
-    public async Task LogoutAsync()
+    public async Task LogoutAsync(Func<Task>? leaveAuthenticatedScreen = null)
     {
         await _logoutLock.WaitAsync();
         try
         {
             var userId = sessionService.CurrentUserId;
-            var token = await sessionService.GetTokenAsync();
+            var tokenTask = sessionService.GetTokenAsync();
+            sessionService.BeginLogout();
+            try
+            {
+                if (leaveAuthenticatedScreen is not null) await leaveAuthenticatedScreen();
+                await ResetContentCoreAsync(userId, preservePendingItineraryAction: false);
+            }
+            finally
+            {
+                sessionService.Clear();
+            }
+            var token = await tokenTask;
             if (!string.IsNullOrWhiteSpace(token))
             {
                 try
@@ -39,8 +50,6 @@ public sealed class SessionLogoutService(
                 }
             }
 
-            await ResetContentCoreAsync(userId, preservePendingItineraryAction: false);
-            sessionService.Clear();
             await TryClearAsync(() => syncCoordinator.PublishPendingCountAsync());
         }
         finally
@@ -68,7 +77,7 @@ public sealed class SessionLogoutService(
         Guid? userId,
         bool preservePendingItineraryAction)
     {
-        await serviceProvider.GetRequiredService<ReservationReminderService>().ClearAsync();
+        await TryClearAsync(() => serviceProvider.GetRequiredService<ReservationReminderService>().ClearAsync());
         await TryClearAsync(() => bootstrapStore.ClearUserCacheAsync(userId));
         await TryClearAsync(() => discoverStore.ClearUserCacheAsync(userId));
         await TryClearAsync(() => todayStore.ClearUserCacheAsync(userId));
@@ -87,7 +96,11 @@ public sealed class SessionLogoutService(
 
         foreach (var resettable in serviceProvider.GetServices<ISessionStateResettable>())
         {
-            resettable.ResetForNewSession();
+            await TryClearAsync(() =>
+            {
+                resettable.ResetForNewSession();
+                return Task.CompletedTask;
+            });
         }
     }
 

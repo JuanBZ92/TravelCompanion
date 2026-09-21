@@ -8,7 +8,6 @@ namespace TravelCompanion.Mobile.ViewModels;
 
 public sealed partial class FreeMapViewModel(
     AuthSessionService sessionService,
-    TravelCompanionApiClient apiClient,
     FreeMapStore freeMapStore,
     OfflineSyncCoordinator syncCoordinator) : ViewModelBase, ISessionStateResettable
 {
@@ -348,23 +347,7 @@ public sealed partial class FreeMapViewModel(
 
     private async Task EndPreviewSessionAsync()
     {
-        var token = await sessionService.GetTokenAsync();
-        if (!string.IsNullOrWhiteSpace(token))
-        {
-            try
-            {
-                await apiClient.LogoutAsync(token);
-            }
-            catch
-            {
-                // Local logout must remain available while Render is offline.
-            }
-        }
-
-        await freeMapStore.ClearAsync();
-        sessionService.Clear();
-        ResetForNewSession();
-        await Shell.Current.GoToAsync("//login");
+        if (Shell.Current is AppShell shell) await shell.SignOutAsync();
     }
 
     private void SelectAdjacentMarker(int offset)
