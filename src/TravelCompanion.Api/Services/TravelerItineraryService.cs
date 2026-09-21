@@ -86,13 +86,13 @@ public sealed class TravelerItineraryService(
             TripDayBlock = block,
             RecommendationId = recommendation?.Id,
             Type = ReservationType.Event,
-            PlanningKind = ResolveKind(recommendation is not null || isGooglePlace, request.Flexibility),
+            PlanningKind = ResolveKind(recommendation is not null || isGooglePlace, ItineraryFlexibility.FixedByTraveler),
             Owner = ItineraryItemOwner.Traveler,
             ItemSource = recommendation is not null ? ItineraryItemSource.YukuRecommendation
                 : isGooglePlace ? ItineraryItemSource.GooglePlace
                 : ItineraryItemSource.Manual,
             TimePrecision = request.UseExactTime ? ItineraryTimePrecision.Exact : ItineraryTimePrecision.PeriodOnly,
-            Flexibility = request.Flexibility,
+            Flexibility = ItineraryFlexibility.FixedByTraveler,
             ReminderEnabled = request.UseExactTime ? request.ReminderEnabled : false,
             DurationMinutes = request.DurationMinutes ?? recommendation?.SuggestedDurationMinutes,
             ProviderPlaceId = recommendation?.ProviderPlaceId ?? request.GooglePlaceId?.Trim(),
@@ -161,7 +161,9 @@ public sealed class TravelerItineraryService(
         item.StartsAt = request.UseExactTime ? request.StartsAt ?? period.StartsAt : period.StartsAt;
         item.EndsAt = request.UseExactTime ? request.EndsAt : null;
         item.TimePrecision = request.UseExactTime ? ItineraryTimePrecision.Exact : ItineraryTimePrecision.PeriodOnly;
-        item.Flexibility = request.Flexibility;
+        // Editing does not change the item's origin or release a protected reservation.
+        if (item.SourceName != "Travel Assistant" && item.Flexibility != ItineraryFlexibility.ConfirmedReservation)
+            item.Flexibility = ItineraryFlexibility.FixedByTraveler;
         item.ReminderEnabled = request.UseExactTime ? request.ReminderEnabled ?? item.ReminderEnabled : false;
         item.DurationMinutes = request.DurationMinutes ?? item.Recommendation?.SuggestedDurationMinutes;
         item.Title = request.Title.Trim();
@@ -195,7 +197,7 @@ public sealed class TravelerItineraryService(
         }
         item.PlanningKind = ResolveKind(
             item.RecommendationId.HasValue || item.ItemSource == ItineraryItemSource.GooglePlace,
-            request.Flexibility);
+            item.Flexibility);
         trip.PlanRevision++;
         trip.UpdatedAtUtc = DateTimeOffset.UtcNow;
         await dbContext.SaveChangesAsync(cancellationToken);

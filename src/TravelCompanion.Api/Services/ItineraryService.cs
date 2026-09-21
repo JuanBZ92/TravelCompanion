@@ -84,9 +84,7 @@ public sealed class ItineraryService(
         var replaced = request.ReplaceReservationId.HasValue
             ? trip.Reservations.SingleOrDefault(item => item.Id == request.ReplaceReservationId.Value) : null;
         if (request.ReplaceReservationId.HasValue && (replaced is null
-            || replaced.Owner != ItineraryItemOwner.Traveler || replaced.Type != ReservationType.Event
-            || replaced.PlanningKind == ScheduleItemKind.ConfirmedReservation
-            || replaced.Flexibility != ItineraryFlexibility.Flexible || replaced.Date != request.Date
+            || !ItineraryPlanningPolicy.CanReplace(replaced) || replaced.Date != request.Date
             || replaced.RecommendationId != request.ExpectedRecommendationId))
             return new(false, "El evento cambió o no se puede reemplazar. Actualiza el día e inténtalo de nuevo.", null);
 

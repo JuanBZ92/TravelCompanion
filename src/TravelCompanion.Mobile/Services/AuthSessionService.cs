@@ -68,7 +68,8 @@ public sealed class AuthSessionService
         out var price) ? price : 24.99m;
     public string TrialCurrency => Preferences.Default.Get(TrialCurrencyKey, "EUR");
     public string? TrialPurchaseUrl => Preferences.Default.Get(TrialPurchaseUrlKey, string.Empty) is { Length: > 0 } url ? url : null;
-    public bool CanEditItinerary => Preferences.Default.Get(CanEditItineraryKey, IsBuilder)
+    public bool CanEditItinerary => ExperienceMode != TravelCompanion.Shared.Dtos.ExperienceMode.CuratedPremium
+        && Preferences.Default.Get(CanEditItineraryKey, IsBuilder)
         && (!IsTrial
             || TrialState == TrialAccessState.NotStarted
             || TrialEditingExpiresAtUtc is { } editingExpiry && editingExpiry > DateTimeOffset.UtcNow);

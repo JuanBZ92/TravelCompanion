@@ -108,6 +108,7 @@ public sealed class ItineraryBuilderServiceTests
             recommendation.Latitude, recommendation.Longitude, setup.Revision, "test-create"));
 
         Assert.True(result.Success);
+        Assert.Equal(ItineraryFlexibility.FixedByTraveler, result.Item!.Flexibility);
         Assert.Equal(ItineraryItemOwner.Traveler, result.Item?.Owner);
         Assert.Equal(ItineraryItemSource.YukuRecommendation, result.Item?.ItemSource);
         Assert.Equal(ItineraryTimePrecision.PeriodOnly, result.Item?.TimePrecision);
@@ -117,7 +118,7 @@ public sealed class ItineraryBuilderServiceTests
             null, null, result.Revision, "test-edit", true);
         var updated = await itineraryService.UpdateAsync(httpContext, result.Item!.Id, timed);
         Assert.Equal(ScheduleItemKind.Recommendation, updated.Item!.PlanningKind);
-        Assert.Equal(ItineraryFlexibility.Flexible, updated.Item.Flexibility);
+        Assert.Equal(ItineraryFlexibility.FixedByTraveler, updated.Item.Flexibility);
         Assert.Equal(new TimeOnly(15, 0), updated.Item.StartsAt);
         Assert.Equal("night", updated.Item.PeriodKey);
         Assert.True(updated.Item.UsesFullCard);

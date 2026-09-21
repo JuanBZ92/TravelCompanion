@@ -67,7 +67,6 @@ public sealed partial class TravelChatCardViewModel : ObservableObject
     public ItineraryTimePrecision TimePrecision { get; }
     public bool CanSave => RecommendationId.HasValue && !IsSaved && !IsSearchingAlternative;
     public bool CanFindAlternative => HasRecommendationId && !IsSearchingAlternative;
-    public int AlternativeColumnSpan => HasLongTransfer ? 1 : 2;
     public bool IsSearchingAlternative
     {
         get => _isSearchingAlternative;

@@ -83,8 +83,9 @@
                 </Border>
                 <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
                 <Label Text="{Binding StatusMessage}" IsVisible="{Binding HasStatus}" FontSize="13" TextColor="#6E675F" />
-                <BoxView x:Name="SuggestionScrollSpace" HeightRequest="0" InputTransparent="True"
-                         Color="Transparent" AutomationProperties.IsInAccessibleTree="False" />
+                <!-- Layout-only space must not inherit the global BoxView background. -->
+                <Grid x:Name="SuggestionScrollSpace" HeightRequest="0" InputTransparent="True"
+                      BackgroundColor="Transparent" AutomationProperties.IsInAccessibleTree="False" />
             </VerticalStackLayout>
         </ScrollView>
         <Grid Grid.Row="1" Padding="20,12" ColumnDefinitions="*,*" ColumnSpacing="12" BackgroundColor="#FFFDF9">

@@ -7,6 +7,24 @@ public sealed class AuthSessionLogoutTests
 {
     private static AuthSessionDto Session() => new(Guid.NewGuid(), "test@example.com", "Test", false, "test-token", Guid.NewGuid());
 
+    [Theory]
+    [InlineData(ExperienceMode.CuratedPremium, false)]
+    [InlineData(ExperienceMode.SelfServiceBuilder, true)]
+    public async Task Curated_premium_cannot_edit_even_with_stale_editing_capability(ExperienceMode mode, bool expected)
+    {
+        var session = new AuthSessionService();
+        try
+        {
+            await session.SaveAsync(Session() with
+            {
+                ExperienceMode = mode,
+                Capabilities = new(true, true, true, false, false, true)
+            });
+            Assert.Equal(expected, session.CanEditItinerary);
+        }
+        finally { session.Clear(); }
+    }
+
     [Fact]
     public async Task Logout_disables_biometrics_and_token_before_cleanup_even_after_restart()
     {

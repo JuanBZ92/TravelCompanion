@@ -209,9 +209,7 @@ public sealed partial class TravelChatService
         return new(conversationId, message, "day_plan", cards, [], null);
     }
 
-    private static bool CanReplaceDayStop(Reservation item) => item.Type == ReservationType.Event
-        && item.Owner == ItineraryItemOwner.Traveler && item.Flexibility == ItineraryFlexibility.Flexible
-        && item.PlanningKind != ScheduleItemKind.ConfirmedReservation;
+    private static bool CanReplaceDayStop(Reservation item) => ItineraryPlanningPolicy.CanReplace(item);
 
     private static int DaySlot(Reservation item)
     {

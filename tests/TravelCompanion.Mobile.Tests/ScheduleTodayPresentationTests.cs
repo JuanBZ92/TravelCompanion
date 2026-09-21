@@ -7,6 +7,17 @@ namespace TravelCompanion.Mobile.Tests;
 public sealed class ScheduleTodayPresentationTests
 {
     [Theory]
+    [InlineData("Guardado desde Travel Assistant.")]
+    [InlineData("  Guardado desde Travel Assistant.  ")]
+    public void Curated_notes_replace_assistant_placeholder(string placeholder)
+    {
+        Assert.Equal("Comentario curado", ItineraryNotePreview.Resolve(placeholder, " Comentario curado "));
+        Assert.Equal(new string('a', 179) + "…", ItineraryNotePreview.Resolve(placeholder, new string('a', 240)));
+        Assert.Equal(placeholder, ItineraryNotePreview.Resolve(placeholder, null));
+        Assert.Equal(placeholder, ItineraryNotePreview.Resolve(placeholder, "   "));
+    }
+
+    [Theory]
     [InlineData(null)]
     [InlineData("")]
     [InlineData("   ")]

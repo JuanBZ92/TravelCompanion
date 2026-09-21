@@ -16,10 +16,15 @@ public sealed class DayPlanChoicePage : ContentPage
     {
         string Text(string key) => LocalizationResourceManager.Instance[key];
         Title = Text(batch ? "AssistantDayComplete" : "AssistantChangeOptions");
-        BackgroundColor = Color.FromArgb("#F8F3ED");
         SafeAreaEdges = SafeAreaEdges.All;
-        var content = new VerticalStackLayout { Padding = 24, Spacing = 16 };
-        content.Add(new Label { Text = Title, FontSize = 24, TextColor = Color.FromArgb("#1A1714") });
+        Style AppStyle(string key) => (Style)Application.Current!.Resources[key];
+        var content = new VerticalStackLayout { Padding = new Thickness(24, 28), Spacing = 22 };
+        var heading = new VerticalStackLayout { Spacing = 8 };
+        heading.Add(new Label { Text = Text("AssistantEyebrow"), Style = AppStyle("Eyebrow"), CharacterSpacing = 3 });
+        heading.Add(new Label { Text = Title, Style = AppStyle("Headline") });
+        heading.Add(new Label { Text = Text("AssistantChangeReason"), Style = AppStyle("Body") });
+        content.Add(heading);
+        var selectedCards = new VerticalStackLayout { Spacing = 12 };
         var selections = new List<(Guid Id, CheckBox Check)>();
         foreach (var card in cards.Where(card => card.ReservationId.HasValue || (!batch && card.RecommendationId.HasValue)))
         {
@@ -28,9 +33,10 @@ public sealed class DayPlanChoicePage : ContentPage
             selections.Add((card.ReservationId ?? card.RecommendationId!.Value, check));
             var row = new Grid { ColumnDefinitions = [new(GridLength.Auto), new(GridLength.Star)], ColumnSpacing = 8 };
             row.Add(check);
-            row.Add(new Label { Text = card.Title, VerticalOptions = LayoutOptions.Center, TextColor = Color.FromArgb("#1A1714") }, 1);
-            content.Add(row);
+            row.Add(new Label { Text = card.Title, VerticalOptions = LayoutOptions.Center, Style = AppStyle("SectionTitle") }, 1);
+            selectedCards.Add(row);
         }
+        content.Add(new Border { Style = AppStyle("Card"), Content = selectedCards });
         var distance = new Picker
         {
             Title = Text("AssistantDistanceCategory"),
@@ -43,14 +49,19 @@ public sealed class DayPlanChoicePage : ContentPage
             ItemsSource = new[] { Text("AssistantNoAdjustment"), Text("AssistantCheaper"), Text("AssistantDearer") },
             SelectedIndex = 0
         };
-        content.Add(new Label { Text = Text("AssistantChangeReason") });
-        content.Add(new Label { Text = Text("AssistantAlternativeHelp"), FontSize = 14 });
-        content.Add(new Label { Text = Text("AssistantDistanceCategory") });
-        content.Add(distance);
-        content.Add(new Label { Text = Text("AssistantBudgetCategory") });
-        content.Add(budget);
+        var filters = new VerticalStackLayout { Spacing = 16 };
+        foreach (var (key, picker) in new[] { ("AssistantDistanceCategory", distance), ("AssistantBudgetCategory", budget) })
+        {
+            var field = new VerticalStackLayout { Spacing = 4 };
+            field.Add(new Label { Text = Text(key), Style = AppStyle("Eyebrow") });
+            SemanticProperties.SetDescription(picker, Text(key));
+            field.Add(picker);
+            filters.Add(field);
+        }
+        content.Add(new Border { Style = AppStyle("Card"), Content = filters });
+        content.Add(new Label { Text = Text("AssistantAlternativeHelp"), Style = AppStyle("Metadata") });
         var apply = new Button { Text = Text(batch ? "AssistantChangeSelected" : "AssistantApplyChange"), IsVisible = selections.Count > 0 };
-        var cancel = new Button { Text = Text("CommonCancel") };
+        var cancel = new Button { Text = Text("CommonCancel"), Style = AppStyle("GhostButton") };
         async Task CompleteAsync()
         {
             if (_closing) return;
@@ -69,9 +80,13 @@ public sealed class DayPlanChoicePage : ContentPage
         }
         apply.Clicked += async (_, _) => await CompleteAsync();
         cancel.Clicked += async (_, _) => { await Navigation.PopModalAsync(); _completion.TrySetResult(null); };
-        content.Add(apply);
-        content.Add(cancel);
-        Content = new ScrollView { Content = content };
+        var actions = new VerticalStackLayout { Padding = new Thickness(24, 12), Spacing = 8 };
+        actions.Add(apply);
+        actions.Add(cancel);
+        var layout = new Grid { RowDefinitions = [new(GridLength.Star), new(GridLength.Auto)] };
+        layout.Add(new ScrollView { Content = content });
+        layout.Add(actions, 0, 1);
+        Content = layout;
     }
 
     protected override bool OnBackButtonPressed()

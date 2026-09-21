@@ -126,12 +126,6 @@ public partial class TravelChatPage : ContentPage, IQueryAttributable
         }
     }
 
-    private async void OnFindCloserDayStopClicked(object? sender, EventArgs e)
-    {
-        if ((sender as BindableObject)?.BindingContext is TravelChatCardViewModel card)
-            await _viewModel.FindCloserDayStopCommand.ExecuteAsync(card);
-    }
-
     private async void OnTagActionTapped(object? sender, TappedEventArgs e)
     {
         if ((sender as BindableObject)?.BindingContext is TravelChatTagActionViewModel tagAction)

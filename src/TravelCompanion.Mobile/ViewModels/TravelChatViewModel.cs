@@ -843,7 +843,7 @@ public sealed partial class TravelChatViewModel(
     private Task ReplaceRecommendationAsync(TravelChatCardViewModel? card)
     {
         if (card?.IsDayPlanCard == true)
-            return ChangeDayStopAsync(card, closer: false);
+            return ChangeDayStopAsync(card);
         if (_guidedCriteria is not null)
         {
             return SendGuidedPlanAsync(alternative: true, card);

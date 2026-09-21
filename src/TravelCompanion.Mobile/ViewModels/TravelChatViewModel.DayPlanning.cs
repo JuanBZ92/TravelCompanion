@@ -9,11 +9,7 @@ namespace TravelCompanion.Mobile.ViewModels;
 
 public sealed partial class TravelChatViewModel
 {
-    [RelayCommand]
-    private Task FindCloserDayStopAsync(TravelChatCardViewModel? card) => card is null
-        ? Task.CompletedTask : ChangeDayStopAsync(card, closer: true);
-
-    private async Task ChangeDayStopAsync(TravelChatCardViewModel card, bool closer)
+    private async Task ChangeDayStopAsync(TravelChatCardViewModel card)
     {
         if (IsBusy) return;
         if (card.PlanningDate is { } date) PlanningDate = date.ToDateTime(TimeOnly.MinValue);
@@ -27,14 +23,9 @@ public sealed partial class TravelChatViewModel
             card.FeedbackStatusMessage = Resource("AssistantNoReadyPlan");
             return;
         }
-        DayPlanChoice? choice;
-        if (closer) choice = new([], "closer", null);
-        else
-        {
-            var page = new DayPlanChoicePage([card], batch: false);
-            await Shell.Current.Navigation.PushModalAsync(page);
-            choice = await page.Result;
-        }
+        var page = new DayPlanChoicePage([card], batch: false);
+        await Shell.Current.Navigation.PushModalAsync(page);
+        var choice = await page.Result;
         if (choice is not null)
             await RunDayPlanAsync(DayPlanCardActions.CreateAlternative(card,
                 Messages.SelectMany(message => message.Cards), choice.Distance, choice.Budget), card);

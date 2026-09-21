@@ -254,7 +254,9 @@ Recommendations already used in the trip are excluded. An unavailable category s
 
 A full day returns `Intent = "day_complete"` and `existing_day_stop` cards for editable events. This response does not consume an Assistant result quota.
 The client offers multiple selection and sends the selected reservation IDs in `GuidedAction.ReplaceReservationIds`.
-Only flexible, traveler-owned events on the requested date can be replaced; confirmed reservations cannot be replaced through this flow.
+Only flexible, traveler-owned events created by Travel Assistant on the requested date can be replaced; confirmed reservations cannot be replaced through this flow. The backend identifies existing assistant saves by their persisted `SourceName` (`Travel Assistant`). Items created from the itinerary's add action or the map are protected, including legacy items marked flexible. The traveler create endpoint sets `FixedByTraveler`; updates preserve assistant origin and existing protection instead of accepting client flexibility changes. The mobile editor no longer exposes a planning-status selector.
+
+Curated premium sessions (including demo PIN 2222) remain read-only. They cannot add, edit, delete, or save replacements through the API; the mobile app hides itinerary add actions, map add actions, and Improve Day for these sessions.
 Batch replacement leaves both adjustment fields unset and does not use preferences.
 
 For one event, optional `DistanceAdjustment` accepts `closer` or `farther`, and optional `BudgetAdjustment` accepts `cheaper` or `dearer`.

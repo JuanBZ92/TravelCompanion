@@ -7,8 +7,13 @@ internal static class ItineraryNotePreview
 {
     public static string Resolve(string? personal, string? curated)
     {
-        if (!string.IsNullOrWhiteSpace(personal)) return personal;
         var text = curated?.Trim() ?? string.Empty;
+        // Older assistant saves store this provenance text in the personal notes field.
+        // Keep genuine traveler notes, but let editorial content replace that placeholder.
+        var isAssistantPlaceholder = string.Equals(personal?.Trim(),
+            "Guardado desde Travel Assistant.", StringComparison.OrdinalIgnoreCase);
+        if (!string.IsNullOrWhiteSpace(personal) && (!isAssistantPlaceholder || text.Length == 0))
+            return personal;
         return text.Length <= 180 ? text : text[..179].TrimEnd() + "…";
     }
 }

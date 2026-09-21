@@ -2016,6 +2016,36 @@ public sealed class TravelChatServiceTests
         Assert.Equal(original.Id, response.Cards[0].ReplacesRecommendationId);
     }
 
+    [Theory]
+    [InlineData("Traveler")]
+    [InlineData("Yuku")]
+    [InlineData("Google Places")]
+    [InlineData(null)]
+    public async Task Manual_and_map_events_are_protected_even_when_legacy_flexibility_is_flexible(string? source)
+    {
+        await using var db = CreateDbContext();
+        var destination = Guid.NewGuid();
+        var original = DayRecommendation(destination, "Original", "Culture");
+        var alternative = DayRecommendation(destination, "Alternative", "Culture");
+        var user = await SeedPlanningWorldAsync(db, destination, original, alternative);
+        db.Reservations.RemoveRange(await db.Reservations.ToListAsync());
+        var trip = await db.Trips.SingleAsync();
+        var reservation = DayReservation(trip.Id, original, new(10, 30));
+        reservation.SourceName = source;
+        reservation.Flexibility = ItineraryFlexibility.Flexible;
+        db.Reservations.Add(reservation);
+        await db.SaveChangesAsync();
+
+        var plan = await CreateService(db).CreatePlanAsync(user, DayRequest(reservation.Id), CancellationToken.None);
+        Assert.Empty(plan.Cards);
+        var saved = await new ItineraryService(db).SaveItineraryItemAsync(user,
+            new SaveItineraryItemRequest(alternative.Id, reservation.Date, reservation.StartsAt, null,
+                Guid.NewGuid(), ReplaceReservationId: reservation.Id, ExpectedRecommendationId: original.Id),
+            CancellationToken.None);
+        Assert.False(saved.Saved);
+        Assert.Equal(original.Id, (await db.Reservations.SingleAsync()).RecommendationId);
+    }
+
     [Fact]
     public async Task Save_replacement_preserves_identity_is_idempotent_and_rejects_stale_or_foreign_targets()
     {
@@ -2341,6 +2371,7 @@ public sealed class TravelChatServiceTests
     {
         var item = CreateReservation(recommendation.Title, time, "Tokyo");
         item.TripId = tripId;
+        item.SourceName = "Travel Assistant";
         item.RecommendationId = recommendation.Id;
         item.Owner = ItineraryItemOwner.Traveler;
         item.TimePrecision = ItineraryTimePrecision.PeriodOnly;

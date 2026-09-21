@@ -412,7 +412,8 @@
                                             <Button Grid.Column="1" Text="+" ToolTipProperties.Text="Agregar plan personal"
                                                     Command="{Binding AddPersonalItemCommand, Source={RelativeSource AncestorType={x:Type viewModels:ScheduleViewModel}}, x:DataType=viewModels:ScheduleViewModel}"
                                                     CommandParameter="{Binding .}" IsVisible="{Binding CanAddItem}"
-                                                    Style="{StaticResource GhostButton}" WidthRequest="44" HeightRequest="44" Padding="0" />
+                                                    Style="{StaticResource GhostButton}" BorderWidth="0" BackgroundColor="Transparent"
+                                                    WidthRequest="44" HeightRequest="44" Padding="0" />
                                         </Grid>
 
                                         <Label Text="{Binding Description}"

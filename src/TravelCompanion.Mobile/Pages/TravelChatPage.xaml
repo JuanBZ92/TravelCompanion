@@ -344,8 +344,7 @@
                                                                 FontSize="13"
                                                                 Padding="8,10"
                                                                 MinimumHeightRequest="44" />
-                                                        <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                                                        <Button Grid.ColumnSpan="{Binding AlternativeColumnSpan}"
+                                                        <Button
                                                                 Text="{Binding ReplaceButtonText}"
                                                                 Clicked="OnReplaceRecommendationClicked"
                                                                 SemanticProperties.Description="{Binding ReplaceButtonText}"
@@ -355,14 +354,6 @@
                                                                 FontSize="13"
                                                                 Padding="8,10"
                                                                 MinimumHeightRequest="44" />
-                                                        <Button Grid.Column="1" Text="{Binding NearbyButtonText}"
-                                                                IsVisible="{Binding HasLongTransfer}"
-                                                                IsEnabled="{Binding CanFindAlternative}"
-                                                                Clicked="OnFindCloserDayStopClicked"
-                                                                SemanticProperties.Description="{Binding NearbyButtonText}"
-                                                                FontSize="13" Padding="8,10" MinimumHeightRequest="44"
-                                                                Style="{StaticResource GhostButton}" />
-                                                        </Grid>
                                                         <ActivityIndicator IsVisible="{Binding IsSearchingAlternative}"
                                                                            IsRunning="{Binding IsSearchingAlternative}"
                                                                            Color="{StaticResource Accent}" HeightRequest="24" />

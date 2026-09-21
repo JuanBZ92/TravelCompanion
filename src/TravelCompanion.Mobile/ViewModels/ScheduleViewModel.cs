@@ -135,7 +135,8 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     }
 
     public bool ShowDayReview => !ShowTodayLoading && SelectedDayReview is not null;
-    public bool ShowImproveDay => _selectedDate.HasValue && _tripId.HasValue;
+    public bool ShowImproveDay => _selectedDate.HasValue && _tripId.HasValue
+        && _sessionService.ExperienceMode != ExperienceMode.CuratedPremium;
     public bool IsSelectedDayLocked => _sessionService.IsFreeMapPreview
         && _tripStartsOn is { } start && _selectedDate is { } date
         && !FreePlanningPolicy.CanPlanDate(start, date);
