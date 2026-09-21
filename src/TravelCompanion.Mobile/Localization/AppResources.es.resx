@@ -317,7 +317,7 @@
   <data name="FreePlanningUnlockTrip" xml:space="preserve"><value>Planear todo el viaje · Activar pase</value></data>
   <data name="PlanningTryAgain" xml:space="preserve"><value>No pudimos abrir esta opción. Inténtalo de nuevo.</value></data>
   <data name="AssistantDayComplete" xml:space="preserve"><value>Día ya completo</value></data>
-  <data name="AssistantChangeOptions" xml:space="preserve"><value>¿Qué querés cambiar?</value></data>
+  <data name="AssistantChangeOptions" xml:space="preserve"><value>Buscar otra opción</value></data>
   <data name="AssistantDistanceCategory" xml:space="preserve"><value>Distancia (opcional)</value></data>
   <data name="AssistantBudgetCategory" xml:space="preserve"><value>Presupuesto (opcional)</value></data>
   <data name="AssistantNoAdjustment" xml:space="preserve"><value>Sin ajuste</value></data>
@@ -325,14 +325,14 @@
   <data name="AssistantFarther" xml:space="preserve"><value>Más lejos</value></data>
   <data name="AssistantCheaper" xml:space="preserve"><value>Más barato</value></data>
   <data name="AssistantDearer" xml:space="preserve"><value>Más caro</value></data>
-  <data name="AssistantChangeSelected" xml:space="preserve"><value>Cambiar eventos seleccionados al azar</value></data>
-  <data name="AssistantApplyChange" xml:space="preserve"><value>Buscar y cambiar</value></data>
+  <data name="AssistantChangeSelected" xml:space="preserve"><value>Buscar alternativas</value></data>
+  <data name="AssistantApplyChange" xml:space="preserve"><value>Buscar alternativa</value></data>
   <data name="AssistantRandomAlternative" xml:space="preserve"><value>Otra recomendación al azar</value></data>
   <data name="AssistantSelectEvents" xml:space="preserve"><value>Seleccioná al menos un evento para cambiar.</value></data>
   <data name="AssistantSaveBeforeChange" xml:space="preserve"><value>Guardá el plan antes de buscar un reemplazo.</value></data>
   <data name="ItineraryDeleteRefreshFailed" xml:space="preserve"><value>No pudimos consultar el itinerario actualizado. Comprueba la conexión y vuelve a intentar eliminarlo.</value></data>
   <data name="ItineraryDeleteConflict" xml:space="preserve"><value>El itinerario cambió mientras confirmabas. Pulsa de nuevo Eliminar itinerario para confirmar la versión actualizada.</value></data>
-  <data name="AssistantChangeReason" xml:space="preserve"><value>¿Qué querés cambiar? Se aplica a todos los planes seleccionados.</value></data>
+  <data name="AssistantChangeReason" xml:space="preserve"><value>Podés ajustar estos filtros o buscar sin preferencias.</value></data>
   <data name="ItemReminderQuestion" xml:space="preserve"><value>¿Quieres un recordatorio?</value></data>
   <data name="ItemReminderHint" xml:space="preserve"><value>Te avisaremos 3 horas y 45 minutos antes. Vuelos y check-in también 24 horas antes. Requiere permitir notificaciones.</value></data>
   <data name="ItemTimeZone" xml:space="preserve"><value>Hora local del teléfono: {0}</value></data>
@@ -344,4 +344,15 @@
   <data name="ItemTestReminderBody" xml:space="preserve"><value>Esta es una prueba de recepción. No modifica tus reservas ni comprueba la puntualidad de las alarmas.</value></data>
   <data name="ItemTestReminderSent" xml:space="preserve"><value>Prueba enviada. Revisa las notificaciones del teléfono.</value></data>
 <data name="ItemUnknownTimeZone" xml:space="preserve"><value>No se pudo convertir la zona horaria de esta reserva. Vuelve a abrir el editor con conexión antes de guardar.</value></data>
+  <data name="AssistantSearchingAlternative" xml:space="preserve"><value>Buscando otra opción…</value></data>
+  <data name="AssistantAlternativeReady" xml:space="preserve"><value>Revisá esta alternativa. Se guarda solo cuando lo confirmás.</value></data>
+  <data name="AssistantAlternativeHelp" xml:space="preserve"><value>Podés buscar otra opción sin guardar. Guardar confirma esta propuesta en Today.</value></data>
+  <data name="AssistantSavedAlternativeHelp" xml:space="preserve"><value>Buscá otra opción para comparar. Tu plan actual se conserva hasta que guardes el cambio.</value></data>
+  <data name="AssistantFindAlternative" xml:space="preserve"><value>Otra opción</value></data>
+  <data name="AssistantFindCloser" xml:space="preserve"><value>Buscar más cerca</value></data>
+  <data name="AssistantSaveToToday" xml:space="preserve"><value>Guardar en Today</value></data>
+  <data name="AssistantSaveReplacement" xml:space="preserve"><value>Guardar cambio en Today</value></data>
+  <data name="AssistantSavedToToday" xml:space="preserve"><value>Guardado en Today</value></data>
+  <data name="AssistantUnsavedSuggestion" xml:space="preserve"><value>Sugerencia · sin guardar</value></data>
+  <data name="AssistantPendingChange" xml:space="preserve"><value>Cambio pendiente · sin guardar</value></data>
 </root>

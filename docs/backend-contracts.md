@@ -294,9 +294,13 @@ For deployed environments, provide the same key through the platform secret stor
 
 ### Full-day proximity and selected replacements
 
-`GuidedAction` with `Action = full_day` keeps the existing request/response shape. Eligible recommendations still pass catalog/free access filters and exclude recommendations already used on the trip. Selection uses seeded randomness among eligible candidates, without automatic proximity ranking. Distance only filters alternatives when the user explicitly requests closer or farther replacements.
+`GuidedAction` with `Action = full_day` retains backward compatibility. Eligible recommendations still pass catalog/free access filters and exclude recommendations already used on the trip. Selection uses seeded randomness unless the user explicitly requests `closer`; that request filters for an improvement and prioritizes the shortest adjacent transfer within the existing city/category preferences.
 
 `ReplaceReservationIds` selects editable events. Optional `DistanceAdjustment` (`closer`, `farther`) and `BudgetAdjustment` (`cheaper`, `dearer`) apply together to each selected event. Distance compares adjacent events; budget compares known price levels. No compatible alternative leaves that event unchanged. Mobile exposes these options together on the selection screen for both single and multiple replacements.
+
+Unsaved suggestions can request an alternative with `GuidedAction.RecommendationId` and `DraftDayStops`, a maximum of five unique `{ recommendationId, startsAt, reservationId? }` entries from the displayed day. The target must appear in that context. All catalog information, coordinates and prices are resolved by the backend using the same access-filtered candidates; draft IDs cannot bypass catalog access. Optional reservation IDs must identify editable events owned by the user on that day and at that time. Saved-event replacements can also include draft neighbours for distance context, without setting `RecommendationId`.
+
+The response contains only the proposed replacement. Draft recommendations are excluded from alternatives. A pending replacement of a saved event retains its original `ReservationId` and `ReplacesRecommendationId` for save-time concurrency checks. Searching never writes itinerary reservations. The mobile app replaces the displayed card in place; the existing save endpoint commits it only when the user chooses **Save to Today** or **Save change to Today**. No alternative or a failed request preserves the current card.
 
 Morning visits and afternoon stops prioritize non-food candidates. If none remain after access, duplicate and explicit replacement filters, Food candidates are eligible as fallback. This uses the same authorized candidate pool: Free stays within its configured radius, while paid access retains its catalog permissions. Period-only morning visits at 10:30 remain morning visits even when their recommendation is Food.
 

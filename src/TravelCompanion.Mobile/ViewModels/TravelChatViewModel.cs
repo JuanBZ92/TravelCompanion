@@ -1045,6 +1045,7 @@ public sealed partial class TravelChatViewModel(
                 {
                     card.ReservationId = result.Item?.Id ?? card.ReservationId;
                     card.IsSaved = true;
+                    card.FeedbackStatusMessage = Resource("AssistantSavedToToday");
                     savedCount++;
                     if (result.Item is not null)
                     {

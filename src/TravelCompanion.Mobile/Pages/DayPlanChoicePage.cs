@@ -21,11 +21,11 @@ public sealed class DayPlanChoicePage : ContentPage
         var content = new VerticalStackLayout { Padding = 24, Spacing = 16 };
         content.Add(new Label { Text = Title, FontSize = 24, TextColor = Color.FromArgb("#1A1714") });
         var selections = new List<(Guid Id, CheckBox Check)>();
-        foreach (var card in cards.Where(card => card.ReservationId.HasValue))
+        foreach (var card in cards.Where(card => card.ReservationId.HasValue || (!batch && card.RecommendationId.HasValue)))
         {
             var check = new CheckBox { IsChecked = !batch, IsVisible = batch };
             SemanticProperties.SetDescription(check, card.Title);
-            selections.Add((card.ReservationId!.Value, check));
+            selections.Add((card.ReservationId ?? card.RecommendationId!.Value, check));
             var row = new Grid { ColumnDefinitions = [new(GridLength.Auto), new(GridLength.Star)], ColumnSpacing = 8 };
             row.Add(check);
             row.Add(new Label { Text = card.Title, VerticalOptions = LayoutOptions.Center, TextColor = Color.FromArgb("#1A1714") }, 1);
@@ -44,14 +44,14 @@ public sealed class DayPlanChoicePage : ContentPage
             SelectedIndex = 0
         };
         content.Add(new Label { Text = Text("AssistantChangeReason") });
+        content.Add(new Label { Text = Text("AssistantAlternativeHelp"), FontSize = 14 });
         content.Add(new Label { Text = Text("AssistantDistanceCategory") });
         content.Add(distance);
         content.Add(new Label { Text = Text("AssistantBudgetCategory") });
         content.Add(budget);
         var apply = new Button { Text = Text(batch ? "AssistantChangeSelected" : "AssistantApplyChange"), IsVisible = selections.Count > 0 };
-        var random = new Button { Text = Text("AssistantRandomAlternative"), IsVisible = !batch };
         var cancel = new Button { Text = Text("CommonCancel") };
-        async Task CompleteAsync(bool randomized)
+        async Task CompleteAsync()
         {
             if (_closing) return;
             var ids = selections.Where(item => item.Check.IsChecked).Select(item => item.Id).ToList();
@@ -62,16 +62,14 @@ public sealed class DayPlanChoicePage : ContentPage
             }
             _closing = true;
             _result = new DayPlanChoice(ids,
-                randomized ? null : distance.SelectedIndex switch { 1 => "closer", 2 => "farther", _ => null },
-                randomized ? null : budget.SelectedIndex switch { 1 => "cheaper", 2 => "dearer", _ => null });
+                distance.SelectedIndex switch { 1 => "closer", 2 => "farther", _ => null },
+                budget.SelectedIndex switch { 1 => "cheaper", 2 => "dearer", _ => null });
             await Navigation.PopModalAsync();
             _completion.TrySetResult(_result);
         }
-        apply.Clicked += async (_, _) => await CompleteAsync(false);
-        random.Clicked += async (_, _) => await CompleteAsync(true);
+        apply.Clicked += async (_, _) => await CompleteAsync();
         cancel.Clicked += async (_, _) => { await Navigation.PopModalAsync(); _completion.TrySetResult(null); };
         content.Add(apply);
-        content.Add(random);
         content.Add(cancel);
         Content = new ScrollView { Content = content };
     }

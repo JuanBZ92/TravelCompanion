@@ -37,7 +37,11 @@ public sealed record GuidedTravelActionDto(
     public IReadOnlyList<Guid> ReplaceReservationIds { get; init; } = [];
     public string? DistanceAdjustment { get; init; }
     public string? BudgetAdjustment { get; init; }
+    public IReadOnlyList<DayPlanDraftStopDto> DraftDayStops { get; init; } = [];
 }
+
+// Preview context only. The backend resolves catalog data and validates any saved replacement target.
+public sealed record DayPlanDraftStopDto(Guid RecommendationId, TimeOnly StartsAt, Guid? ReservationId = null);
 
 public sealed record GuidedPlanCriteriaDto(
     string? Category = null,

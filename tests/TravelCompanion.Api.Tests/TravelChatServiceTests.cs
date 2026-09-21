@@ -2199,6 +2199,133 @@ public sealed class TravelChatServiceTests
         Assert.Equal("day_complete", complete.Intent);
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("closer")]
+    public async Task Unsaved_day_stop_can_be_replaced_without_saving_or_reusing_other_draft_stops(string? distance)
+    {
+        await using var db = CreateDbContext();
+        var destination = Guid.NewGuid();
+        var cafe = DayRecommendation(destination, "Cafe", "Food");
+        var original = DayRecommendation(destination, "Original", "Culture");
+        original.Latitude += 0.08m;
+        var alternative = DayRecommendation(destination, "Near alternative", "Culture");
+        alternative.Latitude += 0.01m;
+        var user = await SeedPlanningWorldAsync(db, destination, cafe, original, alternative);
+        if (distance == "closer")
+        {
+            var lessClose = DayRecommendation(destination, "Also closer, but not nearest", "Culture");
+            lessClose.Latitude += 0.04m;
+            db.Recommendations.Add(lessClose);
+        }
+        db.Reservations.RemoveRange(await db.Reservations.ToListAsync());
+        await db.SaveChangesAsync();
+        var request = DayRequest() with
+        {
+            GuidedAction = new(GuidedTravelActions.FullDay, "draft-test", original.Id.ToString())
+            {
+                DraftDayStops = [new(cafe.Id, new(9, 0)), new(original.Id, new(10, 30))],
+                DistanceAdjustment = distance
+            }
+        };
+
+        var response = await CreateService(db).CreatePlanAsync(user, request, CancellationToken.None);
+
+        var card = Assert.Single(response.Cards);
+        Assert.Equal(alternative.Id.ToString(), card.RecommendationId);
+        Assert.Equal("10:30", card.StartTime);
+        Assert.Null(card.ReservationId);
+        Assert.Null(card.ReplacesRecommendationId);
+        Assert.True(card.DistanceKm < 2);
+        Assert.Empty(await db.Reservations.ToListAsync());
+    }
+
+    [Fact]
+    public async Task Draft_alternative_for_saved_stop_retains_the_original_save_target()
+    {
+        await using var db = CreateDbContext();
+        var destination = Guid.NewGuid();
+        var savedPlace = DayRecommendation(destination, "Saved", "Culture");
+        var pending = DayRecommendation(destination, "Pending", "Culture");
+        var alternative = DayRecommendation(destination, "Alternative", "Culture");
+        var user = await SeedPlanningWorldAsync(db, destination, savedPlace, pending, alternative);
+        db.Reservations.RemoveRange(await db.Reservations.ToListAsync());
+        var trip = await db.Trips.SingleAsync();
+        var saved = DayReservation(trip.Id, savedPlace, new(10, 30));
+        db.Reservations.Add(saved);
+        await db.SaveChangesAsync();
+        var request = DayRequest() with
+        {
+            GuidedAction = new(GuidedTravelActions.FullDay, "draft-test", pending.Id.ToString())
+            {
+                DraftDayStops = [new(pending.Id, new(10, 30), saved.Id)]
+            }
+        };
+
+        var response = await CreateService(db).CreatePlanAsync(user, request, CancellationToken.None);
+
+        var card = Assert.Single(response.Cards);
+        Assert.Equal(alternative.Id.ToString(), card.RecommendationId);
+        Assert.Equal(saved.Id.ToString(), card.ReservationId);
+        Assert.Equal(savedPlace.Id, card.ReplacesRecommendationId);
+        Assert.Equal(savedPlace.Id, (await db.Reservations.SingleAsync()).RecommendationId);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Draft_changes_reject_inaccessible_catalog_items_and_unknown_saved_targets(bool invalidSavedTarget)
+    {
+        await using var db = CreateDbContext();
+        var destination = Guid.NewGuid();
+        var original = DayRecommendation(destination, "Original", "Culture");
+        var alternative = DayRecommendation(destination, "Alternative", "Culture");
+        if (!invalidSavedTarget) original.AccessLevel = ContentAccessLevel.AdminOnly;
+        var user = await SeedPlanningWorldAsync(db, destination, original, alternative);
+        var count = await db.Reservations.CountAsync();
+        var request = DayRequest() with
+        {
+            GuidedAction = new(GuidedTravelActions.FullDay, "draft-test", original.Id.ToString())
+            {
+                DraftDayStops = [new(original.Id, new(10, 30), invalidSavedTarget ? Guid.NewGuid() : null)]
+            }
+        };
+
+        var response = await CreateService(db).CreatePlanAsync(user, request, CancellationToken.None);
+
+        Assert.Empty(response.Cards);
+        Assert.Equal("selection", response.MissingContext?.Field);
+        Assert.Equal(count, await db.Reservations.CountAsync());
+    }
+
+    [Fact]
+    public async Task No_closer_draft_alternative_returns_a_message_without_mutating_the_day()
+    {
+        await using var db = CreateDbContext();
+        var destination = Guid.NewGuid();
+        var cafe = DayRecommendation(destination, "Cafe", "Food");
+        var original = DayRecommendation(destination, "Original", "Culture");
+        var farther = DayRecommendation(destination, "Farther", "Culture");
+        farther.Latitude += 0.1m;
+        var user = await SeedPlanningWorldAsync(db, destination, cafe, original, farther);
+        db.Reservations.RemoveRange(await db.Reservations.ToListAsync());
+        await db.SaveChangesAsync();
+        var request = DayRequest() with
+        {
+            GuidedAction = new(GuidedTravelActions.FullDay, "draft-test", original.Id.ToString())
+            {
+                DraftDayStops = [new(cafe.Id, new(9, 0)), new(original.Id, new(10, 30))],
+                DistanceAdjustment = "closer"
+            }
+        };
+
+        var response = await CreateService(db).CreatePlanAsync(user, request, CancellationToken.None);
+
+        Assert.Empty(response.Cards);
+        Assert.Contains("No encontré alternativas", response.Message);
+        Assert.Empty(await db.Reservations.ToListAsync());
+    }
+
     private static TravelChatRequest DayRequest(params Guid[] selected) => new("Improve day", null, "Tokyo",
         new DateOnly(2026, 10, 6), null, "es-ES",
         new GuidedTravelActionDto(GuidedTravelActions.FullDay, "day-test") { ReplaceReservationIds = selected });

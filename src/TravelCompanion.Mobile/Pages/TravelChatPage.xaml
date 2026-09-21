@@ -326,14 +326,11 @@
                                                             </DataTemplate>
                                                         </BindableLayout.ItemTemplate>
                                                     </VerticalStackLayout>
-                                                    <Button Grid.Row="9" Text="{Binding NearbyButtonText}"
-                                                            IsVisible="{Binding HasLongTransfer}"
-                                                            Clicked="OnFindCloserDayStopClicked"
-                                                            Style="{StaticResource GhostButton}" />
-                                                    <Grid Grid.Row="7"
-                                                          ColumnDefinitions="*,*,*"
-                                                          ColumnSpacing="8"
-                                                          Margin="0,4,0,0">
+                                                    <VerticalStackLayout Grid.Row="7" Spacing="8" Margin="0,8,0,0">
+                                                        <Label Text="{Binding DayPlanStateText}" IsVisible="{Binding IsDayPlanCard}"
+                                                               FontSize="12" FontAttributes="Bold" TextColor="{StaticResource Accent}" />
+                                                        <Label Text="{Binding DayPlanHelpText}" IsVisible="{Binding IsDayPlanCard}"
+                                                               FontSize="12" TextColor="{StaticResource Muted}" />
                                                         <Button Text="{Binding SaveButtonText}"
                                                                 Clicked="OnSaveItineraryItemClicked"
                                                                 SemanticProperties.Description="{Binding SaveButtonText}"
@@ -347,16 +344,29 @@
                                                                 FontSize="13"
                                                                 Padding="8,10"
                                                                 MinimumHeightRequest="44" />
-                                                        <Button Grid.Column="1"
+                                                        <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                                                        <Button Grid.ColumnSpan="{Binding AlternativeColumnSpan}"
                                                                 Text="{Binding ReplaceButtonText}"
                                                                 Clicked="OnReplaceRecommendationClicked"
                                                                 SemanticProperties.Description="{Binding ReplaceButtonText}"
+                                                                IsEnabled="{Binding CanFindAlternative}"
                                                                 Style="{StaticResource GhostButton}"
                                                                 TextColor="{StaticResource Ink}"
                                                                 FontSize="13"
                                                                 Padding="8,10"
                                                                 MinimumHeightRequest="44" />
-                                                        <Button Grid.Column="2"
+                                                        <Button Grid.Column="1" Text="{Binding NearbyButtonText}"
+                                                                IsVisible="{Binding HasLongTransfer}"
+                                                                IsEnabled="{Binding CanFindAlternative}"
+                                                                Clicked="OnFindCloserDayStopClicked"
+                                                                SemanticProperties.Description="{Binding NearbyButtonText}"
+                                                                FontSize="13" Padding="8,10" MinimumHeightRequest="44"
+                                                                Style="{StaticResource GhostButton}" />
+                                                        </Grid>
+                                                        <ActivityIndicator IsVisible="{Binding IsSearchingAlternative}"
+                                                                           IsRunning="{Binding IsSearchingAlternative}"
+                                                                           Color="{StaticResource Accent}" HeightRequest="24" />
+                                                        <Button
                                                                 Text="{Binding AdjustButtonText}"
                                                                 IsVisible="{Binding ShowPreferenceAdjustment}"
                                                                 Clicked="OnAdjustGuidedPlanClicked"
@@ -366,7 +376,7 @@
                                                                 FontSize="13"
                                                                 Padding="8,10"
                                                                 MinimumHeightRequest="44" />
-                                                    </Grid>
+                                                    </VerticalStackLayout>
                                                     <Label Grid.Row="8"
                                                            Text="{Binding FeedbackStatusMessage}"
                                                            FontSize="12"

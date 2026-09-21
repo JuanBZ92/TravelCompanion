@@ -29,7 +29,18 @@ public sealed partial class TravelChatService
             .Where(item => IsReservationOnDate(item, date)).OrderBy(item => item.StartsAt).ToList();
         var selectedIds = (action.ReplaceReservationIds ?? []).Distinct().ToHashSet();
         var selected = existing.Where(item => selectedIds.Contains(item.Id)).ToList();
+        var drafts = action.DraftDayStops ?? [];
+        var isDraftChange = action.RecommendationId is not null;
+        var draftTarget = drafts.FirstOrDefault(item => item is not null && item.RecommendationId.ToString() == action.RecommendationId);
         if (selected.Count != selectedIds.Count
+            || drafts.Count > 5
+            || drafts.Any(item => item is null)
+            || (isDraftChange && (draftTarget is null || selectedIds.Count > 0))
+            || (!isDraftChange && drafts.Count > 0 && selectedIds.Count == 0)
+            || drafts.Select(item => item.RecommendationId).Distinct().Count() != drafts.Count
+            || drafts.Select(item => item.StartsAt).Distinct().Count() != drafts.Count
+            || drafts.Any(item => item.ReservationId.HasValue && !existing.Any(saved =>
+                    saved.Id == item.ReservationId && saved.StartsAt == item.StartsAt && CanReplaceDayStop(saved)))
             || action.DistanceAdjustment is not (null or "closer" or "farther")
             || action.BudgetAdjustment is not (null or "cheaper" or "dearer")
             || selected.Any(item => !CanReplaceDayStop(item)))
@@ -46,7 +57,7 @@ public sealed partial class TravelChatService
             : Enumerable.Range(0, 5).Where(slot => !occupied.Contains(slot)
                 && !existing.Any(item => BlocksDaySlot(item, date, slot)))
                 .Select(slot => (Slot: slot, Original: (Reservation?)null)).ToList();
-        if (slots.Count == 0)
+        if (slots.Count == 0 && !isDraftChange)
         {
             var editable = existing.Where(CanReplaceDayStop).Select(item => WithDayTransfer(new TravelCardDto(
                 "existing_day_stop", item.Title, null, null, item.StartsAt.ToString("HH:mm"),
@@ -80,6 +91,44 @@ public sealed partial class TravelChatService
                 || item.Recommendation.Neighborhood.Contains(candidateCity, StringComparison.OrdinalIgnoreCase)))
                 if (cityByRecommendation.TryAdd(candidate.Recommendation.Id, candidateCity)) ranked.Add(candidate);
         }
+        Reservation? draftOriginal = null;
+        Reservation? savedDraftTarget = null;
+        if (drafts.Count > 0)
+        {
+            // Use the same accessible, city-scoped catalog as ordinary planning, never client-supplied coordinates or prices.
+            var catalog = ranked.ToDictionary(item => item.Recommendation.Id, item => item.Recommendation);
+            if (drafts.Any(item => !catalog.ContainsKey(item.RecommendationId)))
+                return responseComposer.MissingContext(conversationId, "selection",
+                    english ? "This suggestion is no longer available. Generate a new plan."
+                        : "Esta sugerencia ya no está disponible. Generá un nuevo plan.", []);
+            foreach (var draft in drafts)
+            {
+                var place = catalog[draft.RecommendationId];
+                if (draft.ReservationId is { } savedId)
+                {
+                    var saved = existing.Single(item => item.Id == savedId);
+                    timeline.Remove((saved.StartsAt, saved.Title,
+                        saved.Latitude ?? saved.Recommendation?.Latitude, saved.Longitude ?? saved.Recommendation?.Longitude));
+                }
+                timeline.Add((draft.StartsAt, place.Title, place.Latitude, place.Longitude));
+            }
+        }
+        if (isDraftChange)
+        {
+            var selectedDraft = draftTarget!;
+            var target = ranked.Single(item => item.Recommendation.Id == selectedDraft.RecommendationId).Recommendation;
+            savedDraftTarget = existing.FirstOrDefault(item => item.Id == selectedDraft.ReservationId);
+            draftOriginal = new Reservation
+            {
+                Id = savedDraftTarget?.Id ?? Guid.Empty, Title = target.Title, Date = date,
+                StartsAt = selectedDraft.StartsAt, RecommendationId = target.Id, Recommendation = target,
+                Latitude = target.Latitude, Longitude = target.Longitude,
+                TimePrecision = savedDraftTarget?.TimePrecision ?? ItineraryTimePrecision.PeriodOnly,
+                City = city, LocationName = target.Title, Address = string.Empty,
+                ConfirmationCode = string.Empty, Notes = string.Empty
+            };
+            slots = [(DaySlot(draftOriginal), draftOriginal)];
+        }
         var cards = new List<TravelCardDto>();
         var used = new HashSet<Guid>();
         foreach (var (slot, original) in slots.OrderBy(item => item.Original?.StartsAt ?? DayStopTimes[item.Slot]))
@@ -87,6 +136,7 @@ public sealed partial class TravelChatService
             var time = original?.StartsAt ?? DayStopTimes[slot];
             IEnumerable<ScoredRecommendation> options = ranked
                 .Where(item => !used.Contains(item.Recommendation.Id)
+                    && !drafts.Any(draft => draft.RecommendationId == item.Recommendation.Id)
                     && (slot is 1 or 3 || MatchesDaySlot(item.Recommendation, slot)));
             if (original is not null)
             {
@@ -109,6 +159,9 @@ public sealed partial class TravelChatService
             var candidate = options
                 .OrderBy(item => cityByRecommendation[item.Recommendation.Id] == (slot < 3 ? cities[0] : cities[^1]) ? 0 : 1)
                 .ThenBy(item => slot is 1 or 3 && IsFoodRecommendation(item.Recommendation) ? 1 : 0)
+                .ThenBy(item => action.DistanceAdjustment == "closer"
+                    ? LargestAdjacentTransfer(timeline, time, item.Recommendation.Latitude, item.Recommendation.Longitude).Distance ?? double.MaxValue
+                    : 0)
                 .ThenBy(item => StableRandomOrder(action.OptionId ?? conversationId, slot.ToString(), item.Recommendation.Id))
                 .FirstOrDefault();
             if (candidate is null) continue;
@@ -119,11 +172,11 @@ public sealed partial class TravelChatService
                 DaySlotLabel(slot, english), dto.DisplayDescription, time.ToString("HH:mm"),
                 time.AddMinutes(recommendation.SuggestedDurationMinutes).ToString("HH:mm"), recommendation.PriceLevel,
                 null, null, [english ? "Available for this part of your day." : "Disponible para este momento del día."],
-                [], recommendation.Id.ToString(), original?.Id.ToString())
+                [], recommendation.Id.ToString(), original is { Id: var originalId } && originalId != Guid.Empty ? originalId.ToString() : null)
             {
                 IsPeriodOnly = original?.TimePrecision != ItineraryTimePrecision.Exact,
                 IsDayPlan = true,
-                ReplacesRecommendationId = original?.RecommendationId,
+                ReplacesRecommendationId = isDraftChange ? savedDraftTarget?.RecommendationId : original?.RecommendationId,
                 ProviderPlaceId = recommendation.ProviderPlaceId
             });
             if (original is not null)
@@ -141,6 +194,9 @@ public sealed partial class TravelChatService
             ? english ? "No matching alternatives found. Your existing plans are unchanged." : "No encontré alternativas compatibles. Tus planes siguen igual."
             : english ? $"Prepared {cards.Count} stops. Existing events are kept unless selected for replacement."
                 : $"Preparé {cards.Count} paradas. Se conservan los eventos que no seleccionaste para cambiar.";
+        if (cards.Count > 0 && (isDraftChange || selected.Count > 0))
+            message = english ? "Alternative ready. Review it and save to update Today. Nothing has been changed yet."
+                : "Alternativa lista. Revisala y guardala para actualizar Today. Todavía no se cambió nada.";
         if (cards.Count > 0 && cards.Count < slots.Count)
         {
             var missing = slots.Count - cards.Count;

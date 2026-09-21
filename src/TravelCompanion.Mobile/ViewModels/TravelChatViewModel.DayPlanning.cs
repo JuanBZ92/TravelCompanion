@@ -22,20 +22,22 @@ public sealed partial class TravelChatViewModel
             await PaywallNavigation.OpenAsync(PaywallEntryPoint.Today);
             return;
         }
-        if (!card.ReservationId.HasValue || !card.IsSaved)
+        if (!card.RecommendationId.HasValue || !card.StartsAt.HasValue)
         {
-            StatusMessage = Resource("AssistantSaveBeforeChange");
+            card.FeedbackStatusMessage = Resource("AssistantNoReadyPlan");
             return;
         }
         DayPlanChoice? choice;
-        if (closer) choice = new([card.ReservationId.Value], "closer", null);
+        if (closer) choice = new([], "closer", null);
         else
         {
             var page = new DayPlanChoicePage([card], batch: false);
             await Shell.Current.Navigation.PushModalAsync(page);
             choice = await page.Result;
         }
-        if (choice is not null) await RunDayPlanAsync(CreateDayAction(choice));
+        if (choice is not null)
+            await RunDayPlanAsync(DayPlanCardActions.CreateAlternative(card,
+                Messages.SelectMany(message => message.Cards), choice.Distance, choice.Budget), card);
     }
 
     private static GuidedTravelActionDto CreateDayAction(DayPlanChoice choice) =>
@@ -46,7 +48,7 @@ public sealed partial class TravelChatViewModel
             BudgetAdjustment = choice.Budget
         };
 
-    private async Task RunDayPlanAsync(GuidedTravelActionDto action)
+    private async Task RunDayPlanAsync(GuidedTravelActionDto action, TravelChatCardViewModel? replacementTarget = null)
     {
         if (IsBusy) return;
         if (!sessionService.CanEditItinerary)
@@ -63,6 +65,11 @@ public sealed partial class TravelChatViewModel
             IsBusy = true;
             ErrorMessage = null;
             StatusMessage = Resource("AssistantFullDayPreparing");
+            if (replacementTarget is not null)
+            {
+                replacementTarget.IsSearchingAlternative = true;
+                replacementTarget.FeedbackStatusMessage = Resource("AssistantSearchingAlternative");
+            }
             HasGuidedQuestion = false;
             _chatRequestCancellationTokenSource?.Cancel();
             _chatRequestCancellationTokenSource?.Dispose();
@@ -72,16 +79,34 @@ public sealed partial class TravelChatViewModel
                 Resource("AssistantGuidedFullDayRequestSummary"), _conversationId, City,
                 planningDate, null, CultureInfo.CurrentUICulture.Name,
                 action, OperationId: Guid.NewGuid()), cancellationToken);
-            if (response is null) { ErrorMessage = Resource("PlanningTryAgain"); return; }
+            if (response is null)
+            {
+                ErrorMessage = Resource("PlanningTryAgain");
+                if (replacementTarget is not null) replacementTarget.FeedbackStatusMessage = ErrorMessage;
+                return;
+            }
             if (response.TrialAccess is not null) sessionService.ApplyTrialAccess(response.TrialAccess);
             _conversationId = response.ConversationId;
             if (response.MissingContext?.Field == "upgrade")
             {
+                if (replacementTarget is not null) replacementTarget.FeedbackStatusMessage = response.Message;
                 await PaywallNavigation.OpenAsync(PaywallEntryPoint.Today);
                 return;
             }
             var cards = response.Cards.Select(item => new TravelChatCardViewModel(item) { PlanningDate = planningDate }).ToList();
             StatusMessage = response.Message;
+            if (replacementTarget is not null)
+            {
+                if (cards.Count == 1 && response.MissingContext is null && response.Intent == "day_plan")
+                {
+                    var owner = Messages.FirstOrDefault(message => message.Cards.Contains(replacementTarget));
+                    cards[0].FeedbackStatusMessage = Resource("AssistantAlternativeReady");
+                    owner?.ReplaceCard(replacementTarget, cards[0]);
+                    OnMessagesChanged();
+                }
+                else replacementTarget.FeedbackStatusMessage = response.Message;
+                return;
+            }
             if (response.Intent == "day_complete")
             {
                 foreach (var card in cards) card.IsSaved = true;
@@ -99,11 +124,20 @@ public sealed partial class TravelChatViewModel
             SuggestedReplies.Clear();
             OnMessagesChanged();
         }
-        catch (OperationCanceledException) { StatusMessage = Resource("PlanningTryAgain"); }
-        catch (Exception) { ErrorMessage = Resource("PlanningTryAgain"); }
+        catch (OperationCanceledException)
+        {
+            StatusMessage = Resource("PlanningTryAgain");
+            if (replacementTarget is not null) replacementTarget.FeedbackStatusMessage = StatusMessage;
+        }
+        catch (Exception)
+        {
+            ErrorMessage = Resource("PlanningTryAgain");
+            if (replacementTarget is not null) replacementTarget.FeedbackStatusMessage = ErrorMessage;
+        }
         finally
         {
             IsBusy = false;
+            if (replacementTarget is not null) replacementTarget.IsSearchingAlternative = false;
             if (completeDay is not null)
             {
                 var page = new DayPlanChoicePage(completeDay, batch: true);
