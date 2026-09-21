@@ -174,7 +174,10 @@ public partial class SchedulePage : ContentPage
     {
         if ((sender as BindableObject)?.BindingContext is TodayLocationViewModel location)
         {
-            await _viewModel.OpenRecommendationCommand.ExecuteAsync(location.Recommendation);
+            if (location.AssignedItem is { } item)
+                await Shell.Current.GoToAsync(nameof(ScheduleItemDetailPage), new Dictionary<string, object> { ["ScheduleItem"] = item });
+            else
+                await _viewModel.OpenRecommendationCommand.ExecuteAsync(location.Recommendation);
         }
     }
 

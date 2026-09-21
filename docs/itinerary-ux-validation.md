@@ -22,3 +22,11 @@ Apply `20260921130144_PreserveBuilderCityTransferDates` with the compatible back
 - Still to validate on devices: hotel selection while the keyboard is open, failed-network save/retry with a populated form, keyboard visibility on Android/iOS, manual saving of individual Assistant suggestions, and editing notes on Today cards.
 
 This implementation has not been deployed or uploaded as a new APK in this change.
+## Notas del evento y días entre ciudades (2026-09-21)
+
+- El detalle de eventos vinculados al catálogo muestra descripción/notas YUKU y notas personales por separado, con lectura del bootstrap y actualización desde el detalle autorizado.
+- Las actividades guardadas abren el detalle del evento. Elegir una sugerencia YUKU en el editor conserva su RecommendationId; los eventos históricos sin vínculo no se asocian por coincidencia de nombre.
+- Mejorar el día consulta todas las ciudades de los segmentos que incluyen la fecha. Mantiene exclusiones de recomendaciones guardadas y restricciones Free. Prioriza origen por la mañana y destino por la tarde, sin inferir horarios de transporte.
+- El buscador del editor consulta ambas ciudades; distribuye resultados de catálogo y Google entre ellas y conserva la ciudad del lugar seleccionado.
+- Validación: 44 pruebas Shared (incluidas fechas compartidas), 90 Mobile y 7 API Free (incluido día de traslado) aprobadas.
+- Pendiente: validación visual en Android con catálogo real de ambas ciudades y evento con notas personales/editoriales; eventos antiguos sin RecommendationId requieren volver a seleccionar el lugar.

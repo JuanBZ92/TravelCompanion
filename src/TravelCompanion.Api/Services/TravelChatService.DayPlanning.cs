@@ -60,19 +60,32 @@ public sealed partial class TravelChatService
         }
 
         var city = ResolveCity(request.City, existing, trips);
+        var cities = trips.Where(trip => !string.IsNullOrWhiteSpace(trip.BuilderSegmentsJson))
+            .SelectMany(trip => TripCityScope.ForDate(
+                System.Text.Json.JsonSerializer.Deserialize<List<BuilderTripSetupSegmentDto>>(trip.BuilderSegmentsJson!) ?? [], date))
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        if (cities.Count == 0) cities.Add(city);
         var context = new TravelPlanningContext(city, date, new(8, 0), new(23, 0), null, null);
         var excluded = trips.SelectMany(trip => trip.Reservations).Where(item => item.RecommendationId.HasValue)
             .Select(item => item.RecommendationId!.Value.ToString()).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var candidates = await recommendationPlanningService.RankAsync(user,
-            trips.Select(trip => trip.DestinationId).Distinct().ToList(), city,
-            new TravelPreferenceProfile { UserId = user.Id }, existing, context, BalancedMode,
-            new GuidedPlanCriteriaDto { IgnorePreferences = true }, excluded, cancellationToken);
+        var ranked = new List<ScoredRecommendation>();
+        var cityByRecommendation = new Dictionary<Guid, string>();
+        foreach (var candidateCity in cities)
+        {
+            var result = await recommendationPlanningService.RankAsync(user,
+                trips.Select(trip => trip.DestinationId).Distinct().ToList(), candidateCity,
+                new TravelPreferenceProfile { UserId = user.Id }, existing, context with { City = candidateCity }, BalancedMode,
+                new GuidedPlanCriteriaDto { IgnorePreferences = true }, excluded, cancellationToken);
+            foreach (var candidate in result.RankedRecommendations.Where(item => cities.Count == 1
+                || item.Recommendation.Neighborhood.Contains(candidateCity, StringComparison.OrdinalIgnoreCase)))
+                if (cityByRecommendation.TryAdd(candidate.Recommendation.Id, candidateCity)) ranked.Add(candidate);
+        }
         var cards = new List<TravelCardDto>();
         var used = new HashSet<Guid>();
         foreach (var (slot, original) in slots.OrderBy(item => item.Original?.StartsAt ?? DayStopTimes[item.Slot]))
         {
             var time = original?.StartsAt ?? DayStopTimes[slot];
-            IEnumerable<ScoredRecommendation> options = candidates.RankedRecommendations
+            IEnumerable<ScoredRecommendation> options = ranked
                 .Where(item => !used.Contains(item.Recommendation.Id)
                     && (slot is 1 or 3 || MatchesDaySlot(item.Recommendation, slot)));
             if (original is not null)
@@ -94,7 +107,8 @@ public sealed partial class TravelChatService
                 }
             }
             var candidate = options
-                .OrderBy(item => slot is 1 or 3 && IsFoodRecommendation(item.Recommendation) ? 1 : 0)
+                .OrderBy(item => cityByRecommendation[item.Recommendation.Id] == (slot < 3 ? cities[0] : cities[^1]) ? 0 : 1)
+                .ThenBy(item => slot is 1 or 3 && IsFoodRecommendation(item.Recommendation) ? 1 : 0)
                 .ThenBy(item => StableRandomOrder(action.OptionId ?? conversationId, slot.ToString(), item.Recommendation.Id))
                 .FirstOrDefault();
             if (candidate is null) continue;
@@ -120,7 +134,7 @@ public sealed partial class TravelChatService
         for (var index = 0; index < cards.Count; index++)
         {
             var card = cards[index];
-            var recommendation = candidates.RankedRecommendations.First(item => item.Recommendation.Id.ToString() == card.RecommendationId).Recommendation;
+            var recommendation = ranked.First(item => item.Recommendation.Id.ToString() == card.RecommendationId).Recommendation;
             cards[index] = WithDayTransfer(card, timeline, TimeOnly.Parse(card.StartTime!), recommendation.Latitude, recommendation.Longitude, english);
         }
         var message = cards.Count == 0

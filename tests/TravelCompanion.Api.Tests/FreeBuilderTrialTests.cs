@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -109,8 +109,10 @@ public sealed class FreeBuilderTrialTests
 
     }
 
-    [Fact]
-    public async Task Free_full_day_never_returns_a_place_outside_the_free_radius()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Free_full_day_never_returns_a_place_outside_the_free_radius(bool transferDay)
     {
         await using var factory = new TrialApiFactory();
         var seed = await factory.SeedAsync();
@@ -122,7 +124,10 @@ public sealed class FreeBuilderTrialTests
             "/api/mobile/builder/setup",
             new SaveBuilderTripSetupRequest(
                 date, date.AddDays(2), "Asia/Tokyo", 0,
-                [new BuilderTripSetupSegmentDto("Tokyo", date, date.AddDays(2))]),
+                transferDay
+                    ? [new BuilderTripSetupSegmentDto("Tokyo", date, date),
+                       new BuilderTripSetupSegmentDto("Fukuoka", date, date.AddDays(2))]
+                    : [new BuilderTripSetupSegmentDto("Tokyo", date, date.AddDays(2))]),
             JsonOptions);
         setup.EnsureSuccessStatusCode();
 

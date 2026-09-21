@@ -4,9 +4,22 @@ using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Mobile.ViewModels;
 
-public sealed partial class ScheduleItemDetailViewModel : ViewModelBase, IQueryAttributable
+public sealed partial class ScheduleItemDetailViewModel(
+    TravelCompanionApiClient apiClient,
+    AuthSessionService sessionService,
+    MobileBootstrapStore bootstrapStore) : ViewModelBase, IQueryAttributable
 {
     private ScheduleItemDto? _scheduleItem;
+    private string _curatedNotes = string.Empty;
+    public string CuratedNotes
+    {
+        get => _curatedNotes;
+        private set
+        {
+            if (SetProperty(ref _curatedNotes, value)) OnPropertyChanged(nameof(HasCuratedNotes));
+        }
+    }
+    public bool HasCuratedNotes => !string.IsNullOrWhiteSpace(CuratedNotes);
 
     public ScheduleItemDto? ScheduleItem
     {
@@ -69,6 +82,30 @@ public sealed partial class ScheduleItemDetailViewModel : ViewModelBase, IQueryA
         if (query.TryGetValue("ScheduleItem", out var value) && value is ScheduleItemDto item)
         {
             ScheduleItem = item;
+            CuratedNotes = string.Empty;
+            _ = LoadCuratedNotesAsync(item);
+        }
+    }
+
+    private async Task LoadCuratedNotesAsync(ScheduleItemDto item)
+    {
+        if (item.RecommendationId is not { } recommendationId) return;
+        var context = sessionService.ContextVersion;
+        bool IsCurrent() => ReferenceEquals(ScheduleItem, item) && sessionService.HasSession
+            && context == sessionService.ContextVersion;
+        try
+        {
+            var cached = await bootstrapStore.GetCachedAsync();
+            if (!IsCurrent()) return;
+            CuratedNotes = cached?.Value.Recommendations.FirstOrDefault(recommendation => recommendation.Id == recommendationId)?.DisplayDescription ?? string.Empty;
+            var token = await sessionService.GetTokenAsync();
+            if (string.IsNullOrWhiteSpace(token) || !IsCurrent()) return;
+            var recommendation = await apiClient.GetMobileRecommendationDetailAsync(token, recommendationId);
+            if (IsCurrent() && recommendation is not null) CuratedNotes = recommendation.DisplayDescription;
+        }
+        catch (Exception)
+        {
+            // Keep cached editorial notes and the user's notes readable offline.
         }
     }
 

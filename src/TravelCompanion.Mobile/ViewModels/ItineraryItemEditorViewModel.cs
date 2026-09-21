@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.Input;
 using TravelCompanion.Mobile.Services;
@@ -78,6 +78,19 @@ public sealed partial class ItineraryItemEditorViewModel(
     private CancellationTokenSource? _placeSearch;
     private string _placeSessionToken = Guid.NewGuid().ToString();
     private string? _selectedGooglePlaceId;
+    private Guid? _selectedCatalogId;
+    private string? _selectedPlaceCity;
+    private bool _placeWasChanged;
+    private readonly Dictionary<string, string> _suggestionCities = [];
+    private IReadOnlyList<string> SearchCities
+    {
+        get
+        {
+            var cities = TripCityScope.ForDate(_segments, DateOnly.FromDateTime(Date));
+            return cities.Count > 0 ? cities : [CurrentCity.Trim()];
+        }
+    }
+    private string SearchCityScope => string.Join("|", SearchCities);
     private decimal? _selectedLatitude;
     private decimal? _selectedLongitude;
     private string _currentCity = string.Empty;
@@ -161,6 +174,9 @@ public sealed partial class ItineraryItemEditorViewModel(
         _editingTimeZoneValid = true;
         ReminderEnabled = false;
         _recommendation = recommendation;
+        _selectedCatalogId = recommendation.Id;
+        _selectedPlaceCity = null;
+        _placeWasChanged = false;
         _fallbackCity = recommendation.Neighborhood.Split(',')[0].Trim();
         _applyingPlaceSelection = true;
         TitleText = recommendation.Title;
@@ -224,6 +240,9 @@ public sealed partial class ItineraryItemEditorViewModel(
     {
         CancelPlaceSearch();
         _existingItem = item;
+        _selectedCatalogId = item.RecommendationId;
+        _selectedPlaceCity = item.City;
+        _placeWasChanged = false;
         _editingTimeZoneValid = true;
         _recommendation = null;
         _fallbackCity = item.City;
@@ -278,7 +297,8 @@ public sealed partial class ItineraryItemEditorViewModel(
         if (!CanSearchPlaces) return;
 
         var query = NormalizeSearchText(LocationName);
-        var city = CurrentCity.Trim();
+        var cities = SearchCities;
+        var city = SearchCityScope;
         if (query.Length < 2) return;
         if (string.IsNullOrWhiteSpace(city))
         {
@@ -297,7 +317,7 @@ public sealed partial class ItineraryItemEditorViewModel(
             if (operation.IsCancellationRequested
                 || !ReferenceEquals(_placeSearch, operation)
                 || !string.Equals(NormalizeSearchText(LocationName), query, StringComparison.Ordinal)
-                || !string.Equals(CurrentCity.Trim(), city, StringComparison.Ordinal)) return;
+                || !string.Equals(SearchCityScope, city, StringComparison.Ordinal)) return;
 
             var score = CatalogSearch.CreateFieldScorer(query);
             var matches = cached?.Value.Recommendations
@@ -308,17 +328,19 @@ public sealed partial class ItineraryItemEditorViewModel(
                         $"{item.Neighborhood} {item.Category} {item.RefinedType} {string.Join(' ', item.Tags)}",
                         item.Description)
                 })
-                .Where(candidate => candidate.Score > 0 && TextContains(candidate.Item.Neighborhood, city))
+                .Where(candidate => candidate.Score > 0 && cities.Any(candidateCity => TextContains(candidate.Item.Neighborhood, candidateCity)))
                 .OrderByDescending(candidate => candidate.Score)
                 .ThenBy(candidate => candidate.Item.Title)
-                .Take(8)
                 .Select(candidate => candidate.Item)
                 .Select(item => new PlaceSuggestionDto(
                     $"yuku:{item.Id:N}", item.Title, item.Neighborhood, item.Provider,
                     item.Id, item.Latitude, item.Longitude))
                 .ToList() ?? [];
+            matches = cities.SelectMany(candidateCity => matches
+                .Where(match => TextContains(match.Address, candidateCity))
+                .Take(cities.Count > 1 ? 4 : 8)).DistinctBy(match => match.PlaceId).ToList();
             foreach (var match in matches) PlaceSuggestions.Add(match);
-            if (matches.Count > 0)
+            if (matches.Count > 0 && cities.All(candidateCity => matches.Any(match => TextContains(match.Address, candidateCity))))
             {
                 return;
             }
@@ -335,22 +357,26 @@ public sealed partial class ItineraryItemEditorViewModel(
             {
                 var token = await sessionService.GetTokenAsync();
                 if (string.IsNullOrWhiteSpace(token)) return;
-                results = await apiClient.AutocompletePlacesAsync(token, new PlaceAutocompleteRequest(
-                    query,
-                    city,
-                    sessionToken,
-                    CultureInfo.CurrentUICulture.Name,
-                    PlaceAutocompleteMode.Place), operation.Token);
+                var combined = new List<PlaceSuggestionDto>();
+                foreach (var candidateCity in cities)
+                {
+                    var suggestions = await apiClient.AutocompletePlacesAsync(token, new PlaceAutocompleteRequest(
+                        query, candidateCity, sessionToken, CultureInfo.CurrentUICulture.Name,
+                        PlaceAutocompleteMode.Place), operation.Token);
+                    foreach (var suggestion in suggestions) _suggestionCities[suggestion.PlaceId] = candidateCity;
+                    combined.AddRange(suggestions.Take(cities.Count > 1 ? 3 : 5));
+                }
+                results = combined.DistinctBy(item => item.PlaceId).ToList();
                 if (_placeSuggestionCache.Count >= 20) _placeSuggestionCache.Remove(_placeSuggestionCache.Keys.First());
                 _placeSuggestionCache[cacheKey] = results;
             }
             if (operation.IsCancellationRequested
                 || !ReferenceEquals(_placeSearch, operation)
                 || !string.Equals(NormalizeSearchText(LocationName), query, StringComparison.Ordinal)
-                || !string.Equals(CurrentCity.Trim(), city, StringComparison.Ordinal)
+                || !string.Equals(SearchCityScope, city, StringComparison.Ordinal)
                 || !string.Equals(_placeSessionToken, sessionToken, StringComparison.Ordinal)) return;
 
-            foreach (var result in results.Take(5)) PlaceSuggestions.Add(result);
+            foreach (var result in results.Take(cities.Count > 1 ? 6 : 5)) PlaceSuggestions.Add(result);
             PlaceSearchMessage = results.Count == 0
                 ? "No encontramos coincidencias. Puedes escribir el lugar y la dirección manualmente."
                 : null;
@@ -373,9 +399,18 @@ public sealed partial class ItineraryItemEditorViewModel(
     public async Task SelectPlaceAsync(PlaceSuggestionDto suggestion)
     {
         CancelPlaceSearch(clearSuggestions: false);
+        void CommitSelection()
+        {
+            _selectedPlaceCity = _suggestionCities.GetValueOrDefault(suggestion.PlaceId)
+                ?? SearchCities.FirstOrDefault(city => TextContains(suggestion.Address, city)) ?? CurrentCity;
+            _placeWasChanged = true;
+            _recommendation = null;
+            _selectedCatalogId = suggestion.RecommendationId;
+        }
         if (suggestion.Provider.Equals("YUKU", StringComparison.OrdinalIgnoreCase)
             || suggestion.RecommendationId.HasValue)
         {
+            CommitSelection();
             _applyingPlaceSelection = true;
             LocationName = suggestion.Name;
             Address = suggestion.Address;
@@ -394,7 +429,7 @@ public sealed partial class ItineraryItemEditorViewModel(
             return;
         }
         var query = NormalizeSearchText(LocationName);
-        var city = CurrentCity.Trim();
+        var city = SearchCityScope;
         var sessionToken = _placeSessionToken;
         var operation = new CancellationTokenSource();
         _placeSearch = operation;
@@ -410,12 +445,13 @@ public sealed partial class ItineraryItemEditorViewModel(
                 || operation.IsCancellationRequested
                 || !ReferenceEquals(_placeSearch, operation)
                 || !string.Equals(NormalizeSearchText(LocationName), query, StringComparison.Ordinal)
-                || !string.Equals(CurrentCity.Trim(), city, StringComparison.Ordinal))
+                || !string.Equals(SearchCityScope, city, StringComparison.Ordinal))
             {
                 if (place is null) PlaceSearchMessage = "No pudimos cargar ese lugar. Puedes completarlo manualmente.";
                 return;
             }
 
+            CommitSelection();
             _applyingPlaceSelection = true;
             LocationName = place.Title;
             Address = place.Neighborhood;
@@ -469,9 +505,9 @@ public sealed partial class ItineraryItemEditorViewModel(
             "Noche" => "night",
             _ => "afternoon"
         };
-        Guid? recommendationId = _recommendation is not null && _recommendation.Id != Guid.Empty
+        Guid? recommendationId = _selectedCatalogId ?? (_recommendation is not null && _recommendation.Id != Guid.Empty
             ? _recommendation.Id
-            : _existingItem?.RecommendationId;
+            : _placeWasChanged ? null : _existingItem?.RecommendationId);
         if (!ItineraryDurationInput.TryParse(DurationMinutes, out var duration))
         {
             ErrorMessage = "La duración debe estar entre 15 y 1440 minutos.";
@@ -482,7 +518,7 @@ public sealed partial class ItineraryItemEditorViewModel(
             recommendationId,
             recommendationId.HasValue ? null : _selectedGooglePlaceId, TitleText.Trim(), DateOnly.FromDateTime(Date), periodKey,
             UseExactTime, startsAt, duration.HasValue ? startsAt?.AddMinutes(duration.Value) : null,
-            recommendationId.HasValue ? _recommendation?.Neighborhood.Split(',')[0] ?? CurrentCity : CurrentCity,
+            _selectedPlaceCity ?? (recommendationId.HasValue ? _recommendation?.Neighborhood.Split(',')[0] ?? CurrentCity : CurrentCity),
             LocationName, Address,
             Notes, _recommendation?.Latitude ?? _selectedLatitude, _recommendation?.Longitude ?? _selectedLongitude,
             _revision, Guid.NewGuid().ToString("N"), Flexibility: SelectedFlexibility.Value, DurationMinutes: duration,
@@ -604,6 +640,10 @@ public sealed partial class ItineraryItemEditorViewModel(
 
     private void ClearSelectedPlace()
     {
+        _selectedCatalogId = null;
+        _recommendation = null;
+        _selectedPlaceCity = null;
+        _placeWasChanged = true;
         _selectedGooglePlaceId = null;
         _selectedLatitude = null;
         _selectedLongitude = null;
