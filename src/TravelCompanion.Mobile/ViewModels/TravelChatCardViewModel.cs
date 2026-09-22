@@ -65,8 +65,20 @@ public sealed partial class TravelChatCardViewModel : ObservableObject
     public TimeOnly? StartsAt { get; }
     public TimeOnly? EndsAt { get; }
     public ItineraryTimePrecision TimePrecision { get; }
-    public bool CanSave => RecommendationId.HasValue && !IsSaved && !IsSearchingAlternative;
-    public bool CanFindAlternative => HasRecommendationId && !IsSearchingAlternative;
+    public bool CanSave => RecommendationId.HasValue && !IsSaved && !IsSearchingAlternative && !IsSaving;
+    public bool CanFindAlternative => HasRecommendationId && !IsSearchingAlternative && !IsSaving;
+    private bool _isSaving;
+    public bool IsSaving
+    {
+        get => _isSaving;
+        set
+        {
+            if (!SetProperty(ref _isSaving, value)) return;
+            OnPropertyChanged(nameof(CanSave));
+            OnPropertyChanged(nameof(CanFindAlternative));
+            OnPropertyChanged(nameof(SaveButtonText));
+        }
+    }
     public bool IsSearchingAlternative
     {
         get => _isSearchingAlternative;
@@ -82,7 +94,7 @@ public sealed partial class TravelChatCardViewModel : ObservableObject
     public string DayPlanStateText => Resource(IsSaved ? "AssistantSavedToToday"
         : ReservationId.HasValue ? "AssistantPendingChange" : "AssistantUnsavedSuggestion");
     public string DayPlanHelpText => Resource(IsSaved ? "AssistantSavedAlternativeHelp" : "AssistantAlternativeHelp");
-    public string SaveButtonText => IsSaved ? Resource("AssistantSavedButton")
+    public string SaveButtonText => IsSaving ? Resource("AssistantSavingItem") : IsSaved ? Resource("AssistantSavedButton")
         : IsDayPlanCard ? Resource(ReservationId.HasValue ? "AssistantSaveReplacement" : "AssistantSaveToToday")
         : Resource("AssistantSaveButton");
     public string DetailButtonText => Resource("AssistantDetailButton");

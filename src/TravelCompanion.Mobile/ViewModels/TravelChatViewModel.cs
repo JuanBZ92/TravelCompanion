@@ -716,17 +716,33 @@ public sealed partial class TravelChatViewModel(
         await SendMessageAsync();
     }
 
-    [RelayCommand]
+    private readonly SerialSaveQueue _saveQueue = new();
+
+    [RelayCommand(AllowConcurrentExecutions = true)]
     private async Task SaveItineraryItemAsync(TravelChatCardViewModel? card)
     {
-        if (IsBusy) return;
-        if (card is null || !card.CanSave || !card.RecommendationId.HasValue)
+        if (card is null || !card.CanSave) return;
+        var contextVersion = sessionService.ContextVersion;
+        card.IsSaving = true;
+        card.FeedbackStatusMessage = Resource("AssistantSaveQueued");
+        try
         {
-            StatusMessage = Resource("AssistantNoReadyPlan");
-            return;
+            await _saveQueue.RunAsync(async () =>
+            {
+                if (contextVersion != sessionService.ContextVersion) return;
+                card.FeedbackStatusMessage = Resource("AssistantSavingItem");
+                await SaveItineraryItemCoreAsync(card);
+            });
         }
+        finally { card.IsSaving = false; }
+    }
 
+    private async Task SaveItineraryItemCoreAsync(TravelChatCardViewModel card)
+    {
+        if (card.RecommendationId is not { } recommendationId) return;
+        var contextVersion = sessionService.ContextVersion;
         var token = await sessionService.GetTokenAsync();
+        if (contextVersion != sessionService.ContextVersion) return;
         if (string.IsNullOrWhiteSpace(token))
         {
             sessionService.Clear();
@@ -736,13 +752,14 @@ public sealed partial class TravelChatViewModel(
 
         try
         {
-            IsBusy = true;
             ErrorMessage = null;
             StatusMessage = null;
-            var recommendation = await FindRecommendationAsync(card.RecommendationId.Value, token);
+            var recommendation = await FindRecommendationAsync(recommendationId, token);
+            if (contextVersion != sessionService.ContextVersion) return;
             if (recommendation is null)
             {
                 StatusMessage = Resource("AssistantDetailNotFound");
+                card.FeedbackStatusMessage = StatusMessage;
                 return;
             }
 
@@ -782,10 +799,7 @@ public sealed partial class TravelChatViewModel(
         catch (Exception ex)
         {
             ErrorMessage = string.Format(CultureInfo.CurrentCulture, Resource("AssistantSaveErrorWithReason"), ex.Message);
-        }
-        finally
-        {
-            IsBusy = false;
+            card.FeedbackStatusMessage = Resource("PlanningTryAgain");
         }
     }
 
@@ -1006,6 +1020,7 @@ public sealed partial class TravelChatViewModel(
         CancellationToken cancellationToken,
         Func<TravelChatCardViewModel, int, int, Task>? onCardProcessed = null)
     {
+        var contextVersion = sessionService.ContextVersion;
         var savedCount = 0;
         var cardsToProcess = cards.ToList();
         var savedItems = new List<ScheduleItemDto>(cardsToProcess.Count);
@@ -1040,6 +1055,7 @@ public sealed partial class TravelChatViewModel(
                     // Keep the generated card visible so the user can save it later.
                 }
 
+                if (contextVersion != sessionService.ContextVersion) return savedCount;
                 if (result?.Saved == true)
                 {
                     card.ReservationId = result.Item?.Id ?? card.ReservationId;
@@ -1073,7 +1089,6 @@ public sealed partial class TravelChatViewModel(
                 savedItems,
                 latestRevision,
                 CancellationToken.None);
-            await bootstrapStore.RefreshAsync(token, cancellationToken: CancellationToken.None);
         }
         return savedCount;
     }

@@ -456,12 +456,6 @@
                         MinimumWidthRequest="74"
                         MinimumHeightRequest="44" />
             </Grid>
-
-            <ActivityIndicator IsRunning="{Binding ShowGlobalLoading}"
-                               IsVisible="{Binding ShowGlobalLoading}"
-                               Color="{StaticResource Accent}"
-                               WidthRequest="22"
-                               HeightRequest="22" />
         </VerticalStackLayout>
     </Grid>
 </ContentPage>

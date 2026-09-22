@@ -1427,9 +1427,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
                     selectedDate,
                     PeriodKey(period.Label),
                     period.Label,
-                    string.IsNullOrWhiteSpace(curatedDescription)
-                        ? CreateSectionDescription(period, reservations, locations)
-                        : curatedDescription,
+                    curatedDescription ?? string.Empty,
                     locations,
                     reservations,
                     CanEditSelectedDay);
@@ -1518,27 +1516,6 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         }
 
         return score;
-    }
-
-    private static string CreateSectionDescription(
-        TodayPeriod period,
-        IReadOnlyList<TodayReservationViewModel> reservations,
-        IReadOnlyList<TodayLocationViewModel> locations)
-    {
-        if (reservations.Count > 0)
-        {
-            var reservationLabel = reservations.Count == 1
-                ? reservations[0].Title
-                : $"{reservations.Count} reservas";
-            return $"{period.Label}: tenes {reservationLabel}. Dejo cerca algunas locations utiles por si queres completar el bloque sin desviar demasiado el dia.";
-        }
-
-        if (locations.Count > 0)
-        {
-            return $"{period.Label}: bloque libre para elegir algo liviano. Estas locations encajan bien para sumar contexto al dia sin convertirlo en una agenda pesada.";
-        }
-
-        return $"{period.Label}: sin reservas cargadas ni locations sugeridas por ahora.";
     }
 
     private static string ExtractCuratedDescription(string notes)

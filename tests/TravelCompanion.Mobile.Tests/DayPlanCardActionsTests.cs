@@ -7,6 +7,23 @@ namespace TravelCompanion.Mobile.Tests;
 public sealed class DayPlanCardActionsTests
 {
     [Fact]
+    public void Queued_card_blocks_duplicate_taps_without_blocking_other_cards_and_can_retry()
+    {
+        var card = Card(new(9, 0));
+        var other = Card(new(10, 30));
+        var mutationId = card.SaveMutationId;
+        card.IsSaving = true;
+        Assert.False(card.CanSave);
+        Assert.False(card.CanFindAlternative);
+        Assert.True(other.CanSave);
+        card.IsSaving = false;
+        Assert.True(card.CanSave);
+        Assert.Equal(mutationId, card.SaveMutationId);
+        card.IsSaved = true;
+        Assert.False(card.CanSave);
+    }
+
+    [Fact]
     public void Unsaved_suggestion_requests_an_alternative_with_the_latest_draft_context()
     {
         var old = Card(new(9, 0));

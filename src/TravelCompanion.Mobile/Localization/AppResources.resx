@@ -355,4 +355,6 @@
   <data name="AssistantSavedToToday" xml:space="preserve"><value>Saved to Itinerary</value></data>
   <data name="AssistantUnsavedSuggestion" xml:space="preserve"><value>Suggestion · not saved</value></data>
   <data name="AssistantPendingChange" xml:space="preserve"><value>Pending change · not saved</value></data>
+  <data name="AssistantSaveQueued" xml:space="preserve"><value>Queued to save.</value></data>
+  <data name="AssistantSavingItem" xml:space="preserve"><value>Saving…</value></data>
 </root>

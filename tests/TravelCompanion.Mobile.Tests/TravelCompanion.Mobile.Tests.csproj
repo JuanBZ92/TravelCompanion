@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <Using Include="Xunit" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\Services\SerialSaveQueue.cs" Link="SerialSaveQueue.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\InFlightRefresh.cs" Link="InFlightRefresh.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\DayPlanCardActions.cs" Link="DayPlanCardActions.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\ReservationLocalTime.cs" Link="ReservationLocalTime.cs" />
