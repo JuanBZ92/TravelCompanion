@@ -6,8 +6,8 @@
              x:DataType="viewModels:BiometricUnlockViewModel"
              Title="Desbloquear"
              Shell.NavBarIsVisible="False"
-             BackgroundColor="#F8F3ED">
-    <Grid Padding="28" RowDefinitions="*,Auto,*" BackgroundColor="#F8F3ED">
+             BackgroundColor="{StaticResource Mist}">
+    <Grid Padding="28" RowDefinitions="*,Auto,*" BackgroundColor="{StaticResource Mist}">
         <VerticalStackLayout Grid.Row="1" Spacing="20">
             <VerticalStackLayout Spacing="10">
                 <Label Text="YUKU JAPAN"

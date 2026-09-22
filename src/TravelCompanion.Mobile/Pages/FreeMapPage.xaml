@@ -7,7 +7,7 @@
              x:DataType="viewModels:FreeMapViewModel"
              Title="Map"
              Shell.NavBarIsVisible="False"
-             BackgroundColor="#F8F3ED">
+             BackgroundColor="{StaticResource Mist}">
     <Grid>
         <Grid x:Name="MapContainer" BackgroundColor="#E8E2DA">
             <VerticalStackLayout x:Name="MapFallback"
@@ -57,7 +57,7 @@
                         </CollectionView.ItemsLayout>
                         <CollectionView.ItemTemplate>
                             <DataTemplate x:DataType="dtos:FreeMapCityDto">
-                                <Border Padding="16,9" BackgroundColor="#F8F3ED" Stroke="#D8CFC4" StrokeThickness="1">
+                                <Border Padding="16,9" BackgroundColor="{StaticResource Mist}" Stroke="#D8CFC4" StrokeThickness="1">
                                     <VisualStateManager.VisualStateGroups>
                                         <VisualStateGroup Name="CommonStates">
                                             <VisualState Name="Normal" />
@@ -192,7 +192,7 @@
                 </Grid>
             </Border>
 
-            <Border Grid.Row="2" Margin="0,0,0,8" Padding="16" VerticalOptions="End" BackgroundColor="#F8F3ED" Stroke="#B42318" StrokeThickness="1" IsVisible="{Binding HasError}">
+            <Border Grid.Row="2" Margin="0,0,0,8" Padding="16" VerticalOptions="End" BackgroundColor="{StaticResource Mist}" Stroke="#B42318" StrokeThickness="1" IsVisible="{Binding HasError}">
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                     <Label Text="{Binding ErrorMessage}" FontSize="13" TextColor="#B42318" VerticalOptions="Center" />
                     <Button Grid.Column="1" Text="Reintentar" Command="{Binding LoadCommand}" Style="{StaticResource GhostButton}" />

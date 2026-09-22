@@ -8,7 +8,7 @@
              x:DataType="viewModels:BuilderSetupViewModel"
              Title="Tu viaje"
              SafeAreaEdges="All"
-             BackgroundColor="#F8F3ED">
+             BackgroundColor="{StaticResource Mist}">
     <Grid RowDefinitions="*,Auto">
         <ScrollView x:Name="FormScroll">
             <VerticalStackLayout Padding="24,20" Spacing="22">
@@ -42,7 +42,6 @@
                                            Grid.ColumnSpan="2"
                                            Placeholder="Hotel o base (opcional)"
                                            Text="{Binding HotelName}"
-                                           Focused="OnSuggestionInputFocused"
                                            TextChanged="OnHotelTextChanged" />
                                     <VerticalStackLayout Grid.Row="4" Grid.ColumnSpan="2">
                                         <VerticalStackLayout BindableLayout.ItemsSource="{Binding HotelSuggestions}">
@@ -83,9 +82,6 @@
                 </Border>
                 <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
                 <Label Text="{Binding StatusMessage}" IsVisible="{Binding HasStatus}" FontSize="13" TextColor="#6E675F" />
-                <!-- Layout-only space must not inherit the global BoxView background. -->
-                <Grid x:Name="SuggestionScrollSpace" HeightRequest="0" InputTransparent="True"
-                      BackgroundColor="Transparent" AutomationProperties.IsInAccessibleTree="False" />
             </VerticalStackLayout>
         </ScrollView>
         <Grid Grid.Row="1" Padding="20,12" ColumnDefinitions="*,*" ColumnSpacing="12" BackgroundColor="#FFFDF9">

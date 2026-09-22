@@ -8,7 +8,7 @@
              Title="Map"
              Shell.NavBarIsVisible="False"
              SafeAreaEdges="All"
-             BackgroundColor="#F8F3ED">
+             BackgroundColor="{StaticResource Mist}">
 
     <Grid x:Name="RootLayout"
           RowDefinitions="*,Auto"
@@ -17,7 +17,7 @@
         <!-- Map Section -->
         <Grid Grid.Row="0">
             <Border x:Name="MapHost"
-                    BackgroundColor="#F6F1EA"
+                    BackgroundColor="{StaticResource AccentSoft}"
                     Stroke="Transparent"
                     StrokeThickness="0">
                 <Border.StrokeShape>
@@ -76,7 +76,7 @@
               Grid.Row="1"
               Padding="18,10,18,0"
               HeightRequest="300"
-              BackgroundColor="#F8F3ED"
+              BackgroundColor="{StaticResource Mist}"
               RowDefinitions="Auto,*"
               RowSpacing="6"
               IsVisible="{Binding ShowRecommendationBrowser}">
@@ -89,7 +89,7 @@
                        Unfocused="OnSearchUnfocused"
                        HeightRequest="44"
                        FontSize="13"
-                       BackgroundColor="#F8F3ED"
+                       BackgroundColor="{StaticResource Mist}"
                        CancelButtonColor="#8E867D" />
 
             <ScrollView x:Name="ResultsScroll"

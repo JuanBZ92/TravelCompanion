@@ -6,7 +6,7 @@
              x:DataType="viewModels:DocsViewModel"
              Title="Docs"
              Shell.NavBarIsVisible="False"
-             BackgroundColor="#F8F3ED">
+             BackgroundColor="{StaticResource Mist}">
 
     <RefreshView Command="{Binding RefreshCommand}"
                  IsRefreshing="{Binding IsBusy}">
@@ -47,7 +47,7 @@
                            Style="{StaticResource Eyebrow}"
                            CharacterSpacing="5" />
 
-                    <Border BackgroundColor="#F6F1EA"
+                    <Border BackgroundColor="{StaticResource AccentSoft}"
                             Stroke="#D8CFC4"
                             StrokeThickness="1"
                             Padding="0">
@@ -101,7 +101,7 @@
                                                 CornerRadius="0"
                                                 MinimumHeightRequest="42"
                                                Padding="28,10"
-                                                BackgroundColor="#F6F1EA"
+                                                BackgroundColor="{StaticResource AccentSoft}"
                                                 TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}">
                                             <Button.Triggers>
                                                 <DataTrigger TargetType="Button"

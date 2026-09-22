@@ -6,13 +6,13 @@
              x:DataType="viewModels:RecommendationDetailViewModel"
              Title=""
              Shell.NavBarIsVisible="False"
-             Shell.BackgroundColor="#F8F3ED"
-             BackgroundColor="#F8F3ED">
+             Shell.BackgroundColor="{StaticResource Mist}"
+             BackgroundColor="{StaticResource Mist}">
 
     <ScrollView VerticalScrollBarVisibility="Never">
         <VerticalStackLayout Spacing="0">
             <Border HeightRequest="300"
-                    BackgroundColor="#F6F1EA"
+                    BackgroundColor="{StaticResource AccentSoft}"
                     Stroke="#D8CFC4"
                     StrokeThickness="1">
                 <Border.StrokeShape>
@@ -47,7 +47,7 @@
                             Margin="20,22,0,0"
                             HorizontalOptions="Start"
                             VerticalOptions="Start"
-                            BackgroundColor="#F8F3ED"
+                            BackgroundColor="{StaticResource Mist}"
                             TextColor="#1A1714"
                             BorderColor="#D8CFC4"
                             BorderWidth="1"

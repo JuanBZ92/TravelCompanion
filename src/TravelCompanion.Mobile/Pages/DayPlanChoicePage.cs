@@ -17,11 +17,12 @@ public sealed class DayPlanChoicePage : ContentPage
         string Text(string key) => LocalizationResourceManager.Instance[key];
         Title = Text(batch ? "AssistantDayComplete" : "AssistantChangeOptions");
         SafeAreaEdges = SafeAreaEdges.All;
+        SetDynamicResource(BackgroundColorProperty, "Mist");
         Style AppStyle(string key) => (Style)Application.Current!.Resources[key];
         var content = new VerticalStackLayout { Padding = new Thickness(24, 28), Spacing = 22 };
         var heading = new VerticalStackLayout { Spacing = 8 };
         heading.Add(new Label { Text = Text("AssistantEyebrow"), Style = AppStyle("Eyebrow"), CharacterSpacing = 3 });
-        heading.Add(new Label { Text = Title, Style = AppStyle("Headline") });
+        heading.Add(new Label { Text = Title, Style = AppStyle("Headline"), FontSize = 30 });
         heading.Add(new Label { Text = Text("AssistantChangeReason"), Style = AppStyle("Body") });
         content.Add(heading);
         var selectedCards = new VerticalStackLayout { Spacing = 12 };

@@ -8,7 +8,7 @@
              x:DataType="viewModels:TravelChatViewModel"
              Title="Assistant"
              Shell.NavBarIsVisible="False"
-             BackgroundColor="#F8F3ED">
+             BackgroundColor="{StaticResource Mist}">
 
     <Grid Padding="28,26,28,0" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="18">
         <Grid ColumnDefinitions="*,140" ColumnSpacing="12">
@@ -44,7 +44,7 @@
 
         <VerticalStackLayout Grid.Row="1" Spacing="8">
             <Border Padding="14,12"
-                    BackgroundColor="#F6F1EA"
+                    BackgroundColor="{StaticResource AccentSoft}"
                     Stroke="#D8CFC4"
                     StrokeThickness="1"
                     IsVisible="{Binding HasMissingContext}">
@@ -64,7 +64,7 @@
                             <DataTemplate x:DataType="system:String">
                                 <Border Style="{StaticResource Chip}"
                                         Margin="0,0,8,6"
-                                        BackgroundColor="#F6F1EA"
+                                        BackgroundColor="{StaticResource AccentSoft}"
                                         Stroke="#D8CFC4"
                                         MaximumWidthRequest="220">
                                     <Border.GestureRecognizers>
@@ -237,7 +237,7 @@
                                         <DataTemplate x:DataType="viewModels:TravelChatCardViewModel">
                                             <Border Loaded="OnCardLoaded" Unloaded="OnCardUnloaded" Style="{StaticResource Card}"
                                                     Padding="14"
-                                                    BackgroundColor="#F6F1EA"
+                                                    BackgroundColor="{StaticResource AccentSoft}"
                                                     Stroke="#D8CFC4">
                                                 <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="6">
                                                     <Grid ColumnDefinitions="*,Auto"
@@ -287,7 +287,7 @@
                                                             <DataTemplate x:DataType="viewModels:TravelChatTagActionViewModel">
                                                                 <Border Style="{StaticResource Chip}"
                                                                         Padding="8,5"
-                                                                        BackgroundColor="#F6F1EA"
+                                                                        BackgroundColor="{StaticResource AccentSoft}"
                                                                         Stroke="#D8CFC4"
                                                                         Margin="0,0,6,4">
                                                                     <Border.GestureRecognizers>
@@ -432,7 +432,7 @@
 
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10" IsVisible="{Binding IsFreeTextVisible}">
                 <Border Padding="12,0"
-                        BackgroundColor="#F6F1EA"
+                        BackgroundColor="{StaticResource AccentSoft}"
                         Stroke="#D8CFC4"
                         StrokeThickness="1">
                     <Border.StrokeShape>

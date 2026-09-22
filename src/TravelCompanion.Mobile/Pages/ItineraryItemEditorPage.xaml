@@ -6,21 +6,20 @@
              xmlns:services="clr-namespace:TravelCompanion.Mobile.Services"
              x:Class="TravelCompanion.Mobile.Pages.ItineraryItemEditorPage"
              x:DataType="viewModels:ItineraryItemEditorViewModel"
-             Title="Agregar al itinerario"
+             Title="{Binding EditorTitle}"
              SafeAreaEdges="All"
-             BackgroundColor="#F8F3ED">
+             BackgroundColor="{StaticResource Mist}">
     <Grid RowDefinitions="*,Auto">
         <ScrollView x:Name="FormScroll">
             <VerticalStackLayout Padding="24" Spacing="20">
-                <Label Text="AGREGAR AL ITINERARIO" CharacterSpacing="3" FontSize="11" TextColor="#8E867D" />
+                <Label Text="{Binding EditorTitle}" TextTransform="Uppercase" CharacterSpacing="3" FontSize="11" TextColor="#8E867D" />
                 <Label Text="{Binding HeaderTitle}" FontFamily="serif" FontSize="32" TextColor="#1A1714" />
                 <Label Text="{Binding Subtitle}" FontSize="14" TextColor="#6E675F" />
-                <Entry Placeholder="Nombre del plan" Text="{Binding TitleText}" />
+                <Entry Placeholder="Nombre del plan" Text="{Binding TitleText}" IsVisible="{Binding ShowTitleInput}" />
                 <VerticalStackLayout Spacing="8">
                     <Entry x:Name="PlaceEntry"
                            Placeholder="Lugar (opcional)"
                            Text="{Binding LocationName}"
-                           Focused="OnSuggestionInputFocused"
                            TextChanged="OnPlaceTextChanged"
                            SemanticProperties.Hint="Escribe un lugar para ver sugerencias" />
                     <VerticalStackLayout Spacing="0"
@@ -39,7 +38,7 @@
                                         <TapGestureRecognizer Tapped="OnPlaceSuggestionTapped"
                                                               CommandParameter="{Binding .}" />
                                     </Border.GestureRecognizers>
-                                    <VerticalStackLayout Spacing="2">
+                                    <VerticalStackLayout Spacing="2" InputTransparent="True">
                                         <Label Text="{Binding Name}"
                                                FontSize="14"
                                                FontAttributes="Bold"
@@ -80,14 +79,11 @@
                 <Editor Placeholder="Notas personales (opcional)" Text="{Binding Notes}" AutoSize="TextChanges" MinimumHeightRequest="100" />
                 <Border IsVisible="{Binding HasError}" Style="{StaticResource ErrorPanel}"><Label Text="{Binding ErrorMessage}" /></Border>
                 <ActivityIndicator IsVisible="{Binding IsBusy}" IsRunning="{Binding IsBusy}" />
-                <!-- Layout-only space must not inherit the global BoxView background. -->
-                <Grid x:Name="SuggestionScrollSpace" HeightRequest="0" InputTransparent="True"
-                      BackgroundColor="Transparent" AutomationProperties.IsInAccessibleTree="False" />
             </VerticalStackLayout>
         </ScrollView>
         <Grid Grid.Row="1" Padding="20,12" ColumnDefinitions="*,*" ColumnSpacing="12" BackgroundColor="#FFFDF9">
             <Button Text="Cancelar" Command="{Binding CancelCommand}" Style="{StaticResource GhostButton}" />
-            <Button Grid.Column="1" Text="Agregar" Command="{Binding SaveCommand}" IsEnabled="{Binding IsNotBusy}" />
+            <Button Grid.Column="1" Text="{Binding SaveButtonText}" Command="{Binding SaveCommand}" IsEnabled="{Binding IsNotBusy}" />
         </Grid>
     </Grid>
 </ContentPage>

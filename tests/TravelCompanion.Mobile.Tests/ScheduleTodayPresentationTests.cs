@@ -7,6 +7,16 @@ namespace TravelCompanion.Mobile.Tests;
 public sealed class ScheduleTodayPresentationTests
 {
     [Theory]
+    [InlineData("Guardado desde Travel Assistant.", true)]
+    [InlineData("  Guardado desde Travel Assistant.  ", true)]
+    [InlineData("Pedir mesa junto a la ventana", false)]
+    [InlineData(null, false)]
+    public void Only_automatic_provenance_is_hidden_from_personal_notes(string? notes, bool expected)
+    {
+        Assert.Equal(expected, ItineraryNotePreview.IsAssistantPlaceholder(notes));
+    }
+
+    [Theory]
     [InlineData("Guardado desde Travel Assistant.")]
     [InlineData("  Guardado desde Travel Assistant.  ")]
     public void Curated_notes_replace_assistant_placeholder(string placeholder)

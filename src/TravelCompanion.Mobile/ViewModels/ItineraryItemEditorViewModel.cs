@@ -95,8 +95,12 @@ public sealed partial class ItineraryItemEditorViewModel(
 
     public IReadOnlyList<string> Periods { get; } = ["Mañana", "Medio día", "Tarde", "Noche"];
     public ObservableCollection<PlaceSuggestionDto> PlaceSuggestions { get; } = [];
-    public string HeaderTitle => _recommendation?.Title ?? "Nuevo plan";
-    public string Subtitle => _recommendation?.Neighborhood ?? "Agrega una idea personal";
+    public bool ShowTitleInput => _recommendation is null && !_selectedCatalogId.HasValue && string.IsNullOrWhiteSpace(_selectedGooglePlaceId);
+    public string EditorTitle => _existingItem is null ? "Agregar al itinerario" : "Editar evento";
+    public string SaveButtonText => _existingItem is null ? "Agregar" : "Guardar cambios";
+    public string HeaderTitle => ShowTitleInput ? _existingItem?.Title ?? "Nuevo plan" : _recommendation?.Title ?? LocationName;
+    public string Subtitle => _existingItem is not null ? "Modificá los datos que quieras cambiar."
+        : _recommendation?.Neighborhood ?? "Agrega una idea personal";
     public string TitleText { get => _titleText; set => SetProperty(ref _titleText, value); }
     public string LocationName
     {
@@ -154,7 +158,9 @@ public sealed partial class ItineraryItemEditorViewModel(
         }
     }
     public bool HasPlaceSearchMessage => !string.IsNullOrWhiteSpace(PlaceSearchMessage);
-    public bool CanSearchPlaces => _recommendation is null;
+    public bool CanSearchPlaces => _recommendation is null && !_selectedCatalogId.HasValue
+        && string.IsNullOrWhiteSpace(_selectedGooglePlaceId)
+        && (_existingItem is null || _placeWasChanged);
 
     public async Task InitializeAsync(
         RecommendationDto recommendation,
@@ -178,6 +184,10 @@ public sealed partial class ItineraryItemEditorViewModel(
         Address = recommendation.Neighborhood;
         _applyingPlaceSelection = false;
         OnPropertyChanged(nameof(HeaderTitle));
+        OnPropertyChanged(nameof(EditorTitle));
+        OnPropertyChanged(nameof(SaveButtonText));
+        OnPropertyChanged(nameof(CanSearchPlaces));
+        OnPropertyChanged(nameof(ShowTitleInput));
         OnPropertyChanged(nameof(Subtitle));
         OnPropertyChanged(nameof(CanSearchPlaces));
         var setup = await LoadSetupAsync();
@@ -223,6 +233,10 @@ public sealed partial class ItineraryItemEditorViewModel(
         Date = date.ToDateTime(TimeOnly.MinValue);
         SelectedPeriod = periodKey switch { "morning" => "Mañana", "midday" => "Medio día", "night" => "Noche", _ => "Tarde" };
         OnPropertyChanged(nameof(HeaderTitle));
+        OnPropertyChanged(nameof(EditorTitle));
+        OnPropertyChanged(nameof(SaveButtonText));
+        OnPropertyChanged(nameof(CanSearchPlaces));
+        OnPropertyChanged(nameof(ShowTitleInput));
         OnPropertyChanged(nameof(Subtitle));
         OnPropertyChanged(nameof(CanSearchPlaces));
         await LoadSetupAsync();
@@ -260,6 +274,10 @@ public sealed partial class ItineraryItemEditorViewModel(
             ?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
         _flexibility = item.Flexibility;
         OnPropertyChanged(nameof(HeaderTitle));
+        OnPropertyChanged(nameof(EditorTitle));
+        OnPropertyChanged(nameof(SaveButtonText));
+        OnPropertyChanged(nameof(CanSearchPlaces));
+        OnPropertyChanged(nameof(ShowTitleInput));
         OnPropertyChanged(nameof(Subtitle));
         OnPropertyChanged(nameof(CanSearchPlaces));
         await LoadSetupAsync();
@@ -415,7 +433,12 @@ public sealed partial class ItineraryItemEditorViewModel(
             ErrorMessage = LocalizationResourceManager.Instance["ItemUnknownTimeZone"];
             return;
         }
-        if (string.IsNullOrWhiteSpace(TitleText)) TitleText = suggestion.Name;
+        TitleText = suggestion.Name;
+        OnPropertyChanged(nameof(HeaderTitle));
+        OnPropertyChanged(nameof(EditorTitle));
+        OnPropertyChanged(nameof(SaveButtonText));
+        OnPropertyChanged(nameof(CanSearchPlaces));
+        OnPropertyChanged(nameof(ShowTitleInput));
             PlaceSuggestions.Clear();
             PlaceSearchMessage = null;
             return;
@@ -451,7 +474,12 @@ public sealed partial class ItineraryItemEditorViewModel(
             _selectedGooglePlaceId = place.ProviderPlaceId;
             _selectedLatitude = place.Latitude;
             _selectedLongitude = place.Longitude;
-            if (string.IsNullOrWhiteSpace(TitleText)) TitleText = place.Title;
+            TitleText = place.Title;
+            OnPropertyChanged(nameof(HeaderTitle));
+        OnPropertyChanged(nameof(EditorTitle));
+        OnPropertyChanged(nameof(SaveButtonText));
+        OnPropertyChanged(nameof(CanSearchPlaces));
+            OnPropertyChanged(nameof(ShowTitleInput));
             PlaceSuggestions.Clear();
             PlaceSearchMessage = null;
         }
@@ -639,6 +667,11 @@ public sealed partial class ItineraryItemEditorViewModel(
         _selectedGooglePlaceId = null;
         _selectedLatitude = null;
         _selectedLongitude = null;
+        OnPropertyChanged(nameof(HeaderTitle));
+        OnPropertyChanged(nameof(EditorTitle));
+        OnPropertyChanged(nameof(SaveButtonText));
+        OnPropertyChanged(nameof(CanSearchPlaces));
+        OnPropertyChanged(nameof(ShowTitleInput));
     }
 
     private static string NormalizeSearchText(string value) =>

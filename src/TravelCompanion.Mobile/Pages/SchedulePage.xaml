@@ -9,7 +9,7 @@
              x:DataType="viewModels:ScheduleViewModel"
              Title="Today"
              Shell.NavBarIsVisible="False"
-             BackgroundColor="#F8F3ED">
+             BackgroundColor="{StaticResource Mist}">
 
     <Grid RowDefinitions="*">
         <RefreshView IsRefreshing="{Binding IsRefreshing}"
@@ -532,7 +532,7 @@
                                                 <BindableLayout.ItemTemplate>
                                                     <DataTemplate x:DataType="viewModels:TodayReservationViewModel">
                                                         <Border Padding="12,10"
-                                                                BackgroundColor="#F6F1EA"
+                                                                BackgroundColor="{StaticResource AccentSoft}"
                                                                 Stroke="#D8CFC4"
                                                                 StrokeThickness="1">
                                                             <Border.StrokeShape>

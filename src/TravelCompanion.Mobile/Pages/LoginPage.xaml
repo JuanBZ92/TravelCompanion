@@ -6,9 +6,9 @@
              x:DataType="viewModels:LoginViewModel"
              Title="{Binding PageTitle}"
              Shell.NavBarIsVisible="False"
-             BackgroundColor="#F8F3ED">
+             BackgroundColor="{StaticResource Mist}">
     <Grid Padding="28" RowDefinitions="*,Auto,*"
-          BackgroundColor="#F8F3ED">
+          BackgroundColor="{StaticResource Mist}">
         <VerticalStackLayout Grid.Row="1" Spacing="24">
             <VerticalStackLayout Spacing="10">
                 <Label Text="YUKU JAPAN"
@@ -31,7 +31,7 @@
                        TextColor="#8A6F3D" />
             </VerticalStackLayout>
 
-            <Border BackgroundColor="#F6F1EA"
+            <Border BackgroundColor="{StaticResource AccentSoft}"
                     Stroke="#D8CFC4"
                     StrokeThickness="1"
                     Padding="20">
@@ -57,7 +57,7 @@
                            TextColor="#8E867D" />
 
                     <Border Padding="12"
-                            BackgroundColor="#F6F1EA"
+                            BackgroundColor="{StaticResource AccentSoft}"
                             Stroke="{StaticResource Rose}"
                             StrokeThickness="1"
                             IsVisible="{Binding HasError}">

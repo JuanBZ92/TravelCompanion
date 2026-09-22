@@ -29,6 +29,7 @@ public sealed partial class ScheduleItemDetailViewModel(
             if (SetProperty(ref _scheduleItem, value))
             {
                 OnPropertyChanged(nameof(ReservationReferenceLabel));
+                OnPropertyChanged(nameof(HasReservationReference));
                 OnPropertyChanged(nameof(ReservationTimeLabel));
                 OnPropertyChanged(nameof(AddressText));
                 OnPropertyChanged(nameof(NotesText));
@@ -38,6 +39,9 @@ public sealed partial class ScheduleItemDetailViewModel(
         }
     }
 
+    public bool HasReservationReference => !string.IsNullOrWhiteSpace(ReservationReferenceLabel)
+        && !string.Equals(ReservationReferenceLabel.Trim(), ScheduleItem?.Title?.Trim(), StringComparison.OrdinalIgnoreCase);
+
     public string ReservationReferenceLabel
     {
         get
@@ -46,6 +50,8 @@ public sealed partial class ScheduleItemDetailViewModel(
             {
                 return string.Empty;
             }
+
+            if (ScheduleItem.ConfirmationCode == "AI-PLAN") return string.Empty;
 
             return string.IsNullOrWhiteSpace(ScheduleItem.ConfirmationCode)
                 ? ScheduleItem.LocationName
@@ -73,7 +79,8 @@ public sealed partial class ScheduleItemDetailViewModel(
         ? "Direccion no disponible"
         : ScheduleItem.Address;
 
-    public string NotesText => ScheduleItem?.Notes ?? string.Empty;
+    public string NotesText => ItineraryNotePreview.IsAssistantPlaceholder(ScheduleItem?.Notes)
+        ? string.Empty : ScheduleItem?.Notes ?? string.Empty;
     public bool HasNotes => !string.IsNullOrWhiteSpace(NotesText);
     public bool HasAddress => ScheduleItem is not null && !string.IsNullOrWhiteSpace(ScheduleItem.Address);
 

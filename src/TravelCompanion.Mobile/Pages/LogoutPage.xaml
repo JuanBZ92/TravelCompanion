@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="TravelCompanion.Mobile.Pages.LogoutPage"
              Shell.NavBarIsVisible="False"
-             BackgroundColor="#F8F3ED">
+             BackgroundColor="{StaticResource Mist}">
     <ActivityIndicator IsRunning="True"
                        WidthRequest="24"
                        HeightRequest="24"

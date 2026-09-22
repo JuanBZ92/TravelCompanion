@@ -6,12 +6,10 @@ namespace TravelCompanion.Mobile.Pages;
 
 public partial class ItineraryItemEditorPage : ContentPage, IQueryAttributable
 {
-    private readonly SuggestionInputScroller _suggestionScroller;
     private readonly ItineraryItemEditorViewModel _viewModel;
     public ItineraryItemEditorPage(ItineraryItemEditorViewModel viewModel)
     {
         InitializeComponent();
-        _suggestionScroller = new(FormScroll, SuggestionScrollSpace);
         BindingContext = _viewModel = viewModel;
     }
 
@@ -39,24 +37,22 @@ public partial class ItineraryItemEditorPage : ContentPage, IQueryAttributable
         }
     }
 
-    private void OnSuggestionInputFocused(object? sender, FocusEventArgs e)
-    {
-        if (sender is Entry entry) _suggestionScroller.Focus(entry);
-    }
-
     private async void OnPlaceTextChanged(object? sender, TextChangedEventArgs e)
     {
-        await Task.Yield();
+        if (sender is not Entry { IsFocused: true } || _selectingPlace) return;
         await _viewModel.SearchPlaceSuggestionsAsync();
     }
 
+    private bool _selectingPlace;
     private async void OnPlaceSuggestionTapped(object? sender, TappedEventArgs e)
     {
         var suggestion = e.Parameter as PlaceSuggestionDto
             ?? (sender as BindableObject)?.BindingContext as PlaceSuggestionDto;
-        if (suggestion is null) return;
-        await _viewModel.SelectPlaceAsync(suggestion);
+        if (suggestion is null || _selectingPlace) return;
+        _selectingPlace = true;
         PlaceEntry.Unfocus();
+        try { await _viewModel.SelectPlaceAsync(suggestion); }
+        finally { _selectingPlace = false; }
     }
 
     protected override void OnAppearing()
@@ -67,7 +63,6 @@ public partial class ItineraryItemEditorPage : ContentPage, IQueryAttributable
 
     protected override void OnDisappearing()
     {
-        _suggestionScroller.Stop();
         _viewModel.CancelPlaceSearches();
         base.OnDisappearing();
     }

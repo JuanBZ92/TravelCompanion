@@ -5,14 +5,14 @@
              x:Class="TravelCompanion.Mobile.Pages.ScheduleItemDetailPage"
              x:DataType="viewModels:ScheduleItemDetailViewModel"
              Title=""
-             Shell.NavBarIsVisible="False"
-             Shell.BackgroundColor="#F8F3ED"
-             BackgroundColor="#F8F3ED">
+             Shell.NavBarIsVisible="False" SafeAreaEdges="All"
+             Shell.BackgroundColor="{StaticResource Mist}"
+             BackgroundColor="{StaticResource Mist}">
 
     <ScrollView VerticalScrollBarVisibility="Never">
         <VerticalStackLayout Spacing="0">
             <Border HeightRequest="300"
-                    BackgroundColor="#F6F1EA"
+                    BackgroundColor="{StaticResource AccentSoft}"
                     Stroke="#D8CFC4"
                     StrokeThickness="1">
                 <Border.StrokeShape>
@@ -47,7 +47,7 @@
                             Margin="20,22,0,0"
                             HorizontalOptions="Start"
                             VerticalOptions="Start"
-                            BackgroundColor="#F8F3ED"
+                            BackgroundColor="{StaticResource Mist}"
                             TextColor="#1A1714"
                             BorderColor="#D8CFC4"
                             BorderWidth="1"
@@ -63,7 +63,7 @@
                            CharacterSpacing="6"
                            FontSize="11"
                            FontAttributes="Bold"
-                           TextColor="#9B9288" />
+                           TextColor="{StaticResource Muted}" />
                     <Label Text="{Binding ScheduleItem.Title}"
                            FontFamily="serif"
                            FontSize="34"
@@ -71,6 +71,7 @@
                            LineBreakMode="WordWrap"
                            MaxLines="3" />
                     <Label Text="{Binding ReservationReferenceLabel}"
+                           IsVisible="{Binding HasReservationReference}"
                            FontSize="14"
                            TextColor="#8A8078"
                            LineBreakMode="TailTruncation"
@@ -88,11 +89,11 @@
                            CharacterSpacing="3"
                            FontSize="11"
                            FontAttributes="Bold"
-                           TextColor="#9B9288" />
+                           TextColor="{StaticResource Muted}" />
                     <Label Text="{Binding ReservationTimeLabel}"
-                           FontSize="16"
+                           FontSize="15"
                            LineHeight="1.35"
-                           TextColor="#4D4741" />
+                           TextColor="{StaticResource Accent}" />
                 </VerticalStackLayout>
 
                 <VerticalStackLayout Spacing="8">
@@ -100,16 +101,16 @@
                            CharacterSpacing="3"
                            FontSize="11"
                            FontAttributes="Bold"
-                           TextColor="#9B9288" />
+                           TextColor="{StaticResource Muted}" />
                     <Label Text="{Binding AddressText}"
-                           FontSize="16"
+                           FontSize="15"
                            LineHeight="1.35"
-                           TextColor="#4D4741" />
+                           TextColor="{StaticResource Accent}" />
                 </VerticalStackLayout>
 
                 <VerticalStackLayout Spacing="8" IsVisible="{Binding HasCuratedNotes}">
-                    <Label Text="NOTAS YUKU" CharacterSpacing="3" FontSize="11" FontAttributes="Bold" TextColor="#9B9288" />
-                    <Label Text="{Binding CuratedNotes}" FontSize="16" LineHeight="1.45" TextColor="#4D4741" />
+                    <Label Text="NOTAS YUKU" CharacterSpacing="3" FontSize="11" FontAttributes="Bold" TextColor="{StaticResource Muted}" />
+                    <Label Text="{Binding CuratedNotes}" FontSize="15" LineHeight="1.3" TextColor="{StaticResource Accent}" />
                 </VerticalStackLayout>
                 <VerticalStackLayout Spacing="8"
                                      IsVisible="{Binding HasNotes}">
@@ -117,11 +118,11 @@
                            CharacterSpacing="3"
                            FontSize="11"
                            FontAttributes="Bold"
-                           TextColor="#9B9288" />
+                           TextColor="{StaticResource Muted}" />
                     <Label Text="{Binding NotesText}"
-                           FontSize="16"
-                           LineHeight="1.45"
-                           TextColor="#4D4741" />
+                           FontSize="15"
+                           LineHeight="1.3"
+                           TextColor="{StaticResource Accent}" />
                 </VerticalStackLayout>
 
                 <Button Text="Abrir mapa"
@@ -129,9 +130,9 @@
                         IsEnabled="{Binding HasAddress}"
                         BackgroundColor="#3D3329"
                         TextColor="#FFFFFF"
-                        HeightRequest="54"
+                        MinimumHeightRequest="48"
                         CornerRadius="0"
-                        FontSize="16"
+                        FontSize="15"
                         FontAttributes="Bold" />
             </VerticalStackLayout>
         </VerticalStackLayout>
