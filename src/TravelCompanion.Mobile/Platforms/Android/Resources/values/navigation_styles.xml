@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<resources>
+  <!-- MAUI Shell uses this Material resource for its native bottom navigation. -->
+  <style name="Widget.Design.BottomNavigationView" parent="">
+    <item name="enforceTextAppearance">false</item>
+    <item name="enforceMaterialTheme">false</item>
+    <item name="elevation">0dp</item>
+    <item name="itemBackground">?attr/selectableItemBackgroundBorderless</item>
+    <item name="itemHorizontalTranslationEnabled">false</item>
+    <item name="itemIconSize">24dp</item>
+    <item name="labelVisibilityMode">labeled</item>
+    <item name="itemPaddingTop">8dp</item>
+    <item name="itemPaddingBottom">8dp</item>
+    <item name="itemActiveIndicatorStyle">@null</item>
+    <item name="android:minHeight">64dp</item>
+    <item name="itemTextAppearanceInactive">@style/YukuNavigationLabel</item>
+    <item name="itemTextAppearanceActive">@style/YukuNavigationLabelSelected</item>
+  </style>
+  <style name="YukuNavigationLabel" parent="TextAppearance.MaterialComponents.Caption">
+    <item name="android:fontFamily">sans-serif</item>
+    <item name="android:textSize">12sp</item>
+    <item name="android:textAllCaps">false</item>
+  </style>
+  <style name="YukuNavigationLabelSelected" parent="YukuNavigationLabel">
+    <item name="android:fontFamily">sans-serif-medium</item>
+  </style>
+</resources>

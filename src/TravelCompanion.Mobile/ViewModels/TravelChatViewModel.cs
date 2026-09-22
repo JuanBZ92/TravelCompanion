@@ -180,8 +180,6 @@ public sealed partial class TravelChatViewModel(
                 return;
             }
 
-            await RefreshPreferenceProfileAsync(token, ct);
-
             var cached = await bootstrapStore.GetCachedAsync(cancellationToken: ct);
             if (cached is not null)
             {
@@ -194,6 +192,7 @@ public sealed partial class TravelChatViewModel(
                 await Task.Yield();
             }
 
+            await RefreshPreferenceProfileAsync(token, ct);
             await ReplayPendingMutationsAsync(token, ct);
 
             if (cached is not null)

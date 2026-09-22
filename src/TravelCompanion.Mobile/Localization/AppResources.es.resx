@@ -69,7 +69,7 @@
   <data name="AssistantSendError" xml:space="preserve"><value>No pude enviar el mensaje. Intenta nuevamente.</value></data>
   <data name="AssistantPrepareError" xml:space="preserve"><value>No pude preparar el plan: {0}</value></data>
   <data name="AssistantRetry" xml:space="preserve"><value>Reintentar</value></data>
-  <data name="AssistantOpenToday" xml:space="preserve"><value>Abrir Today</value></data>
+  <data name="AssistantOpenToday" xml:space="preserve"><value>Abrir Itinerario</value></data>
   <data name="AssistantOpenDiscover" xml:space="preserve"><value>Abrir Discover</value></data>
   <data name="AssistantOpenDocs" xml:space="preserve"><value>Abrir Docs</value></data>
   <data name="AssistantOfflineStatusWithCache" xml:space="preserve"><value>Mostramos tu viaje guardado mientras recuperamos la conexion. {0}</value></data>
@@ -92,7 +92,7 @@
   <data name="TabChangePassword" xml:space="preserve"><value>Nueva password</value></data>
   <data name="TabDiscover" xml:space="preserve"><value>Discover</value></data>
   <data name="TabMap" xml:space="preserve"><value>Mapa</value></data>
-  <data name="TabToday" xml:space="preserve"><value>Today</value></data>
+  <data name="TabToday" xml:space="preserve"><value>Itinerario</value></data>
   <data name="TabAssistant" xml:space="preserve"><value>Assistant</value></data>
   <data name="TabDocs" xml:space="preserve"><value>Docs</value></data>
   <data name="TabLogout" xml:space="preserve"><value>Salir</value></data>
@@ -346,13 +346,13 @@
 <data name="ItemUnknownTimeZone" xml:space="preserve"><value>No se pudo convertir la zona horaria de esta reserva. Vuelve a abrir el editor con conexión antes de guardar.</value></data>
   <data name="AssistantSearchingAlternative" xml:space="preserve"><value>Buscando otra opción…</value></data>
   <data name="AssistantAlternativeReady" xml:space="preserve"><value>Revisá esta alternativa. Se guarda solo cuando lo confirmás.</value></data>
-  <data name="AssistantAlternativeHelp" xml:space="preserve"><value>Podés buscar otra opción sin guardar. Guardar confirma esta propuesta en Today.</value></data>
+  <data name="AssistantAlternativeHelp" xml:space="preserve"><value>Podés buscar otra opción sin guardar. Guardar confirma esta propuesta en Itinerario.</value></data>
   <data name="AssistantSavedAlternativeHelp" xml:space="preserve"><value>Buscá otra opción para comparar. Tu plan actual se conserva hasta que guardes el cambio.</value></data>
   <data name="AssistantFindAlternative" xml:space="preserve"><value>Otra opción</value></data>
   <data name="AssistantFindCloser" xml:space="preserve"><value>Buscar más cerca</value></data>
-  <data name="AssistantSaveToToday" xml:space="preserve"><value>Guardar en Today</value></data>
-  <data name="AssistantSaveReplacement" xml:space="preserve"><value>Guardar cambio en Today</value></data>
-  <data name="AssistantSavedToToday" xml:space="preserve"><value>Guardado en Today</value></data>
+  <data name="AssistantSaveToToday" xml:space="preserve"><value>Guardar en Itinerario</value></data>
+  <data name="AssistantSaveReplacement" xml:space="preserve"><value>Guardar cambio en Itinerario</value></data>
+  <data name="AssistantSavedToToday" xml:space="preserve"><value>Guardado en Itinerario</value></data>
   <data name="AssistantUnsavedSuggestion" xml:space="preserve"><value>Sugerencia · sin guardar</value></data>
   <data name="AssistantPendingChange" xml:space="preserve"><value>Cambio pendiente · sin guardar</value></data>
 </root>

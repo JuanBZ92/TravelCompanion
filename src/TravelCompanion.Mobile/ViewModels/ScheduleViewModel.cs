@@ -715,9 +715,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
 
         var stopwatch = Stopwatch.StartNew();
         _selectedDate = day.Date;
-        _today = _todayStore.HasFreshSnapshot(day.Date)
-            ? _todayByDate.GetValueOrDefault(day.Date)
-            : null;
+        _today = _todayByDate.GetValueOrDefault(day.Date);
         SetTodayLoading(_today is null);
         RebuildSelectedDay();
         stopwatch.Stop();
@@ -778,9 +776,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         }
 
         var cached = await _bootstrapStore.GetCachedAsync(cancellationToken: cancellationToken);
-        var isOnline = Connectivity.Current.NetworkAccess == NetworkAccess.Internet;
-        var canShowCached = cached is not null
-            && (!isOnline || _bootstrapStore.HasFreshSnapshot());
+        var canShowCached = cached is not null;
         if (canShowCached)
         {
             ApplyBootstrapSchedule(cached!.Value);
@@ -795,9 +791,16 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
                 ? "Actualizando itinerario..."
                 : null;
         }
-        else if (cached is not null && isOnline)
+
+        // Hydrate the visible day before any network request, even when its TTL expired.
+        if (canShowCached && _selectedDate is { } cachedDate)
         {
-            HideExpiredTodaySnapshot();
+            var cachedToday = await _todayStore.GetCachedAsync(cachedDate, cancellationToken);
+            if (_selectedDate == cachedDate)
+            {
+                if (cachedToday is not null) ApplyToday(cachedToday.Value);
+                else CompleteTodayLoadingWithScheduleFallback();
+            }
         }
 
         var shouldRefreshBootstrap = forceRefresh || !_bootstrapStore.HasFreshSnapshot();
@@ -883,16 +886,14 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
 
         var selectedDate = _selectedDate.Value;
         var cached = await _todayStore.GetCachedAsync(selectedDate, cancellationToken);
-        var isOnline = Connectivity.Current.NetworkAccess == NetworkAccess.Internet;
-        var canShowCached = cached is not null
-            && (!isOnline || _todayStore.HasFreshSnapshot(selectedDate));
+        var canShowCached = cached is not null;
         if (canShowCached && _selectedDate == selectedDate)
         {
             ApplyToday(cached!.Value);
         }
-        else if (cached is not null && isOnline && _selectedDate == selectedDate)
+        else if (_selectedDate == selectedDate)
         {
-            HideExpiredTodaySnapshot();
+            CompleteTodayLoadingWithScheduleFallback();
         }
 
         if (!forceRefresh && _todayStore.HasFreshSnapshot(selectedDate))
@@ -1018,18 +1019,6 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         RebuildSelectedDay();
     }
 
-    private void HideExpiredTodaySnapshot()
-    {
-        if (_selectedDate is { } selectedDate)
-        {
-            _todayByDate.Remove(selectedDate);
-        }
-
-        _today = null;
-        SetTodayLoading(_selectedDate.HasValue);
-        RebuildSelectedDay();
-    }
-
     private void ApplyBootstrapSchedule(MobileBootstrapDto bootstrap)
     {
         _recommendations.Clear();
@@ -1051,6 +1040,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         var previouslySelectedDate = _tripId == schedule.TripId
             ? _selectedDate
             : null;
+        if (_tripId != schedule.TripId) _todayByDate.Clear();
         TripTitle = $"{schedule.DestinationName} for {schedule.TravelerName}";
         TripDates = $"{schedule.StartsOn:MMM d} - {schedule.EndsOn:MMM d, yyyy}";
         _destinationName = schedule.DestinationName;
@@ -1077,10 +1067,11 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
             && previouslySelectedDate.Value <= schedule.EndsOn
                 ? previouslySelectedDate
                 : GetInitialSelectedDate(schedule, _allItems);
-        _today = _selectedDate.HasValue && _todayStore.HasFreshSnapshot(_selectedDate.Value)
+        _today = _selectedDate.HasValue
             ? _todayByDate.GetValueOrDefault(_selectedDate.Value)
             : null;
-        SetTodayLoading(_today is null);
+        // The schedule already contains reservations; Today only enriches this content.
+        SetTodayLoading(false);
         NotifyFocusChanged();
         RebuildDayFilters(schedule);
         RebuildSelectedDay();

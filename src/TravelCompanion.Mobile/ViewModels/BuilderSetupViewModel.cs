@@ -79,7 +79,6 @@ public sealed partial class BuilderSetupViewModel(
         }
 
         var setup = await builderTripStore.GetAsync(token, cancellationToken: ct);
-        await LoadSuggestedCitiesAsync(token, ct);
         if (setup is null)
         {
             if (Segments.Count == 0)
@@ -93,15 +92,19 @@ public sealed partial class BuilderSetupViewModel(
         sessionService.ApplyTrialAccess(setup.TrialAccess);
         SetTripId(setup.TripId);
         _revision = setup.Revision;
-        if (preserveDraft) return;
-        Segments.Clear();
-        ArrivalDate = setup.ArrivalDate?.ToDateTime(TimeOnly.MinValue) ?? DateTime.Today;
-        DepartureDate = setup.DepartureDate?.ToDateTime(TimeOnly.MinValue) ?? DateTime.Today.AddDays(6);
-        foreach (var segment in setup.Segments)
+        if (!preserveDraft)
         {
-            Segments.Add(BuilderSegmentViewModel.FromDto(segment));
+            Segments.Clear();
+            ArrivalDate = setup.ArrivalDate?.ToDateTime(TimeOnly.MinValue) ?? DateTime.Today;
+            DepartureDate = setup.DepartureDate?.ToDateTime(TimeOnly.MinValue) ?? DateTime.Today.AddDays(6);
+            foreach (var segment in setup.Segments)
+            {
+                Segments.Add(BuilderSegmentViewModel.FromDto(segment));
+            }
+            if (Segments.Count == 0) AddDefaultSegment();
         }
-        if (Segments.Count == 0) AddDefaultSegment();
+        // City suggestions must not delay rendering the locally saved trip.
+        await LoadSuggestedCitiesAsync(token, ct);
     });
 
     private async Task LoadSuggestedCitiesAsync(string token, CancellationToken cancellationToken)
