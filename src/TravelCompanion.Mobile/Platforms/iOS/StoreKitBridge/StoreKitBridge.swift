@@ -1,7 +1,7 @@
 import Foundation
 import StoreKit
 
-private typealias StoreCallback = @convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?) -> Void
+public typealias StoreCallback = @convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?) -> Void
 
 private func emit(_ value: Any, context: UnsafeMutableRawPointer?, callback: StoreCallback?) {
     let data = (try? JSONSerialization.data(withJSONObject: value)) ?? Data("{}".utf8)

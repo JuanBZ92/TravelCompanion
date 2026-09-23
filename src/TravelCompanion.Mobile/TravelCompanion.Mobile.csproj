@@ -106,13 +106,26 @@
 	</ItemGroup>
 
 	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">
-		<XcodeProject Include="Platforms/iOS/StoreKitBridge/StoreKitBridge.xcodeproj">
+		<XcodeProject Include="Platforms/iOS/StoreKitBridge/StoreKitBridge.xcodeproj" Condition="$([MSBuild]::IsOSPlatform('osx')) and '$(StoreKitBridgeFramework)' == ''">
 			<SchemeName>StoreKitBridge</SchemeName>
 			<Kind>Framework</Kind>
 			<ForceLoad>true</ForceLoad>
 			<Frameworks>StoreKit UIKit</Frameworks>
 		</XcodeProject>
+		<NativeReference Include="$(StoreKitBridgeFramework)" Condition="'$(StoreKitBridgeFramework)' != ''">
+			<Kind>Framework</Kind>
+			<ForceLoad>true</ForceLoad>
+			<Frameworks>StoreKit UIKit</Frameworks>
+		</NativeReference>
 	</ItemGroup>
+
+	<Target Name="ValidateStoreKitBridge" BeforeTargets="PrepareForBuild"
+		Condition="'$(TargetFramework)' == 'net10.0-ios' and '$(DesignTimeBuild)' != 'true'">
+		<Error Condition="!$([MSBuild]::IsOSPlatform('osx')) and '$(StoreKitBridgeFramework)' == ''"
+			Text="El puente StoreKit requiere compilar desde macOS o indicar StoreKitBridgeFramework con un XCFramework precompilado. Pair to Mac no ejecuta XcodeProject. Ver docs/ios-storekit-build.md." />
+		<Error Condition="'$(StoreKitBridgeFramework)' != '' and !Exists('$(StoreKitBridgeFramework)')"
+			Text="No existe StoreKitBridgeFramework: $(StoreKitBridgeFramework)." />
+	</Target>
 
 	<ItemGroup>
 		<ProjectReference Include="..\TravelCompanion.Shared\TravelCompanion.Shared.csproj" />
