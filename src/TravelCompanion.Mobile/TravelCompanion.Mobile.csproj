@@ -105,6 +105,10 @@
 		<PackageReference Include="Xamarin.Android.Google.BillingClient" Version="8.0.0" />
 	</ItemGroup>
 
+	<PropertyGroup Condition="'$(TargetFramework)' == 'net10.0-ios' and !$([MSBuild]::IsOSPlatform('osx'))">
+		<StoreKitBridgeFramework Condition="'$(StoreKitBridgeFramework)' == '' and Exists('$(MSBuildProjectDirectory)/../../artifacts/storekit/StoreKitBridge.xcframework/Info.plist')">$(MSBuildProjectDirectory)/../../artifacts/storekit/StoreKitBridge.xcframework</StoreKitBridgeFramework>
+	</PropertyGroup>
+
 	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">
 		<XcodeProject Include="Platforms/iOS/StoreKitBridge/StoreKitBridge.xcodeproj" Condition="$([MSBuild]::IsOSPlatform('osx')) and '$(StoreKitBridgeFramework)' == ''">
 			<SchemeName>StoreKitBridge</SchemeName>
@@ -122,7 +126,7 @@
 	<Target Name="ValidateStoreKitBridge" BeforeTargets="PrepareForBuild"
 		Condition="'$(TargetFramework)' == 'net10.0-ios' and '$(DesignTimeBuild)' != 'true'">
 		<Error Condition="!$([MSBuild]::IsOSPlatform('osx')) and '$(StoreKitBridgeFramework)' == ''"
-			Text="El puente StoreKit requiere compilar desde macOS o indicar StoreKitBridgeFramework con un XCFramework precompilado. Pair to Mac no ejecuta XcodeProject. Ver docs/ios-storekit-build.md." />
+			Text="Falta StoreKitBridge.xcframework. En el Mac ejecutá bash scripts/build-ios-storekit.sh y extraé el ZIP generado en artifacts/storekit de este repositorio Windows. Luego volvé a publicar. Ver docs/ios-storekit-build.md." />
 		<Error Condition="'$(StoreKitBridgeFramework)' != '' and !Exists('$(StoreKitBridgeFramework)')"
 			Text="No existe StoreKitBridgeFramework: $(StoreKitBridgeFramework)." />
 	</Target>

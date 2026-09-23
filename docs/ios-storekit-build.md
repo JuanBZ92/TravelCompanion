@@ -17,6 +17,25 @@ The project builds the bridge automatically in this mode.
 
 ## Publish from Windows using Pair to Mac
 
+On the Mac, use a copy of this repository containing the current Swift source
+and run from its root:
+
+```sh
+bash scripts/build-ios-storekit.sh
+```
+
+The script builds device and simulator slices, checks all four device exports,
+and prints the path to `StoreKitBridge.zip`. Copy that ZIP to Windows and extract
+it into the repository's `artifacts/storekit` directory. The resulting layout must be
+`artifacts/storekit/StoreKitBridge.xcframework/Info.plist` (without an extra ZIP folder).
+Reload the project in Visual Studio and publish again with Pair to Mac connected.
+The project detects this location automatically; no publish-profile property is needed.
+Rebuild and replace the framework after Swift changes. Keep the entire framework,
+not just the arm64 binary. Generated archives remain under `artifacts/storekit/build.*`
+on the Mac for troubleshooting.
+
+### Manual equivalent / custom location
+
 On the Mac, from the repository root, build the framework for device and simulator:
 
 ```sh
@@ -36,3 +55,16 @@ The SDK handles it as a `NativeReference` for the paired Mac build.
 Rebuild the framework whenever its Swift source changes. Use a fresh output
 directory if `xcodebuild -create-xcframework` reports that it already exists.
 Do not suppress unresolved native symbols: doing so would leave purchases broken.
+
+### Build helper requirements
+
+| ID | Requirement | Implementation |
+| --- | --- | --- |
+| REQ-001 | Produce the native bridge for remote Windows publishing | Device and simulator archives, then XCFramework and ZIP |
+| REQ-002 | Fail before packaging a missing purchase export | Check all four arm64 symbols with `nm` |
+| REQ-003 | Allow reruns without deleting previous diagnostics | Unique build directory; fail-fast Bash script |
+
+The helper targets macOS Bash with Xcode installed. It uses a custom minimal
+script because it has no configurable inputs. Generation reference:
+[Ref: docs/generation-best-practices.md -> Core Principles] in the
+`bash-script-generator` skill (strict mode, quoted paths, prerequisite checks).
