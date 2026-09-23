@@ -60,7 +60,7 @@ public func purchase(
             case .success(let verification):
                 switch verification {
                 case .verified(let transaction):
-                    emit(["state": "verifying", "evidence": transaction.jwsRepresentation], context: context, callback: callback)
+                    emit(["state": "verifying", "evidence": verification.jwsRepresentation], context: context, callback: callback)
                 case .unverified(_, let verificationError):
                     emit(["state": "failed", "error": errorMessage(verificationError)], context: context, callback: callback)
                 }
@@ -88,7 +88,7 @@ public func restore(
             var evidence: [String] = []
             for await result in Transaction.currentEntitlements {
                 if case .verified(let transaction) = result {
-                    evidence.append(transaction.jwsRepresentation)
+                    evidence.append(result.jwsRepresentation)
                 }
             }
             emit(["evidence": evidence], context: context, callback: callback)
