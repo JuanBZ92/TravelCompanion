@@ -17,6 +17,38 @@ The project builds the bridge automatically in this mode.
 
 ## Publish from Windows using Pair to Mac
 
+### Framework load path (ITMS-90863)
+
+Both Xcode configurations explicitly use
+`@rpath/StoreKitBridge.framework/StoreKitBridge` as the framework install name.
+An absolute `/Library/Frameworks/StoreKitBridge.framework/StoreKitBridge` load
+path makes the app depend on a framework outside its bundle. Changing the
+project does not repair an already compiled XCFramework or uploaded IPA.
+
+After this setting changes, rebuild the bridge using the script below and
+replace the complete precompiled XCFramework on Windows. Clean and rebuild the
+iOS application, then upload with an unused `ApplicationVersion` greater than
+the last uploaded build number (the reported delivery was build 63).
+
+On the Mac, check the resulting archive before uploading (replace the path):
+
+```sh
+APP="/path/to/App.xcarchive/Products/Applications/TravelCompanion.Mobile.app"
+xcrun otool -D "$APP/Frameworks/StoreKitBridge.framework/StoreKitBridge"
+EXECUTABLE=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP/Info.plist")
+xcrun otool -L "$APP/$EXECUTABLE"
+codesign --verify --deep --strict "$APP"
+```
+
+The embedded framework must exist. Its install name and the application's
+StoreKitBridge dependency must both be
+`@rpath/StoreKitBridge.framework/StoreKitBridge`, never `/Library/Frameworks/...`.
+Inspect `otool -l "$APP/$EXECUTABLE"` to confirm that an `LC_RPATH` resolves to
+the app's Frameworks directory. Test startup and purchases on a device and,
+if distributing the iOS app on Apple silicon Macs, on a Mac as well.
+These binary checks require Xcode/macOS; source inspection alone does not
+validate the uploaded app.
+
 On the Mac, use a copy of this repository containing the current Swift source
 and run from its root:
 
