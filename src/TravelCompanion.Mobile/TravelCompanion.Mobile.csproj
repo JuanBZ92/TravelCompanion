@@ -48,6 +48,8 @@
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(TargetFramework)'=='net10.0-ios'">
+	  <!-- New App Store delivery after build 63; other platforms keep their version. -->
+	  <ApplicationVersion>64</ApplicationVersion>
 	  <ProvisioningType>manual</ProvisioningType>
 	  <CodesignKey>Apple Distribution: Juan Zardini (AG5JMK42KA)</CodesignKey>
 	  <CodesignProvision>TravelCompanionProfile</CodesignProvision>
