@@ -18,13 +18,22 @@ public sealed partial class PaywallViewModel(
 {
     private PaywallOfferDto? _offer;
     private PaywallEntryPoint _entryPoint = PaywallEntryPoint.ExplicitUpgrade;
-    private string _displayPrice = "24,99 EUR";
+    private string _displayPrice = string.Empty;
     private bool _canBuy;
     private string _stateText = string.Empty;
     public ObservableCollection<string> Benefits { get; } = [];
-    public string DisplayPrice { get => _displayPrice; private set => SetProperty(ref _displayPrice, value); }
-    public bool CanBuy { get => _canBuy; private set => SetProperty(ref _canBuy, value); }
-    public string StateText { get => _stateText; private set => SetProperty(ref _stateText, value); }
+    public string DisplayPrice { get => _displayPrice; private set { if (SetProperty(ref _displayPrice, value)) OnPropertyChanged(nameof(HasPrice)); } }
+    public bool HasPrice => !string.IsNullOrWhiteSpace(DisplayPrice);
+    public string OfferLeadText => _offer?.Benefits.FirstOrDefault() ?? string.Empty;
+    public bool NeedsTripSetup => sessions.CurrentTripId is null;
+    public bool HasOffer => _offer is not null;
+    public bool HasRetention => !string.IsNullOrWhiteSpace(RetentionText);
+    public bool HasAccessDetails => _offer?.PassExpiresAtUtc is not null;
+    public bool HasState => !string.IsNullOrWhiteSpace(StateText);
+    public bool ShowRetry => !IsBusy && !CanBuy && !NeedsTripSetup;
+    protected override void OnLoadStateChanged() { OnPropertyChanged(nameof(CanBuy)); OnPropertyChanged(nameof(ShowRetry)); }
+    public bool CanBuy { get => _canBuy && !IsBusy; private set { SetProperty(ref _canBuy, value); OnPropertyChanged(nameof(ShowRetry)); } }
+    public string StateText { get => _stateText; private set { if (SetProperty(ref _stateText, value)) OnPropertyChanged(nameof(HasState)); } }
     public string PreviewText => _offer is null ? string.Empty
         : string.Format(Resource("PaywallPreviewFormat"), _offer.ItemCount, _offer.PlannedDays.Count, _offer.SavedRouteCount);
     public string RetentionText => _offer?.DraftDeletionAtUtc is { } deletion
@@ -34,6 +43,12 @@ public sealed partial class PaywallViewModel(
             _offer.PassExpiresAtUtc?.ToLocalTime(), _offer.DailyAssistantLimit,
             _offer.AssistantQuotaResetsAtUtc?.ToLocalTime());
 
+    private void NotifyOffer()
+    {
+        foreach (var property in new[] { nameof(HasOffer), nameof(NeedsTripSetup), nameof(OfferLeadText), nameof(PreviewText), nameof(RetentionText), nameof(AccessDetailsText), nameof(HasRetention), nameof(HasAccessDetails) })
+            OnPropertyChanged(property);
+    }
+
     public void SetEntryPoint(string? value)
     {
         if (Enum.TryParse<PaywallEntryPoint>(value, out var parsed)) _entryPoint = parsed;
@@ -42,26 +57,41 @@ public sealed partial class PaywallViewModel(
     [RelayCommand]
     private Task LoadOfferAsync() => LoadAsync(async ct =>
     {
+        CanBuy = false;
+        DisplayPrice = string.Empty;
+        StateText = string.Empty;
+        _offer = null;
+        NotifyOffer();
         var token = await sessions.GetTokenAsync();
-        if (string.IsNullOrWhiteSpace(token) || sessions.CurrentTripId is not { } tripId) throw new InvalidOperationException(Resource("CommerceConfigureTrip"));
+        if (string.IsNullOrWhiteSpace(token)) return;
+        if (sessions.CurrentTripId is not { } tripId)
+        {
+            StateText = Resource("CommerceConfigureTrip");
+            return;
+        }
         var platform = DeviceInfo.Platform == DevicePlatform.iOS ? "ios" : DeviceInfo.Platform == DevicePlatform.Android ? "android" : "desktop";
         _offer = await api.GetPaywallOfferAsync(token, tripId, _entryPoint, platform, ct)
             ?? throw new InvalidOperationException(Resource("PaywallLoadError"));
+        NotifyOffer();
         await TrackAsync("paywall_shown", tripId, _offer.Variant, ct);
         var product = await store.GetProductAsync(_offer.ProductId, ct);
-        DisplayPrice = product.LocalizedPrice ?? _offer.ReferencePrice;
-        CanBuy = _offer.CanPurchase && product.IsAvailable && !string.IsNullOrWhiteSpace(product.LocalizedPrice);
+        var presentation = PaywallPricePresentation.Create(_offer.CanPurchase, product.IsAvailable, product.LocalizedPrice);
+        DisplayPrice = presentation.Price;
+        CanBuy = presentation.CanBuy;
         Benefits.Clear(); foreach (var benefit in _offer.Benefits) Benefits.Add(benefit);
-        StateText = CanBuy ? Resource("PaywallReady") : product.Error ?? Resource("PaywallUnavailable");
+        StateText = _canBuy ? Resource("PaywallReady") : product.Error ?? Resource("PaywallUnavailable");
         OnPropertyChanged(nameof(PreviewText)); OnPropertyChanged(nameof(RetentionText));
         OnPropertyChanged(nameof(AccessDetailsText));
         await ResumePendingPurchaseAsync(token, tripId, ct);
     });
 
     [RelayCommand]
+    private Task ConfigureTripAsync() => Shell.Current.GoToAsync(nameof(BuilderSetupPage));
+
+    [RelayCommand]
     private Task BuyAsync() => LoadAsync(async ct =>
     {
-        if (_offer is null || sessions.CurrentTripId is not { } tripId) return;
+        if (!_canBuy || _offer is null || sessions.CurrentTripId is not { } tripId) return;
         var token = await sessions.GetTokenAsync();
         if (string.IsNullOrWhiteSpace(token)) return;
         await TrackAsync("paywall_cta_selected", tripId, _offer.Variant, ct);

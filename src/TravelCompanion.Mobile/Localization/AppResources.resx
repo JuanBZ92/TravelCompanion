@@ -155,7 +155,7 @@
   <data name="PaywallPageTitle" xml:space="preserve"><value>Japan Pass</value></data>
   <data name="PaywallEyebrow" xml:space="preserve"><value>YOUR COMPLETE TRIP</value></data>
   <data name="PaywallHeadline" xml:space="preserve"><value>Unlock the Japan Pass</value></data>
-  <data name="PaywallBuy" xml:space="preserve"><value>Buy in the store</value></data>
+  <data name="PaywallBuy" xml:space="preserve"><value>Unlock my Japan Pass</value></data>
   <data name="PaywallRestore" xml:space="preserve"><value>Restore purchase</value></data>
   <data name="PaywallSupportCode" xml:space="preserve"><value>Use support code</value></data>
   <data name="RoutesPageTitle" xml:space="preserve"><value>Routes</value></data>
@@ -227,7 +227,7 @@
   <data name="CommonSave" xml:space="preserve"><value>Save</value></data>
   <data name="CommerceConfigureTrip" xml:space="preserve"><value>Set up your trip first.</value></data>
   <data name="CommerceSessionExpired" xml:space="preserve"><value>Your session has expired.</value></data>
-  <data name="PaywallPreviewFormat" xml:space="preserve"><value>{0} plans across {1} days · {2} saved routes</value></data>
+  <data name="PaywallPreviewFormat" xml:space="preserve"><value>{0} saved plans across {1} days</value></data>
   <data name="PaywallRetentionFormat" xml:space="preserve"><value>Your draft is kept until {0:MM/dd/yyyy HH:mm}.</value></data>
   <data name="PaywallAccessDetailsFormat" xml:space="preserve"><value>Access until {0:g}. {1} Assistant requests per day; the quota resets at {2:t} local time.</value></data>
   <data name="PaywallLoadError" xml:space="preserve"><value>We could not load the offer.</value></data>
@@ -357,4 +357,19 @@
   <data name="AssistantPendingChange" xml:space="preserve"><value>Pending change · not saved</value></data>
   <data name="AssistantSaveQueued" xml:space="preserve"><value>Queued to save.</value></data>
   <data name="AssistantSavingItem" xml:space="preserve"><value>Saving…</value></data>
+  <data name="PaywallHeroTitle" xml:space="preserve"><value>Your Japan.
+Your way.</value></data>
+  <data name="PaywallHeroBody" xml:space="preserve"><value>Discover more places, plan every day and get help along the way.</value></data>
+  <data name="PaywallIncluded" xml:space="preserve"><value>EVERYTHING FOR YOUR TRIP</value></data>
+  <data name="PaywallCatalogTitle" xml:space="preserve"><value>The full YUKU collection</value></data>
+  <data name="PaywallCatalogBody" xml:space="preserve"><value>Explore curated places beyond the free area.</value></data>
+  <data name="PaywallPlannerTitle" xml:space="preserve"><value>Every day, your way</value></data>
+  <data name="PaywallPlannerBody" xml:space="preserve"><value>Plan your entire trip and keep editing while your pass is active.</value></data>
+  <data name="PaywallAssistantTitle" xml:space="preserve"><value>Ideas with your AI Assistant</value></data>
+  <data name="PaywallAssistantBody" xml:space="preserve"><value>Get recommendations to help you decide what to do next.</value></data>
+  <data name="PaywallPaymentNote" xml:space="preserve"><value>One payment · One trip · No auto-renewal</value></data>
+  <data name="PaywallPricePending" xml:space="preserve"><value>Checking store price</value></data>
+  <data name="PaywallRetryOffer" xml:space="preserve"><value>Retry loading offer</value></data>
+  <data name="PaywallYourTrip" xml:space="preserve"><value>YOUR TRIP SO FAR</value></data>
+  <data name="PaywallSetup" xml:space="preserve"><value>Create my trip</value></data>
 </root>

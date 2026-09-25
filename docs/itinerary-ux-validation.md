@@ -43,3 +43,9 @@ This implementation has not been deployed or uploaded as a new APK in this chang
 - Se recalcula tras cambios de tamaño del formulario/teclado y al aparecer resultados. Un espacio inferior permite subir también el último campo.
 - Al perder foco se conserva la posición. Al salir se desconectan los eventos y se invalidan las acciones demoradas. SafeAreaEdges All se declara explícitamente en ambos formularios.
 - Validación pendiente en dispositivo: enfocar ciudad/hotel de la última ciudad, buscar con teclado abierto, tocar resultados, cambiar rápidamente de campo, cerrar teclado y salir antes de terminar una búsqueda; repetir con lugar de evento y letra grande.
+## Pase Japón: diseño y acceso Free (2026-09-25)
+
+- Cabecera oscura, beneficios de catálogo/planificación/Assistant con iconos y botón dorado persistente. Restauración y código de soporte siguen accesibles como acciones secundarias. Textos en español e inglés.
+- Los beneficios generales permanecen visibles si falla la oferta. Los datos del viaje solo aparecen después de cargarla. La compra exige permiso del servidor, producto disponible y precio localizado de la tienda; no se presenta el precio de referencia como precio confirmado. Se añade reintento.
+- Los usuarios Free ven la pestaña Pase Japón en main/pass. También se integra el mapa preview sin Builder en la barra principal, conservando ocultas las funciones que no le corresponden. Sin viaje se ofrece crearlo antes de comprar. La oferta se revalida al volver a la pantalla.
+- Pruebas móviles: 124 aprobadas, incluidas seis combinaciones de disponibilidad/precio/permiso. Pendiente: revisión visual en teléfono, letra grande, navegación Free 0000 con/sin viaje y compra sandbox. El rediseño no acredita resolver la causa remota del error de carga de la captura.

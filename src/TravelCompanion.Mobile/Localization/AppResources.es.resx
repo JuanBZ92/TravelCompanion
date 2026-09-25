@@ -155,7 +155,7 @@
   <data name="PaywallPageTitle" xml:space="preserve"><value>Pase Japón</value></data>
   <data name="PaywallEyebrow" xml:space="preserve"><value>TU VIAJE, COMPLETO</value></data>
   <data name="PaywallHeadline" xml:space="preserve"><value>Activa el Pase Japón</value></data>
-  <data name="PaywallBuy" xml:space="preserve"><value>Comprar en la tienda</value></data>
+  <data name="PaywallBuy" xml:space="preserve"><value>Activar mi Pase Japón</value></data>
   <data name="PaywallRestore" xml:space="preserve"><value>Restaurar compra</value></data>
   <data name="PaywallSupportCode" xml:space="preserve"><value>Usar código de soporte</value></data>
   <data name="RoutesPageTitle" xml:space="preserve"><value>Rutas</value></data>
@@ -227,7 +227,7 @@
   <data name="CommonSave" xml:space="preserve"><value>Guardar</value></data>
   <data name="CommerceConfigureTrip" xml:space="preserve"><value>Configura primero tu viaje.</value></data>
   <data name="CommerceSessionExpired" xml:space="preserve"><value>Tu sesión venció.</value></data>
-  <data name="PaywallPreviewFormat" xml:space="preserve"><value>{0} planes en {1} días · {2} rutas guardadas</value></data>
+  <data name="PaywallPreviewFormat" xml:space="preserve"><value>{0} planes guardados en {1} días</value></data>
   <data name="PaywallRetentionFormat" xml:space="preserve"><value>Tu borrador se conserva hasta {0:dd/MM/yyyy HH:mm}.</value></data>
   <data name="PaywallAccessDetailsFormat" xml:space="preserve"><value>Acceso hasta el {0:g}. {1} consultas diarias al Assistant; la cuota se reinicia a las {2:t}, hora local.</value></data>
   <data name="PaywallLoadError" xml:space="preserve"><value>No pudimos cargar la oferta.</value></data>
@@ -357,4 +357,19 @@
   <data name="AssistantPendingChange" xml:space="preserve"><value>Cambio pendiente · sin guardar</value></data>
   <data name="AssistantSaveQueued" xml:space="preserve"><value>En cola para guardar.</value></data>
   <data name="AssistantSavingItem" xml:space="preserve"><value>Guardando…</value></data>
+  <data name="PaywallHeroTitle" xml:space="preserve"><value>Tu Japón.
+A tu manera.</value></data>
+  <data name="PaywallHeroBody" xml:space="preserve"><value>Descubre más lugares, organiza todos tus días y encuentra ideas para cada momento.</value></data>
+  <data name="PaywallIncluded" xml:space="preserve"><value>TODO PARA TU VIAJE</value></data>
+  <data name="PaywallCatalogTitle" xml:space="preserve"><value>Todo el catálogo YUKU</value></data>
+  <data name="PaywallCatalogBody" xml:space="preserve"><value>Explora nuestros lugares seleccionados, también fuera del radio free.</value></data>
+  <data name="PaywallPlannerTitle" xml:space="preserve"><value>Todos tus días, a tu manera</value></data>
+  <data name="PaywallPlannerBody" xml:space="preserve"><value>Organiza el viaje entero y sigue editándolo mientras tu pase esté activo.</value></data>
+  <data name="PaywallAssistantTitle" xml:space="preserve"><value>Ideas con tu AI Assistant</value></data>
+  <data name="PaywallAssistantBody" xml:space="preserve"><value>Encuentra recomendaciones para decidir qué hacer y completar tu día.</value></data>
+  <data name="PaywallPaymentNote" xml:space="preserve"><value>Un pago · Un viaje · Sin renovación automática</value></data>
+  <data name="PaywallPricePending" xml:space="preserve"><value>Precio de tienda pendiente</value></data>
+  <data name="PaywallRetryOffer" xml:space="preserve"><value>Reintentar cargar oferta</value></data>
+  <data name="PaywallYourTrip" xml:space="preserve"><value>EL VIAJE QUE YA EMPEZASTE</value></data>
+  <data name="PaywallSetup" xml:space="preserve"><value>Crear mi viaje</value></data>
 </root>

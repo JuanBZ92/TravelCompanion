@@ -44,11 +44,8 @@ public partial class AppShell : Shell
 
     public void ApplySessionTabs(AuthSessionService sessionService)
     {
-        var usesMainTabs = sessionService.HasSession
-            && (!sessionService.IsFreeMapPreview || sessionService.IsBuilder);
-        FreeMapTab.IsVisible = sessionService.HasSession
-            && sessionService.IsFreeMapPreview
-            && !sessionService.IsBuilder;
+        var usesMainTabs = sessionService.HasSession;
+        FreeMapTab.IsVisible = false;
         MapTab.IsVisible = usesMainTabs;
         if (usesMainTabs)
         {
@@ -64,7 +61,8 @@ public partial class AppShell : Shell
                 MapTab.Content = MauiProgram.Services.GetRequiredService<MapPage>();
             }
         }
-        ScheduleTab.IsVisible = usesMainTabs;
+        ScheduleTab.IsVisible = usesMainTabs && (!sessionService.IsFreeMapPreview || sessionService.IsBuilder);
+        PassTab.IsVisible = sessionService.HasSession && sessionService.IsFreeMapPreview;
         AssistantTab.IsVisible = sessionService.IsBuilder;
         DocsTab.IsVisible = sessionService.HasCuratedDocs;
         AccountTab.IsVisible = sessionService.HasSession && !sessionService.IsFreeMapPreview;
@@ -75,7 +73,7 @@ public partial class AppShell : Shell
     {
         if (sessionService.IsFreeMapPreview && !sessionService.IsBuilder)
         {
-            return "//free-map";
+            return "//main/map";
         }
 
         return sessionService.RequiresTripSetup || !sessionService.CurrentTripId.HasValue
@@ -184,6 +182,7 @@ public partial class AppShell : Shell
             : resources["TabAssistant"];
         DocsTab.Title = resources["TabDocs"];
         AccountTab.Title = resources["TabAccount"];
+        PassTab.Title = resources["PaywallPageTitle"];
         LogoutTab.Title = resources["TabLogout"];
     }
 }

@@ -64,6 +64,14 @@
             Route="docs" />
 
         <ShellContent
+            x:Name="PassTab"
+            Title="Pase Japón"
+            Icon="tab_pass.svg"
+            IsVisible="False"
+            ContentTemplate="{DataTemplate pages:PaywallPage}"
+            Route="pass" />
+
+        <ShellContent
             x:Name="AccountTab"
             Title="Cuenta"
             Icon="tab_account.svg"
