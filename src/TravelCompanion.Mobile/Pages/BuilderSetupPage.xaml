@@ -42,7 +42,7 @@
                                            Grid.ColumnSpan="2"
                                            Placeholder="Hotel o base (opcional)"
                                            Text="{Binding HotelName}"
-                                           TextChanged="OnHotelTextChanged" />
+                                           Focused="OnSuggestionFocused" TextChanged="OnHotelTextChanged" />
                                     <VerticalStackLayout Grid.Row="4" Grid.ColumnSpan="2">
                                         <VerticalStackLayout BindableLayout.ItemsSource="{Binding HotelSuggestions}">
                                             <BindableLayout.ItemTemplate>

@@ -7,9 +7,13 @@ namespace TravelCompanion.Mobile.Pages;
 public partial class BuilderSetupPage : ContentPage
 {
     private readonly BuilderSetupViewModel _viewModel;
+    private readonly SuggestionInputScroller _suggestionScroller;
+    private void OnSuggestionFocused(object? sender, FocusEventArgs e) => _suggestionScroller.Focus(sender, e);
+
     public BuilderSetupPage(BuilderSetupViewModel viewModel)
     {
         InitializeComponent();
+        _suggestionScroller = new(FormScroll);
         BindingContext = _viewModel = viewModel;
     }
 
@@ -30,6 +34,7 @@ public partial class BuilderSetupPage : ContentPage
 
     private void OnCityFocused(object? sender, FocusEventArgs e)
     {
+        _suggestionScroller.Focus(sender, e);
         UpdateCities(sender);
     }
     private void OnCityTextChanged(object? sender, TextChangedEventArgs e) => UpdateCities(sender);
@@ -76,6 +81,7 @@ public partial class BuilderSetupPage : ContentPage
 
     protected override void OnDisappearing()
     {
+        _suggestionScroller.Stop();
         foreach (var segment in _viewModel.Segments) segment.CitySuggestions.Clear();
         _viewModel.CancelHotelSearches();
         base.OnDisappearing();

@@ -20,7 +20,7 @@
                     <Entry x:Name="PlaceEntry"
                            Placeholder="Lugar (opcional)"
                            Text="{Binding LocationName}"
-                           TextChanged="OnPlaceTextChanged"
+                           Focused="OnSuggestionFocused" TextChanged="OnPlaceTextChanged"
                            SemanticProperties.Hint="Escribe un lugar para ver sugerencias" />
                     <VerticalStackLayout Spacing="0"
                                          IsVisible="{Binding CanSearchPlaces}"

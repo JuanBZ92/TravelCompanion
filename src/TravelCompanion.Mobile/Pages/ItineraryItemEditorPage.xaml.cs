@@ -7,9 +7,13 @@ namespace TravelCompanion.Mobile.Pages;
 public partial class ItineraryItemEditorPage : ContentPage, IQueryAttributable
 {
     private readonly ItineraryItemEditorViewModel _viewModel;
+    private readonly SuggestionInputScroller _suggestionScroller;
+    private void OnSuggestionFocused(object? sender, FocusEventArgs e) => _suggestionScroller.Focus(sender, e);
+
     public ItineraryItemEditorPage(ItineraryItemEditorViewModel viewModel)
     {
         InitializeComponent();
+        _suggestionScroller = new(FormScroll);
         BindingContext = _viewModel = viewModel;
     }
 
@@ -63,6 +67,7 @@ public partial class ItineraryItemEditorPage : ContentPage, IQueryAttributable
 
     protected override void OnDisappearing()
     {
+        _suggestionScroller.Stop();
         _viewModel.CancelPlaceSearches();
         base.OnDisappearing();
     }
