@@ -27,7 +27,7 @@ main() {
         command -v "$tool" >/dev/null || { printf 'Missing tool: %s\n' "$tool" >&2; exit 1; }
     done
 
-    local repo_root project output_dir build_dir platform archive symbols symbol
+    local repo_root project output_dir build_dir platform archive symbols symbol plist key version
     repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
     project="$repo_root/src/TravelCompanion.Mobile/Platforms/iOS/StoreKitBridge/StoreKitBridge.xcodeproj"
     [[ -d $project ]] || { printf 'Missing Xcode project: %s\n' "$project" >&2; exit 1; }
@@ -43,6 +43,14 @@ main() {
             -configuration Release -destination "generic/platform=$platform" \
             -archivePath "$build_dir/$archive.xcarchive" \
             SKIP_INSTALL=NO BUILD_LIBRARY_FOR_DISTRIBUTION=YES CODE_SIGNING_ALLOWED=NO >&2
+        plist="$build_dir/$archive.xcarchive/Products/Library/Frameworks/StoreKitBridge.framework/Info.plist"
+        for key in CFBundleShortVersionString CFBundleVersion; do
+            version=$(/usr/libexec/PlistBuddy -c "Print :$key" "$plist")
+            if [[ -z $version ]]; then
+                printf 'Missing framework version: %s in %s\n' "$key" "$plist" >&2
+                exit 1
+            fi
+        done
     done
     symbols=$(xcrun nm -arch arm64 -gU "$build_dir/device.xcarchive/Products/Library/Frameworks/StoreKitBridge.framework/StoreKitBridge")
     for symbol in query_product purchase restore finish; do
