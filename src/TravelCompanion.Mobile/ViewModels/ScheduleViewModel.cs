@@ -178,60 +178,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         && CanEditSelectedDay
         && !_sessionService.RequiresTripSetup
         && _tripStartsOn.HasValue;
-    public bool ShowTrialBanner => _sessionService.IsTrial;
-    public string TrialBannerText
-    {
-        get
-        {
-            if (!_sessionService.IsTrial) return string.Empty;
-            if (_sessionService.FreePolicy == FreeAccessPolicy.PersistentFree)
-                return string.Format(LocalizationResourceManager.Instance["PersistentFreeSummary"],
-                    _sessionService.TrialAssistantRequestsRemaining, _sessionService.DayImprovementsRemaining);
-            if (_sessionService.TrialState == TrialAccessState.NotStarted)
-                return LocalizationResourceManager.Instance["TimedTrialNotStarted"];
-            if (_sessionService.TrialEditingExpiresAtUtc is { } editingExpiry && editingExpiry > DateTimeOffset.UtcNow)
-            {
-                var remaining = editingExpiry - DateTimeOffset.UtcNow;
-                return string.Format(LocalizationResourceManager.Instance["TimedTrialRemaining"], Math.Max(0, (int)remaining.TotalMinutes), Math.Max(0, remaining.Seconds));
-            }
-            if (_sessionService.TrialDraftExpiresAtUtc is { } draftExpiry && draftExpiry > DateTimeOffset.UtcNow)
-                return string.Format(LocalizationResourceManager.Instance["TimedTrialDraft"], draftExpiry.ToLocalTime());
-            return LocalizationResourceManager.Instance["TimedTrialEnded"];
-        }
-    }
-
-    public string AccessBadgeText
-    {
-        get
-        {
-            var text = LocalizationResourceManager.Instance;
-            if (_sessionService.FreePolicy == FreeAccessPolicy.PersistentFree)
-                return string.Format(text["AccessBadgeFree"], _sessionService.TrialAssistantRequestsRemaining, _sessionService.DayImprovementsRemaining);
-            if (_sessionService.TrialEditingExpiresAtUtc is { } expiry && expiry > DateTimeOffset.UtcNow)
-            {
-                var remaining = expiry - DateTimeOffset.UtcNow;
-                return string.Format(text["AccessBadgeTimed"], (int)remaining.TotalMinutes, remaining.Seconds);
-            }
-            return text["AccessBadgeDetails"];
-        }
-    }
-
-    [RelayCommand]
-    private async Task ShowAccessDetailsAsync()
-    {
-        var text = LocalizationResourceManager.Instance;
-        if (await Shell.Current.DisplayAlertAsync(text["AccessDetailsTitle"],
-            TrialBannerText + "\n\n" + text["AccessDetailsBody"], text["AccessViewPass"], text["CommonCancel"]))
-            await RedeemPassAsync();
-    }
-
-    public void RefreshTrialCountdown()
-    {
-        OnPropertyChanged(nameof(ShowTrialBanner));
-        OnPropertyChanged(nameof(TrialBannerText));
-        OnPropertyChanged(nameof(AccessBadgeText));
-        OnPropertyChanged(nameof(CanManageItinerary));
-    }
+    public void RefreshAccessState() => OnPropertyChanged(nameof(CanManageItinerary));
 
     [RelayCommand]
     private Task RedeemPassAsync() => PaywallNavigation.OpenAsync(TravelCompanion.Shared.Dtos.PaywallEntryPoint.Today);

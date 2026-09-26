@@ -86,12 +86,6 @@
                         <Label Text="{Binding OfflineStatus}" FontSize="13" />
                         <Label Text="{Binding OfflineScope}" Style="{StaticResource Body}" FontSize="12" />
                     </VerticalStackLayout>
-                    <Button Text="{Binding AccessBadgeText}" Command="{Binding ShowAccessDetailsCommand}"
-                            IsVisible="{Binding ShowTrialBanner}" HorizontalOptions="Start"
-                            BackgroundColor="#EEE6D9" TextColor="#68563D" FontSize="12"
-                            Padding="14,6" CornerRadius="22" MinimumHeightRequest="44"
-                            SemanticProperties.Description="{Binding TrialBannerText}" />
-
                     <Border Padding="16,14"
                             BackgroundColor="#FAF6F0"
                             Stroke="#E5DED5"

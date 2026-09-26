@@ -438,11 +438,5 @@ Your way.</value></data>
   <data name="SetupCityCoverage" xml:space="preserve"><value>Cities must cover every day between arrival and departure.</value></data>
   <data name="DeleteTripTitle" xml:space="preserve"><value>Delete itinerary</value></data>
   <data name="DeleteTripWithDocuments" xml:space="preserve"><value>This deletes the itinerary and its local document copies. Your original files, PIN and paid access remain available.</value></data>
-  <data name="AccessBadgeFree" xml:space="preserve"><value>Free · {0} requests · {1} improvements  ›</value></data>
-  <data name="AccessBadgeTimed" xml:space="preserve"><value>Trial · {0:00}:{1:00}  ›</value></data>
-  <data name="AccessBadgeDetails" xml:space="preserve"><value>My free access  ›</value></data>
-  <data name="AccessDetailsTitle" xml:space="preserve"><value>Your trip access</value></data>
-  <data name="AccessDetailsBody" xml:space="preserve"><value>With the Japan Pass you can plan every day and keep editing while your pass is active. See its benefits and availability.</value></data>
-  <data name="AccessViewPass" xml:space="preserve"><value>View Japan Pass</value></data>
   <data name="PaywallPurchasesPaused" xml:space="preserve"><value>Pass sales are not enabled yet. You can browse the benefits and restore a previous purchase.</value></data>
 </root>

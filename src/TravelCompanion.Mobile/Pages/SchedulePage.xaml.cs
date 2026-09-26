@@ -17,7 +17,7 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
         if (query.TryGetValue("InitialDate", out var value) && value is DateOnly date) _initialDate = date;
     }
 
-    private IDispatcherTimer? _trialTimer;
+    private IDispatcherTimer? _accessTimer;
     public ScheduleViewModel ViewModel => _viewModel;
 
     public SchedulePage()
@@ -54,28 +54,28 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
         }
 
         _isHandlingAppearance = true;
-        StartTrialTimer();
+        StartAccessTimer();
         await Dispatcher.DispatchAsync(HandleAppearingAsync);
     }
 
     protected override void OnDisappearing()
     {
         _viewModel.CancelLoading();
-        _trialTimer?.Stop();
+        _accessTimer?.Stop();
         base.OnDisappearing();
     }
 
-    private void StartTrialTimer()
+    private void StartAccessTimer()
     {
-        _trialTimer ??= Dispatcher.CreateTimer();
-        _trialTimer.Interval = TimeSpan.FromSeconds(1);
-        _trialTimer.Tick -= OnTrialTimerTick;
-        _trialTimer.Tick += OnTrialTimerTick;
-        _viewModel.RefreshTrialCountdown();
-        _trialTimer.Start();
+        _accessTimer ??= Dispatcher.CreateTimer();
+        _accessTimer.Interval = TimeSpan.FromSeconds(1);
+        _accessTimer.Tick -= OnAccessTimerTick;
+        _accessTimer.Tick += OnAccessTimerTick;
+        _viewModel.RefreshAccessState();
+        _accessTimer.Start();
     }
 
-    private void OnTrialTimerTick(object? sender, EventArgs e) => _viewModel.RefreshTrialCountdown();
+    private void OnAccessTimerTick(object? sender, EventArgs e) => _viewModel.RefreshAccessState();
 
     private async Task HandleAppearingAsync()
     {
