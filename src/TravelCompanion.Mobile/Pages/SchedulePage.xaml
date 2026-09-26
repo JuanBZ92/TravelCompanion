@@ -16,19 +16,23 @@
         <RefreshView IsRefreshing="{Binding IsRefreshing}"
                      Command="{Binding RefreshScheduleCommand}">
             <ScrollView VerticalScrollBarVisibility="Never">
-                <VerticalStackLayout Padding="28,26,28,36"
-                                     Spacing="24">
+                <VerticalStackLayout Padding="24,12,24,28"
+                                     Spacing="16">
 
                     <Grid RowDefinitions="Auto,Auto,Auto,Auto"
                           RowSpacing="10">
-                        <Grid ColumnDefinitions="*,44">
+                        <Grid ColumnDefinitions="*,44,44">
                             <Label Text="HOY · YUKU JAPAN"
-                                   CharacterSpacing="6"
+                                   CharacterSpacing="3"
                                    FontSize="11"
                                    FontAttributes="Bold"
                                    VerticalTextAlignment="Center"
                                    TextColor="#8E867D" />
-                            <ImageButton Grid.Column="1"
+                            <ImageButton Grid.Column="1" Source="itinerary_review.svg"
+                                         Command="{Binding ReviewTripCommand}" IsVisible="{Binding HasItineraryActions}"
+                                         BackgroundColor="Transparent" Padding="10" WidthRequest="44" HeightRequest="44"
+                                         SemanticProperties.Description="{Binding ReviewTripText}" />
+                            <ImageButton Grid.Column="2"
                                          Source="itinerary_menu.svg"
                                          BackgroundColor="Transparent"
                                          Padding="8"
@@ -78,29 +82,15 @@
                         </Grid>
                     </Grid>
 
-                    <Button Text="{Binding ReviewTripText}" Command="{Binding ReviewTripCommand}" IsVisible="{Binding HasItineraryActions}" Style="{StaticResource GhostButton}" />
                     <VerticalStackLayout IsVisible="{Binding ShowOfflineStatus}" Spacing="6">
                         <Label Text="{Binding OfflineStatus}" FontSize="13" />
                         <Label Text="{Binding OfflineScope}" Style="{StaticResource Body}" FontSize="12" />
                     </VerticalStackLayout>
-                    <Border Padding="16,14"
-                            BackgroundColor="#FFF7E8"
-                            Stroke="#C7A45A"
-                            StrokeThickness="1"
-                            IsVisible="{Binding ShowTrialBanner}">
-                        <Grid RowDefinitions="Auto,Auto" RowSpacing="10">
-                            <Label Text="{Binding TrialBannerText}"
-                                   FontSize="13"
-                                   LineHeight="1.25"
-                                   TextColor="#5F4B25" />
-                            <Button Grid.Row="1"
-                                    Text="{Binding [UpgradeTrip], Source={x:Static services:LocalizationResourceManager.Instance}}"
-                                    Command="{Binding RedeemPassCommand}"
-                                    BackgroundColor="#3D3329"
-                                    TextColor="White"
-                                    CornerRadius="0" />
-                        </Grid>
-                    </Border>
+                    <Button Text="{Binding AccessBadgeText}" Command="{Binding ShowAccessDetailsCommand}"
+                            IsVisible="{Binding ShowTrialBanner}" HorizontalOptions="Start"
+                            BackgroundColor="#EEE6D9" TextColor="#68563D" FontSize="12"
+                            Padding="14,6" CornerRadius="22" MinimumHeightRequest="44"
+                            SemanticProperties.Description="{Binding TrialBannerText}" />
 
                     <Border Padding="16,14"
                             BackgroundColor="#FAF6F0"
@@ -183,7 +173,7 @@
                     <Border IsVisible="{Binding IsSelectedDayLocked}" Style="{StaticResource NoticePanel}">
                         <Label Text="{Binding LockedDayMessage}" TextColor="#5F4B25" />
                     </Border>
-                    <Grid IsVisible="{Binding ShowImproveDay}" MinimumHeightRequest="68">
+                    <Grid IsVisible="{Binding ShowImproveDay}" MinimumHeightRequest="60">
                     <Button Text=""
                             Command="{Binding ImproveDayCommand}"
                             IsVisible="{Binding ShowImproveDay}"
@@ -192,19 +182,19 @@
                             HorizontalOptions="Fill"
                             BackgroundColor="{StaticResource Gold}"
                             TextColor="White"
-                            CornerRadius="36"
+                            CornerRadius="20"
                             FontSize="14"
                             Padding="16,12"
                             MinimumHeightRequest="68">
-                        <Button.Shadow><Shadow Brush="#BD9568" Offset="0,5" Radius="16" Opacity="0.35" /></Button.Shadow>
+                        <Button.Shadow><Shadow Brush="#BD9568" Offset="0,3" Radius="8" Opacity="0.18" /></Button.Shadow>
                     </Button>
-                    <Grid ColumnDefinitions="36,*,36" ColumnSpacing="12" Padding="22,12" InputTransparent="True">
-                        <Image Source="today_sparkles.svg" HeightRequest="30" WidthRequest="30" />
+                    <Grid ColumnDefinitions="28,*,28" ColumnSpacing="10" Padding="16,10" InputTransparent="True">
+                        <Image Source="today_sparkles.svg" HeightRequest="26" WidthRequest="26" />
                         <VerticalStackLayout Grid.Column="1" Spacing="3" VerticalOptions="Center">
                             <Label Text="{Binding ImproveDayLabel}" TextColor="White" FontSize="16" />
                             <Label Text="{Binding ImproveDaySubtitle}" TextColor="#F1E5D5" FontSize="10" />
                         </VerticalStackLayout>
-                        <Border Grid.Column="2" BackgroundColor="#30FFFFFF" StrokeThickness="0" StrokeShape="RoundRectangle 18" HeightRequest="36" VerticalOptions="Center">
+                        <Border Grid.Column="2" BackgroundColor="#30FFFFFF" StrokeThickness="0" StrokeShape="RoundRectangle 14" HeightRequest="28" VerticalOptions="Center">
                             <Label Text="→" FontSize="24" TextColor="White" HorizontalTextAlignment="Center" VerticalTextAlignment="Center" />
                         </Border>
                     </Grid>

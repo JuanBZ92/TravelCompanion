@@ -34,7 +34,11 @@ public sealed class FreePreviewSessionGuardMiddleware(RequestDelegate next)
             return true;
         }
 
-        if (request.Path.StartsWithSegments("/api/mobile/builder/setup")
+        // These endpoints validate identity and ownership before exposing data or granting access.
+        if (request.Path.StartsWithSegments("/api/mobile/conversion")
+            || request.Path.StartsWithSegments("/api/mobile/account")
+            || request.Path.StartsWithSegments("/api/mobile/purchases")
+            || request.Path.StartsWithSegments("/api/mobile/builder/setup")
             || request.Path.StartsWithSegments("/api/mobile/itinerary")
             || request.Path.StartsWithSegments("/api/mobile/places")
             || request.Path.StartsWithSegments("/api/mobile/pass")

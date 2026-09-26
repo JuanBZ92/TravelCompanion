@@ -200,10 +200,36 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         }
     }
 
+    public string AccessBadgeText
+    {
+        get
+        {
+            var text = LocalizationResourceManager.Instance;
+            if (_sessionService.FreePolicy == FreeAccessPolicy.PersistentFree)
+                return string.Format(text["AccessBadgeFree"], _sessionService.TrialAssistantRequestsRemaining, _sessionService.DayImprovementsRemaining);
+            if (_sessionService.TrialEditingExpiresAtUtc is { } expiry && expiry > DateTimeOffset.UtcNow)
+            {
+                var remaining = expiry - DateTimeOffset.UtcNow;
+                return string.Format(text["AccessBadgeTimed"], (int)remaining.TotalMinutes, remaining.Seconds);
+            }
+            return text["AccessBadgeDetails"];
+        }
+    }
+
+    [RelayCommand]
+    private async Task ShowAccessDetailsAsync()
+    {
+        var text = LocalizationResourceManager.Instance;
+        if (await Shell.Current.DisplayAlertAsync(text["AccessDetailsTitle"],
+            TrialBannerText + "\n\n" + text["AccessDetailsBody"], text["AccessViewPass"], text["CommonCancel"]))
+            await RedeemPassAsync();
+    }
+
     public void RefreshTrialCountdown()
     {
         OnPropertyChanged(nameof(ShowTrialBanner));
         OnPropertyChanged(nameof(TrialBannerText));
+        OnPropertyChanged(nameof(AccessBadgeText));
         OnPropertyChanged(nameof(CanManageItinerary));
     }
 

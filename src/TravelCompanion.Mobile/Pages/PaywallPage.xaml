@@ -27,8 +27,8 @@
                         <Label Text="{Binding [PaywallPaymentNote], Source={x:Static services:LocalizationResourceManager.Instance}}" FontSize="12" TextColor="#DDC39A" />
                     </VerticalStackLayout>
                 </Border>
-                <Label Text="{Binding [PaywallIncluded], Source={x:Static services:LocalizationResourceManager.Instance}}" FontSize="11" CharacterSpacing="2" TextColor="#82735D" SemanticProperties.HeadingLevel="Level2" />
-                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Benefits}" Spacing="14">
+                <Label IsVisible="{Binding HasOffer}" Text="{Binding [PaywallIncluded], Source={x:Static services:LocalizationResourceManager.Instance}}" FontSize="11" CharacterSpacing="2" TextColor="#82735D" SemanticProperties.HeadingLevel="Level2" />
+                <VerticalStackLayout IsVisible="{Binding HasOffer}" BindableLayout.ItemsSource="{Binding Benefits}" Spacing="14">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="x:String">
                             <Border Padding="16" BackgroundColor="{StaticResource Paper}" Stroke="{StaticResource AccentSoft}">
@@ -59,14 +59,25 @@
                 <Button Text="{Binding [PaywallSupportCode], Source={x:Static services:LocalizationResourceManager.Instance}}" Command="{Binding RedeemCodeCommand}" IsEnabled="{Binding IsNotBusy}" BackgroundColor="Transparent" TextColor="#756B5F" FontSize="13" MinimumHeightRequest="44" />
             </VerticalStackLayout>
         </ScrollView>
-        <Border Grid.Row="1" Padding="20,14" BackgroundColor="#FFFDF8" Stroke="#E5DCCF" StrokeThickness="1">
+        <Border Grid.Row="1" IsVisible="{Binding HasOffer}" Padding="20,14" BackgroundColor="#FFFDF8" Stroke="#E5DCCF" StrokeThickness="1">
             <VerticalStackLayout Spacing="8">
                 <Label Text="{Binding DisplayPrice}" IsVisible="{Binding HasPrice}" FontSize="28" FontAttributes="Bold" TextColor="#29251F" HorizontalTextAlignment="Center" />
                 <Label Text="{Binding [PaywallPricePending], Source={x:Static services:LocalizationResourceManager.Instance}}" FontSize="12" TextColor="#756B5F" HorizontalTextAlignment="Center">
                     <Label.Triggers><DataTrigger TargetType="Label" Binding="{Binding HasPrice}" Value="True"><Setter Property="IsVisible" Value="False" /></DataTrigger></Label.Triggers>
                 </Label>
                 <Button Text="{Binding [PaywallBuy], Source={x:Static services:LocalizationResourceManager.Instance}}" Command="{Binding BuyCommand}" IsEnabled="{Binding CanBuy}" BackgroundColor="#A67B42" TextColor="White" FontSize="17" FontAttributes="Bold" CornerRadius="16" MinimumHeightRequest="54">
-                    <Button.Triggers><Trigger TargetType="Button" Property="IsEnabled" Value="False"><Setter Property="BackgroundColor" Value="#E3D9CC" /><Setter Property="TextColor" Value="#756B5F" /></Trigger></Button.Triggers>
+                    <VisualStateManager.VisualStateGroups>
+                        <VisualStateGroup x:Name="CommonStates">
+                            <VisualState x:Name="Normal" />
+                            <VisualState x:Name="Disabled">
+                                <VisualState.Setters>
+                                    <Setter Property="BackgroundColor" Value="#E3D9CC" />
+                                    <Setter Property="TextColor" Value="#756B5F" />
+                                    <Setter Property="Opacity" Value="0.65" />
+                                </VisualState.Setters>
+                            </VisualState>
+                        </VisualStateGroup>
+                    </VisualStateManager.VisualStateGroups>
                 </Button>
             </VerticalStackLayout>
         </Border>

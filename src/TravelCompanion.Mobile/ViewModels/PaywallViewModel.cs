@@ -74,13 +74,14 @@ public sealed partial class PaywallViewModel(
         _offer = await api.GetPaywallOfferAsync(token, tripId, _entryPoint, platform, ct)
             ?? throw new InvalidOperationException(Resource("PaywallLoadError"));
         NotifyOffer();
+        Benefits.Clear(); foreach (var benefit in _offer.Benefits) Benefits.Add(benefit);
         await TrackAsync("paywall_shown", tripId, _offer.Variant, ct);
         var product = await store.GetProductAsync(_offer.ProductId, ct);
         var presentation = PaywallPricePresentation.Create(_offer.CanPurchase, product.IsAvailable, product.LocalizedPrice);
         DisplayPrice = presentation.Price;
         CanBuy = presentation.CanBuy;
-        Benefits.Clear(); foreach (var benefit in _offer.Benefits) Benefits.Add(benefit);
-        StateText = _canBuy ? Resource("PaywallReady") : product.Error ?? Resource("PaywallUnavailable");
+        StateText = !_offer.CanPurchase ? Resource("PaywallPurchasesPaused")
+            : _canBuy ? Resource("PaywallReady") : product.Error ?? Resource("PaywallUnavailable");
         OnPropertyChanged(nameof(PreviewText)); OnPropertyChanged(nameof(RetentionText));
         OnPropertyChanged(nameof(AccessDetailsText));
         await ResumePendingPurchaseAsync(token, tripId, ct);

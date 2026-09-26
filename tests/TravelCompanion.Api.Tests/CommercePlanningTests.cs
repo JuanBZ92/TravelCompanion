@@ -18,6 +18,56 @@ namespace TravelCompanion.Api.Tests;
 
 public sealed class CommercePlanningTests
 {
+    [Theory]
+    [InlineData("GET", "/api/mobile/conversion/paywall/00000000-0000-0000-0000-000000000001", true)]
+    [InlineData("POST", "/api/mobile/conversion/events", true)]
+    [InlineData("POST", "/api/mobile/account/email/code", true)]
+    [InlineData("POST", "/api/mobile/account/email/verify", true)]
+    [InlineData("GET", "/api/mobile/account", true)]
+    [InlineData("POST", "/api/mobile/purchases/intents", true)]
+    [InlineData("POST", "/api/mobile/purchases/verify", true)]
+    [InlineData("POST", "/api/mobile/purchases/restore", true)]
+    [InlineData("GET", "/api/mobile/purchases-extra", false)]
+    [InlineData("GET", "/api/admin/users", false)]
+    public async Task Free_session_can_reach_commerce_but_not_unrelated_routes(string method, string path, bool allowed)
+    {
+        await using var db = CreateDb();
+        var (_, _, sessions, http) = await SeedPurchaseTripAsync(db);
+        http.Request.Method = method;
+        http.Request.Path = path;
+        http.RequestServices = new ServiceCollection().AddLogging().BuildServiceProvider();
+        var reached = false;
+        var guard = new TravelCompanion.Api.Middleware.FreePreviewSessionGuardMiddleware(_ =>
+        {
+            reached = true;
+            return Task.CompletedTask;
+        });
+        await guard.InvokeAsync(http, sessions);
+        Assert.Equal(allowed, reached);
+        Assert.Equal(allowed ? 200 : 403, http.Response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Free_session_offer_pipeline_retains_trip_ownership_check()
+    {
+        await using var db = CreateDb();
+        var (_, trip, sessions, http) = await SeedPurchaseTripAsync(db);
+        var (_, otherTrip, _, _) = await SeedPurchaseTripAsync(db);
+        var service = new PaywallOfferService(db, sessions,
+            Microsoft.Extensions.Options.Options.Create(new StorePurchaseOptions()),
+            Microsoft.Extensions.Options.Options.Create(new ProductFeatureOptions()));
+        http.Request.Method = "GET";
+        http.Request.Path = $"/api/mobile/conversion/paywall/{trip.Id}";
+        PaywallOfferDto? offer = null;
+        var guard = new TravelCompanion.Api.Middleware.FreePreviewSessionGuardMiddleware(async context =>
+        {
+            offer = await service.GetAsync(context, trip.Id, PaywallEntryPoint.Today, "android", default);
+        });
+        await guard.InvokeAsync(http, sessions);
+        Assert.NotNull(offer);
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.GetAsync(http, otherTrip.Id, PaywallEntryPoint.Today, "android", default));
+    }
+
     [Fact]
     public async Task Conversion_attributes_server_events_using_matching_client_events()
     {

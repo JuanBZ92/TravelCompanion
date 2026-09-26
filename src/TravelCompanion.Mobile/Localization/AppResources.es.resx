@@ -438,4 +438,11 @@ A tu manera.</value></data>
   <data name="SetupCityCoverage" xml:space="preserve"><value>Las ciudades deben cubrir todos los días entre llegada y salida.</value></data>
   <data name="DeleteTripTitle" xml:space="preserve"><value>Eliminar itinerario</value></data>
   <data name="DeleteTripWithDocuments" xml:space="preserve"><value>Se borrarán el itinerario y sus copias locales de documentos. Tus archivos originales, PIN y acceso pago seguirán disponibles.</value></data>
+  <data name="AccessBadgeFree" xml:space="preserve"><value>Gratis · {0} consultas · {1} mejoras  ›</value></data>
+  <data name="AccessBadgeTimed" xml:space="preserve"><value>Prueba · {0:00}:{1:00}  ›</value></data>
+  <data name="AccessBadgeDetails" xml:space="preserve"><value>Mi acceso gratis  ›</value></data>
+  <data name="AccessDetailsTitle" xml:space="preserve"><value>Tu acceso al viaje</value></data>
+  <data name="AccessDetailsBody" xml:space="preserve"><value>Con el Pase Japón puedes organizar todos tus días y seguir editando durante la vigencia del pase. Consulta sus beneficios y disponibilidad.</value></data>
+  <data name="AccessViewPass" xml:space="preserve"><value>Ver Pase Japón</value></data>
+  <data name="PaywallPurchasesPaused" xml:space="preserve"><value>La venta de pases todavía no está habilitada. Puedes consultar los beneficios y restaurar una compra anterior.</value></data>
 </root>
