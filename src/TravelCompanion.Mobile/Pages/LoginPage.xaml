@@ -4,87 +4,58 @@
              xmlns:viewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
              x:Class="TravelCompanion.Mobile.Pages.LoginPage"
              x:DataType="viewModels:LoginViewModel"
-             Title="{Binding PageTitle}"
-             Shell.NavBarIsVisible="False"
-             BackgroundColor="{StaticResource Mist}">
-    <ScrollView>
-    <Grid Padding="28" RowDefinitions="Auto"
-          BackgroundColor="{StaticResource Mist}">
-        <VerticalStackLayout Spacing="24">
-            <VerticalStackLayout Spacing="10">
-                <Label Text="YUKU JAPAN"
-                       CharacterSpacing="6"
-                       FontSize="11"
-                       FontAttributes="Bold"
-                       TextColor="#8E867D" />
-                <Label Text="{Binding LoginTitle}"
-                       FontSize="34"
-                       FontFamily="serif"
-                       SemanticProperties.HeadingLevel="Level1"
-                       TextColor="#1A1714" />
-                <Label Text="{Binding LoginDescription}"
-                       FontSize="16"
-                       LineHeight="1.45"
-                       TextColor="#6E675F" />
-                <Label Text="{Binding LoginFreePreview}"
-                       FontSize="13"
-                       FontAttributes="Bold"
-                       TextColor="#8A6F3D" />
+             Title="{Binding PageTitle}" Shell.NavBarIsVisible="False"
+             SafeAreaEdges="All" BackgroundColor="{StaticResource Mist}">
+    <ScrollView VerticalScrollBarVisibility="Never">
+        <VerticalStackLayout Padding="28,36,28,28" Spacing="28" MaximumWidthRequest="480" HorizontalOptions="Fill">
+            <VerticalStackLayout Spacing="20">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                    <Label Text="YUKU · JAPAN" CharacterSpacing="4" FontSize="10" TextColor="#867B6D" VerticalOptions="Center" />
+                    <Label Text="日本" FontFamily="serif" FontSize="22" TextColor="#B3A38C" AutomationProperties.IsInAccessibleTree="False" />
+                </Grid>
+                <BoxView WidthRequest="32" HeightRequest="2" BackgroundColor="#B3976D" HorizontalOptions="Start" />
+                <Label Text="{Binding LoginTitle}" FontSize="36" FontFamily="serif"
+                       SemanticProperties.HeadingLevel="Level1" TextColor="#25231E" LineHeight="1.05" />
+                <Label Text="{Binding LoginDescription}" FontSize="15" LineHeight="1.2" TextColor="#82796F" />
             </VerticalStackLayout>
 
-            <Button Text="{Binding CreateTripText}" Command="{Binding CreateTripCommand}" IsEnabled="{Binding IsNotBusy}" />
-            <Border BackgroundColor="{StaticResource AccentSoft}"
-                    Stroke="#D8CFC4"
-                    StrokeThickness="1"
-                    Padding="20">
-                <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="0" />
-                </Border.StrokeShape>
-                <VerticalStackLayout Spacing="18">
-                    <Entry Text="{Binding Pin}"
-                           Keyboard="Numeric"
-                           MaxLength="6"
-                           IsPassword="True"
-                           ReturnType="Go"
-                           ReturnCommand="{Binding LoginCommand}"
-                           HorizontalTextAlignment="Center"
-                           FontSize="32"
-                           CharacterSpacing="12"
-                           Placeholder="PIN"
-                           ClearButtonVisibility="WhileEditing" />
+            <VerticalStackLayout Spacing="10">
+                <Button Text="{Binding CreateTripText}" Command="{Binding CreateTripCommand}" IsEnabled="{Binding IsNotBusy}"
+                        BackgroundColor="#34382F" TextColor="#FFFDF8" CornerRadius="16" FontSize="16"
+                        FontAttributes="Bold" MinimumHeightRequest="54" Padding="20,14" />
+                <Label Text="{Binding LoginFreePreview}" FontSize="11" TextColor="#8C7A5C" HorizontalTextAlignment="Center" />
+            </VerticalStackLayout>
 
-                    <Label Text="{Binding PinLengthText}"
-                           HorizontalTextAlignment="Center"
-                           FontSize="12"
-                           TextColor="#8E867D" />
+            <Grid ColumnDefinitions="*,Auto,*" ColumnSpacing="14">
+                <BoxView HeightRequest="1" BackgroundColor="#E2DBD0" VerticalOptions="Center" />
+                <Label Grid.Column="1" Text="{Binding LoginExistingTrip}" FontSize="12" TextColor="#8B8277" />
+                <BoxView Grid.Column="2" HeightRequest="1" BackgroundColor="#E2DBD0" VerticalOptions="Center" />
+            </Grid>
 
-                    <Border Padding="12"
-                            BackgroundColor="{StaticResource AccentSoft}"
-                            Stroke="{StaticResource Rose}"
-                            StrokeThickness="1"
-                            IsVisible="{Binding HasError}">
-                        <Border.StrokeShape>
-                            <RoundRectangle CornerRadius="0" />
-                        </Border.StrokeShape>
-                        <Label Text="{Binding ErrorMessage}" TextColor="{AppThemeBinding Light={StaticResource Rose}, Dark={StaticResource Paper}}" />
-                    </Border>
-
-                    <Button Text="{Binding LoginOpenTrip}"
-                            Command="{Binding LoginCommand}"
-                            IsEnabled="{Binding IsNotBusy}"
-                            CornerRadius="0" />
-                    <Button Text="{Binding LoginBiometric}"
-                            Style="{StaticResource GhostButton}"
-                            Command="{Binding UnlockWithBiometricsCommand}"
-                            IsVisible="{Binding CanUseBiometricUnlock}" />
-                    <Button Text="{Binding LoginRecoverEmail}"
-                            Style="{StaticResource GhostButton}"
-                            Command="{Binding RecoverWithEmailCommand}"
-                            IsEnabled="{Binding IsNotBusy}" />
-                    <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
-                </VerticalStackLayout>
-            </Border>
+            <VerticalStackLayout Spacing="14">
+                <Border Padding="16,8" BackgroundColor="#FFFDF8" Stroke="#DDD4C7" StrokeShape="RoundRectangle 14">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <Entry Text="{Binding Pin}" Keyboard="Numeric" MaxLength="6" IsPassword="True"
+                               ReturnType="Go" ReturnCommand="{Binding LoginCommand}" IsEnabled="{Binding IsNotBusy}"
+                               FontSize="22" CharacterSpacing="5" Placeholder="PIN" BackgroundColor="Transparent"
+                               TextColor="#34382F" PlaceholderColor="#B5AA99" MinimumHeightRequest="44"
+                               SemanticProperties.Description="{Binding LoginPinHint}" />
+                        <Label Grid.Column="1" Text="{Binding LoginPinHint}" FontSize="11" TextColor="#9A8F80" VerticalOptions="Center" />
+                    </Grid>
+                </Border>
+                <Button Text="{Binding LoginOpenTrip}" Command="{Binding LoginCommand}" IsEnabled="{Binding IsNotBusy}"
+                        BackgroundColor="#EAE3D8" TextColor="#51483B" CornerRadius="14" MinimumHeightRequest="50"
+                        FontSize="15" Padding="18,12" />
+                <Border Padding="14" BackgroundColor="#F5EAE5" StrokeThickness="0" StrokeShape="RoundRectangle 12" IsVisible="{Binding HasError}">
+                    <Label Text="{Binding ErrorMessage}" TextColor="#975749" FontSize="13" />
+                </Border>
+                <Button Text="{Binding LoginBiometric}" Command="{Binding UnlockWithBiometricsCommand}"
+                        IsVisible="{Binding CanUseBiometricUnlock}" IsEnabled="{Binding IsNotBusy}"
+                        BackgroundColor="Transparent" TextColor="#73654F" CornerRadius="12" MinimumHeightRequest="44" FontSize="13" />
+                <Button Text="{Binding LoginRecoverEmail}" Command="{Binding RecoverWithEmailCommand}" IsEnabled="{Binding IsNotBusy}"
+                        BackgroundColor="Transparent" TextColor="#73654F" CornerRadius="12" MinimumHeightRequest="44" FontSize="13" />
+                <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" Color="#8C7A5C" />
+            </VerticalStackLayout>
         </VerticalStackLayout>
-    </Grid>
     </ScrollView>
 </ContentPage>

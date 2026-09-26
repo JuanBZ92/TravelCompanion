@@ -12,6 +12,8 @@ public sealed partial class LoginViewModel(
     private string _pin = string.Empty;
 
     public string PageTitle => Resource("TabLogin");
+    public string LoginExistingTrip => Resource("LoginExistingTrip");
+    public string LoginPinHint => Resource("LoginPinHint");
     public string LoginTitle => Resource("LoginTitle");
     public string LoginDescription => Resource("LoginDescription");
     public string LoginFreePreview => Resource("LoginFreePreview");

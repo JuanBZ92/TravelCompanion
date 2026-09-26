@@ -97,7 +97,7 @@
   <data name="TabDocs" xml:space="preserve"><value>Documentos</value></data>
   <data name="TabLogout" xml:space="preserve"><value>Salir</value></data>
   <data name="LoginTitle" xml:space="preserve"><value>Tu viaje empieza aquí</value></data>
-  <data name="LoginDescription" xml:space="preserve"><value>Crea tu primer plan. Si ya tienes un viaje, ábrelo con tu PIN o recupera tu cuenta.</value></data>
+  <data name="LoginDescription" xml:space="preserve"><value>Descubre Japón, a tu ritmo. Diseña un viaje que sea tuyo.</value></data>
   <data name="LoginFreePreview" xml:space="preserve"><value>Empieza gratis, sin datos de pago.</value></data>
   <data name="LoginOpenTrip" xml:space="preserve"><value>Abrir viaje</value></data>
   <data name="LoginBiometric" xml:space="preserve"><value>Desbloquear con biometría</value></data>
@@ -443,4 +443,6 @@ A tu manera.</value></data>
   <data name="AddDocument" xml:space="preserve"><value>Agregar documento</value></data>
   <data name="OpenDocumentNamed" xml:space="preserve"><value>Abrir {0}</value></data>
   <data name="DocumentActionsNamed" xml:space="preserve"><value>Opciones de {0}</value></data>
+  <data name="LoginExistingTrip" xml:space="preserve"><value>Ya tengo un viaje</value></data>
+  <data name="LoginPinHint" xml:space="preserve"><value>4 o 6 dígitos</value></data>
 </root>
