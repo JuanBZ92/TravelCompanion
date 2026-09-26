@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <Using Include="Xunit" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\ViewModels\ViewModelBase.cs" Link="ViewModelBase.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\LocalDocumentPolicy.cs" Link="LocalDocumentPolicy.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\TripDocumentStore.cs" Link="TripDocumentStore.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\OfflineTripManifest.cs" Link="OfflineTripManifest.cs" />

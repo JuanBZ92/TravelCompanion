@@ -9,7 +9,7 @@
              BackgroundColor="{StaticResource Mist}">
 
     <RefreshView Command="{Binding RefreshCommand}"
-                 IsRefreshing="{Binding IsBusy}">
+                 IsRefreshing="{Binding IsRefreshing, Mode=TwoWay}">
         <ScrollView>
             <VerticalStackLayout Padding="28,28,28,104" Spacing="22">
                 <VerticalStackLayout Spacing="10">
