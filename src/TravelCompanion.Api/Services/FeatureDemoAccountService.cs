@@ -40,11 +40,13 @@ public sealed class FeatureDemoAccountService(TravelCompanionDbContext db)
             foreach (var item in firstDayItems.Take(3))
             {
                 item.StartsAt = new TimeOnly(hour, 0); item.EndsAt = item.StartsAt.AddMinutes(60);
+                item.Flexibility = ItineraryFlexibility.FixedByTraveler;
                 item.DurationMinutes = 60; item.TimePrecision = ItineraryTimePrecision.Exact; hour += 4;
             }
             foreach (var item in trip.Reservations.Where(x => x.Date == start.AddDays(1)).Take(3))
             {
                 item.StartsAt = new TimeOnly(10, 0); item.EndsAt = new TimeOnly(12, 0);
+                item.Flexibility = ItineraryFlexibility.FixedByTraveler;
                 item.DurationMinutes = 120; item.TimePrecision = ItineraryTimePrecision.Exact;
                 item.Notes = "DEMO: solapamiento intencional para probar Revisar mi viaje y Mejorar el día.";
             }

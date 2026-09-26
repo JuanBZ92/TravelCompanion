@@ -71,6 +71,8 @@ public sealed class PremiumDemoTripRefreshServiceTests
             Assert.Equal(18, trip.DayPlans.Count);
             Assert.Equal(4, trip.DayPlans.Select(x => x.City).Distinct().Count());
             Assert.Equal(4, trip.Documents.Count);
+            var reviews = TravelCompanion.Shared.ScheduleReviewAnalyzer.Analyze(trip.Reservations.Select(TravelerItineraryService.ToDto).ToList(), trip.StartsOn, trip.EndsOn);
+            Assert.NotEmpty(reviews.Single(x => x.Date == trip.StartsOn.AddDays(1)).Issues);
             Assert.DoesNotContain(trip.Reservations, x => x.Date == trip.StartsOn.AddDays(2));
             Assert.Contains(trip.Reservations, x => x.Type == TravelCompanion.Shared.ReservationType.Flight && x.ReminderEnabled == true);
             Assert.True(trip.Reservations.Count(x => x.Date == trip.StartsOn.AddDays(1) && x.StartsAt == new TimeOnly(10, 0)) >= 3);
