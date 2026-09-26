@@ -82,10 +82,6 @@
                         </Grid>
                     </Grid>
 
-                    <VerticalStackLayout IsVisible="{Binding ShowOfflineStatus}" Spacing="6">
-                        <Label Text="{Binding OfflineStatus}" FontSize="13" />
-                        <Label Text="{Binding OfflineScope}" Style="{StaticResource Body}" FontSize="12" />
-                    </VerticalStackLayout>
                     <Border Padding="16,14"
                             BackgroundColor="#FAF6F0"
                             Stroke="#E5DED5"

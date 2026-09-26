@@ -67,6 +67,7 @@ public sealed partial class DocsViewModel(
         Subtitle = Text("LocalDocumentsNotice");
         await RefreshLocalDocumentsAsync(cancellationToken);
         OnPropertyChanged(nameof(CanAttachDocument));
+        OnPropertyChanged(nameof(ShowLocalNotice));
         if (!sessionService.HasCuratedDocs || !sessionService.HasKnownValidAccess) return;
         var contextVersion = sessionService.ContextVersion;
         var userId = sessionService.CurrentUserId;
@@ -87,7 +88,7 @@ public sealed partial class DocsViewModel(
                 ApplyDocs(cached.Value);
                 await RefreshDocumentAvailabilityAsync(cancellationToken);
                 MarkLastUpdated(cached.SavedAt);
-                StatusMessage = OfflineCacheService.FormatSavedAt(cached.SavedAt);
+                StatusMessage = null;
                 var versions = await syncStateStore.GetCachedStateAsync(cancellationToken);
                 if (Connectivity.Current.NetworkAccess != NetworkAccess.Internet
                     || versions is not null && cached.Metadata?.DataVersion == versions.DocumentsVersion.ToString(CultureInfo.InvariantCulture))
@@ -116,7 +117,7 @@ public sealed partial class DocsViewModel(
                 }
                 else
                 {
-                    StatusMessage = $"Mostrando documentos guardados mientras recuperamos la conexion. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
+                    StatusMessage = null;
                 }
             }
             else
@@ -145,7 +146,7 @@ public sealed partial class DocsViewModel(
                 ApplyDocs(cached.Value);
                 await RefreshDocumentAvailabilityAsync(cancellationToken);
                 MarkLastUpdated(cached.SavedAt);
-                StatusMessage = $"Mostrando documentos guardados mientras recuperamos la conexion. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
+                StatusMessage = null;
             }
             else
             {
@@ -187,6 +188,7 @@ public sealed partial class DocsViewModel(
         HasLoaded = false;
         LocalDocuments.Clear();
         OnPropertyChanged(nameof(CanAttachDocument));
+        OnPropertyChanged(nameof(ShowLocalNotice));
         ErrorMessage = null;
         Journeys.Clear();
         HotelDocuments.Clear();

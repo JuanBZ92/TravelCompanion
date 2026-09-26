@@ -7,6 +7,8 @@ namespace TravelCompanion.Mobile.ViewModels;
 public sealed partial class DocsViewModel
 {
     public ObservableCollection<LocalDocumentItemViewModel> LocalDocuments { get; } = [];
+    public string CopyCodeText => Text("CopyConfirmationCode");
+    public bool ShowLocalNotice => sessionService.IsFreeMapPreview;
     public bool CanAttachDocument => documentStore.CanAttach;
     public string LocalDocumentsTitle => Text("LocalDocuments");
     public string LocalDocumentsNotice => Text("LocalDocumentsNotice");

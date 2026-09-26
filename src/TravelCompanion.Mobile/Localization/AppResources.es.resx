@@ -439,4 +439,5 @@ A tu manera.</value></data>
   <data name="DeleteTripTitle" xml:space="preserve"><value>Eliminar itinerario</value></data>
   <data name="DeleteTripWithDocuments" xml:space="preserve"><value>Se borrarán el itinerario y sus copias locales de documentos. Tus archivos originales, PIN y acceso pago seguirán disponibles.</value></data>
   <data name="PaywallPurchasesPaused" xml:space="preserve"><value>La venta de pases todavía no está habilitada. Puedes consultar los beneficios y restaurar una compra anterior.</value></data>
+  <data name="CopyConfirmationCode" xml:space="preserve"><value>Copiar código de reserva</value></data>
 </root>

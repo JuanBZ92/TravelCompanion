@@ -158,7 +158,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         }
     }
 
-    public bool ShowDayReview => !ShowTodayLoading && SelectedDayReview is not null;
+    public bool ShowDayReview => !ShowTodayLoading && SelectedDayReview?.HasIssues == true;
     public bool ShowImproveDay => _selectedDate.HasValue && _tripId.HasValue
         && _sessionService.ExperienceMode != ExperienceMode.CuratedPremium;
     public bool IsSelectedDayLocked => _sessionService.IsFreeMapPreview
@@ -821,7 +821,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
             {
                 ApplyBootstrapSchedule(cached.Value);
                 MarkLastUpdated(cached.SavedAt);
-                StatusMessage = OfflineCacheService.FormatSavedAt(cached.SavedAt);
+                StatusMessage = null;
             }
         }
 
@@ -914,7 +914,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
             else if (!canShowCached && cached is not null && _selectedDate == selectedDate)
             {
                 ApplyToday(cached.Value);
-                StatusMessage = OfflineCacheService.FormatSavedAt(cached.SavedAt);
+                StatusMessage = null;
             }
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
@@ -929,7 +929,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
                 if (!canShowCached)
                 {
                     ApplyToday(cached.Value);
-                    StatusMessage = OfflineCacheService.FormatSavedAt(cached.SavedAt);
+                    StatusMessage = null;
                 }
             }
             else
