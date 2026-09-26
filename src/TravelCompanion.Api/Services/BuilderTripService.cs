@@ -376,7 +376,7 @@ public sealed class BuilderTripService(
             trip.EndsOn,
             scheduleItems,
             trip.PlanRevision,
-            ScheduleReviewAnalyzer.Analyze(scheduleItems, trip.StartsOn, trip.EndsOn));
+            ScheduleReviewAnalyzer.Analyze(scheduleItems, trip.StartsOn, trip.EndsOn)) { TimeZoneId = trip.TimeZoneId };
         return new(
             true, trip.Id, trip.PlanRevision, trip.StartsOn, trip.EndsOn,
             trip.Destination?.Name ?? "Japan", trip.TimeZoneId, segments,

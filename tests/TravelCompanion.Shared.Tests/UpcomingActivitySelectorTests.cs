@@ -1,0 +1,48 @@
+using TravelCompanion.Shared.Dtos;
+
+namespace TravelCompanion.Shared.Tests;
+
+public sealed class UpcomingActivitySelectorTests
+{
+    private static readonly DateOnly Day = new(2026, 9, 27);
+
+    [Fact]
+    public void Uses_trip_date_at_utc_midnight_and_ignores_other_selected_days()
+    {
+        var instant = new DateTimeOffset(2026, 9, 26, 15, 30, 0, TimeSpan.Zero);
+        var item = Item(Day, new TimeOnly(9, 0));
+
+        Assert.Equal(Day, DateOnly.FromDateTime(UpcomingActivitySelector.GetTripNow("Asia/Tokyo", instant)));
+        Assert.Equal(item, UpcomingActivitySelector.Select([item], Day, "Asia/Tokyo", instant));
+        Assert.Null(UpcomingActivitySelector.Select([item], Day.AddDays(1), "Asia/Tokyo", instant));
+    }
+
+    [Fact]
+    public void Keeps_overnight_flight_current_after_midnight()
+    {
+        var flight = Item(Day.AddDays(-1), new TimeOnly(23, 30)) with
+        {
+            EndsOn = Day, EndsAt = new TimeOnly(2, 0), Type = ReservationType.Flight
+        };
+        var instant = new DateTimeOffset(2026, 9, 26, 16, 0, 0, TimeSpan.Zero);
+
+        Assert.Equal(flight, UpcomingActivitySelector.Select([flight], Day, "Asia/Tokyo", instant));
+    }
+
+    [Fact]
+    public void Prefers_fixed_booking_to_flexible_plan_and_shows_quiet_end()
+    {
+        var flexible = Item(Day, new TimeOnly(8, 0)) with { TimePrecision = ItineraryTimePrecision.PeriodOnly };
+        var booking = Item(Day, new TimeOnly(10, 0)) with { Flexibility = ItineraryFlexibility.ConfirmedReservation };
+        var morning = new DateTimeOffset(2026, 9, 26, 23, 0, 0, TimeSpan.Zero);
+        var night = new DateTimeOffset(2026, 9, 27, 12, 0, 0, TimeSpan.Zero);
+
+        Assert.Equal(booking, UpcomingActivitySelector.Select([flexible, booking], Day, "Asia/Tokyo", morning));
+        Assert.Null(UpcomingActivitySelector.Select([flexible, booking], Day, "Asia/Tokyo", night));
+        Assert.Null(UpcomingActivitySelector.Select([booking], Day, "Asia/Tokyo", night));
+    }
+
+    private static ScheduleItemDto Item(DateOnly date, TimeOnly time) => new(
+        Guid.NewGuid(), null, ReservationType.Event, date, time, null, null, "Plan", "Tokyo",
+        "Lugar", "Dirección", "", "", null, null, null, null, null, null);
+}

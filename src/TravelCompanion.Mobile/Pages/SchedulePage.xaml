@@ -22,7 +22,7 @@
                     <Grid RowDefinitions="Auto,Auto,Auto,Auto"
                           RowSpacing="10">
                         <Grid ColumnDefinitions="*,44,44">
-                            <Label Text="HOY · YUKU JAPAN"
+                            <Label Text="{Binding DayEyebrow}"
                                    CharacterSpacing="3"
                                    FontSize="11"
                                    FontAttributes="Bold"
@@ -81,6 +81,33 @@
                                    TextColor="#6A625B" />
                         </Grid>
                     </Grid>
+
+                    <Border Padding="14,12" BackgroundColor="#FFFCF8" Stroke="#DDD4C9"
+                            StrokeThickness="1" IsVisible="{Binding HasFocusItem}">
+                        <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
+                        <VerticalStackLayout Spacing="4">
+                            <Label Text="A CONTINUACIÓN" CharacterSpacing="2" FontSize="10"
+                                   FontAttributes="Bold" TextColor="#9D794F" />
+                            <Label Text="{Binding FocusTitle}" FontFamily="serif" FontSize="21"
+                                   TextColor="#1A1714" MaxLines="2" LineBreakMode="TailTruncation" />
+                            <Label Text="{Binding FocusMeta}" FontSize="13" TextColor="#6E675F" />
+                            <Label Text="{Binding FocusPlace}" FontSize="13" TextColor="#6E675F"
+                                   MaxLines="1" LineBreakMode="TailTruncation" />
+                            <FlexLayout Wrap="Wrap" Direction="Row" AlignItems="Center" Margin="0,5,0,0">
+                                <Button Text="Cómo llegar" Command="{Binding OpenFocusMapCommand}"
+                                        IsVisible="{Binding CanOpenFocusMap}" Style="{StaticResource GhostButton}"
+                                        FontSize="12" MinimumHeightRequest="40" Margin="0,0,6,4" />
+                                <Button Text="Ver detalle" Command="{Binding OpenFocusDetailCommand}"
+                                        Style="{StaticResource GhostButton}" FontSize="12"
+                                        MinimumHeightRequest="40" Margin="0,0,6,4" />
+                                <Button Text="Ver documento" Command="{Binding OpenFocusDocumentCommand}"
+                                        IsVisible="{Binding HasFocusDocument}" Style="{StaticResource GhostButton}"
+                                        FontSize="12" MinimumHeightRequest="40" Margin="0,0,6,4" />
+                            </FlexLayout>
+                        </VerticalStackLayout>
+                    </Border>
+                    <Label Text="Por hoy, todo listo." IsVisible="{Binding ShowFinishedToday}"
+                           FontSize="12" TextColor="#8E867D" />
 
                     <Border Padding="16,14"
                             BackgroundColor="#FAF6F0"
@@ -189,6 +216,11 @@
                         </Border>
                     </Grid>
                     </Grid>
+
+                    <Button Text="Adaptar mi día" Command="{Binding AdaptDayCommand}"
+                            IsVisible="{Binding ShowAdaptDay}" IsEnabled="{Binding IsNotBusy}"
+                            Style="{StaticResource GhostButton}" FontSize="13"
+                            MinimumHeightRequest="44" />
 
                     <Border Padding="18,16"
                             BackgroundColor="{Binding SelectedDayReview.BackgroundColor}"

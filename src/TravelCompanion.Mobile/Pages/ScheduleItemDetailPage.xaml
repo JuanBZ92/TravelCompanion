@@ -134,6 +134,22 @@
                         CornerRadius="0"
                         FontSize="15"
                         FontAttributes="Bold" />
+                <Border Padding="14,12" BackgroundColor="#FFFCF8" Stroke="#DDD4C9"
+                        StrokeThickness="1" IsVisible="{Binding HasLinkedDocument}">
+                    <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <VerticalStackLayout Spacing="3">
+                            <Label Text="DOCUMENTO" CharacterSpacing="2" FontSize="10" TextColor="#9D794F" />
+                            <Label Text="{Binding LinkedDocumentTitle}" FontSize="14" TextColor="#1A1714"
+                                   MaxLines="1" LineBreakMode="TailTruncation" />
+                        </VerticalStackLayout>
+                        <Button Grid.Column="1" Text="Ver documento" Command="{Binding OpenLinkedDocumentCommand}"
+                                Style="{StaticResource GhostButton}" FontSize="12" MinimumHeightRequest="40" />
+                    </Grid>
+                </Border>
+                <Button Text="Vincular documento" Command="{Binding LinkDocumentCommand}"
+                        IsVisible="{Binding CanLinkDocument}" Style="{StaticResource GhostButton}"
+                        FontSize="12" MinimumHeightRequest="42" />
             </VerticalStackLayout>
         </VerticalStackLayout>
     </ScrollView>

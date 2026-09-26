@@ -500,6 +500,32 @@ public sealed class CommercePlanningTests
     }
 
     [Fact]
+    public async Task Demo_and_internal_accounts_do_not_enter_behavior_metrics()
+    {
+        await using var db = CreateDb();
+        var user = new AppUser
+        {
+            Id = Guid.NewGuid(), Email = "metrics-demo@travelcompanion.local", DisplayName = "Demo",
+            BehaviorAnalyticsConsent = true, IsDemo = true, IsInternal = true
+        };
+        db.AppUsers.Add(user);
+        await db.SaveChangesAsync();
+        var sessions = new UserSessionService(db);
+        var (_, token) = await sessions.CreateSessionAsync(user, accessMode: SessionAccessMode.FreeMapPreview);
+        var http = new DefaultHttpContext();
+        http.Request.Headers.Authorization = $"Bearer {token}";
+        var service = new ProductAnalyticsService(db);
+
+        var accepted = await service.IngestAsync(http, new ProductAnalyticsBatchDto([
+            new(Guid.NewGuid(), "adaptation_requested", DateTimeOffset.UtcNow, "today", "1.0", "android", null, null, true)
+        ]), sessions, default);
+        await service.RecordServerEventAsync(user.Id, null, "adaptation_applied", "assistant", null, default);
+
+        Assert.Equal(0, accepted);
+        Assert.Empty(await db.ProductAnalyticsEvents.ToListAsync());
+    }
+
+    [Fact]
     public async Task Current_trip_can_be_archived_and_is_unbound_from_the_session()
     {
         await using var db = CreateDb();

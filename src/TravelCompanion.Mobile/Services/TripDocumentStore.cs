@@ -8,7 +8,8 @@ public sealed record LocalDocumentPayload(byte[] Bytes);
 
 // Personal files use the existing encrypted, atomic cache writer, but a separate
 // namespace: ordinary session/cache invalidation must not delete user attachments.
-public sealed class TripDocumentStore(OfflineCacheService cache, AuthSessionService sessions, TravelCompanionApiClient api)
+public sealed class TripDocumentStore(OfflineCacheService cache, AuthSessionService sessions, TravelCompanionApiClient api,
+    ReservationDocumentLinkStore links)
 {
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly HashSet<Guid> _deletedAccounts = [];
@@ -91,6 +92,7 @@ public sealed class TripDocumentStore(OfflineCacheService cache, AuthSessionServ
             EnsureScope(scope);
             await cache.SaveAsync(IndexKey(scope), index.Where(item => item.Id != id).ToList(), ct);
             await cache.DeleteAsync(FileKey(scope, id));
+            await links.RemoveDocumentAsync(id, ct);
         }
         finally { _gate.Release(); }
     }
@@ -117,6 +119,34 @@ public sealed class TripDocumentStore(OfflineCacheService cache, AuthSessionServ
             File.Delete(path);
             throw;
         }
+    }
+
+    public async Task<bool> ExistsAsync(Guid id, CancellationToken ct = default)
+    {
+        var scope = Scope();
+        if (!(await ListAsync(ct)).Any(doc => doc.Id == id)) return false;
+        var payload = await cache.GetAsync<LocalDocumentPayload>(FileKey(scope, id), cancellationToken: ct);
+        EnsureScope(scope);
+        return payload is not null;
+    }
+
+    public async Task OpenLinkedAsync(ReservationDocumentLink link, CancellationToken ct = default)
+    {
+        if (link.LocalDocumentId is { } id)
+        {
+            await OpenAsync(id, ct);
+            return;
+        }
+        if (link.CuratedUrl is not { } url || !sessions.HasCuratedDocs)
+            throw new UnauthorizedAccessException();
+        var local = (await ListAsync(ct)).FirstOrDefault(doc => doc.SourceUrl == url);
+        if (local is null)
+        {
+            await DownloadAsync(url, link.Title, ct);
+            local = (await ListAsync(ct)).FirstOrDefault(doc => doc.SourceUrl == url);
+        }
+        if (local is null) throw new FileNotFoundException();
+        await OpenAsync(local.Id, ct);
     }
 
     public async Task<bool> IsDownloadedAsync(string url, CancellationToken ct = default)
@@ -177,7 +207,7 @@ public sealed class TripDocumentStore(OfflineCacheService cache, AuthSessionServ
             if (tripId.HasValue) _deletedTrips.Add((userId, tripId.Value));
             else _deletedAccounts.Add(userId);
             await cache.DeleteByPrefixAsync($"personal-document-file-{suffix}", $"personal-documents-{suffix}",
-                $"offline-preparation-{suffix}");
+                $"offline-preparation-{suffix}", $"document-links-{suffix}");
             await ClearPreviewsAsync();
         }
         finally { _gate.Release(); }

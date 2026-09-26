@@ -16,18 +16,48 @@ public sealed partial class TravelChatService
         var english = IsEnglish(locale);
         var action = request.GuidedAction!;
         var date = request.Date ?? DateOnly.FromDateTime(DateTime.UtcNow);
+        var adaptation = action.AdaptationReason;
         var trips = await dbContext.Trips.AsNoTracking()
             .Include(trip => trip.Destination)
             .Include(trip => trip.Reservations).ThenInclude(item => item.Recommendation)
             .Where(trip => trip.AppUserId == user.Id && trip.PublicationStatus == TripPublicationStatus.Published
-                && trip.StartsOn <= date && trip.EndsOn >= date)
+                && trip.StartsOn <= date && trip.EndsOn >= date
+                && (adaptation == null || trip.Id == action.TripId))
             .ToListAsync(cancellationToken);
         if (trips.Count == 0)
-            return responseComposer.MissingContext(conversationId, "date", textProvider.NoActiveTripMessage(date, locale), []);
+            return adaptation is null
+                ? responseComposer.MissingContext(conversationId, "date", textProvider.NoActiveTripMessage(date, locale), [])
+                : responseComposer.MissingContext(conversationId, "stale",
+                    english ? "Your itinerary changed. Refresh the day and generate a new proposal."
+                        : "El itinerario cambió. Actualizá el día y generá otra propuesta.", []);
+
+        if (adaptation is not null)
+        {
+            if (adaptation is not ("late" or "walk_less" or "indoors")
+                || (adaptation == "late" && action.DelayMinutes is not (>= 5 and <= 240))
+                || (adaptation != "late" && action.DelayMinutes is not null)
+                || action.RecommendationId is not null
+                || action.ReplaceReservationIds.Count > 0
+                || action.DraftDayStops.Count > 0
+                || action.DistanceAdjustment is not null
+                || action.BudgetAdjustment is not null
+                || action.ExpectedRevision is null
+                || action.TripId is null)
+                return responseComposer.MissingContext(conversationId, "selection",
+                    english ? "Choose a valid day adjustment." : "Elegí una adaptación válida para este día.", []);
+            if (trips.Count != 1 || trips[0].Id != action.TripId
+                || trips[0].PlanRevision != action.ExpectedRevision)
+                return responseComposer.MissingContext(conversationId, "stale",
+                    english ? "Your itinerary changed. Refresh the day and generate a new proposal."
+                        : "El itinerario cambió. Actualizá el día y generá otra propuesta.", []);
+        }
 
         var existing = trips.SelectMany(trip => trip.Reservations)
             .Where(item => IsReservationOnDate(item, date)).OrderBy(item => item.StartsAt).ToList();
-        var selectedIds = (action.ReplaceReservationIds ?? []).Distinct().ToHashSet();
+        var selectedIds = adaptation is null
+            ? (action.ReplaceReservationIds ?? []).Distinct().ToHashSet()
+            : existing.Where(item => item.Date == date && CanReplaceDayStop(item))
+                .Select(item => item.Id).Take(5).ToHashSet();
         var selected = existing.Where(item => selectedIds.Contains(item.Id)).ToList();
         var drafts = action.DraftDayStops ?? [];
         var isDraftChange = action.RecommendationId is not null;
@@ -46,6 +76,10 @@ public sealed partial class TravelChatService
             || selected.Any(item => !CanReplaceDayStop(item)))
             return responseComposer.MissingContext(conversationId, "selection",
                 english ? "Select editable events from this day." : "Seleccioná eventos editables de este día.", []);
+        if (adaptation is not null && selected.Count == 0)
+            return responseComposer.MissingContext(conversationId, "selection",
+                english ? "There are no flexible activities to adjust. Confirmed bookings stay in place."
+                    : "No hay actividades flexibles para adaptar. Las reservas confirmadas quedan en su lugar.", []);
 
         var timeline = existing.Where(item => item.Type == ReservationType.Event)
             .Select(item => (Time: item.StartsAt, Title: item.Title,
@@ -80,13 +114,17 @@ public sealed partial class TravelChatService
         var excluded = trips.SelectMany(trip => trip.Reservations).Where(item => item.RecommendationId.HasValue)
             .Select(item => item.RecommendationId!.Value.ToString()).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var ranked = new List<ScoredRecommendation>();
+        var preferenceProfile = adaptation == "indoors"
+            ? await userProfileService.GetProfileAsync(user.Id, cancellationToken)
+                ?? new TravelPreferenceProfile { UserId = user.Id }
+            : new TravelPreferenceProfile { UserId = user.Id };
         var cityByRecommendation = new Dictionary<Guid, string>();
         foreach (var candidateCity in cities)
         {
             var result = await recommendationPlanningService.RankAsync(user,
                 trips.Select(trip => trip.DestinationId).Distinct().ToList(), candidateCity,
-                new TravelPreferenceProfile { UserId = user.Id }, existing, context with { City = candidateCity }, BalancedMode,
-                new GuidedPlanCriteriaDto { IgnorePreferences = true }, excluded, cancellationToken);
+                preferenceProfile, existing, context with { City = candidateCity }, BalancedMode,
+                new GuidedPlanCriteriaDto { IgnorePreferences = adaptation != "indoors" }, excluded, cancellationToken);
             foreach (var candidate in result.RankedRecommendations.Where(item => cities.Count == 1
                 || item.Recommendation.Neighborhood.Contains(candidateCity, StringComparison.OrdinalIgnoreCase)))
                 if (cityByRecommendation.TryAdd(candidate.Recommendation.Id, candidateCity)) ranked.Add(candidate);
@@ -130,23 +168,46 @@ public sealed partial class TravelChatService
             slots = [(DaySlot(draftOriginal), draftOriginal)];
         }
         var cards = new List<TravelCardDto>();
+        var blockedByFixed = 0;
         var used = new HashSet<Guid>();
         foreach (var (slot, original) in slots.OrderBy(item => item.Original?.StartsAt ?? DayStopTimes[item.Slot]))
         {
             var time = original?.StartsAt ?? DayStopTimes[slot];
+            if (adaptation == "late" && original is not null)
+            {
+                if (time.ToTimeSpan().TotalMinutes + action.DelayMinutes!.Value >= 24 * 60)
+                {
+                    blockedByFixed++;
+                    continue;
+                }
+                time = time.AddMinutes(action.DelayMinutes!.Value);
+                var proposedStart = date.ToDateTime(time);
+                var proposedEnd = proposedStart.AddMinutes(original.DurationMinutes ?? 60);
+                if (existing.Any(item => item.Id != original.Id && !CanReplaceDayStop(item)
+                    && item.TimePrecision == ItineraryTimePrecision.Exact
+                    && proposedStart < (item.EndsOn ?? item.Date).ToDateTime(item.EndsAt ?? item.StartsAt.AddMinutes(item.DurationMinutes ?? 60))
+                    && proposedEnd > item.Date.ToDateTime(item.StartsAt)))
+                {
+                    blockedByFixed++;
+                    continue;
+                }
+            }
             IEnumerable<ScoredRecommendation> options = ranked
                 .Where(item => !used.Contains(item.Recommendation.Id)
                     && !drafts.Any(draft => draft.RecommendationId == item.Recommendation.Id)
                     && (slot is 1 or 3 || MatchesDaySlot(item.Recommendation, slot)));
+            if (adaptation == "indoors")
+                options = options.Where(item => IsIndoorCandidate(item.Recommendation));
             if (original is not null)
             {
-                if (action.DistanceAdjustment is "closer" or "farther")
+                var distanceAdjustment = adaptation == "walk_less" ? "closer" : action.DistanceAdjustment;
+                if (distanceAdjustment is "closer" or "farther")
                 {
                     var originalDistance = LargestAdjacentTransfer(timeline, time,
                         original.Latitude ?? original.Recommendation?.Latitude, original.Longitude ?? original.Recommendation?.Longitude).Distance;
                     options = options.Where(item => originalDistance.HasValue
                         && LargestAdjacentTransfer(timeline, time, item.Recommendation.Latitude, item.Recommendation.Longitude).Distance is { } distance
-                        && (action.DistanceAdjustment == "closer" ? distance < originalDistance : distance > originalDistance));
+                        && (distanceAdjustment == "closer" ? distance < originalDistance : distance > originalDistance));
                 }
                 if (action.BudgetAdjustment is "cheaper" or "dearer")
                 {
@@ -159,7 +220,7 @@ public sealed partial class TravelChatService
             var candidate = options
                 .OrderBy(item => cityByRecommendation[item.Recommendation.Id] == (slot < 3 ? cities[0] : cities[^1]) ? 0 : 1)
                 .ThenBy(item => slot is 1 or 3 && IsFoodRecommendation(item.Recommendation) ? 1 : 0)
-                .ThenBy(item => action.DistanceAdjustment == "closer"
+                .ThenBy(item => adaptation == "walk_less" || action.DistanceAdjustment == "closer"
                     ? LargestAdjacentTransfer(timeline, time, item.Recommendation.Latitude, item.Recommendation.Longitude).Distance ?? double.MaxValue
                     : 0)
                 .ThenBy(item => StableRandomOrder(action.OptionId ?? conversationId, slot.ToString(), item.Recommendation.Id))
@@ -206,7 +267,41 @@ public sealed partial class TravelChatService
                 : english ? $" {missing} slots stay open because no suitable place is available."
                     : $" Quedan {missing} huecos libres porque no hay un lugar adecuado disponible.";
         }
+        if (adaptation is not null)
+        {
+            var changed = cards.Count(card => card.ReservationId is not null);
+            var kept = existing.Count - changed;
+            var reordered = cards.Count(card => card.ReservationId is { } id
+                && existing.First(item => item.Id.ToString() == id).StartsAt.ToString("HH:mm") != card.StartTime);
+            for (var index = 0; index < cards.Count; index++)
+            {
+                var card = cards[index];
+                if (card.ReservationId is not { } id) continue;
+                var original = existing.First(item => item.Id.ToString() == id);
+                cards[index] = card with { WhyItFits = [.. card.WhyItFits,
+                    english ? $"Replaces {original.Title}." : $"Sustituye {original.Title}."] };
+            }
+            message = cards.Count == 0
+                ? blockedByFixed > 0
+                    ? english ? "The delay conflicts with a fixed booking. Nothing was changed."
+                        : "El retraso se cruza con una reserva fija. No cambié nada."
+                    : english ? "No safe adjustment was found. Your bookings and plans stay unchanged."
+                        : "No encontré un ajuste seguro. Tus reservas y planes siguen igual."
+                : english ? $"Proposal only: {kept} kept, {changed} replaced, {reordered} rescheduled. Confirmed bookings stay fixed. Review before saving."
+                    : $"Propuesta sin guardar: {kept} conservadas, {changed} sustituidas y {reordered} reordenadas. Las reservas confirmadas quedan fijas. Revisá antes de guardar.";
+            if (cards.Count > 0 && blockedByFixed > 0)
+                message += english ? $" {blockedByFixed} stops could not move without conflicting with a fixed booking."
+                    : $" {blockedByFixed} actividades no se pudieron mover por una reserva fija.";
+        }
         return new(conversationId, message, "day_plan", cards, [], null);
+    }
+
+    private static bool IsIndoorCandidate(Recommendation item)
+    {
+        var text = $"{item.Category} {string.Join(' ', item.Tags)}";
+        return new[] { "museum", "museo", "gallery", "galería", "indoor", "interior",
+            "restaurant", "restaurante", "cafe", "café", "shopping", "tienda", "store" }
+            .Any(term => text.Contains(term, StringComparison.OrdinalIgnoreCase));
     }
 
     private static bool CanReplaceDayStop(Reservation item) => ItineraryPlanningPolicy.CanReplace(item);

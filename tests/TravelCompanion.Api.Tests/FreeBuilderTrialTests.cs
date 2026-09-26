@@ -51,6 +51,27 @@ public sealed class FreeBuilderTrialTests
     }
 
     [Fact]
+    public async Task Adaptation_requires_pass_even_when_free_day_improvements_remain()
+    {
+        await using var factory = new TrialApiFactory();
+        await factory.SeedAsync();
+        using var client = factory.CreateClient();
+        var login = await LoginAsync(client, "adaptation-installation");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login.Token);
+
+        var response = await client.PostAsJsonAsync("/api/ai/travel-chat",
+            new TravelChatRequest("Adapt day", null, "Tokyo", new DateOnly(2026, 10, 5), null, "es-ES",
+                new GuidedTravelActionDto(GuidedTravelActions.FullDay)
+                {
+                    AdaptationReason = "walk_less", ExpectedRevision = 0
+                }), JsonOptions);
+        response.EnsureSuccessStatusCode();
+        var plan = await response.Content.ReadFromJsonAsync<TravelChatResponse>(JsonOptions);
+        Assert.Equal("upgrade", plan?.MissingContext?.Field);
+        Assert.Empty(plan!.Cards);
+    }
+
+    [Fact]
     public async Task First_setup_save_starts_timer_and_expired_editing_requires_upgrade()
     {
         await using var factory = new TrialApiFactory();

@@ -16,7 +16,8 @@ public sealed partial class TravelChatViewModel(
     ILocationService locationService,
     MobileBootstrapStore bootstrapStore,
     OfflineSyncCoordinator syncCoordinator,
-    PendingItineraryActionStore pendingItineraryActionStore) : ViewModelBase, ISessionStateResettable
+    PendingItineraryActionStore pendingItineraryActionStore,
+    ProductAnalyticsTracker analytics) : ViewModelBase, ISessionStateResettable
 {
     private static readonly TimeSpan TravelChatNetworkTimeout = TimeSpan.FromSeconds(20);
     private const string PreferenceCacheKeyPrefix = "travel-assistant-preferences-v1-";
@@ -43,6 +44,9 @@ public sealed partial class TravelChatViewModel(
     private bool _isExplicitlyCancelled;
     private bool _isFullDayFlow;
     private bool _isFullDayProgressActive;
+    private int? _adaptationRevision;
+    private Guid? _adaptationTripId;
+    private readonly HashSet<TravelChatCardViewModel> _adaptationCards = [];
     private bool _guidedPreferencesDirty;
     private Guid? _loadedPreferenceUserId;
     private TravelPreferenceProfileDto? _cachedPreferenceProfile;
@@ -250,6 +254,9 @@ public sealed partial class TravelChatViewModel(
         {
             return;
         }
+        _adaptationRevision = null;
+        _adaptationTripId = null;
+        _adaptationCards.Clear();
 
         if (!sessionService.CanEditItinerary)
         {
@@ -280,10 +287,48 @@ public sealed partial class TravelChatViewModel(
         await RunDayPlanAsync(new GuidedTravelActionDto(GuidedTravelActions.FullDay, Guid.NewGuid().ToString("N")));
     }
 
+    public async Task RequestDayAdaptationAsync(DateOnly date, string? city, string reason, int? delayMinutes)
+    {
+        if (IsBusy) return;
+        var contextVersion = sessionService.ContextVersion;
+        if (!sessionService.CanEditItinerary || sessionService.IsFreeMapPreview)
+        {
+            pendingItineraryActionStore.SetAdaptation(date, city, reason, delayMinutes);
+            await PaywallNavigation.OpenAsync(PaywallEntryPoint.Today);
+            return;
+        }
+        var cached = await bootstrapStore.GetCachedAsync();
+        if (contextVersion != sessionService.ContextVersion) return;
+        if (cached?.Value.Schedule is not { } schedule)
+        {
+            ErrorMessage = "Actualizá el itinerario antes de adaptar el día.";
+            return;
+        }
+        _adaptationRevision = schedule.Revision;
+        _adaptationTripId = schedule.TripId;
+        _adaptationCards.Clear();
+        await analytics.TrackAsync("adaptation_requested", reason, tripId: schedule.TripId);
+        PlanningDate = date.ToDateTime(TimeOnly.MinValue);
+        City = city;
+        _isFullDayFlow = true;
+        Messages.Clear();
+        OnMessagesChanged();
+        await RunDayPlanAsync(new GuidedTravelActionDto(GuidedTravelActions.FullDay, Guid.NewGuid().ToString("N"))
+        {
+            AdaptationReason = reason,
+            DelayMinutes = delayMinutes,
+            ExpectedRevision = schedule.Revision,
+            TripId = schedule.TripId
+        });
+    }
+
     public void ResetForNewSession()
     {
         ResetLoadState();
         _conversationId = null;
+        _adaptationRevision = null;
+        _adaptationTripId = null;
+        _adaptationCards.Clear();
         _lastIntent = null;
         _lastFailedMessage = null;
         _hasLoadedContext = false;
@@ -1028,6 +1073,11 @@ public sealed partial class TravelChatViewModel(
         for (var index = 0; index < cardsToProcess.Count; index++)
         {
             var card = cardsToProcess[index];
+            if (_adaptationCards.Contains(card) && !_adaptationRevision.HasValue)
+            {
+                card.FeedbackStatusMessage = "El itinerario cambió. Actualizá el día y generá otra propuesta.";
+                continue;
+            }
             if (sessionService.CanEditItinerary
                 && !sessionService.RequiresTripSetup
                 && card.RecommendationId.HasValue
@@ -1046,7 +1096,9 @@ public sealed partial class TravelChatViewModel(
                             card.SaveMutationId,
                             card.TimePrecision,
                             card.ReservationId,
-                            card.ReplacesRecommendationId),
+                            card.ReplacesRecommendationId,
+                            _adaptationCards.Contains(card) ? _adaptationRevision : null,
+                            _adaptationCards.Contains(card) ? _adaptationTripId : null),
                         cancellationToken);
                 }
                 catch (OperationCanceledException) { break; }
@@ -1066,11 +1118,14 @@ public sealed partial class TravelChatViewModel(
                     {
                         savedItems.Add(result.Item);
                         latestRevision = result.Revision ?? latestRevision;
+                        if (_adaptationCards.Contains(card)) _adaptationRevision = result.Revision;
                     }
                 }
                 else
                 {
                     card.FeedbackStatusMessage = result?.Message ?? Resource("PlanningTryAgain");
+                    if (result?.Message.Contains("itinerario cambió", StringComparison.OrdinalIgnoreCase) == true)
+                        _adaptationRevision = null;
                 }
             }
 
@@ -1079,6 +1134,8 @@ public sealed partial class TravelChatViewModel(
                 await onCardProcessed(card, index + 1, cardsToProcess.Count);
             }
         }
+        if (savedCount > 0 && cardsToProcess.Any(_adaptationCards.Contains))
+            await analytics.TrackAsync("adaptation_applied", "assistant", tripId: sessionService.CurrentTripId);
 
         if (savedItems.Count > 0)
         {

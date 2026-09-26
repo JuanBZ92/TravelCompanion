@@ -10,7 +10,10 @@ public sealed record TripScheduleDto(
     DateOnly EndsOn,
     IReadOnlyList<ScheduleItemDto> Items,
     int Revision = 0,
-    IReadOnlyList<DayReviewDto>? DayReviews = null);
+    IReadOnlyList<DayReviewDto>? DayReviews = null)
+{
+    public string TimeZoneId { get; init; } = "Asia/Tokyo";
+}
 
 public sealed record ScheduleItemDto(
     Guid Id,

@@ -65,7 +65,7 @@ public sealed class TripsController(
             trip.EndsOn,
             items,
             trip.PlanRevision,
-            ScheduleReviewAnalyzer.Analyze(items, trip.StartsOn, trip.EndsOn));
+            ScheduleReviewAnalyzer.Analyze(items, trip.StartsOn, trip.EndsOn)) { TimeZoneId = trip.TimeZoneId };
 
         return Ok(response);
     }

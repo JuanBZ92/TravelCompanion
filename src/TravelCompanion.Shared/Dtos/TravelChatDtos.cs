@@ -38,6 +38,10 @@ public sealed record GuidedTravelActionDto(
     public string? DistanceAdjustment { get; init; }
     public string? BudgetAdjustment { get; init; }
     public IReadOnlyList<DayPlanDraftStopDto> DraftDayStops { get; init; } = [];
+    public string? AdaptationReason { get; init; }
+    public int? DelayMinutes { get; init; }
+    public int? ExpectedRevision { get; init; }
+    public Guid? TripId { get; init; }
 }
 
 // Preview context only. The backend resolves catalog data and validates any saved replacement target.
@@ -131,7 +135,9 @@ public sealed record SaveItineraryItemRequest(
     Guid? ClientMutationId = null,
     ItineraryTimePrecision TimePrecision = ItineraryTimePrecision.PeriodOnly,
     Guid? ReplaceReservationId = null,
-    Guid? ExpectedRecommendationId = null);
+    Guid? ExpectedRecommendationId = null,
+    int? ExpectedRevision = null,
+    Guid? ExpectedTripId = null);
 
 public sealed record SaveItineraryItemResponse(
     bool Saved,

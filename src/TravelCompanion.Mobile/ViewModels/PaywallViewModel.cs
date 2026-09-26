@@ -274,6 +274,18 @@ public sealed partial class PaywallViewModel(
             await Shell.Current.GoToAsync(nameof(ItineraryItemEditorPage), parameters);
             return;
         }
+        var adaptation = pendingActions.TakeAdaptation();
+        if (adaptation is not null)
+        {
+            await Shell.Current.GoToAsync("//main/assistant", new ShellNavigationQueryParameters
+            {
+                ["ReviewDate"] = adaptation.Date,
+                ["ReviewCity"] = adaptation.City ?? string.Empty,
+                ["AdaptationReason"] = adaptation.Reason,
+                ["DelayMinutes"] = adaptation.DelayMinutes ?? 0
+            });
+            return;
+        }
         await (_entryPoint switch
         {
             PaywallEntryPoint.Map => Shell.Current.GoToAsync("//main/map"),

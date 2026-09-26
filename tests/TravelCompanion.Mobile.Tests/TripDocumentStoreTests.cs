@@ -14,7 +14,7 @@ public sealed class TripDocumentStoreTests
         var first = Session();
         var anotherTrip = first with { TripId = Guid.NewGuid() };
         var otherUser = Session();
-        var store = new TripDocumentStore(new OfflineCacheService(), sessions, new TravelCompanionApiClient());
+        var store = CreateStore(new OfflineCacheService(), sessions);
         try
         {
             foreach (var account in new[] { first, anotherTrip, otherUser })
@@ -46,7 +46,7 @@ public sealed class TripDocumentStoreTests
         var sessions = new AuthSessionService();
         var first = Session();
         var disk = new OfflineCacheService();
-        var store = new TripDocumentStore(disk, sessions, new TravelCompanionApiClient());
+        var store = CreateStore(disk, sessions);
         try
         {
             await sessions.SaveAsync(first);
@@ -71,11 +71,46 @@ public sealed class TripDocumentStoreTests
     }
 
     [Fact]
+    public async Task Document_links_are_scoped_and_deletion_clears_them_without_touching_other_files()
+    {
+        var sessions = new AuthSessionService();
+        var account = Session();
+        var disk = new OfflineCacheService();
+        var links = new ReservationDocumentLinkStore(disk, sessions);
+        var store = new TripDocumentStore(disk, sessions, new TravelCompanionApiClient(), links);
+        var reservationId = Guid.NewGuid();
+        try
+        {
+            await sessions.SaveAsync(account);
+            await store.AttachAsync(new MemoryStream("%PDF-1.7 ticket"u8.ToArray()), "ticket.pdf");
+            await store.AttachAsync(new MemoryStream("%PDF-1.7 hotel"u8.ToArray()), "hotel.pdf");
+            var files = await store.ListAsync();
+            var ticket = files.Single(file => file.Title == "ticket");
+            Assert.True(await store.ExistsAsync(ticket.Id));
+            await links.SetAsync(new ReservationDocumentLink(reservationId, ticket.Id, null, ticket.Title));
+            Assert.Equal(ticket.Id, (await links.GetAsync(reservationId))?.LocalDocumentId);
+
+            await sessions.SaveAsync(Session());
+            Assert.Null(await links.GetAsync(reservationId));
+            await sessions.SaveAsync(account);
+            await links.RemoveReservationAsync(reservationId);
+            Assert.Null(await links.GetAsync(reservationId));
+            Assert.True(await store.ExistsAsync(ticket.Id));
+            await links.SetAsync(new ReservationDocumentLink(reservationId, ticket.Id, null, ticket.Title));
+            await store.DeleteAsync(ticket.Id);
+            Assert.False(await store.ExistsAsync(ticket.Id));
+            Assert.Null(await links.GetAsync(reservationId));
+            Assert.Equal("hotel", Assert.Single(await store.ListAsync()).Title);
+        }
+        finally { sessions.Clear(); }
+    }
+
+    [Fact]
     public async Task Expired_pass_can_read_saved_files_but_cannot_attach()
     {
         var sessions = new AuthSessionService();
         var account = Session();
-        var store = new TripDocumentStore(new OfflineCacheService(), sessions, new TravelCompanionApiClient());
+        var store = CreateStore(new OfflineCacheService(), sessions);
         try
         {
             await sessions.SaveAsync(account);
@@ -93,7 +128,7 @@ public sealed class TripDocumentStoreTests
     {
         var sessions = new AuthSessionService();
         var account = Session();
-        var store = new TripDocumentStore(new OfflineCacheService(), sessions, new TravelCompanionApiClient());
+        var store = CreateStore(new OfflineCacheService(), sessions);
         try
         {
             await sessions.SaveAsync(account);
@@ -109,7 +144,7 @@ public sealed class TripDocumentStoreTests
     {
         var sessions = new AuthSessionService();
         var account = Session();
-        var store = new TripDocumentStore(new OfflineCacheService(), sessions, new TravelCompanionApiClient());
+        var store = CreateStore(new OfflineCacheService(), sessions);
         try
         {
             await sessions.SaveAsync(account);
@@ -131,7 +166,7 @@ public sealed class TripDocumentStoreTests
         var first = Session();
         var second = Session();
         var disk = new OfflineCacheService();
-        var store = new TripDocumentStore(disk, sessions, new TravelCompanionApiClient());
+        var store = CreateStore(disk, sessions);
         try
         {
             await sessions.SaveAsync(first);
@@ -153,4 +188,7 @@ public sealed class TripDocumentStoreTests
             return await base.ReadAsync(buffer, ct);
         }
     }
+
+    private static TripDocumentStore CreateStore(OfflineCacheService disk, AuthSessionService sessions) =>
+        new(disk, sessions, new TravelCompanionApiClient(), new ReservationDocumentLinkStore(disk, sessions));
 }

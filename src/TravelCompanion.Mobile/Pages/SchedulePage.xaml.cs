@@ -96,6 +96,7 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
                 && !_viewModel.ShowTodayLoading
                 && _viewModel.HasFreshVisibleData)
             {
+                await _viewModel.RefreshFocusDocumentAsync();
                 stopwatch.Stop();
                 _logger.LogInformation(
                     "Schedule page appeared from warm state in {ElapsedMs}ms.",

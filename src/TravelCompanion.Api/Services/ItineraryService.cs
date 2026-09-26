@@ -82,6 +82,12 @@ public sealed class ItineraryService(
             }
         }
 
+        if (request.ExpectedTripId is { } expectedTripId && trip.Id != expectedTripId)
+            return new(false, "El viaje cambió. Actualiza el día y genera otra propuesta.", null, trip.PlanRevision);
+
+        if (request.ExpectedRevision is { } expectedRevision && trip.PlanRevision != expectedRevision)
+            return new(false, "El itinerario cambió mientras preparábamos la propuesta. Actualiza el día y genera otra.", null, trip.PlanRevision);
+
         var replaced = request.ReplaceReservationId.HasValue
             ? trip.Reservations.SingleOrDefault(item => item.Id == request.ReplaceReservationId.Value) : null;
         if (request.ReplaceReservationId.HasValue && (replaced is null

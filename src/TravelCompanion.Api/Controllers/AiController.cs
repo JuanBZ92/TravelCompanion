@@ -39,6 +39,14 @@ public sealed class AiController(
         }
 
         var access = await accessService.GetAsync(HttpContext, cancellationToken);
+        if (request.GuidedAction?.AdaptationReason is not null
+            && request.GuidedAction.Action != TravelCompanion.Shared.GuidedTravelActions.FullDay)
+            return this.ValidationError(nameof(request.GuidedAction), "Adaptation requires a full-day action.");
+        if (request.GuidedAction?.AdaptationReason is not null
+            && access?.Session.AccessMode != TravelCompanion.Shared.SessionAccessMode.Builder)
+            return Ok(new TravelChatResponse(request.ConversationId ?? Guid.NewGuid().ToString("N"),
+                "Activa el Pase Japón para adaptar tu día.", "upgrade_required", [], ["Activar mi pase"],
+                new MissingContextDto("upgrade", "La adaptación del día requiere el pase.", ["Activar mi pase"])));
         var intent = intentClassifier.Classify(request.Message);
         if (access?.Session.AccessMode == TravelCompanion.Shared.SessionAccessMode.BuilderReadOnly)
         {

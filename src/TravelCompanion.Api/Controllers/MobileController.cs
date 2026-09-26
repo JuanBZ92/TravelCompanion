@@ -434,7 +434,7 @@ public sealed class MobileController(
             trip.EndsOn,
             items,
             trip.PlanRevision,
-            ScheduleReviewAnalyzer.Analyze(items, trip.StartsOn, trip.EndsOn));
+            ScheduleReviewAnalyzer.Analyze(items, trip.StartsOn, trip.EndsOn)) { TimeZoneId = trip.TimeZoneId };
     }
 
     private static FlightDocsSectionDto? CreateFlightDocsSection(Trip trip)

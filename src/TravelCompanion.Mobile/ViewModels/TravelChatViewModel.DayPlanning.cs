@@ -84,8 +84,22 @@ public sealed partial class TravelChatViewModel
                 await PaywallNavigation.OpenAsync(PaywallEntryPoint.Today, limitReached: true);
                 return;
             }
+            if (response.MissingContext?.Field == "stale")
+            {
+                ErrorMessage = response.Message;
+                _adaptationRevision = null;
+                return;
+            }
             var cards = response.Cards.Select(item => new TravelChatCardViewModel(item) { PlanningDate = planningDate }).ToList();
+            if (action.AdaptationReason is not null || replacementTarget is not null && _adaptationCards.Contains(replacementTarget))
+                foreach (var card in cards) _adaptationCards.Add(card);
             StatusMessage = response.Message;
+            if (action.AdaptationReason is not null && cards.Count > 0)
+            {
+                var lines = string.Join("\n", cards.Select(card => $"• {card.Title}"));
+                await Shell.Current.DisplayAlertAsync("Propuesta para tu día",
+                    $"{response.Message}\n\nAlternativas:\n{lines}\n\nGuardá solo las que quieras aplicar.", "Revisar");
+            }
             if (replacementTarget is not null)
             {
                 if (cards.Count == 1 && response.MissingContext is null && response.Intent == "day_plan")

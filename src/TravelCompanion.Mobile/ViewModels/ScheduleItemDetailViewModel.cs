@@ -7,9 +7,17 @@ namespace TravelCompanion.Mobile.ViewModels;
 public sealed partial class ScheduleItemDetailViewModel(
     TravelCompanionApiClient apiClient,
     AuthSessionService sessionService,
-    MobileBootstrapStore bootstrapStore) : ViewModelBase, IQueryAttributable
+    MobileBootstrapStore bootstrapStore,
+    OfflineCacheService offlineCache,
+    TripDocumentStore documents,
+    ReservationDocumentLinkStore documentLinks) : ViewModelBase, IQueryAttributable
 {
     private ScheduleItemDto? _scheduleItem;
+    private ReservationDocumentLink? _documentLink;
+    public bool HasLinkedDocument => _documentLink is not null;
+    public string LinkedDocumentTitle => _documentLink?.Title ?? string.Empty;
+    public bool CanLinkDocument => ScheduleItem is not null && sessionService.HasKnownValidAccess
+        && (documents.CanAttach || sessionService.HasCuratedDocs);
     private string _curatedNotes = string.Empty;
     public string CuratedNotes
     {
@@ -28,6 +36,9 @@ public sealed partial class ScheduleItemDetailViewModel(
         {
             if (SetProperty(ref _scheduleItem, value))
             {
+                _documentLink = null;
+                OnPropertyChanged(nameof(HasLinkedDocument));
+                OnPropertyChanged(nameof(LinkedDocumentTitle));
                 OnPropertyChanged(nameof(ReservationReferenceLabel));
                 OnPropertyChanged(nameof(HasReservationReference));
                 OnPropertyChanged(nameof(ReservationTimeLabel));
@@ -35,6 +46,7 @@ public sealed partial class ScheduleItemDetailViewModel(
                 OnPropertyChanged(nameof(NotesText));
                 OnPropertyChanged(nameof(HasNotes));
                 OnPropertyChanged(nameof(HasAddress));
+                OnPropertyChanged(nameof(CanLinkDocument));
             }
         }
     }
@@ -69,6 +81,7 @@ public sealed partial class ScheduleItemDetailViewModel(
             }
 
             var date = ScheduleItem.Date.ToString("dddd d MMMM");
+            if (!ScheduleItem.HasExactTime) return $"{date} · {ScheduleItem.PeriodDisplay}";
             return ScheduleItem.HasEnd
                 ? $"{date} · {ScheduleItem.StartsAt:HH\\:mm} - {ScheduleItem.EndDisplay.Replace("Hasta: ", string.Empty).Replace("Horario de llegada: ", string.Empty)}"
                 : $"{date} · {ScheduleItem.StartsAt:HH\\:mm}";
@@ -91,6 +104,86 @@ public sealed partial class ScheduleItemDetailViewModel(
             ScheduleItem = item;
             CuratedNotes = string.Empty;
             _ = LoadCuratedNotesAsync(item);
+            _ = RefreshLinkedDocumentAsync();
+        }
+    }
+
+    public async Task RefreshLinkedDocumentAsync()
+    {
+        var item = ScheduleItem;
+        if (item is null) return;
+        var version = sessionService.ContextVersion;
+        try
+        {
+            var link = await documentLinks.GetAsync(item.Id);
+            if (link?.LocalDocumentId is { } id && !await documents.ExistsAsync(id))
+            {
+                await documentLinks.RemoveDocumentAsync(id);
+                link = null;
+            }
+            if (ReferenceEquals(ScheduleItem, item) && version == sessionService.ContextVersion)
+            {
+                _documentLink = link;
+                OnPropertyChanged(nameof(HasLinkedDocument));
+                OnPropertyChanged(nameof(LinkedDocumentTitle));
+                OnPropertyChanged(nameof(CanLinkDocument));
+            }
+        }
+        catch { /* A changed session or unavailable local index must not hide reservation details. */ }
+    }
+
+    [RelayCommand]
+    private async Task LinkDocumentAsync()
+    {
+        if (!CanLinkDocument || ScheduleItem is not { } item) return;
+        var version = sessionService.ContextVersion;
+        try
+        {
+            var local = await documents.ListAsync();
+            var choices = local.Select(doc => new ReservationDocumentLink(item.Id, doc.Id, null, doc.Title)).ToList();
+            if (sessionService.HasCuratedDocs)
+            {
+                var key = $"mobile-docs-{sessionService.CurrentTripId?.ToString() ?? "trip-auto"}-{sessionService.CurrentUserId?.ToString() ?? "anonymous"}";
+                var cached = await offlineCache.GetAsync<TravelDocsDto>(key, maxAge: null);
+                var curated = cached?.Value;
+                if (curated is null && Connectivity.Current.NetworkAccess == NetworkAccess.Internet)
+                {
+                    var token = await sessionService.GetTokenAsync();
+                    if (!string.IsNullOrWhiteSpace(token)) curated = await apiClient.GetTravelDocsAsync(token);
+                }
+                if (curated is not null)
+                    choices.AddRange(curated.HotelDocuments.Concat(curated.OtherDocuments)
+                        .Select(doc => new ReservationDocumentLink(item.Id, null, doc.FileUrl, doc.Title)));
+            }
+            if (version != sessionService.ContextVersion || !ReferenceEquals(ScheduleItem, item)) return;
+            if (choices.Count == 0)
+            {
+                await Shell.Current.DisplayAlertAsync("Documentos", "Agregá un archivo en la pestaña Documentos y volvé a esta reserva.", "OK");
+                return;
+            }
+            var labels = choices.Select((choice, index) => $"{index + 1}. {choice.Title}").ToArray();
+            var selected = await Shell.Current.DisplayActionSheetAsync("Vincular documento", "Cancelar", null, labels);
+            var position = Array.IndexOf(labels, selected);
+            if (position < 0 || version != sessionService.ContextVersion) return;
+            await documentLinks.SetAsync(choices[position]);
+            await RefreshLinkedDocumentAsync();
+        }
+        catch { await Shell.Current.DisplayAlertAsync("Documentos", "No pudimos vincular el documento.", "OK"); }
+    }
+
+    [RelayCommand]
+    private async Task OpenLinkedDocumentAsync()
+    {
+        if (_documentLink is not { } link || ScheduleItem?.Id != link.ReservationId) return;
+        try
+        {
+            await documents.OpenLinkedAsync(link);
+        }
+        catch
+        {
+            await RefreshLinkedDocumentAsync();
+            await Shell.Current.DisplayAlertAsync("Documento no disponible",
+                "Comprobá que el archivo exista y que haya un visor instalado. Si es un documento del viaje, intentá con conexión.", "OK");
         }
     }
 

@@ -2356,6 +2356,139 @@ public sealed class TravelChatServiceTests
         Assert.Empty(await db.Reservations.ToListAsync());
     }
 
+    [Fact]
+    public async Task Adaptation_rejects_stale_revision_and_never_selects_confirmed_reservations()
+    {
+        await using var db = CreateDbContext();
+        var destination = Guid.NewGuid();
+        var original = DayRecommendation(destination, "Outdoor walk", "Nature");
+        var museum = DayRecommendation(destination, "Indoor museum", "Museum");
+        museum.Tags = ["museum", "indoor"];
+        var fixedPlace = DayRecommendation(destination, "Booked visit", "Culture");
+        var user = await SeedPlanningWorldAsync(db, destination, original, museum, fixedPlace);
+        db.Reservations.RemoveRange(await db.Reservations.ToListAsync());
+        var trip = await db.Trips.SingleAsync();
+        trip.PlanRevision = 7;
+        db.Trips.Add(new Trip
+        {
+            Id = Guid.NewGuid(), AppUserId = user.Id, DestinationId = destination,
+            TravelerName = "Other itinerary", StartsOn = trip.StartsOn, EndsOn = trip.EndsOn
+        });
+        var flexible = DayReservation(trip.Id, original, new(10, 30));
+        var confirmed = DayReservation(trip.Id, fixedPlace, new(13, 0));
+        confirmed.PlanningKind = ScheduleItemKind.ConfirmedReservation;
+        confirmed.Flexibility = ItineraryFlexibility.ConfirmedReservation;
+        confirmed.TimePrecision = ItineraryTimePrecision.Exact;
+        db.Reservations.AddRange(flexible, confirmed);
+        await db.SaveChangesAsync();
+        var service = CreateService(db);
+        var request = DayRequest() with
+        {
+            GuidedAction = new(GuidedTravelActions.FullDay, "indoor-adaptation")
+            {
+                AdaptationReason = "indoors", ExpectedRevision = 7, TripId = trip.Id
+            }
+        };
+
+        var stale = await service.CreatePlanAsync(user, request with
+        {
+            GuidedAction = request.GuidedAction! with { ExpectedRevision = 6 }
+        }, CancellationToken.None);
+        Assert.Equal("stale", stale.MissingContext?.Field);
+
+        var proposal = await service.CreatePlanAsync(user, request, CancellationToken.None);
+        Assert.Null(proposal.MissingContext);
+        Assert.All(proposal.Cards, card => Assert.Equal(flexible.Id.ToString(), card.ReservationId));
+        Assert.DoesNotContain(proposal.Cards, card => card.ReservationId == confirmed.Id.ToString());
+        Assert.Contains("reservas confirmadas", proposal.Message);
+        Assert.Equal(2, await db.Reservations.CountAsync());
+    }
+
+    [Fact]
+    public async Task Adaptation_save_rejects_a_changed_itinerary_revision()
+    {
+        await using var db = CreateDbContext();
+        var destination = Guid.NewGuid();
+        var original = DayRecommendation(destination, "Original", "Culture");
+        var alternative = DayRecommendation(destination, "Alternative", "Culture");
+        var user = await SeedPlanningWorldAsync(db, destination, original, alternative);
+        db.Reservations.RemoveRange(await db.Reservations.ToListAsync());
+        var trip = await db.Trips.SingleAsync();
+        trip.PlanRevision = 4;
+        var reservation = DayReservation(trip.Id, original, new(10, 30));
+        db.Reservations.Add(reservation);
+        await db.SaveChangesAsync();
+
+        var result = await new ItineraryService(db).SaveItineraryItemAsync(user,
+            new SaveItineraryItemRequest(alternative.Id, reservation.Date, reservation.StartsAt, null,
+                Guid.NewGuid(), ReplaceReservationId: reservation.Id, ExpectedRecommendationId: original.Id,
+                ExpectedRevision: 3, ExpectedTripId: trip.Id), CancellationToken.None);
+        Assert.False(result.Saved);
+        Assert.Contains("itinerario cambió", result.Message);
+        Assert.Equal(original.Id, (await db.Reservations.SingleAsync()).RecommendationId);
+    }
+
+    [Fact]
+    public async Task Late_adaptation_explains_a_conflict_with_fixed_booking()
+    {
+        await using var db = CreateDbContext();
+        var destination = Guid.NewGuid();
+        var original = DayRecommendation(destination, "Original", "Culture");
+        var alternative = DayRecommendation(destination, "Alternative", "Culture");
+        var fixedPlace = DayRecommendation(destination, "Booking", "Culture");
+        var user = await SeedPlanningWorldAsync(db, destination, original, alternative, fixedPlace);
+        db.Reservations.RemoveRange(await db.Reservations.ToListAsync());
+        var trip = await db.Trips.SingleAsync();
+        var flexible = DayReservation(trip.Id, original, new(10, 30));
+        var confirmed = DayReservation(trip.Id, fixedPlace, new(11, 0));
+        confirmed.PlanningKind = ScheduleItemKind.ConfirmedReservation;
+        confirmed.Flexibility = ItineraryFlexibility.ConfirmedReservation;
+        confirmed.TimePrecision = ItineraryTimePrecision.Exact;
+        db.Reservations.AddRange(flexible, confirmed);
+        await db.SaveChangesAsync();
+
+        var response = await CreateService(db).CreatePlanAsync(user, DayRequest() with
+        {
+            GuidedAction = new(GuidedTravelActions.FullDay, "late-test")
+            {
+                AdaptationReason = "late", DelayMinutes = 30, ExpectedRevision = trip.PlanRevision, TripId = trip.Id
+            }
+        }, CancellationToken.None);
+
+        Assert.Empty(response.Cards);
+        Assert.Contains("reserva fija", response.Message);
+        Assert.Equal(2, await db.Reservations.CountAsync());
+    }
+
+    [Fact]
+    public async Task Late_adaptation_previews_a_shift_without_saving_it()
+    {
+        await using var db = CreateDbContext();
+        var destination = Guid.NewGuid();
+        var original = DayRecommendation(destination, "Original", "Culture");
+        var alternative = DayRecommendation(destination, "Alternative", "Culture");
+        var user = await SeedPlanningWorldAsync(db, destination, original, alternative);
+        db.Reservations.RemoveRange(await db.Reservations.ToListAsync());
+        var trip = await db.Trips.SingleAsync();
+        var flexible = DayReservation(trip.Id, original, new(10, 30));
+        db.Reservations.Add(flexible);
+        await db.SaveChangesAsync();
+
+        var response = await CreateService(db).CreatePlanAsync(user, DayRequest() with
+        {
+            GuidedAction = new(GuidedTravelActions.FullDay, "late-preview")
+            {
+                AdaptationReason = "late", DelayMinutes = 30, ExpectedRevision = trip.PlanRevision, TripId = trip.Id
+            }
+        }, CancellationToken.None);
+
+        var card = Assert.Single(response.Cards);
+        Assert.Equal("11:00", card.StartTime);
+        Assert.Equal(flexible.Id.ToString(), card.ReservationId);
+        Assert.Contains("1 reordenadas", response.Message);
+        Assert.Equal(new TimeOnly(10, 30), (await db.Reservations.SingleAsync()).StartsAt);
+    }
+
     private static TravelChatRequest DayRequest(params Guid[] selected) => new("Improve day", null, "Tokyo",
         new DateOnly(2026, 10, 6), null, "es-ES",
         new GuidedTravelActionDto(GuidedTravelActions.FullDay, "day-test") { ReplaceReservationIds = selected });

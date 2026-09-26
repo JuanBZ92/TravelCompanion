@@ -25,6 +25,8 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     private readonly ProductAnalyticsTracker _analytics;
     private readonly OfflineTripPreparationService _offlinePreparation;
     private readonly TripDocumentStore _documents;
+    private readonly ReservationDocumentLinkStore _documentLinks;
+    private readonly PendingItineraryActionStore _pendingActions;
     private string _offlineStatus = string.Empty;
     public string OfflineStatus { get => _offlineStatus; private set => SetProperty(ref _offlineStatus, value); }
     public string OfflineScope => LocalizationResourceManager.Instance["OfflineScope"];
@@ -64,6 +66,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     private string? _stayTitle;
     private ScheduleItemDto? _selectedItem;
     private ScheduleItemDto? _focusItem;
+    private ReservationDocumentLink? _focusDocument;
     private TodayDto? _today;
     private ScheduleTypeSectionViewModel? _activeSection;
     private IReadOnlyList<ScheduleDayViewModel> _activeDays = [];
@@ -84,6 +87,8 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     private TodayHotelBaseDto? _selectedHotelBase;
     private DayReviewViewModel? _selectedDayReview;
     private string _destinationName = "Tu viaje";
+    private string _tripTimeZoneId = "Asia/Tokyo";
+    private DateOnly? _lastTripToday;
 
     [RelayCommand]
     private async Task CalculateRouteAsync(ItineraryRouteViewModel? route)
@@ -161,6 +166,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     public bool ShowDayReview => !ShowTodayLoading && SelectedDayReview?.HasIssues == true;
     public bool ShowImproveDay => _selectedDate.HasValue && _tripId.HasValue
         && _sessionService.ExperienceMode != ExperienceMode.CuratedPremium;
+    public bool ShowAdaptDay => ShowImproveDay;
     public bool IsSelectedDayLocked => _sessionService.IsFreeMapPreview
         && _tripStartsOn is { } start && _selectedDate is { } date
         && !FreePlanningPolicy.CanPlanDate(start, date);
@@ -178,13 +184,39 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         && CanEditSelectedDay
         && !_sessionService.RequiresTripSetup
         && _tripStartsOn.HasValue;
-    public void RefreshAccessState() => OnPropertyChanged(nameof(CanManageItinerary));
+    public void RefreshAccessState()
+    {
+        OnPropertyChanged(nameof(CanManageItinerary));
+        var today = TripToday;
+        if (_lastTripToday is { } previous && previous != today)
+        {
+            _lastTripToday = today;
+            if (_selectedDate == previous && _tripStartsOn <= today && _tripEndsOn >= today)
+            {
+                _selectedDate = today;
+                _today = _todayByDate.GetValueOrDefault(today);
+                RebuildSelectedDay();
+            }
+            OnPropertyChanged(nameof(HasFocusItem));
+            OnPropertyChanged(nameof(ShowFinishedToday));
+            OnPropertyChanged(nameof(DayEyebrow));
+        }
+        RefreshUpcomingActivity();
+    }
 
     [RelayCommand]
     private Task RedeemPassAsync() => PaywallNavigation.OpenAsync(TravelCompanion.Shared.Dtos.PaywallEntryPoint.Today);
 
     public bool HasSelectedDayItems => TodaySections.Any(section => section.HasContent);
-    public bool HasFocusItem => _focusItem is not null;
+    public bool HasFocusItem => _focusItem is not null && _selectedDate == TripToday;
+    public bool ShowFinishedToday => _tripId.HasValue && _selectedDate == TripToday && !HasFocusItem && !ShowTodayLoading;
+    private DateOnly TripToday => DateOnly.FromDateTime(UpcomingActivitySelector.GetTripNow(_tripTimeZoneId, DateTimeOffset.UtcNow));
+    public string FocusPlace => _focusItem is null ? string.Empty
+        : string.Equals(_focusItem.LocationName, _focusItem.Title, StringComparison.OrdinalIgnoreCase)
+            ? !string.IsNullOrWhiteSpace(_focusItem.Address) ? _focusItem.Address : _focusItem.City
+            : !string.IsNullOrWhiteSpace(_focusItem.LocationName) ? _focusItem.LocationName : _focusItem.Address;
+    public bool CanOpenFocusMap => _focusItem is not null && (!string.IsNullOrWhiteSpace(_focusItem.Address) || !string.IsNullOrWhiteSpace(_focusItem.LocationName));
+    public bool HasFocusDocument => HasFocusItem && _focusDocument is not null;
     public bool ShowInitialLoading => IsBusy && DayFilters.Count == 0;
     public bool ShowTodayLoading => _isTodayLoading && _selectedDate.HasValue;
     public bool ShowTodayContent => !ShowTodayLoading;
@@ -209,6 +241,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     public string SelectedDateLabel => _selectedDate.HasValue
         ? FormatLongDate(_selectedDate.Value)
         : TripDates ?? string.Empty;
+    public string DayEyebrow => _selectedDate == TripToday ? "HOY · YUKU JAPAN" : "ITINERARIO · YUKU JAPAN";
     public string AmbientGlyph => GetAmbientGlyph(SelectedCity);
     public string? PreviewMessage
     {
@@ -232,9 +265,65 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     public string FocusSubtitle => _focusItem is null
         ? "Cuando haya reservas, vas a ver aca el proximo momento relevante."
         : $"{_focusItem.TypeLabel} en {NormalizeCity(_focusItem.City)}";
-    public string FocusMeta => _focusItem is null
-        ? TripDates ?? string.Empty
-        : $"{_focusItem.Date:MMM d} · {_focusItem.StartsAt:HH\\:mm}";
+    public string FocusMeta => _focusItem is null ? string.Empty
+        : _focusItem.HasExactTime
+            ? $"{_focusItem.StartsAt:HH\\:mm} · {(_focusItem.IsRecommendation ? "Plan" : _focusItem.TypeLabel)}"
+            : _focusItem.PeriodDisplay;
+
+    [RelayCommand]
+    private async Task OpenFocusDetailAsync()
+    {
+        if (_focusItem is null) return;
+        await _analytics.TrackAsync("next_activity_opened", "today", tripId: _tripId);
+        await OpenScheduleItemAsync(_focusItem);
+    }
+
+    [RelayCommand]
+    private async Task OpenFocusMapAsync()
+    {
+        if (!CanOpenFocusMap || _focusItem is null) return;
+        await _analytics.TrackAsync("next_activity_opened", "route", tripId: _tripId);
+        await GoogleMapsLauncher.OpenAsync($"{_focusItem.LocationName}, {_focusItem.Address}", _focusItem.ProviderPlaceId);
+    }
+
+    [RelayCommand]
+    private async Task OpenFocusDocumentAsync()
+    {
+        if (!HasFocusDocument || _focusDocument is null) return;
+        try
+        {
+            await _documents.OpenLinkedAsync(_focusDocument);
+            await _analytics.TrackAsync("next_activity_opened", "document", tripId: _tripId);
+        }
+        catch
+        {
+            await Shell.Current.DisplayAlertAsync("Documento no disponible",
+                "Comprobá el archivo o la conexión y volvé a intentarlo desde el detalle.", "OK");
+        }
+    }
+
+    public async Task RefreshFocusDocumentAsync()
+    {
+        var item = _focusItem;
+        var version = _sessionService.ContextVersion;
+        ReservationDocumentLink? link = null;
+        try
+        {
+            if (item is not null)
+            {
+                link = await _documentLinks.GetAsync(item.Id);
+                if (link?.LocalDocumentId is { } id && !await _documents.ExistsAsync(id))
+                {
+                    await _documentLinks.RemoveDocumentAsync(id);
+                    link = null;
+                }
+            }
+        }
+        catch { link = null; }
+        if (version != _sessionService.ContextVersion || _focusItem?.Id != item?.Id) return;
+        _focusDocument = link;
+        OnPropertyChanged(nameof(HasFocusDocument));
+    }
 
     public ScheduleViewModel(
         AuthSessionService sessionService,
@@ -249,6 +338,8 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         ProductAnalyticsTracker analytics,
         OfflineTripPreparationService offlinePreparation,
         TripDocumentStore documents,
+        ReservationDocumentLinkStore documentLinks,
+        PendingItineraryActionStore pendingActions,
         ILogger<ScheduleViewModel> logger)
     {
         _sessionService = sessionService;
@@ -263,6 +354,8 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         _analytics = analytics;
         _offlinePreparation = offlinePreparation;
         _documents = documents;
+        _documentLinks = documentLinks;
+        _pendingActions = pendingActions;
         _logger = logger;
         _bootstrapStore.ScheduleUpdated += OnScheduleCacheUpdated;
     }
@@ -318,6 +411,9 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         PreviewMessage = null;
         StayTitle = null;
         _focusItem = null;
+        _focusDocument = null;
+        _tripTimeZoneId = "Asia/Tokyo";
+        _lastTripToday = null;
         _today = null;
         _selectedHotelBase = null;
         SelectedDayReview = null;
@@ -330,6 +426,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         SelectedItem = null;
         NotifySelectedDayChanged();
         NotifyFocusChanged();
+        OnPropertyChanged(nameof(HasFocusDocument));
         OnPropertyChanged(nameof(CanManageItinerary));
         OnPropertyChanged(nameof(HasItineraryActions));
     }
@@ -683,6 +780,8 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
             return;
         }
         _builderRevision = result.Revision;
+        try { await _documentLinks.RemoveReservationAsync(item.Id); }
+        catch (Exception exception) { _logger.LogWarning(exception, "Could not clear document link for deleted reservation {ReservationId}", item.Id); }
         await _todayStore.InvalidateAllAsync();
         await _bootstrapStore.RemoveScheduleItemAsync(item.Id, result.Revision);
         await _syncStateStore.AcknowledgeItineraryVersionAsync(result.Revision);
@@ -1027,6 +1126,8 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         TripTitle = $"{schedule.DestinationName} for {schedule.TravelerName}";
         TripDates = $"{schedule.StartsOn:MMM d} - {schedule.EndsOn:MMM d, yyyy}";
         _destinationName = schedule.DestinationName;
+        _tripTimeZoneId = schedule.TimeZoneId;
+        _lastTripToday = TripToday;
         _tripStartsOn = schedule.StartsOn;
         _tripEndsOn = schedule.EndsOn;
         _tripId = schedule.TripId;
@@ -1044,7 +1145,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         {
             _dayReviewsByDate[review.Date] = review;
         }
-        _focusItem = GetFocusItem(_allItems);
+        _focusItem = null;
         _selectedDate = previouslySelectedDate.HasValue
             && previouslySelectedDate.Value >= schedule.StartsOn
             && previouslySelectedDate.Value <= schedule.EndsOn
@@ -1055,6 +1156,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
             : null;
         // The schedule already contains reservations; Today only enriches this content.
         SetTodayLoading(false);
+        RefreshUpcomingActivity();
         NotifyFocusChanged();
         RebuildDayFilters(schedule);
         RebuildSelectedDay();
@@ -1075,6 +1177,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         _allItems.Clear();
         _sectionCache.Clear();
         _focusItem = null;
+        _focusDocument = null;
         ActiveDays = [];
         SelectedTimelineItems = [];
         TodaySections = [];
@@ -1092,6 +1195,8 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         _tripId = null;
         _builderRevision = null;
         _destinationName = "Tu viaje";
+        _tripTimeZoneId = "Asia/Tokyo";
+        _lastTripToday = null;
         _today = null;
         _selectedHotelBase = null;
         _citiesByDate.Clear();
@@ -1107,6 +1212,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         StayTitle = null;
         NotifySelectedDayChanged();
         NotifyFocusChanged();
+        OnPropertyChanged(nameof(HasFocusDocument));
         OnPropertyChanged(nameof(HasScheduleItems));
         OnPropertyChanged(nameof(HasSelectedDayItems));
         OnPropertyChanged(nameof(ShowInitialLoading));
@@ -1132,6 +1238,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
 
     private void RebuildSelectedDay()
     {
+        RefreshUpcomingActivity();
         foreach (var filter in DayFilters)
         {
             filter.IsSelected = filter.Date == _selectedDate;
@@ -1650,7 +1757,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         newFilters.Add(new CityFilterViewModel(AllCitiesKey, isSelected: allCitiesSelected));
 
         // Add individual city filters
-        var now = DateTime.Now;
+        var now = UpcomingActivitySelector.GetTripNow(_tripTimeZoneId, DateTimeOffset.UtcNow);
         var cities = _allItems
             .Where(item => item.Type == _selectedType)
             .Where(item => !IsPast(item, now))
@@ -1740,7 +1847,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         IReadOnlySet<string> selectedCities,
         bool allCitiesSelected)
     {
-        var now = DateTime.Now;
+        var now = UpcomingActivitySelector.GetTripNow(_tripTimeZoneId, DateTimeOffset.UtcNow);
         var filteredItems = _allItems
             .Where(item => item.Type == type)
             .Where(item => !IsPast(item, now));
@@ -1784,13 +1891,13 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
 
     private static DateOnly? GetInitialSelectedDate(TripScheduleDto schedule, IReadOnlyList<ScheduleItemDto> items)
     {
-        var today = DateOnly.FromDateTime(DateTime.Now);
+        var today = DateOnly.FromDateTime(UpcomingActivitySelector.GetTripNow(schedule.TimeZoneId, DateTimeOffset.UtcNow));
         if (today >= schedule.StartsOn && today <= schedule.EndsOn)
         {
             return today;
         }
 
-        var now = DateTime.Now;
+        var now = UpcomingActivitySelector.GetTripNow(schedule.TimeZoneId, DateTimeOffset.UtcNow);
         var nextItem = items
             .Where(item => !IsPast(item, now))
             .OrderBy(item => GetTimelineSortValue(item, now))
@@ -1799,14 +1906,57 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         return nextItem?.Date ?? schedule.StartsOn;
     }
 
-    private static ScheduleItemDto? GetFocusItem(IReadOnlyList<ScheduleItemDto> items)
+    private void RefreshUpcomingActivity()
     {
-        var now = DateTime.Now;
-        return items
-            .Where(item => !IsPast(item, now))
-            .OrderBy(item => GetTimelineSortValue(item, now))
-            .ThenBy(item => item.StartsAt)
-            .FirstOrDefault();
+        var next = _selectedDate is { } date
+            ? UpcomingActivitySelector.Select(_allItems, date, _tripTimeZoneId, DateTimeOffset.UtcNow)
+            : null;
+        if (_focusItem?.Id == next?.Id) return;
+        _focusItem = next;
+        _focusDocument = null;
+        NotifyFocusChanged();
+        OnPropertyChanged(nameof(HasFocusDocument));
+        _ = RefreshFocusDocumentAsync();
+        OnPropertyChanged(nameof(ShowFinishedToday));
+        OnPropertyChanged(nameof(CanOpenFocusMap));
+        OnPropertyChanged(nameof(FocusPlace));
+    }
+
+    [RelayCommand]
+    private async Task AdaptDayAsync()
+    {
+        if (!ShowAdaptDay || _selectedDate is null || IsBusy) return;
+        var choice = await Shell.Current.DisplayActionSheetAsync("Adaptar mi día", "Cancelar", null,
+            "Voy con retraso", "Quiero caminar menos", "Prefiero actividades interiores");
+        var reason = choice switch
+        {
+            "Voy con retraso" => "late",
+            "Quiero caminar menos" => "walk_less",
+            "Prefiero actividades interiores" => "indoors",
+            _ => null
+        };
+        if (reason is null) return;
+        int? delay = null;
+        if (reason == "late")
+        {
+            var answer = await Shell.Current.DisplayPromptAsync("¿Cuánto retraso llevás?",
+                "Minutos (5 a 240)", "Continuar", "Cancelar", keyboard: Keyboard.Numeric, maxLength: 3);
+            if (!int.TryParse(answer, out var minutes) || minutes is < 5 or > 240) return;
+            delay = minutes;
+        }
+        if (_sessionService.IsFreeMapPreview || !_sessionService.CanEditItinerary)
+        {
+            _pendingActions.SetAdaptation(_selectedDate.Value, SelectedCity, reason, delay);
+            await PaywallNavigation.OpenAsync(PaywallEntryPoint.Today);
+            return;
+        }
+        await Shell.Current.GoToAsync("//main/assistant", new ShellNavigationQueryParameters
+        {
+            ["ReviewDate"] = _selectedDate.Value,
+            ["ReviewCity"] = SelectedCity,
+            ["AdaptationReason"] = reason,
+            ["DelayMinutes"] = delay ?? 0
+        });
     }
 
     private static bool IsPast(ScheduleItemDto item, DateTime now)
@@ -1833,8 +1983,9 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
 
     private static DateTime GetEndDateTime(ScheduleItemDto item)
     {
+        if (!item.HasExactTime) return item.Date.ToDateTime(TimeOnly.MaxValue);
         var endDate = item.EndsOn ?? item.Date;
-        var endTime = item.EndsAt ?? item.StartsAt;
+        var endTime = item.EndsAt ?? item.StartsAt.AddMinutes(item.DurationMinutes ?? 60);
         return endDate.ToDateTime(endTime);
     }
 
@@ -1854,6 +2005,8 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         _isTodayLoading = value;
         OnPropertyChanged(nameof(ShowTodayLoading));
         OnPropertyChanged(nameof(ShowTodayContent));
+        OnPropertyChanged(nameof(HasFocusItem));
+        OnPropertyChanged(nameof(ShowFinishedToday));
         OnPropertyChanged(nameof(ShowDayReview));
     }
 
@@ -1925,9 +2078,13 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
 
     private void NotifySelectedDayChanged()
     {
+        OnPropertyChanged(nameof(DayEyebrow));
+        OnPropertyChanged(nameof(HasFocusItem));
+        OnPropertyChanged(nameof(ShowFinishedToday));
         OnPropertyChanged(nameof(SelectedCity));
         OnPropertyChanged(nameof(SelectedDateLabel));
         OnPropertyChanged(nameof(ShowImproveDay));
+        OnPropertyChanged(nameof(ShowAdaptDay));
         OnPropertyChanged(nameof(ImproveDayLabel));
         OnPropertyChanged(nameof(IsSelectedDayLocked));
         OnPropertyChanged(nameof(CanEditSelectedDay));

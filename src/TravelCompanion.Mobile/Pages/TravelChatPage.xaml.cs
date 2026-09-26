@@ -8,6 +8,8 @@ public partial class TravelChatPage : ContentPage, IQueryAttributable
     private DateOnly? _reviewDate;
     private string? _reviewCity;
     private string? _reviewSummary;
+    private string? _adaptationReason;
+    private int? _delayMinutes;
 
     public TravelChatPage()
         : this(MauiProgram.Services.GetRequiredService<TravelChatViewModel>())
@@ -28,6 +30,8 @@ public partial class TravelChatPage : ContentPage, IQueryAttributable
             : null;
         _reviewCity = query.TryGetValue("ReviewCity", out var cityValue) ? cityValue as string : null;
         _reviewSummary = query.TryGetValue("ReviewSummary", out var summaryValue) ? summaryValue as string : null;
+        _adaptationReason = query.TryGetValue("AdaptationReason", out var reasonValue) ? reasonValue as string : null;
+        _delayMinutes = query.TryGetValue("DelayMinutes", out var delayValue) && delayValue is int delay && delay > 0 ? delay : null;
     }
 
     protected override async void OnAppearing()
@@ -43,7 +47,12 @@ public partial class TravelChatPage : ContentPage, IQueryAttributable
                 _reviewDate = null;
                 _reviewCity = null;
                 _reviewSummary = null;
-                await _viewModel.RequestDayAlternativeAsync(reviewDate, city, summary);
+                var reason = _adaptationReason;
+                var delay = _delayMinutes;
+                _adaptationReason = null;
+                _delayMinutes = null;
+                if (reason is null) await _viewModel.RequestDayAlternativeAsync(reviewDate, city, summary);
+                else await _viewModel.RequestDayAdaptationAsync(reviewDate, city, reason, delay);
             }
         }
         catch (OperationCanceledException)

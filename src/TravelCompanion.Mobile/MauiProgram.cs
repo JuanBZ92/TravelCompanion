@@ -84,6 +84,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<BiometricUnlockService>();
         builder.Services.AddSingleton<OfflineCacheService>();
         builder.Services.AddSingleton<TripDocumentStore>();
+        builder.Services.AddSingleton<ReservationDocumentLinkStore>();
         builder.Services.AddSingleton<OfflineTripPreparationService>();
         builder.Services.AddTransient<TripReviewViewModel>();
         builder.Services.AddTransient<TripReviewPage>();

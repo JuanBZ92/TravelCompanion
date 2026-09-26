@@ -19,7 +19,8 @@ public sealed class ProductAnalyticsService(TravelCompanionDbContext dbContext, 
     {
         "paywall_shown", "paywall_cta_selected", "email_verification_started",
         "day_review_viewed", "proposal_previewed", "route_viewed", "trip_created",
-        "limit_reached", "paid_trip_opened", "offline_download_completed", "offline_download_failed"
+        "limit_reached", "paid_trip_opened", "offline_download_completed", "offline_download_failed",
+        "next_activity_opened", "adaptation_requested", "adaptation_applied"
     };
 
     public async Task<int> IngestAsync(HttpContext httpContext, ProductAnalyticsBatchDto batch,
@@ -27,6 +28,7 @@ public sealed class ProductAnalyticsService(TravelCompanionDbContext dbContext, 
     {
         var session = await sessions.GetSessionContextAsync(httpContext, cancellationToken)
             ?? throw new UnauthorizedAccessException();
+        if (session.User.IsDemo || session.User.IsInternal) return 0;
         if (features?.Value.AnalyticsEnabled == false) return 0;
         var events = batch.Events.Take(100)
             .Where(item => session.User.BehaviorAnalyticsConsent && item.BehaviorConsent && ClientEvents.Contains(item.Name)
@@ -70,6 +72,7 @@ public sealed class ProductAnalyticsService(TravelCompanionDbContext dbContext, 
         var isBusiness = BusinessEvents.Contains(name);
         if (!isBusiness && features?.Value.AnalyticsEnabled == false) return;
         var user = await dbContext.AppUsers.AsNoTracking().SingleAsync(item => item.Id == userId, cancellationToken);
+        if (!isBusiness && (user.IsDemo || user.IsInternal)) return;
         if (!isBusiness && !user.BehaviorAnalyticsConsent) return;
         var accessState = await ResolveAccessStateAsync(userId, tripId, cancellationToken);
         dbContext.ProductAnalyticsEvents.Add(new ProductAnalyticsEvent

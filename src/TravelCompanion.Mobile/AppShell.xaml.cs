@@ -45,6 +45,9 @@ public partial class AppShell : Shell
     public void ApplySessionTabs(AuthSessionService sessionService)
     {
         var usesMainTabs = sessionService.HasSession;
+        // Android may still be rendering the previous tab after GoToAsync("//login").
+        // Removing its ShellContent during logout crashes ShellSectionRenderer.
+        if (_logoutInProgress && !usesMainTabs) return;
         FreeMapTab.IsVisible = false;
         MapTab.IsVisible = usesMainTabs;
         if (usesMainTabs)
