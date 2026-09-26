@@ -440,4 +440,7 @@ A tu manera.</value></data>
   <data name="DeleteTripWithDocuments" xml:space="preserve"><value>Se borrarán el itinerario y sus copias locales de documentos. Tus archivos originales, PIN y acceso pago seguirán disponibles.</value></data>
   <data name="PaywallPurchasesPaused" xml:space="preserve"><value>La venta de pases todavía no está habilitada. Puedes consultar los beneficios y restaurar una compra anterior.</value></data>
   <data name="CopyConfirmationCode" xml:space="preserve"><value>Copiar código de reserva</value></data>
+  <data name="AddDocument" xml:space="preserve"><value>Agregar documento</value></data>
+  <data name="OpenDocumentNamed" xml:space="preserve"><value>Abrir {0}</value></data>
+  <data name="DocumentActionsNamed" xml:space="preserve"><value>Opciones de {0}</value></data>
 </root>

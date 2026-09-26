@@ -12,6 +12,7 @@ public sealed partial class DocsViewModel
     public bool CanAttachDocument => documentStore.CanAttach;
     public string LocalDocumentsTitle => Text("LocalDocuments");
     public string LocalDocumentsNotice => Text("LocalDocumentsNotice");
+    public string AddDocumentText => Text("AddDocument");
     public string AttachDocumentText => Text("AttachDocument");
     public string DocumentLimitText => Text("DocumentLimit");
 
@@ -76,6 +77,12 @@ public sealed class LocalDocumentItemViewModel
             if (string.IsNullOrWhiteSpace(name)) return;
             await store.RenameAsync(document.Id, name); await refresh();
         }));
+        MoreCommand = new AsyncRelayCommand(() => ExecuteAsync(async () =>
+        {
+            var choice = await Shell.Current.DisplayActionSheetAsync(document.Title, Text("CommonCancel"), null, RenameText, DeleteText);
+            if (choice == RenameText) await RenameCommand.ExecuteAsync(null);
+            else if (choice == DeleteText) await DeleteCommand!.ExecuteAsync(null);
+        }));
         DeleteCommand = new AsyncRelayCommand(() => ExecuteAsync(async () =>
         {
             if (!await Shell.Current.DisplayAlertAsync(Text("DeleteLocalCopy"), document.Title, Text("DeleteLocalCopy"), Text("CommonCancel"))) return;
@@ -84,6 +91,9 @@ public sealed class LocalDocumentItemViewModel
     }
     public string Title { get; }
     public string Details { get; }
+    public string OpenDescription => string.Format(Text("OpenDocumentNamed"), Title);
+    public string MoreDescription => string.Format(Text("DocumentActionsNamed"), Title);
+    public IAsyncRelayCommand MoreCommand { get; }
     public string RenameText => Text("RenameDocument");
     public string DeleteText => Text("DeleteLocalCopy");
     public IAsyncRelayCommand OpenCommand { get; }

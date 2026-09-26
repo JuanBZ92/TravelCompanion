@@ -440,4 +440,7 @@ Your way.</value></data>
   <data name="DeleteTripWithDocuments" xml:space="preserve"><value>This deletes the itinerary and its local document copies. Your original files, PIN and paid access remain available.</value></data>
   <data name="PaywallPurchasesPaused" xml:space="preserve"><value>Pass sales are not enabled yet. You can browse the benefits and restore a previous purchase.</value></data>
   <data name="CopyConfirmationCode" xml:space="preserve"><value>Copy booking reference</value></data>
+  <data name="AddDocument" xml:space="preserve"><value>Add document</value></data>
+  <data name="OpenDocumentNamed" xml:space="preserve"><value>Open {0}</value></data>
+  <data name="DocumentActionsNamed" xml:space="preserve"><value>Options for {0}</value></data>
 </root>

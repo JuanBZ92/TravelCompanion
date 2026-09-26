@@ -21,26 +21,38 @@
                  IsRefreshing="{Binding IsRefreshing, Mode=TwoWay}">
         <ScrollView>
             <VerticalStackLayout Padding="24,20,24,32" Spacing="18">
-                <Grid ColumnDefinitions="*,44" ColumnSpacing="12">
+                <Grid ColumnDefinitions="*" ColumnSpacing="12">
                     <VerticalStackLayout Spacing="6">
                         <Label Text="YUKU · JAPAN" CharacterSpacing="3" FontSize="10" TextColor="#8E867D" />
                         <Label Text="{Binding Title}" FontFamily="serif" FontSize="32" TextColor="#1A1714" SemanticProperties.HeadingLevel="Level1" />
                     </VerticalStackLayout>
-                    <ImageButton Grid.Column="1" Source="doc_add.svg" Command="{Binding AttachDocumentCommand}"
-                                 IsVisible="{Binding CanAttachDocument}" IsEnabled="{Binding IsNotBusy}"
-                                 Style="{StaticResource DocumentAction}" SemanticProperties.Description="{Binding AttachDocumentText}" />
+
                 </Grid>
+                <VerticalStackLayout Spacing="6" IsVisible="{Binding CanAttachDocument}">
+                    <Button Text="{Binding AddDocumentText}" Command="{Binding AttachDocumentCommand}"
+                            IsEnabled="{Binding IsNotBusy}" BackgroundColor="#3D3329" TextColor="#FFFDF8"
+                            CornerRadius="14" MinimumHeightRequest="48" FontSize="15" FontAttributes="Bold" />
+                    <Label Text="{Binding DocumentLimitText}" FontSize="11" TextColor="#8E867D" HorizontalTextAlignment="Center" />
+                </VerticalStackLayout>
                 <Label Text="{Binding LocalDocumentsNotice}" IsVisible="{Binding ShowLocalNotice}" FontSize="13" TextColor="#8E867D" />
                 <VerticalStackLayout BindableLayout.ItemsSource="{Binding LocalDocuments}" Spacing="12">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="viewModels:LocalDocumentItemViewModel">
-                            <Border Padding="16" Stroke="#E5DED5" BackgroundColor="#FFFDF8" StrokeShape="RoundRectangle 16">
-                                <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,44,44" ColumnSpacing="4" RowSpacing="8">
-                                    <Label Text="{Binding Title}" FontSize="17" TextColor="#393229" VerticalOptions="Center" />
-                                    <ImageButton Grid.Column="1" Source="doc_open.svg" Command="{Binding OpenCommand}" Style="{StaticResource DocumentAction}" SemanticProperties.Description="{Binding Title}" />
-                                    <ImageButton Grid.Column="2" Source="doc_edit.svg" Command="{Binding RenameCommand}" Style="{StaticResource DocumentAction}" SemanticProperties.Description="{Binding RenameText}" />
-                                    <Label Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding Details}" FontSize="12" TextColor="#8E867D" VerticalOptions="Center" />
-                                    <ImageButton Grid.Row="1" Grid.Column="2" Source="doc_delete.svg" Command="{Binding DeleteCommand}" Style="{StaticResource DocumentAction}" SemanticProperties.Description="{Binding DeleteText}" />
+                            <Border Padding="12" Stroke="#E5DED5" BackgroundColor="#FFFDF8" StrokeShape="RoundRectangle 14">
+                                <Grid ColumnDefinitions="44,*,44" ColumnSpacing="12" MinimumHeightRequest="56">
+                                    <Border BackgroundColor="#F1EBE2" StrokeThickness="0" StrokeShape="RoundRectangle 12"
+                                            WidthRequest="44" HeightRequest="48" VerticalOptions="Center" InputTransparent="True">
+                                        <Image Source="tab_docs.svg" WidthRequest="22" HeightRequest="22" Opacity="0.7" AutomationProperties.IsInAccessibleTree="False" />
+                                    </Border>
+                                    <VerticalStackLayout Grid.Column="1" Spacing="5" VerticalOptions="Center" InputTransparent="True">
+                                        <Label Text="{Binding Title}" FontSize="15" TextColor="#393229" MaxLines="2" LineBreakMode="TailTruncation" AutomationProperties.IsInAccessibleTree="False" />
+                                        <Label Text="{Binding Details}" FontSize="11" TextColor="#8E867D" AutomationProperties.IsInAccessibleTree="False" />
+                                    </VerticalStackLayout>
+                                    <Button Grid.ColumnSpan="2" Command="{Binding OpenCommand}" BackgroundColor="Transparent"
+                                            BorderWidth="0" Padding="0" MinimumHeightRequest="56" SemanticProperties.Description="{Binding OpenDescription}" />
+                                    <ImageButton Grid.Column="2" Source="itinerary_menu.svg" Command="{Binding MoreCommand}"
+                                                 Style="{StaticResource DocumentAction}" VerticalOptions="Center"
+                                                 SemanticProperties.Description="{Binding MoreDescription}" />
                                 </Grid>
                             </Border>
                         </DataTemplate>
