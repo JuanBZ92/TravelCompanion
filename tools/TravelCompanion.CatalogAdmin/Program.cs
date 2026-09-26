@@ -7,11 +7,13 @@ using TravelCompanion.Api.Data;
 using TravelCompanion.Api.Models;
 using TravelCompanion.Api.Services;
 
+var createFeatureDemo = args.Length == 1 && args[0] == "--create-feature-demo";
 var refreshPremiumDemo = args.Length == 1 && args[0] == "--refresh-premium-demo";
-if (args.Length == 0 || (args[0].StartsWith("--") && !refreshPremiumDemo))
+if (args.Length == 0 || (args[0].StartsWith("--") && !refreshPremiumDemo && !createFeatureDemo))
 {
     Console.Error.WriteLine("Usage:");
     Console.Error.WriteLine("  CatalogAdmin --refresh-premium-demo");
+    Console.Error.WriteLine("  CatalogAdmin --create-feature-demo");
     Console.Error.WriteLine("  CatalogAdmin <workbook.xlsx> [--reset --backup <new-archive.dump> --confirm-delete-test-data]");
     return 1;
 }
@@ -19,6 +21,11 @@ var connection = Environment.GetEnvironmentVariable("CATALOG_DATABASE_URL")
     ?? throw new InvalidOperationException("Set CATALOG_DATABASE_URL for the intended database; no default database is used.");
 var settings = ConnectionSettings(connection);
 await using var db = new TravelCompanionDbContext(new DbContextOptionsBuilder<TravelCompanionDbContext>().UseNpgsql(settings.ConnectionString).Options);
+if (createFeatureDemo)
+{
+    Console.WriteLine($"Created feature demo: {await new FeatureDemoAccountService(db).CreateAsync()}; PINs 3333 (editable), 3334 (curated docs).");
+    return 0;
+}
 await db.Database.MigrateAsync();
 await DatabaseSeeder.SeedAsync(db, new PasswordHasher<AppUser>());
 if (refreshPremiumDemo)

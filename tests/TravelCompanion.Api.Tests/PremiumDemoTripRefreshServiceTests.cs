@@ -52,6 +52,34 @@ public sealed class PremiumDemoTripRefreshServiceTests
         Assert.Equal(7, untouched.PlanRevision);
     }
 
+    [Fact]
+    public async Task Feature_demo_creates_both_modes_without_overwriting_existing_accounts()
+    {
+        await using var db = CreateDb();
+        var destination = new Destination { Id = Guid.NewGuid(), Name = "Japan", Slug = "japon", Country = "Japan",
+            TimeZoneId = "Asia/Tokyo", HeroImageUrl = "", ShortDescription = "" };
+        db.Add(destination);
+        db.Recommendations.AddRange(CreateRecommendations(destination.Id));
+        await db.SaveChangesAsync();
+        var service = new FeatureDemoAccountService(db);
+        var userId = await service.CreateAsync();
+        Assert.True((await db.AppUsers.FindAsync(userId))!.IsDemo);
+        var trips = await db.Trips.Include(x => x.Reservations).Include(x => x.Documents).Include(x => x.DayPlans).ToListAsync();
+        Assert.Equal(2, trips.Count);
+        foreach (var trip in trips)
+        {
+            Assert.Equal(18, trip.DayPlans.Count);
+            Assert.Equal(4, trip.DayPlans.Select(x => x.City).Distinct().Count());
+            Assert.Equal(4, trip.Documents.Count);
+            Assert.DoesNotContain(trip.Reservations, x => x.Date == trip.StartsOn.AddDays(2));
+            Assert.Contains(trip.Reservations, x => x.Type == TravelCompanion.Shared.ReservationType.Flight && x.ReminderEnabled == true);
+            Assert.True(trip.Reservations.Count(x => x.Date == trip.StartsOn.AddDays(1) && x.StartsAt == new TimeOnly(10, 0)) >= 3);
+        }
+        Assert.Single(await db.BuilderAccessGrants.ToListAsync());
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.CreateAsync());
+        Assert.Equal(2, await db.Trips.CountAsync());
+    }
+
     private static TravelCompanionDbContext CreateDb()
     {
         var options = new DbContextOptionsBuilder<TravelCompanionDbContext>()
