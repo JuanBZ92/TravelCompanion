@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:services="clr-namespace:TravelCompanion.Mobile.Services"
              xmlns:viewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
              xmlns:dto="clr-namespace:TravelCompanion.Shared.Dtos;assembly=TravelCompanion.Shared"
              x:Class="TravelCompanion.Mobile.Pages.BuilderSetupPage"
              x:Name="PageRoot"
              x:DataType="viewModels:BuilderSetupViewModel"
-             Title="Tu viaje"
+             Title="{Binding [SetupCreateTitle], Source={x:Static services:LocalizationResourceManager.Instance}}"
              SafeAreaEdges="All"
              BackgroundColor="{StaticResource Mist}">
     <Grid RowDefinitions="*,Auto">
@@ -18,15 +19,16 @@
                     <Label Text="{Binding HeaderDescription}" FontSize="15" TextColor="#6E675F" />
                 </VerticalStackLayout>
                 <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
-                    <VerticalStackLayout><Label Text="Llegada" Style="{StaticResource Eyebrow}"/><DatePicker Date="{Binding ArrivalDate}" /></VerticalStackLayout>
-                    <VerticalStackLayout Grid.Column="1"><Label Text="Salida" Style="{StaticResource Eyebrow}"/><DatePicker Date="{Binding DepartureDate}" MinimumDate="{Binding ArrivalDate}" /></VerticalStackLayout>
+                    <VerticalStackLayout><Label Text="{Binding [SetupArrival], Source={x:Static services:LocalizationResourceManager.Instance}}" Style="{StaticResource Eyebrow}"/><DatePicker Date="{Binding ArrivalDate}" /></VerticalStackLayout>
+                    <VerticalStackLayout Grid.Column="1"><Label Text="{Binding [SetupDeparture], Source={x:Static services:LocalizationResourceManager.Instance}}" Style="{StaticResource Eyebrow}"/><DatePicker Date="{Binding DepartureDate}" MinimumDate="{Binding ArrivalDate}" /></VerticalStackLayout>
                 </Grid>
+                <Button Text="{Binding OptionalDetailsText}" Command="{Binding ToggleDetailsCommand}" Style="{StaticResource GhostButton}" />
                 <VerticalStackLayout BindableLayout.ItemsSource="{Binding Segments}" Spacing="14">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="viewModels:BuilderSegmentViewModel">
                             <Border Padding="16" BackgroundColor="#FFFDF9" Stroke="#D8CFC4" StrokeThickness="1">
                                 <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="12">
-                                    <Entry Placeholder="Ciudad" Text="{Binding City}" FontSize="18" Focused="OnCityFocused" Unfocused="OnCityUnfocused" TextChanged="OnCityTextChanged" />
+                                    <Entry Placeholder="{Binding [SetupCity], Source={x:Static services:LocalizationResourceManager.Instance}}" Text="{Binding City}" FontSize="18" Focused="OnCityFocused" Unfocused="OnCityUnfocused" TextChanged="OnCityTextChanged" />
                                     <Button Grid.Column="1" Text="×" Command="{Binding RemoveSegmentCommand, Source={RelativeSource AncestorType={x:Type viewModels:BuilderSetupViewModel}}, x:DataType=viewModels:BuilderSetupViewModel}" CommandParameter="{Binding .}" Style="{StaticResource GhostButton}" />
                                     <VerticalStackLayout Grid.Row="1" Grid.ColumnSpan="2" BindableLayout.ItemsSource="{Binding CitySuggestions}">
                                         <BindableLayout.ItemTemplate>
@@ -37,13 +39,13 @@
                                             </DataTemplate>
                                         </BindableLayout.ItemTemplate>
                                     </VerticalStackLayout>
-                                    <Grid Grid.Row="2" Grid.ColumnSpan="2" ColumnDefinitions="*,*" ColumnSpacing="10"><DatePicker Date="{Binding StartsOn}"/><DatePicker Grid.Column="1" Date="{Binding EndsOn}"/></Grid>
-                                    <Entry Grid.Row="3"
+                                    <Grid Grid.Row="2" Grid.ColumnSpan="2" IsVisible="{Binding BindingContext.ShowTripDetails, Source={x:Reference PageRoot}}" ColumnDefinitions="*,*" ColumnSpacing="10"><DatePicker Date="{Binding StartsOn}"/><DatePicker Grid.Column="1" Date="{Binding EndsOn}"/></Grid>
+                                    <Entry IsVisible="{Binding BindingContext.ShowTripDetails, Source={x:Reference PageRoot}}" Grid.Row="3"
                                            Grid.ColumnSpan="2"
-                                           Placeholder="Hotel o base (opcional)"
+                                           Placeholder="{Binding [SetupHotel], Source={x:Static services:LocalizationResourceManager.Instance}}"
                                            Text="{Binding HotelName}"
                                            Focused="OnSuggestionFocused" TextChanged="OnHotelTextChanged" />
-                                    <VerticalStackLayout Grid.Row="4" Grid.ColumnSpan="2">
+                                    <VerticalStackLayout IsVisible="{Binding BindingContext.ShowTripDetails, Source={x:Reference PageRoot}}" Grid.Row="4" Grid.ColumnSpan="2">
                                         <VerticalStackLayout BindableLayout.ItemsSource="{Binding HotelSuggestions}">
                                             <BindableLayout.ItemTemplate>
                                                 <DataTemplate x:DataType="dto:PlaceSuggestionDto">
@@ -60,18 +62,18 @@
                                             </BindableLayout.ItemTemplate>
                                         </VerticalStackLayout>
                                     </VerticalStackLayout>
-                                    <Entry Grid.Row="5" Grid.ColumnSpan="2" Placeholder="Dirección del hotel (opcional)" Text="{Binding HotelAddress}" />
+                                    <Entry IsVisible="{Binding BindingContext.ShowTripDetails, Source={x:Reference PageRoot}}" Grid.Row="5" Grid.ColumnSpan="2" Placeholder="{Binding [SetupAddress], Source={x:Static services:LocalizationResourceManager.Instance}}" Text="{Binding HotelAddress}" />
                                 </Grid>
                             </Border>
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
                 </VerticalStackLayout>
-                <Button Text="+ Agregar otra ciudad" Command="{Binding AddSegmentCommand}" Style="{StaticResource GhostButton}" />
+                <Button IsVisible="{Binding BindingContext.ShowTripDetails, Source={x:Reference PageRoot}}" Text="{Binding [SetupAddCity], Source={x:Static services:LocalizationResourceManager.Instance}}" Command="{Binding AddSegmentCommand}" Style="{StaticResource GhostButton}" />
                 <Border IsVisible="{Binding HasError}" Style="{StaticResource ErrorPanel}">
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                         <Label Text="{Binding ErrorMessage}" VerticalTextAlignment="Center" />
                         <Button Grid.Column="1"
-                                Text="Reintentar"
+                                Text="{Binding [SetupRetry], Source={x:Static services:LocalizationResourceManager.Instance}}"
                                 Command="{Binding RetryCommand}"
                                 IsEnabled="{Binding IsNotBusy}"
                                 Style="{StaticResource GhostButton}"
@@ -85,7 +87,7 @@
             </VerticalStackLayout>
         </ScrollView>
         <Grid Grid.Row="1" Padding="20,12" ColumnDefinitions="*,*" ColumnSpacing="12" BackgroundColor="#FFFDF9">
-            <Button Text="Cancelar" Command="{Binding CancelCommand}" Style="{StaticResource GhostButton}" />
+            <Button Text="{Binding [CommonCancel], Source={x:Static services:LocalizationResourceManager.Instance}}" Command="{Binding CancelCommand}" Style="{StaticResource GhostButton}" />
             <Button Grid.Column="1" Text="{Binding PrimaryButtonText}" Command="{Binding SaveSetupCommand}" IsEnabled="{Binding IsNotBusy}" />
         </Grid>
     </Grid>

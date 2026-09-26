@@ -78,6 +78,8 @@ public sealed class TravelPassController(
         trialGrant.RevokedAtUtc = now;
         paidGrant.AppUserId = session.User.Id;
         paidGrant.TripId = trip.Id;
+        paidGrant.FreePolicy = trialGrant.FreePolicy;
+        paidGrant.TrialEditingStartedAtUtc = trialGrant.TrialEditingStartedAtUtc;
         paidGrant.RedeemedAtUtc ??= now;
         var tripAccessEnd = new DateTimeOffset(
             trip.EndsOn.AddDays(8).ToDateTime(TimeOnly.MinValue),

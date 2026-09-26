@@ -30,7 +30,7 @@ public sealed class ConversionModel(TravelCompanionDbContext dbContext) : PageMo
     public IReadOnlyList<DuplicatePurchaseRow> DuplicatePurchases { get; private set; } = [];
 
     public async Task OnGetAsync(DateOnly? from, DateOnly? to, string? platform, string? appVersion,
-        string? entry, string? variant)
+        string? entry, string? variant, string? freePolicy = null)
     {
         To = to ?? DateOnly.FromDateTime(DateTime.UtcNow);
         From = from ?? To.AddDays(-30);
@@ -42,24 +42,34 @@ public sealed class ConversionModel(TravelCompanionDbContext dbContext) : PageMo
             .Where(item => item.IsDemo || item.IsInternal)
             .Select(item => item.Id).ToListAsync();
 
-        IQueryable<ProductAnalyticsEvent> FilterEvents(DateTimeOffset rangeEnd)
-        {
-            var query = dbContext.ProductAnalyticsEvents.AsNoTracking().Where(item => item.OccurredAtUtc >= start
+        IQueryable<ProductAnalyticsEvent> BaseEvents(DateTimeOffset rangeEnd) =>
+            dbContext.ProductAnalyticsEvents.AsNoTracking().Where(item => item.OccurredAtUtc >= start
                 && item.OccurredAtUtc < rangeEnd && !item.IsSandbox
                 && (!item.AppUserId.HasValue || !excludedUserIds.Contains(item.AppUserId.Value))
                 && (!item.AnonymousUserId.HasValue || !excludedUserIds.Contains(item.AnonymousUserId.Value)));
+
+        IQueryable<ProductAnalyticsEvent> FilterEvents(DateTimeOffset rangeEnd)
+        {
+            var query = BaseEvents(rangeEnd);
             if (!string.IsNullOrWhiteSpace(platform)) query = query.Where(item => item.Platform == platform);
             if (!string.IsNullOrWhiteSpace(appVersion)) query = query.Where(item => item.AppVersion == appVersion);
             if (!string.IsNullOrWhiteSpace(entry)) query = query.Where(item => item.Source == entry);
             if (!string.IsNullOrWhiteSpace(variant)) query = query.Where(item => item.PaywallVariant == variant);
+            if (!string.IsNullOrWhiteSpace(freePolicy)) query = query.Where(item => item.FreePolicyVariant == freePolicy);
             return query;
         }
 
-        var events = await FilterEvents(end).Select(item => new AnalyticsRow(
+        // Attribute users using matching events, then include their server-side
+        // activation/purchase events even when those have no client metadata.
+        var matchedUsers = await FilterEvents(end).Select(item => item.AppUserId ?? item.AnonymousUserId)
+            .Where(item => item.HasValue).Select(item => item!.Value).Distinct().ToListAsync();
+        IQueryable<ProductAnalyticsEvent> AttributedEvents(DateTimeOffset rangeEnd) => BaseEvents(rangeEnd)
+            .Where(item => matchedUsers.Contains((item.AppUserId ?? item.AnonymousUserId) ?? Guid.Empty));
+        var events = await AttributedEvents(end).Select(item => new AnalyticsRow(
             item.Name, item.AppUserId, item.AnonymousUserId, item.OccurredAtUtc, item.BehaviorConsent)).ToListAsync();
-        var funnelNames = new[] { "trial_started", "paywall_shown", "checkout_started", "purchase_verified", "pass_activated" };
+        var funnelNames = new[] { "trial_started", "first_item_saved", "paywall_shown", "checkout_started", "purchase_verified", "pass_activated" };
         Stages = BuildOrderedFunnel(events, funnelNames);
-        var signalNames = new[] { "first_item_saved", "first_useful_response", "day_review_viewed", "proposal_generated", "route_saved" };
+        var signalNames = new[] { "trip_created", "first_item_saved", "first_useful_response", "day_review_viewed", "limit_reached", "paid_trip_opened", "offline_download_completed", "offline_download_failed" };
         Signals = signalNames.Select(name => new SignalRow(name, events.Where(item => item.Name == name)
             .Select(UserId).Where(item => item.HasValue).Distinct().Count())).ToList();
 
@@ -114,11 +124,17 @@ public sealed class ConversionModel(TravelCompanionDbContext dbContext) : PageMo
                 item.VerifiedAtUtc, item.AcknowledgedOrConsumed))
             .ToListAsync();
 
-        var cohortEvents = await FilterEvents(end.AddDays(30)).Where(item => item.Name == "trial_started" || item.Name == "purchase_verified")
+        var cohortEvents = await AttributedEvents(end.AddDays(30)).Where(item => item.Name == "first_item_saved" || item.Name == "purchase_verified")
             .Select(item => new AnalyticsRow(item.Name, item.AppUserId, item.AnonymousUserId, item.OccurredAtUtc, item.BehaviorConsent))
             .ToListAsync();
-        var trialByUser = cohortEvents.Where(item => item.Name == "trial_started" && item.OccurredAtUtc < end && UserId(item).HasValue)
+        var trialByUser = cohortEvents.Where(item => item.Name == "first_item_saved" && item.OccurredAtUtc < end && UserId(item).HasValue)
             .GroupBy(item => UserId(item)!.Value).ToDictionary(group => group.Key, group => group.Min(item => item.OccurredAtUtc));
+        // A first activity on another trip does not start a new user cohort.
+        var previouslyActivated = await dbContext.ProductAnalyticsEvents.AsNoTracking()
+            .Where(item => item.Name == "first_item_saved" && item.OccurredAtUtc < start && !item.IsSandbox)
+            .Select(item => item.AppUserId ?? item.AnonymousUserId).Distinct().ToListAsync();
+        foreach (var userId in previouslyActivated)
+            if (userId.HasValue) trialByUser.Remove(userId.Value);
         var purchaseByUser = cohortEvents.Where(item => item.Name == "purchase_verified" && UserId(item).HasValue)
             .GroupBy(item => UserId(item)!.Value).ToDictionary(group => group.Key, group => group.Select(item => item.OccurredAtUtc).Order().ToList());
         var purchaseTimes = trialByUser.Where(item => purchaseByUser.ContainsKey(item.Key))
@@ -151,11 +167,9 @@ public sealed class ConversionModel(TravelCompanionDbContext dbContext) : PageMo
         foreach (var name in names)
         {
             var stageEvents = events.Where(item => item.Name == name && UserId(item).HasValue)
+                .Where(item => previous is null || previous.TryGetValue(UserId(item)!.Value, out var at) && item.OccurredAtUtc >= at)
                 .GroupBy(item => UserId(item)!.Value)
                 .ToDictionary(group => group.Key, group => group.Min(item => item.OccurredAtUtc));
-            if (previous is not null)
-                stageEvents = stageEvents.Where(item => previous.TryGetValue(item.Key, out var at) && item.Value >= at)
-                    .ToDictionary(item => item.Key, item => item.Value);
             result.Add(new StageRow(name, stageEvents.Count, previous is null || previous.Count == 0
                 ? null : Math.Round(stageEvents.Count * 100d / previous.Count, 1)));
             previous = stageEvents;

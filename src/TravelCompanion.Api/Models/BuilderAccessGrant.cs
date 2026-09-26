@@ -20,6 +20,7 @@ public sealed class BuilderAccessGrant
     public DateTimeOffset? ExpiresAtUtc { get; set; }
     public DateTimeOffset? RevokedAtUtc { get; set; }
     public bool IsTrial { get; set; }
+    public FreeAccessPolicy FreePolicy { get; set; }
     public DateTimeOffset? TrialEditingStartedAtUtc { get; set; }
     public DateTimeOffset? TrialEditingExpiresAtUtc { get; set; }
     public DateTimeOffset? TrialDraftExpiresAtUtc { get; set; }

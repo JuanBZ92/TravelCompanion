@@ -23,6 +23,30 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     private readonly OfflineSyncCoordinator _syncCoordinator;
     private readonly MobileSyncStateStore _syncStateStore;
     private readonly ProductAnalyticsTracker _analytics;
+    private readonly OfflineTripPreparationService _offlinePreparation;
+    private readonly TripDocumentStore _documents;
+    private string _offlineStatus = string.Empty;
+    public string OfflineStatus { get => _offlineStatus; private set => SetProperty(ref _offlineStatus, value); }
+    public string OfflineScope => LocalizationResourceManager.Instance["OfflineScope"];
+    public string ReviewTripText => LocalizationResourceManager.Instance["ReviewTrip"];
+    public bool ShowOfflineStatus => !_sessionService.IsFreeMapPreview && _tripId.HasValue;
+    [RelayCommand] private Task ReviewTripAsync() => Shell.Current.GoToAsync(nameof(TripReviewPage));
+    public Task SelectInitialDateAsync(DateOnly date) => SelectDayAsync(DayFilters.FirstOrDefault(item => item.Date == date));
+    public async Task UpdateOfflineStatusAsync()
+    {
+        OnPropertyChanged(nameof(ShowOfflineStatus));
+        var manifest = await _offlinePreparation.GetAsync();
+        var cached = await _bootstrapStore.GetCachedAsync();
+        var versions = await _syncStateStore.GetCachedStateAsync();
+        var key = manifest is null ? "OfflineNotPrepared" : !manifest.IsComplete || cached is null ? "OfflineIncomplete"
+            : manifest.HasUpdate(cached.Value.Schedule?.Revision ?? -1, versions?.CatalogVersion,
+                _sessionService.HasCuratedDocs ? versions?.DocumentsVersion : null) ? "OfflineUpdate" : "OfflineReady";
+        OfflineStatus = LocalizationResourceManager.Instance[key];
+        if (manifest?.DownloadedAt is { } at) OfflineStatus += $" · {at.ToLocalTime():g}";
+        var pending = manifest?.Resources.Where(item => item.State == "pending").Select(item => item.Title).ToList();
+        if (pending is { Count: > 0 }) OfflineStatus += " · " + string.Format(LocalizationResourceManager.Instance["OfflinePendingResources"], string.Join(", ", pending));
+    }
+
     private readonly ILogger<ScheduleViewModel> _logger;
     private readonly List<ScheduleItemDto> _allItems = [];
     private readonly List<RecommendationDto> _recommendations = [];
@@ -160,16 +184,19 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         get
         {
             if (!_sessionService.IsTrial) return string.Empty;
+            if (_sessionService.FreePolicy == FreeAccessPolicy.PersistentFree)
+                return string.Format(LocalizationResourceManager.Instance["PersistentFreeSummary"],
+                    _sessionService.TrialAssistantRequestsRemaining, _sessionService.DayImprovementsRemaining);
             if (_sessionService.TrialState == TrialAccessState.NotStarted)
-                return "La prueba de 30 minutos comenzará al crear el itinerario.";
+                return LocalizationResourceManager.Instance["TimedTrialNotStarted"];
             if (_sessionService.TrialEditingExpiresAtUtc is { } editingExpiry && editingExpiry > DateTimeOffset.UtcNow)
             {
                 var remaining = editingExpiry - DateTimeOffset.UtcNow;
-                return $"Prueba gratuita · {Math.Max(0, (int)remaining.TotalMinutes):00}:{Math.Max(0, remaining.Seconds):00} para editar";
+                return string.Format(LocalizationResourceManager.Instance["TimedTrialRemaining"], Math.Max(0, (int)remaining.TotalMinutes), Math.Max(0, remaining.Seconds));
             }
             if (_sessionService.TrialDraftExpiresAtUtc is { } draftExpiry && draftExpiry > DateTimeOffset.UtcNow)
-                return $"Borrador protegido hasta {draftExpiry.ToLocalTime():d MMM}. Activa el pase para seguir editando.";
-            return "La prueba terminó. Activa el pase para recuperar tu itinerario.";
+                return string.Format(LocalizationResourceManager.Instance["TimedTrialDraft"], draftExpiry.ToLocalTime());
+            return LocalizationResourceManager.Instance["TimedTrialEnded"];
         }
     }
 
@@ -247,6 +274,8 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         OfflineSyncCoordinator syncCoordinator,
         MobileSyncStateStore syncStateStore,
         ProductAnalyticsTracker analytics,
+        OfflineTripPreparationService offlinePreparation,
+        TripDocumentStore documents,
         ILogger<ScheduleViewModel> logger)
     {
         _sessionService = sessionService;
@@ -259,6 +288,8 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         _syncCoordinator = syncCoordinator;
         _syncStateStore = syncStateStore;
         _analytics = analytics;
+        _offlinePreparation = offlinePreparation;
+        _documents = documents;
         _logger = logger;
         _bootstrapStore.ScheduleUpdated += OnScheduleCacheUpdated;
     }
@@ -494,43 +525,20 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     }
 
     [RelayCommand]
-    private Task DownloadOfflineAsync()
+    private Task DownloadOfflineAsync() => LoadAsync(async ct =>
     {
-        return LoadAsync(async ct =>
+        if (_sessionService.IsFreeMapPreview)
+        { await PaywallNavigation.OpenAsync(PaywallEntryPoint.Offline, limitReached: true); return; }
+        try
         {
-            var token = await _sessionService.GetTokenAsync();
-            if (string.IsNullOrWhiteSpace(token))
-            {
-                _sessionService.Clear();
-                await Shell.Current.GoToAsync("//login");
-                return;
-            }
-
-            var bootstrapResult = await _bootstrapStore.RefreshResultAsync(token, cancellationToken: ct);
-            if (bootstrapResult.IsUnauthorized)
-            {
-                _sessionService.Clear();
-                await Shell.Current.GoToAsync("//login");
-                return;
-            }
-            if (!bootstrapResult.IsSuccess || bootstrapResult.Value is not { } bootstrap)
-            {
-                ErrorMessage = "No pudimos actualizar la copia offline. Inténtalo cuando tengas conexión.";
-                return;
-            }
-
-            ApplyBootstrapSchedule(bootstrap);
-            if (_selectedDate is { } date)
-            {
-                var todayResult = await _todayStore.RefreshResultAsync(token, date, null, ct);
-                if (todayResult.Value is { } today)
-                {
-                    ApplyToday(today);
-                }
-            }
-            StatusMessage = "Viaje guardado para consultar sin conexión.";
-        });
-    }
+            await _offlinePreparation.PrepareAsync(ct);
+            var cached = await _bootstrapStore.GetCachedAsync(cancellationToken: ct);
+            if (cached is not null) ApplyBootstrapSchedule(cached.Value);
+        }
+        catch (Exception exception) when (exception is IOException or HttpRequestException)
+        { ErrorMessage = LocalizationResourceManager.Instance["OfflineIncomplete"]; }
+        finally { await UpdateOfflineStatusAsync(); }
+    });
 
     [RelayCommand]
     private async Task ShareItineraryAsync()
@@ -585,9 +593,9 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
                     if (contextVersion != _sessionService.ContextVersion) return false;
                     _builderRevision = setup.Revision;
                     return await Shell.Current.DisplayAlertAsync(
-                        "Eliminar itinerario",
-                        "Se borrarán las fechas, ciudades, hoteles y todos los planes y reservas de este itinerario. Tu PIN y acceso Pago seguirán activos.",
-                        "Eliminar itinerario",
+                        LocalizationResourceManager.Instance["DeleteTripTitle"],
+                        LocalizationResourceManager.Instance["DeleteTripWithDocuments"],
+                        LocalizationResourceManager.Instance["DeleteTripTitle"],
                         "Cancelar") && contextVersion == _sessionService.ContextVersion;
                 },
                 async (request, cancellationToken) =>
@@ -606,6 +614,8 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
             if (result != BuilderTripDeletionResult.Deleted || contextVersion != _sessionService.ContextVersion) return;
             await _builderTripStore.ClearAsync();
             var userId = _sessionService.CurrentUserId;
+            if (userId.HasValue) await _documents.DeleteTripAsync(userId.Value, tripId.Value);
+            if (contextVersion != _sessionService.ContextVersion) return;
             _sessionService.MarkTripDeleted();
             await _sessionLogoutService.ResetContentAsync(userId);
             if (Shell.Current is AppShell shell)

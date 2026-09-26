@@ -13,6 +13,26 @@
         <ScrollView>
             <VerticalStackLayout Padding="28,28,28,104" Spacing="22">
                 <VerticalStackLayout Spacing="10">
+                    <Label Text="{Binding LocalDocumentsTitle}" FontSize="22" SemanticProperties.HeadingLevel="Level1" />
+                    <Label Text="{Binding LocalDocumentsNotice}" Style="{StaticResource Body}" />
+                    <Label Text="{Binding DocumentLimitText}" FontSize="12" />
+                    <Button Text="{Binding AttachDocumentText}" Command="{Binding AttachDocumentCommand}" IsVisible="{Binding CanAttachDocument}" IsEnabled="{Binding IsNotBusy}" />
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding LocalDocuments}" Spacing="10">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="viewModels:LocalDocumentItemViewModel">
+                                <Border Style="{StaticResource Card}" Padding="14">
+                                    <VerticalStackLayout Spacing="8">
+                                        <Button Text="{Binding Title}" Command="{Binding OpenCommand}" Style="{StaticResource GhostButton}" />
+                                        <Label Text="{Binding Details}" FontSize="12" />
+                                        <Button Text="{Binding RenameText}" Command="{Binding RenameCommand}" Style="{StaticResource GhostButton}" />
+                                        <Button Text="{Binding DeleteText}" Command="{Binding DeleteCommand}" Style="{StaticResource GhostButton}" />
+                                    </VerticalStackLayout>
+                                </Border>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+                <VerticalStackLayout Spacing="10">
                     <Label Text="DOCS · YUKU JAPAN"
                            CharacterSpacing="6"
                            FontSize="11"
@@ -192,8 +212,9 @@
                                             <Label Text="{Binding Title}"
                                                    FontSize="19"
                                                    TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
-                                            <Label Text="{Binding Subtitle}"
-                                                   Style="{StaticResource Body}" />
+                                            <Label Text="{Binding Subtitle}" Style="{StaticResource Body}" />
+                                            <Label Text="{Binding Availability}" FontSize="12" />
+                                            <Button Text="{Binding DownloadText}" Command="{Binding DownloadCommand}" Style="{StaticResource GhostButton}" />
                                         </VerticalStackLayout>
                                         <Button Grid.Column="1"
                                                 Text="PDF ->"
@@ -225,8 +246,9 @@
                                             <Label Text="{Binding Title}"
                                                    FontSize="19"
                                                    TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
-                                            <Label Text="{Binding Subtitle}"
-                                                   Style="{StaticResource Body}" />
+                                            <Label Text="{Binding Subtitle}" Style="{StaticResource Body}" />
+                                            <Label Text="{Binding Availability}" FontSize="12" />
+                                            <Button Text="{Binding DownloadText}" Command="{Binding DownloadCommand}" Style="{StaticResource GhostButton}" />
                                         </VerticalStackLayout>
                                         <Button Grid.Column="1"
                                                 Text="PDF ->"

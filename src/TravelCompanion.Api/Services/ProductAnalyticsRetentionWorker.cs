@@ -33,7 +33,8 @@ public sealed class ProductAnalyticsRetentionWorker(
                 Source = item.Source ?? string.Empty,
                 Platform = item.Platform ?? string.Empty,
                 AppVersion = item.AppVersion ?? string.Empty,
-                PaywallVariant = item.PaywallVariant ?? string.Empty
+                PaywallVariant = item.PaywallVariant ?? string.Empty,
+                FreePolicyVariant = item.FreePolicyVariant ?? string.Empty
             });
             foreach (var group in groups)
             {
@@ -41,13 +42,13 @@ public sealed class ProductAnalyticsRetentionWorker(
                 var aggregate = await dbContext.ProductAnalyticsDailyAggregates.SingleOrDefaultAsync(item =>
                     item.Date == key.Date && item.Name == key.Name && item.Source == key.Source
                     && item.Platform == key.Platform && item.AppVersion == key.AppVersion
-                    && item.PaywallVariant == key.PaywallVariant, cancellationToken);
+                    && item.PaywallVariant == key.PaywallVariant && item.FreePolicyVariant == key.FreePolicyVariant, cancellationToken);
                 if (aggregate is null)
                     dbContext.ProductAnalyticsDailyAggregates.Add(new TravelCompanion.Api.Models.ProductAnalyticsDailyAggregate
                     {
                         Id = Guid.NewGuid(), Date = key.Date, Name = key.Name, Source = key.Source,
                         Platform = key.Platform, AppVersion = key.AppVersion,
-                        PaywallVariant = key.PaywallVariant, EventCount = group.Count()
+                        PaywallVariant = key.PaywallVariant, FreePolicyVariant = key.FreePolicyVariant, EventCount = group.Count()
                     });
                 else aggregate.EventCount += group.Count();
             }

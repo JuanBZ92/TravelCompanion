@@ -297,7 +297,7 @@ public sealed partial class MapViewModel(
         if (!sessionService.CanEditItinerary)
         {
             pendingStore.Set(recommendation);
-            await PaywallNavigation.OpenAsync(PaywallEntryPoint.Map);
+            await PaywallNavigation.OpenAsync(PaywallEntryPoint.Map, limitReached: true);
             return;
         }
 

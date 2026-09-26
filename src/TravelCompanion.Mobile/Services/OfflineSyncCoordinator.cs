@@ -11,7 +11,6 @@ public sealed class OfflineSyncCoordinator(
     MobileDiscoverStore discoverStore,
     MobileTodayStore todayStore,
     FreeMapStore freeMapStore,
-    OfflineCacheService offlineCacheService,
     ILogger<OfflineSyncCoordinator> logger)
 {
     private readonly SemaphoreSlim _syncLock = new(1, 1);
@@ -132,12 +131,8 @@ public sealed class OfflineSyncCoordinator(
             }
         }
 
-        if (comparison.DocumentsChanged || comparison.ItineraryChanged)
-        {
-            await offlineCacheService.DeleteByPrefixAndSuffixAsync(
-                "mobile-docs-",
-                $"-{sessionService.CurrentUserId?.ToString() ?? "anonymous"}").ConfigureAwait(false);
-        }
+        // Keep the previous document snapshot until its replacement is saved.
+        // DocsViewModel compares its version with sync state before refreshing it.
 
         if (comparison.FreeCatalogChanged)
         {

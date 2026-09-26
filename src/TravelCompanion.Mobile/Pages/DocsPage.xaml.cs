@@ -18,7 +18,7 @@ public partial class DocsPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-        if (!_viewModel.HasLoaded)
+        if (!_viewModel.IsBusy)
         {
             await _viewModel.LoadCommand.ExecuteAsync(null);
         }

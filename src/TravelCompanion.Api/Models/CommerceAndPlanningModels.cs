@@ -102,6 +102,7 @@ public sealed class ProductAnalyticsEvent
     public string? AppVersion { get; set; }
     public string? Platform { get; set; }
     public string? AccessState { get; set; }
+    public string? FreePolicyVariant { get; set; }
     public string? PaywallVariant { get; set; }
     public bool BehaviorConsent { get; set; }
     public bool IsBusinessEvent { get; set; }
@@ -111,6 +112,7 @@ public sealed class ProductAnalyticsEvent
 
 public sealed class ProductAnalyticsDailyAggregate
 {
+    public string FreePolicyVariant { get; set; } = string.Empty;
     public Guid Id { get; set; }
     public DateOnly Date { get; set; }
     public required string Name { get; set; }

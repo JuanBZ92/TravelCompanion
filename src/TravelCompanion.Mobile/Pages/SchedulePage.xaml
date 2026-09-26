@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:shapes="clr-namespace:Microsoft.Maui.Controls.Shapes;assembly=Microsoft.Maui.Controls"
              xmlns:viewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
+             xmlns:services="clr-namespace:TravelCompanion.Mobile.Services"
              xmlns:pages="clr-namespace:TravelCompanion.Mobile.Pages"
              x:Class="TravelCompanion.Mobile.Pages.SchedulePage"
              x:Name="PageRoot"
@@ -77,6 +78,11 @@
                         </Grid>
                     </Grid>
 
+                    <Button Text="{Binding ReviewTripText}" Command="{Binding ReviewTripCommand}" IsVisible="{Binding HasItineraryActions}" Style="{StaticResource GhostButton}" />
+                    <VerticalStackLayout IsVisible="{Binding ShowOfflineStatus}" Spacing="6">
+                        <Label Text="{Binding OfflineStatus}" FontSize="13" />
+                        <Label Text="{Binding OfflineScope}" Style="{StaticResource Body}" FontSize="12" />
+                    </VerticalStackLayout>
                     <Border Padding="16,14"
                             BackgroundColor="#FFF7E8"
                             Stroke="#C7A45A"
@@ -88,7 +94,7 @@
                                    LineHeight="1.25"
                                    TextColor="#5F4B25" />
                             <Button Grid.Row="1"
-                                    Text="Guardar con el pase"
+                                    Text="{Binding [UpgradeTrip], Source={x:Static services:LocalizationResourceManager.Instance}}"
                                     Command="{Binding RedeemPassCommand}"
                                     BackgroundColor="#3D3329"
                                     TextColor="White"

@@ -254,8 +254,10 @@ public sealed class FreeBuilderTrialTests
         Assert.Empty(await db.Reservations.Where(r => r.RecommendationId == seed.InsideRecommendationId).ToListAsync());
     }
 
-    [Fact]
-    public async Task Paid_pin_promotes_the_same_draft_to_builder_access()
+    [Theory]
+    [InlineData(FreeAccessPolicy.TimedTrial)]
+    [InlineData(FreeAccessPolicy.PersistentFree)]
+    public async Task Paid_pin_promotes_the_same_draft_to_builder_access(FreeAccessPolicy policy)
     {
         await using var factory = new TrialApiFactory();
         await factory.SeedAsync();
@@ -275,6 +277,14 @@ public sealed class FreeBuilderTrialTests
         setupResponse.EnsureSuccessStatusCode();
         var setup = await setupResponse.Content.ReadFromJsonAsync<BuilderTripSetupDto>(JsonOptions);
 
+        using (var policyScope = factory.Services.CreateScope())
+        {
+            var policyDb = policyScope.ServiceProvider.GetRequiredService<TravelCompanionDbContext>();
+            var trial = await policyDb.BuilderAccessGrants.SingleAsync(item => item.AppUserId == login.UserId && item.IsTrial);
+            trial.FreePolicy = policy;
+            await policyDb.SaveChangesAsync();
+        }
+
         var redeem = await client.PostAsJsonAsync(
             "/api/mobile/pass/redeem",
             new RedeemTravelPassRequest("4321"),
@@ -284,6 +294,7 @@ public sealed class FreeBuilderTrialTests
         Assert.Equal(SessionAccessMode.Builder, paid?.AccessMode);
         Assert.Equal(setup?.TripId, paid?.TripId);
         Assert.False(paid?.TrialAccess?.IsTrial);
+        Assert.Equal(policy, paid?.TrialAccess?.FreePolicy);
 
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<TravelCompanionDbContext>();

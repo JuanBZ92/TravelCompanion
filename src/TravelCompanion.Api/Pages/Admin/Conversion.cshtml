@@ -9,7 +9,8 @@
     <label>Plataforma <input name="platform" /></label>
     <label>Versión <input name="appVersion" /></label>
     <label>Entrada <input name="entry" /></label>
-    <label>Variante <input name="variant" /></label>
+    <label>Variante del paywall <input name="variant" /></label>
+    <label>Política Free <select name="freePolicy"><option value="">Todas</option><option>TimedTrial</option><option>PersistentFree</option></select></label>
     <button class="button" type="submit">Filtrar</button>
 </form>
 <section class="grid">
@@ -53,7 +54,9 @@
 </section>
 <section class="panel" style="margin-top:18px">
     <h2>Señales de uso</h2>
+    <p class="muted">Activación: primera actividad guardada. Conversión a 7 y 30 días desde esa activación; solo usuarios con consentimiento. Los ingresos son brutos, no incluyen costes operativos. Las métricas operativas de compras no se filtran por política Free.</p>
     <p class="muted">Acompañan a la conversión; no son pasos obligatorios del embudo.</p>
+    <p class="muted">Los filtros del embudo seleccionan usuarios con algún evento coincidente dentro del periodo y recuperan sus etapas completas. Así se incluyen activaciones y compras del servidor sin metadatos del cliente. Los ingresos se filtran por los datos de cada transacción.</p>
     @foreach (var signal in Model.Signals) { <p><strong>@signal.Users</strong> · @signal.Name</p> }
 </section>
 <section class="panel" style="margin-top:18px">

@@ -15,7 +15,8 @@ public sealed partial class BuilderSetupViewModel(
     MobileBootstrapStore bootstrapStore,
     MobileTodayStore todayStore,
     MobileSyncStateStore syncStateStore,
-    BuilderTripStore builderTripStore) : ViewModelBase
+    BuilderTripStore builderTripStore,
+    ProductAnalyticsTracker analytics) : ViewModelBase
 {
     private DateTime _arrivalDate = DateTime.Today;
     private DateTime _departureDate = DateTime.Today.AddDays(6);
@@ -27,12 +28,17 @@ public sealed partial class BuilderSetupViewModel(
     public ObservableCollection<string> SuggestedCities { get; } = [];
     public bool HasSuggestedCities => SuggestedCities.Count > 0;
     public bool IsEditing => _tripId.HasValue;
-    public string HeaderEyebrow => IsEditing ? "EDITAR ITINERARIO · JAPÓN" : "CREAR ITINERARIO · JAPÓN";
-    public string HeaderTitle => IsEditing ? "Editar itinerario" : "Primero, las bases";
-    public string HeaderDescription => IsEditing
-        ? "Ajusta fechas, ciudades y hoteles. Tus planes se conservan en sus días actuales."
-        : "Define cuándo y en qué ciudades estarás. El itinerario comienza vacío.";
-    public string PrimaryButtonText => IsEditing ? "Guardar cambios" : "Crear itinerario";
+    [ObservableProperty] private bool showOptionalDetails;
+    public bool ShowTripDetails => IsEditing || ShowOptionalDetails;
+    partial void OnShowOptionalDetailsChanged(bool value) => OnPropertyChanged(nameof(ShowTripDetails));
+    [RelayCommand] private void ToggleDetails() => ShowOptionalDetails = !ShowOptionalDetails;
+    public string OptionalDetailsText => LocalizationResourceManager.Instance["OptionalDetails"];
+
+    private static string Text(string key) => LocalizationResourceManager.Instance[key];
+    public string HeaderEyebrow => Text(IsEditing ? "SetupEditEyebrow" : "SetupCreateEyebrow");
+    public string HeaderTitle => Text(IsEditing ? "SetupEditTitle" : "SetupCreateTitle");
+    public string HeaderDescription => Text(IsEditing ? "SetupEditDescription" : "SetupCreateDescription");
+    public string PrimaryButtonText => Text(IsEditing ? "SetupSave" : "SetupCreate");
     public DateTime ArrivalDate
     {
         get => _arrivalDate;
@@ -74,7 +80,7 @@ public sealed partial class BuilderSetupViewModel(
         var token = await sessionService.GetTokenAsync();
         if (string.IsNullOrWhiteSpace(token))
         {
-            ErrorMessage = "Tu sesión venció. Vuelve a ingresar con tu PIN.";
+            ErrorMessage = Text("SetupSessionExpired");
             return;
         }
 
@@ -86,7 +92,7 @@ public sealed partial class BuilderSetupViewModel(
                 AddDefaultSegment();
             }
 
-            ErrorMessage = "No pudimos cargar la configuración del viaje. Reintenta en unos segundos.";
+            ErrorMessage = Text("SetupLoadFailed");
             return;
         }
         sessionService.ApplyTrialAccess(setup.TrialAccess);
@@ -167,7 +173,7 @@ public sealed partial class BuilderSetupViewModel(
         var tripDayCount = (DepartureDate.Date - ArrivalDate.Date).Days + 1;
         if (Segments.Count >= tripDayCount)
         {
-            ErrorMessage = "No puedes agregar más ciudades que días de viaje.";
+            ErrorMessage = Text("SetupTooManyCities");
             return;
         }
 
@@ -262,7 +268,7 @@ public sealed partial class BuilderSetupViewModel(
 
             if (query.Length < 3 || !sessionService.CanSearchGooglePlaces)
             {
-                StatusMessage = "No hay hoteles coincidentes. Puedes completarlo manualmente.";
+                StatusMessage = Text("SetupNoHotels");
                 return;
             }
 
@@ -281,10 +287,10 @@ public sealed partial class BuilderSetupViewModel(
                 || !string.Equals(segment.City.Trim(), city, StringComparison.Ordinal)
                 || !string.Equals(NormalizeSearchText(segment.HotelName), query, StringComparison.Ordinal)) return;
             foreach (var result in results.Take(5)) segment.HotelSuggestions.Add(result);
-            StatusMessage = results.Count == 0 ? "Sin resultados. Puedes escribir el hotel y direccion manualmente." : null;
+            StatusMessage = results.Count == 0 ? Text("SetupNoResults") : null;
         }
         catch (OperationCanceledException) { }
-        catch (Exception) { if (!operation.IsCancellationRequested) StatusMessage = "Busqueda no disponible. Puedes escribir el hotel y direccion manualmente."; }
+        catch (Exception) { if (!operation.IsCancellationRequested) StatusMessage = Text("SetupSearchUnavailable"); }
         finally
         {
             if (ReferenceEquals(segment.HotelSearch, operation)) segment.HotelSearch = null;
@@ -327,7 +333,7 @@ public sealed partial class BuilderSetupViewModel(
         catch (OperationCanceledException) { }
         catch (Exception) when (!operation.IsCancellationRequested)
         {
-            StatusMessage = "Hotel seleccionado. La ubicacion exacta se completara cuando este disponible.";
+            StatusMessage = Text("SetupHotelSelected");
         }
         finally
         {
@@ -383,7 +389,7 @@ public sealed partial class BuilderSetupViewModel(
         _saveAttempted = true;
         if (Segments.Count == 0)
         {
-            ErrorMessage = "Agrega al menos una ciudad.";
+            ErrorMessage = Text("SetupCityRequired");
             return;
         }
 
@@ -403,10 +409,11 @@ public sealed partial class BuilderSetupViewModel(
         var result = string.IsNullOrWhiteSpace(token) ? null : await apiClient.SaveBuilderTripSetupAsync(token, request, ct);
         if (result?.TripId is null)
         {
-            ErrorMessage = "Revisa las fechas: las ciudades deben cubrir todo el viaje sin huecos.";
+            ErrorMessage = Text("SetupDateGaps");
             return;
         }
 
+        var isNewTrip = !_tripId.HasValue;
         _revision = result.Revision;
         sessionService.ApplyTrialAccess(result.TrialAccess);
         SetTripId(result.TripId);
@@ -420,6 +427,7 @@ public sealed partial class BuilderSetupViewModel(
             await syncStateStore.AcknowledgeItineraryVersionAsync(schedule.Revision, ct);
         }
         if (Shell.Current is AppShell shell) shell.ApplySessionTabs(sessionService);
+        if (isNewTrip) await analytics.TrackAsync("trip_created", "setup", tripId: result.TripId, cancellationToken: ct);
         var pending = pendingStore.Take();
         if (pending is not null)
         {
@@ -427,7 +435,7 @@ public sealed partial class BuilderSetupViewModel(
         }
         else
         {
-            await Shell.Current.GoToAsync("//main/schedule");
+            await Shell.Current.GoToAsync("//main/schedule", new ShellNavigationQueryParameters { ["InitialDate"] = DateOnly.FromDateTime(ArrivalDate) });
         }
     });
 
@@ -447,6 +455,7 @@ public sealed partial class BuilderSetupViewModel(
 
         _tripId = tripId;
         OnPropertyChanged(nameof(IsEditing));
+        OnPropertyChanged(nameof(ShowTripDetails));
         OnPropertyChanged(nameof(HeaderEyebrow));
         OnPropertyChanged(nameof(HeaderTitle));
         OnPropertyChanged(nameof(HeaderDescription));
@@ -491,13 +500,13 @@ public sealed partial class BuilderSetupViewModel(
     {
         if (DepartureDate.Date < ArrivalDate.Date)
         {
-            error = "La fecha de salida no puede ser anterior a la llegada.";
+            error = Text("SetupInvalidDeparture");
             return false;
         }
 
         if ((DepartureDate.Date - ArrivalDate.Date).TotalDays >= 91)
         {
-            error = "El viaje puede tener como máximo 91 días.";
+            error = Text("SetupMaxDays");
             return false;
         }
 
@@ -506,7 +515,7 @@ public sealed partial class BuilderSetupViewModel(
         {
             if (string.IsNullOrWhiteSpace(segment.City))
             {
-                error = "Completa el nombre de todas las ciudades.";
+                error = Text("SetupCityNames");
                 return false;
             }
 
@@ -514,7 +523,7 @@ public sealed partial class BuilderSetupViewModel(
                     && (ReferenceEquals(segment, Segments[0]) || segment.StartsOn.Date != expectedStart.AddDays(-1)))
                 || segment.EndsOn.Date < segment.StartsOn.Date)
             {
-                error = $"Revisa las fechas de {segment.City}: solo el día de traslado puede compartirse entre ciudades.";
+                error = string.Format(Text("SetupCityOverlap"), segment.City);
                 return false;
             }
 
@@ -523,7 +532,7 @@ public sealed partial class BuilderSetupViewModel(
 
         if (expectedStart != DepartureDate.Date.AddDays(1))
         {
-            error = "Las ciudades deben cubrir todos los días entre llegada y salida.";
+            error = Text("SetupCityCoverage");
             return false;
         }
 

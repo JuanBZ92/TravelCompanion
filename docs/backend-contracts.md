@@ -1,5 +1,14 @@
 # Backend Contracts
 
+## Free policy compatibility (September 2026)
+
+- `PinLoginRequestDto.SupportsPersistentFree` is optional and defaults to `false`. The new mobile client sends `true`; old clients and existing accounts keep the timed policy.
+- `TrialAccessStatusDto.FreePolicy` adds `TimedTrial = 0` and `PersistentFree = 1`; `DayImprovementsRemaining` reports the independent day-improvement quota. Existing fields remain available.
+- Persistent Free grants can be `Editing` with null editing/draft expiry timestamps. Clients must use the policy and access state, not require an expiry for this policy. Revoked or inactive grants remain blocked.
+- `FreePreview:PersistentFreePercent` defaults to zero. Assignment is persisted on new compatible accounts; changing the percentage does not reassign existing grants.
+- Analytics stores `FreePolicyVariant` independently from `PaywallVariant`, resolved by the server. The paywall uses the single `contextual-v2` copy variant during this experiment.
+- No document-upload endpoint was added. Personal attachments are encrypted device-local files. See [release sequencing and limitations](launch-value-cycle.md).
+
 ## Production-Critical Endpoints
 
 These endpoints should be covered by smoke tests and contract regression tests before production deploys:

@@ -11,7 +11,8 @@ public sealed partial class AccountViewModel(
     AuthSessionService sessions,
     SessionLogoutService logout,
     AnalyticsConsentService analyticsConsent,
-    ProductAnalyticsQueueService analyticsQueue) : ViewModelBase
+    ProductAnalyticsQueueService analyticsQueue,
+    TripDocumentStore documents) : ViewModelBase
 {
     private string _email = string.Empty;
     private bool _emailVerified;
@@ -129,9 +130,13 @@ public sealed partial class AccountViewModel(
         if (!confirmed) return;
         await LoadAsync(async cancellationToken =>
         {
+            var deletingUserId = sessions.CurrentUserId;
+            var deletingContext = sessions.ContextVersion;
             var token = await sessions.GetTokenAsync();
             if (string.IsNullOrWhiteSpace(token) || !await api.DeleteAccountAsync(token, cancellationToken))
                 throw new InvalidOperationException(Resource("AccountDeleteError"));
+            if (deletingUserId.HasValue) await documents.DeleteAccountAsync(deletingUserId.Value);
+            if (deletingContext != sessions.ContextVersion) return;
             await logout.LogoutAsync();
             if (Shell.Current is AppShell shell) shell.ApplySessionTabs(sessions);
             await Shell.Current.GoToAsync("//login");

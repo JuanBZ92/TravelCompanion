@@ -1,11 +1,13 @@
-﻿namespace TravelCompanion.Mobile;
+namespace TravelCompanion.Mobile;
 
 public partial class App : Application
 {
 	public App()
 	{
 		TravelCompanion.Mobile.Services.LocalizationResourceManager.Instance.Initialize();
-		InitializeComponent();
+        try { TravelCompanion.Mobile.Services.TripDocumentStore.ClearPreviewsAsync().GetAwaiter().GetResult(); }
+        catch (IOException) { /* A viewer can still hold a temporary file after an app restart. */ }
+        InitializeComponent();
 		UserAppTheme = AppTheme.Light;
 	}
 

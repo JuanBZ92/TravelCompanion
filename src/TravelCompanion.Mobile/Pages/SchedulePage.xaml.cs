@@ -6,11 +6,17 @@ using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Mobile.Pages;
 
-public partial class SchedulePage : ContentPage
+public partial class SchedulePage : ContentPage, IQueryAttributable
 {
     private readonly ScheduleViewModel _viewModel;
     private readonly ILogger<SchedulePage> _logger;
     private bool _isHandlingAppearance;
+    private DateOnly? _initialDate;
+    public void ApplyQueryAttributes(IDictionary<string, object> query)
+    {
+        if (query.TryGetValue("InitialDate", out var value) && value is DateOnly date) _initialDate = date;
+    }
+
     private IDispatcherTimer? _trialTimer;
     public ScheduleViewModel ViewModel => _viewModel;
 
@@ -86,7 +92,7 @@ public partial class SchedulePage : ContentPage
                 return;
             }
 
-            if (_viewModel.HasLoaded
+            if (_initialDate is null && _viewModel.HasLoaded
                 && !_viewModel.ShowTodayLoading
                 && _viewModel.HasFreshVisibleData)
             {
@@ -98,6 +104,13 @@ public partial class SchedulePage : ContentPage
             }
 
             await _viewModel.LoadScheduleCommand.ExecuteAsync(null);
+            if (_initialDate is { } date)
+            {
+                _initialDate = null;
+                await _viewModel.SelectInitialDateAsync(date);
+            }
+            if (sessionService.IsBuilder && !sessionService.IsFreeMapPreview)
+                await MauiProgram.Services.GetRequiredService<TravelCompanion.Mobile.Services.ProductAnalyticsTracker>().TrackAsync("paid_trip_opened", "today");
         }
         catch (Exception ex)
         {
@@ -108,6 +121,7 @@ public partial class SchedulePage : ContentPage
         }
         finally
         {
+            try { await _viewModel.UpdateOfflineStatusAsync(); } catch { /* Optional download status must not block the itinerary. */ }
             _isHandlingAppearance = false;
             stopwatch.Stop();
             _logger.LogInformation(

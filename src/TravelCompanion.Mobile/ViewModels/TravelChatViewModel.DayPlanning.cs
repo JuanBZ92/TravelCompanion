@@ -15,7 +15,7 @@ public sealed partial class TravelChatViewModel
         if (card.PlanningDate is { } date) PlanningDate = date.ToDateTime(TimeOnly.MinValue);
         if (!sessionService.CanEditItinerary)
         {
-            await PaywallNavigation.OpenAsync(PaywallEntryPoint.Today);
+            await PaywallNavigation.OpenAsync(PaywallEntryPoint.Today, limitReached: true);
             return;
         }
         if (!card.RecommendationId.HasValue || !card.StartsAt.HasValue)
@@ -44,7 +44,7 @@ public sealed partial class TravelChatViewModel
         if (IsBusy) return;
         if (!sessionService.CanEditItinerary)
         {
-            await PaywallNavigation.OpenAsync(PaywallEntryPoint.Today);
+            await PaywallNavigation.OpenAsync(PaywallEntryPoint.Today, limitReached: true);
             return;
         }
         var token = await sessionService.GetTokenAsync();
@@ -81,7 +81,7 @@ public sealed partial class TravelChatViewModel
             if (response.MissingContext?.Field == "upgrade")
             {
                 if (replacementTarget is not null) replacementTarget.FeedbackStatusMessage = response.Message;
-                await PaywallNavigation.OpenAsync(PaywallEntryPoint.Today);
+                await PaywallNavigation.OpenAsync(PaywallEntryPoint.Today, limitReached: true);
                 return;
             }
             var cards = response.Cards.Select(item => new TravelChatCardViewModel(item) { PlanningDate = planningDate }).ToList();

@@ -6,6 +6,8 @@ public sealed class FreePreviewOptions
     public const string ReservedPin = "0000";
 
     public bool Enabled { get; set; } = true;
+    // Opt-in rollout. Changing this only affects newly created compatible accounts.
+    public int PersistentFreePercent { get; set; }
     public string Pin { get; set; } = ReservedPin;
     public int SessionLifetimeDays { get; set; } = 7;
     public int TrialEditingMinutes { get; set; } = 30;

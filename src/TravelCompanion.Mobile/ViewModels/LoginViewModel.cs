@@ -40,12 +40,18 @@ public sealed partial class LoginViewModel(
 
     public bool CanUseBiometricUnlock => sessionService.HasSession && sessionService.IsBiometricEnabled;
 
+    public string CreateTripText => Resource("CreateTrip");
     [RelayCommand]
-    private Task LoginAsync()
+    private Task CreateTripAsync() => AuthenticateAsync("0000", true);
+
+    [RelayCommand]
+    private Task LoginAsync() => AuthenticateAsync(Pin, false);
+
+    private Task AuthenticateAsync(string inputPin, bool createTrip)
     {
         return LoadAsync(async () =>
         {
-            var pin = new string(Pin.Where(char.IsDigit).Take(6).ToArray());
+            var pin = new string(inputPin.Where(char.IsDigit).Take(6).ToArray());
             if (pin.Length is not (4 or 6))
             {
                 ErrorMessage = LocalizationResourceManager.Instance.GetString("LoginPinLengthError");
@@ -78,6 +84,8 @@ public sealed partial class LoginViewModel(
                     ? "//change-password"
                     : AppShell.GetAuthenticatedLandingRoute(sessionService);
             await Shell.Current.GoToAsync(route);
+            if (createTrip && sessionService.RequiresTripSetup)
+                await Shell.Current.GoToAsync(nameof(TravelCompanion.Mobile.Pages.BuilderSetupPage));
         });
     }
 

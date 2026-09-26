@@ -3,15 +3,18 @@ using System.Text;
 using Microsoft.EntityFrameworkCore;
 using TravelCompanion.Api.Data;
 using TravelCompanion.Api.Models;
+using Microsoft.Extensions.Options;
+using TravelCompanion.Api.Options;
+using TravelCompanion.Shared;
 
 namespace TravelCompanion.Api.Services;
 
-public sealed class FreePreviewAccountService(TravelCompanionDbContext dbContext)
+public sealed class FreePreviewAccountService(TravelCompanionDbContext dbContext, IOptions<FreePreviewOptions>? options = null)
 {
     public const string AccountEmail = "free-preview@travelcompanion.system";
     public const string AccountEmailPrefix = "free-preview+";
 
-    public async Task<AppUser> GetOrCreateAsync(string? clientInstanceId, CancellationToken cancellationToken = default)
+    public async Task<AppUser> GetOrCreateAsync(string? clientInstanceId, CancellationToken cancellationToken = default, bool supportsPersistentFree = false)
     {
         var instanceKey = string.IsNullOrWhiteSpace(clientInstanceId)
             ? "legacy"
@@ -37,8 +40,9 @@ public sealed class FreePreviewAccountService(TravelCompanionDbContext dbContext
 
         try
         {
-            await dbContext.SaveChangesAsync(cancellationToken);
-            await EnsureTrialGrantAsync(account, cancellationToken);
+            // Save the new account and its assigned policy together so a concurrent
+            // login cannot create a legacy grant in the gap between two commits.
+            await EnsureTrialGrantAsync(account, cancellationToken, supportsPersistentFree && instanceKey != "legacy");
             return account;
         }
         catch (DbUpdateException)
@@ -50,7 +54,7 @@ public sealed class FreePreviewAccountService(TravelCompanionDbContext dbContext
         }
     }
 
-    private async Task EnsureTrialGrantAsync(AppUser account, CancellationToken cancellationToken)
+    private async Task EnsureTrialGrantAsync(AppUser account, CancellationToken cancellationToken, bool supportsPersistentFree = false)
     {
         if (await dbContext.BuilderAccessGrants.AnyAsync(grant => grant.AppUserId == account.Id && grant.IsTrial, cancellationToken))
         {
@@ -81,6 +85,7 @@ public sealed class FreePreviewAccountService(TravelCompanionDbContext dbContext
             DestinationId = destinationId,
             PinHash = string.Empty,
             IsTrial = true,
+            FreePolicy = AssignPolicy(account.Id, supportsPersistentFree, options?.Value.PersistentFreePercent ?? 0),
             Status = TravelCompanion.Shared.BuilderAccessStatus.Active,
             CreatedAtUtc = DateTimeOffset.UtcNow
         });
@@ -98,5 +103,13 @@ public sealed class FreePreviewAccountService(TravelCompanionDbContext dbContext
                 throw;
             }
         }
+    }
+
+    internal static FreeAccessPolicy AssignPolicy(Guid userId, bool supported, int percent)
+    {
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes($"free-policy-v1:{userId:N}"));
+        var bucket = ((hash[0] << 8) | hash[1]) % 100;
+        return supported && bucket < Math.Clamp(percent, 0, 100)
+            ? FreeAccessPolicy.PersistentFree : FreeAccessPolicy.TimedTrial;
     }
 }

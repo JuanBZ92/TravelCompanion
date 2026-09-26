@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:TravelCompanion.Mobile.ViewModels"
+             x:Class="TravelCompanion.Mobile.Pages.TripReviewPage"
+             x:DataType="vm:TripReviewViewModel" Title="{Binding Title}"
+             SafeAreaEdges="All" BackgroundColor="{StaticResource Mist}">
+    <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="20" RowSpacing="12">
+        <Label Text="{Binding Coverage}" Style="{StaticResource Body}" />
+        <Label Grid.Row="1" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+        <ActivityIndicator Grid.Row="2" IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
+        <CollectionView Grid.Row="3" ItemsSource="{Binding Days}" SelectionMode="None">
+            <CollectionView.EmptyView><Label Text="{Binding EmptyText}" /></CollectionView.EmptyView>
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="vm:TripReviewDayViewModel">
+                    <Border Style="{StaticResource Card}" Padding="16" Margin="0,0,0,14">
+                        <VerticalStackLayout Spacing="10">
+                            <Label Text="{Binding Date}" Style="{StaticResource Eyebrow}" />
+                            <Label Text="{Binding Title}" FontSize="20" SemanticProperties.HeadingLevel="Level2" />
+                            <Label Text="{Binding Summary}" Style="{StaticResource Body}" />
+                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Issues}" Spacing="8">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:TripReviewIssueViewModel">
+                                        <VerticalStackLayout Spacing="6">
+                                            <Label Text="{Binding Message}" Style="{StaticResource Body}" />
+                                            <Button Text="{Binding OpenText}" Command="{Binding OpenCommand}" IsVisible="{Binding CanOpen}" Style="{StaticResource GhostButton}" />
+                                        </VerticalStackLayout>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+                            <Button Text="{Binding ViewDayText}" Command="{Binding ViewDayCommand}" Style="{StaticResource GhostButton}" />
+                            <Button Text="{Binding ImproveText}" Command="{Binding ImproveCommand}" IsVisible="{Binding CanImprove}" />
+                        </VerticalStackLayout>
+                    </Border>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+    </Grid>
+</ContentPage>

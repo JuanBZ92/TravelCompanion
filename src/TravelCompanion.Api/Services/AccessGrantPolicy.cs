@@ -14,6 +14,9 @@ public static class AccessGrantPolicy
 
         if (grant.IsTrial)
         {
+            if (grant.Status != BuilderAccessStatus.Active) return TrialAccessState.Expired;
+            if (grant.FreePolicy == FreeAccessPolicy.PersistentFree)
+                return grant.TrialEditingStartedAtUtc.HasValue ? TrialAccessState.Editing : TrialAccessState.NotStarted;
             if (grant.TrialDraftExpiresAtUtc.HasValue && grant.TrialDraftExpiresAtUtc <= now)
                 return TrialAccessState.Expired;
             if (!grant.TrialEditingStartedAtUtc.HasValue) return TrialAccessState.NotStarted;

@@ -253,7 +253,7 @@ public sealed partial class TravelChatViewModel(
 
         if (!sessionService.CanEditItinerary)
         {
-            await PaywallNavigation.OpenAsync(PaywallEntryPoint.Today);
+            await PaywallNavigation.OpenAsync(PaywallEntryPoint.Today, limitReached: true);
             return;
         }
         PlanningDate = date.ToDateTime(TimeOnly.MinValue);
@@ -499,7 +499,7 @@ public sealed partial class TravelChatViewModel(
             var isFullDaySubmission = _pendingGuidedAction?.Action == GuidedTravelActions.FullDay;
             if (isFullDaySubmission && !sessionService.CanEditItinerary)
             {
-                await PaywallNavigation.OpenAsync(PaywallEntryPoint.Today);
+                await PaywallNavigation.OpenAsync(PaywallEntryPoint.Today, limitReached: true);
                 return;
             }
             var replacementCard = _pendingReplacementCard;
@@ -598,7 +598,7 @@ public sealed partial class TravelChatViewModel(
                 fullDayProgressMessage.UpdateProgress(responseMessage, isLoading: false);
                 if (!sessionService.CanEditItinerary)
                 {
-                    await PaywallNavigation.OpenAsync(PaywallEntryPoint.Today);
+                    await PaywallNavigation.OpenAsync(PaywallEntryPoint.Today, limitReached: true);
                     return;
                 }
             }
@@ -630,7 +630,7 @@ public sealed partial class TravelChatViewModel(
             ApplyMissingContext(response.MissingContext);
             if (isFullDaySubmission && response.MissingContext?.Field == "upgrade")
             {
-                await PaywallNavigation.OpenAsync(PaywallEntryPoint.Today);
+                await PaywallNavigation.OpenAsync(PaywallEntryPoint.Today, limitReached: true);
                 return;
             }
             if (response.MissingContext is not null
@@ -766,7 +766,7 @@ public sealed partial class TravelChatViewModel(
             if (!sessionService.CanEditItinerary)
             {
                 pendingItineraryActionStore.Set(recommendation, DateOnly.FromDateTime(PlanningDate), card.StartsAt);
-                await PaywallNavigation.OpenAsync(PaywallEntryPoint.Assistant);
+                await PaywallNavigation.OpenAsync(PaywallEntryPoint.Assistant, limitReached: true);
                 return;
             }
 

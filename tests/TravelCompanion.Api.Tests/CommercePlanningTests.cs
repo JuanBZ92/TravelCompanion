@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.DependencyInjection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -17,6 +18,191 @@ namespace TravelCompanion.Api.Tests;
 
 public sealed class CommercePlanningTests
 {
+    [Fact]
+    public async Task Conversion_attributes_server_events_using_matching_client_events()
+    {
+        await using var db = CreateDb();
+        var now = DateTimeOffset.UtcNow;
+        foreach (var platform in new[] { "android", "ios" })
+        {
+            var user = Guid.NewGuid();
+            var names = new[] { "trial_started", "first_item_saved", "paywall_shown", "checkout_started", "purchase_verified", "pass_activated" };
+            for (var i = 0; i < names.Length; i++) db.Add(new ProductAnalyticsEvent
+            {
+                Id = Guid.NewGuid(), EventId = Guid.NewGuid(), AppUserId = user, Name = names[i],
+                OccurredAtUtc = now.AddDays(-40).AddHours(i), ReceivedAtUtc = now, BehaviorConsent = true,
+                Platform = names[i] == "paywall_shown" ? platform : null,
+                PaywallVariant = names[i] == "paywall_shown" ? "contextual-v2" : null
+            });
+        }
+        await db.SaveChangesAsync();
+        var page = new TravelCompanion.Api.Pages.Admin.ConversionModel(db);
+        await page.OnGetAsync(DateOnly.FromDateTime(now.AddDays(-41).UtcDateTime),
+            DateOnly.FromDateTime(now.UtcDateTime), "android", null, null, "contextual-v2");
+        Assert.All(page.Stages, stage => Assert.Equal(1, stage.Users));
+        Assert.Equal(1, page.ThirtyDayCohortSize);
+        Assert.Equal(100d, page.ThirtyDayConversionPercent);
+    }
+
+    [Fact]
+    public async Task Conversion_uses_later_ordered_paywall_and_does_not_reactivate_existing_users()
+    {
+        await using var db = CreateDb();
+        var current = Guid.NewGuid();
+        var existing = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow;
+        void Add(Guid user, string name, int days) => db.Add(new ProductAnalyticsEvent
+        {
+            Id = Guid.NewGuid(), EventId = Guid.NewGuid(), AppUserId = user, Name = name,
+            OccurredAtUtc = now.AddDays(days), ReceivedAtUtc = now, BehaviorConsent = true
+        });
+        Add(current, "trial_started", -39);
+        Add(current, "paywall_shown", -37);
+        Add(current, "first_item_saved", -35);
+        Add(current, "paywall_shown", -34);
+        Add(current, "checkout_started", -33);
+        Add(current, "purchase_verified", -32);
+        Add(current, "pass_activated", -31);
+        Add(existing, "first_item_saved", -50);
+        Add(existing, "first_item_saved", -30);
+        await db.SaveChangesAsync();
+        var page = new TravelCompanion.Api.Pages.Admin.ConversionModel(db);
+        await page.OnGetAsync(DateOnly.FromDateTime(now.AddDays(-40).UtcDateTime),
+            DateOnly.FromDateTime(now.UtcDateTime), null, null, null, null);
+        Assert.All(page.Stages, stage => Assert.Equal(1, stage.Users));
+        Assert.Equal(1, page.ThirtyDayCohortSize);
+        Assert.Equal(100d, page.ThirtyDayConversionPercent);
+        Assert.Equal(100d, page.SevenDayConversionPercent);
+    }
+
+    [Fact]
+    public async Task Persistent_draft_is_never_selected_by_timed_trial_cleanup()
+    {
+        await using var db = CreateDb();
+        var (user, trip, _, _) = await SeedPurchaseTripAsync(db);
+        db.Add(new BuilderAccessGrant
+        {
+            Id = Guid.NewGuid(), AppUserId = user.Id, TripId = trip.Id, DestinationId = trip.DestinationId,
+            IsTrial = true, FreePolicy = FreeAccessPolicy.PersistentFree,
+            TrialEditingStartedAtUtc = DateTimeOffset.UtcNow.AddDays(-40),
+            TrialDraftExpiresAtUtc = DateTimeOffset.UtcNow.AddDays(-1)
+        });
+        await db.SaveChangesAsync();
+        using var provider = new ServiceCollection().AddSingleton(db).BuildServiceProvider();
+        var worker = new ExpiredTrialCleanupWorker(provider.GetRequiredService<IServiceScopeFactory>(), NullLogger<ExpiredTrialCleanupWorker>.Instance);
+        Assert.Equal(0, await worker.PurgeAsync(default));
+        Assert.True(await db.Trips.AnyAsync(item => item.Id == trip.Id));
+    }
+
+    [Fact]
+    public async Task Contextual_paywall_uses_actual_quota_and_never_threatens_persistent_draft_deletion()
+    {
+        await using var db = CreateDb();
+        var (user, trip, sessions, http) = await SeedPurchaseTripAsync(db);
+        db.Add(new BuilderAccessGrant
+        {
+            Id = Guid.NewGuid(), AppUserId = user.Id, TripId = trip.Id, DestinationId = trip.DestinationId,
+            IsTrial = true, FreePolicy = FreeAccessPolicy.PersistentFree, TrialDraftExpiresAtUtc = DateTimeOffset.UtcNow.AddDays(7)
+        });
+        await db.SaveChangesAsync();
+        var settings = new StorePurchaseOptions { DailyAssistantLimit = 17, NewPurchasesEnabled = false };
+        var service = new PaywallOfferService(db, sessions, Microsoft.Extensions.Options.Options.Create(settings),
+            Microsoft.Extensions.Options.Options.Create(new ProductFeatureOptions()));
+        var map = await service.GetAsync(http, trip.Id, PaywallEntryPoint.Map, "android", default);
+        var assistant = await service.GetAsync(http, trip.Id, PaywallEntryPoint.Assistant, "android", default);
+        Assert.Null(map.DraftDeletionAtUtc);
+        Assert.Equal("contextual-v2", map.Variant);
+        Assert.NotEqual(map.Benefits[0], assistant.Benefits[0]);
+        var offline = await service.GetAsync(http, trip.Id, PaywallEntryPoint.Offline, "android", default);
+        Assert.NotEqual(map.Benefits[0], offline.Benefits[0]);
+        Assert.Contains(offline.Benefits, benefit => benefit.Contains("PDF"));
+        Assert.Contains(map.Benefits, item => item.Contains("17"));
+        Assert.False(map.CanPurchase);
+        settings.NewPurchasesEnabled = true;
+        Assert.True((await service.GetAsync(http, trip.Id, PaywallEntryPoint.Today, "ios", default)).CanPurchase);
+        Assert.False((await service.GetAsync(http, trip.Id, PaywallEntryPoint.Today, "desktop", default)).CanPurchase);
+    }
+
+    [Fact]
+    public async Task Analytics_keeps_free_policy_separate_from_paywall_variant_and_respects_consent()
+    {
+        await using var db = CreateDb();
+        var (user, trip, _, _) = await SeedPurchaseTripAsync(db);
+        db.Add(new BuilderAccessGrant
+        {
+            Id = Guid.NewGuid(), AppUserId = user.Id, TripId = trip.Id, DestinationId = trip.DestinationId,
+            IsTrial = true, FreePolicy = FreeAccessPolicy.PersistentFree
+        });
+        await db.SaveChangesAsync();
+        var analytics = new ProductAnalyticsService(db);
+        await analytics.RecordServerEventAsync(user.Id, trip.Id, "first_item_saved", "itinerary", "contextual-v2", default);
+        Assert.Empty(db.ProductAnalyticsEvents);
+        user.BehaviorAnalyticsConsent = true;
+        await db.SaveChangesAsync();
+        await analytics.RecordServerEventAsync(user.Id, trip.Id, "first_item_saved", "itinerary", "contextual-v2", default);
+        var item = await db.ProductAnalyticsEvents.SingleAsync();
+        Assert.Equal("PersistentFree", item.FreePolicyVariant);
+        Assert.Equal("contextual-v2", item.PaywallVariant);
+        var grant = await db.BuilderAccessGrants.SingleAsync();
+        grant.IsTrial = false;
+        await db.SaveChangesAsync();
+        await analytics.RecordServerEventAsync(user.Id, trip.Id, "purchase_verified", "checkout", "contextual-v2", default);
+        Assert.Equal("PersistentFree", (await db.ProductAnalyticsEvents.SingleAsync(value => value.Name == "purchase_verified")).FreePolicyVariant);
+        Assert.True(item.BehaviorConsent);
+    }
+
+    [Fact]
+    public async Task Persistent_free_preserves_editing_and_quotas_without_expiry()
+    {
+        await using var db = CreateDb();
+        var (user, trip, _, _) = await SeedPurchaseTripAsync(db);
+        var grant = new BuilderAccessGrant
+        {
+            Id = Guid.NewGuid(), AppUserId = user.Id, TripId = trip.Id, DestinationId = trip.DestinationId,
+            IsTrial = true, FreePolicy = FreeAccessPolicy.PersistentFree, Status = BuilderAccessStatus.Active
+        };
+        db.Add(grant);
+        await db.SaveChangesAsync();
+        var service = new FreeTrialAccessService(db, Microsoft.Extensions.Options.Options.Create(new FreePreviewOptions()), NullLogger<FreeTrialAccessService>.Instance);
+        var started = await service.StartEditingAsync(user.Id);
+        Assert.Null(started.EditingExpiresAtUtc);
+        Assert.Null(started.DraftExpiresAtUtc);
+        Assert.Equal(TrialAccessState.Editing, service.ToStatus(grant, DateTimeOffset.UtcNow.AddDays(31)).State);
+        var usage = new AssistantUsageService(db, Microsoft.Extensions.Options.Options.Create(new FreePreviewOptions()), Microsoft.Extensions.Options.Options.Create(new StorePurchaseOptions()));
+        for (var i = 0; i < 3; i++)
+        {
+            var lease = await usage.ReserveAsync(user.Id, trip.Id, $"chat:{i}", default);
+            await usage.CompleteAsync(lease.LeaseId, default);
+        }
+        var blocked = await Assert.ThrowsAsync<TrialUpgradeRequiredException>(() => usage.ReserveAsync(user.Id, trip.Id, "chat:4", default));
+        Assert.Equal(FreeAccessPolicy.PersistentFree, blocked.Status.FreePolicy);
+        Assert.Equal(TrialAccessState.Editing, blocked.Status.State);
+        var day = await usage.ReserveAsync(user.Id, trip.Id, "full-day:1", default);
+        await usage.CompleteAsync(day.LeaseId, default);
+        Assert.Equal(2, (await service.GetStatusAsync(user.Id)).DayImprovementsRemaining);
+        await Assert.ThrowsAsync<TrialUpgradeRequiredException>(() => service.RequirePlanningDateAsync(user.Id, trip.Id, trip.StartsOn.AddDays(3), default));
+        grant.RevokedAtUtc = DateTimeOffset.UtcNow;
+        Assert.Equal(TrialAccessState.Revoked, service.ToStatus(grant).State);
+    }
+
+    [Fact]
+    public async Task Free_policy_is_assigned_only_to_new_compatible_accounts_and_survives_rollout_changes()
+    {
+        await using var db = CreateDb();
+        await SeedPurchaseTripAsync(db);
+        var options = new FreePreviewOptions { PersistentFreePercent = 100 };
+        var service = new FreePreviewAccountService(db, Microsoft.Extensions.Options.Options.Create(options));
+        var legacy = await service.GetOrCreateAsync("legacy-client");
+        var compatible = await service.GetOrCreateAsync("new-client", default, true);
+        Assert.Equal(FreeAccessPolicy.TimedTrial, (await db.BuilderAccessGrants.SingleAsync(g => g.AppUserId == legacy.Id)).FreePolicy);
+        Assert.Equal(FreeAccessPolicy.PersistentFree, (await db.BuilderAccessGrants.SingleAsync(g => g.AppUserId == compatible.Id)).FreePolicy);
+        options.PersistentFreePercent = 0;
+        await service.GetOrCreateAsync("new-client", default, true);
+        await service.GetOrCreateAsync("legacy-client", default, true);
+        Assert.Equal(FreeAccessPolicy.PersistentFree, (await db.BuilderAccessGrants.SingleAsync(g => g.AppUserId == compatible.Id)).FreePolicy);
+        Assert.Equal(FreeAccessPolicy.TimedTrial, (await db.BuilderAccessGrants.SingleAsync(g => g.AppUserId == legacy.Id)).FreePolicy);
+    }
+
     [Fact]
     public async Task Free_day_improvements_and_chat_have_independent_three_result_limits()
     {
@@ -153,7 +339,8 @@ public sealed class CommercePlanningTests
         var grant = new BuilderAccessGrant
         {
             Id = Guid.NewGuid(), AppUserId = source.Id, DestinationId = destination.Id, TripId = trip.Id,
-            IsTrial = true, Status = BuilderAccessStatus.Active, ExpiresAtUtc = DateTimeOffset.UtcNow.AddDays(30)
+            IsTrial = true, Status = BuilderAccessStatus.Active, FreePolicy = FreeAccessPolicy.PersistentFree,
+            TrialEditingStartedAtUtc = DateTimeOffset.UtcNow.AddDays(-40)
         };
         var intent = new StorePurchaseIntent
         {
@@ -204,10 +391,21 @@ public sealed class CommercePlanningTests
         var (_, token) = await sessions.CreateSessionAsync(source, tripId: trip.Id, accessMode: SessionAccessMode.FreeMapPreview);
         var http = new DefaultHttpContext(); http.Request.Headers.Authorization = $"Bearer {token}";
         var service = new EmailAccountService(db, sessions, new TestEmailSender(),
-            Microsoft.Extensions.Options.Options.Create(new EmailVerificationOptions { HashSecret = secret }));
+            Microsoft.Extensions.Options.Options.Create(new EmailVerificationOptions { HashSecret = secret }),
+            freeTrialAccessService: new FreeTrialAccessService(db,
+                Microsoft.Extensions.Options.Options.Create(new FreePreviewOptions()), NullLogger<FreeTrialAccessService>.Instance));
 
         var linked = await service.VerifyCodeAsync(http, new(email, code), default);
 
+        Assert.Equal(FreeAccessPolicy.PersistentFree, linked.TrialAccess?.FreePolicy);
+        Assert.Equal(TrialAccessState.Editing, linked.TrialAccess?.State);
+        Assert.True(linked.Capabilities?.CanEditItinerary);
+        Assert.Equal(3, linked.TrialAccess?.DayImprovementsRemaining);
+        var selectedContext = new DefaultHttpContext();
+        selectedContext.Request.Headers.Authorization = $"Bearer {linked.Token}";
+        var selected = await service.SelectTripAsync(selectedContext, trip.Id, default);
+        Assert.Equal(linked.TrialAccess, selected.TrialAccess);
+        Assert.True(selected.Capabilities?.CanEditItinerary);
         Assert.Equal(target.Id, linked.UserId);
         Assert.Equal(trip.Id, linked.TripId);
         Assert.Equal(target.Id, (await db.Trips.SingleAsync(item => item.Id == trip.Id)).AppUserId);

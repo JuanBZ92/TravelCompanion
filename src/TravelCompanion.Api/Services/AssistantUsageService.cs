@@ -53,8 +53,15 @@ public sealed class AssistantUsageService(
         var reserved = await dbContext.AssistantUsageLeases.CountAsync(item => item.BuilderAccessGrantId == grant.Id
             && (grant.IsTrial ? item.OperationKey.StartsWith(FullDayPrefix) == fullDay : item.UtcDate == DateOnly.FromDateTime(now.UtcDateTime)) && item.CompletedAtUtc == null && item.CancelledAtUtc == null && item.ExpiresAtUtc > now, ct);
         if (used + reserved >= limit)
-            throw new TrialUpgradeRequiredException(new(grant.IsTrial, grant.IsTrial ? (grant.TrialEditingExpiresAtUtc > now ? TravelCompanion.Shared.Dtos.TrialAccessState.Editing : TravelCompanion.Shared.Dtos.TrialAccessState.ReadOnly) : TravelCompanion.Shared.Dtos.TrialAccessState.Paid,
-                grant.TrialEditingExpiresAtUtc, grant.TrialDraftExpiresAtUtc, 0, freeOptions.Value.PassPrice, freeOptions.Value.Currency, freeOptions.Value.PurchaseUrl));
+        {
+            var dayUsed = fullDay ? used : await dbContext.AssistantUsageLeases.CountAsync(item =>
+                item.BuilderAccessGrantId == grant.Id && item.OperationKey.StartsWith(FullDayPrefix) && item.CompletedAtUtc != null, ct);
+            throw new TrialUpgradeRequiredException(new(grant.IsTrial, AccessGrantPolicy.ResolveState(grant, now),
+                grant.TrialEditingExpiresAtUtc, grant.TrialDraftExpiresAtUtc,
+                fullDay ? Math.Max(0, Math.Clamp(freeOptions.Value.AssistantRequestLimit, 0, 3) - grant.TrialAssistantRequestsUsed) : 0,
+                freeOptions.Value.PassPrice, freeOptions.Value.Currency, freeOptions.Value.PurchaseUrl)
+                { FreePolicy = grant.FreePolicy, DayImprovementsRemaining = Math.Max(0, FreePlanningPolicy.MaximumDayImprovements - dayUsed) });
+        }
         var lease = prior ?? new AssistantUsageLease
         {
             Id = Guid.NewGuid(), BuilderAccessGrantId = grant.Id, OperationKey = operationKey

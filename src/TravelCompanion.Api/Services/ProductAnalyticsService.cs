@@ -18,7 +18,8 @@ public sealed class ProductAnalyticsService(TravelCompanionDbContext dbContext, 
     private static readonly HashSet<string> ClientEvents = new(StringComparer.Ordinal)
     {
         "paywall_shown", "paywall_cta_selected", "email_verification_started",
-        "day_review_viewed", "proposal_previewed", "route_viewed"
+        "day_review_viewed", "proposal_previewed", "route_viewed", "trip_created",
+        "limit_reached", "paid_trip_opened", "offline_download_completed", "offline_download_failed"
     };
 
     public async Task<int> IngestAsync(HttpContext httpContext, ProductAnalyticsBatchDto batch,
@@ -44,6 +45,7 @@ public sealed class ProductAnalyticsService(TravelCompanionDbContext dbContext, 
             .Select(item => item.Id).ToListAsync(cancellationToken);
         foreach (var item in events.Where(item => !existingSet.Contains(item.EventId)))
         {
+            var tripId = item.TripId.HasValue && ownedTripIds.Contains(item.TripId.Value) ? item.TripId : session.TripId;
             dbContext.ProductAnalyticsEvents.Add(new ProductAnalyticsEvent
             {
                 Id = Guid.NewGuid(), EventId = item.EventId,
@@ -53,6 +55,7 @@ public sealed class ProductAnalyticsService(TravelCompanionDbContext dbContext, 
                 Name = item.Name, OccurredAtUtc = item.OccurredAtUtc,
                 ReceivedAtUtc = DateTimeOffset.UtcNow, Source = item.Source, AppVersion = item.AppVersion,
                 Platform = item.Platform, PaywallVariant = item.PaywallVariant,
+                FreePolicyVariant = await ResolveFreePolicyAsync(session.User.Id, tripId, cancellationToken),
                 AccessState = session.AccessMode.ToString(), BehaviorConsent = true,
                 IsBusinessEvent = false, SchemaVersion = item.SchemaVersion
             });
@@ -74,6 +77,7 @@ public sealed class ProductAnalyticsService(TravelCompanionDbContext dbContext, 
             Id = Guid.NewGuid(), EventId = eventId ?? Guid.NewGuid(), AppUserId = userId, TripId = tripId,
             Name = name, OccurredAtUtc = DateTimeOffset.UtcNow, ReceivedAtUtc = DateTimeOffset.UtcNow,
             Source = source, PaywallVariant = variant, Platform = platform, AppVersion = appVersion, AccessState = accessState,
+            FreePolicyVariant = await ResolveFreePolicyAsync(userId, tripId, cancellationToken),
             BehaviorConsent = !isBusiness, IsBusinessEvent = isBusiness, IsSandbox = sandbox, SchemaVersion = 1
         });
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -84,15 +88,16 @@ public sealed class ProductAnalyticsService(TravelCompanionDbContext dbContext, 
         if (!tripId.HasValue) return "Account";
         var grant = await dbContext.BuilderAccessGrants.AsNoTracking().FirstOrDefaultAsync(item =>
             item.AppUserId == userId && item.TripId == tripId, cancellationToken);
-        if (grant is null) return TrialAccessState.NoAccess.ToString();
-        var now = DateTimeOffset.UtcNow;
-        if (grant.Status == BuilderAccessStatus.Revoked || grant.RevokedAtUtc.HasValue)
-            return TrialAccessState.Revoked.ToString();
-        if (grant.ExpiresAtUtc.HasValue && grant.ExpiresAtUtc <= now)
-            return TrialAccessState.Expired.ToString();
-        if (!grant.IsTrial) return TrialAccessState.Paid.ToString();
-        return grant.TrialEditingExpiresAtUtc.HasValue && grant.TrialEditingExpiresAtUtc <= now
-            ? TrialAccessState.ReadOnly.ToString()
-            : TrialAccessState.Editing.ToString();
+        return AccessGrantPolicy.ResolveState(grant, DateTimeOffset.UtcNow).ToString();
+    }
+
+    private async Task<string?> ResolveFreePolicyAsync(Guid userId, Guid? tripId, CancellationToken ct)
+    {
+        var grant = await dbContext.BuilderAccessGrants.AsNoTracking()
+            .Where(item => item.AppUserId == userId && (tripId == null || item.TripId == tripId))
+            .OrderByDescending(item => item.CreatedAtUtc).FirstOrDefaultAsync(ct);
+        return grant is not null && (grant.IsTrial || grant.TrialEditingStartedAtUtc.HasValue
+            || grant.FreePolicy == TravelCompanion.Shared.FreeAccessPolicy.PersistentFree)
+            ? grant.FreePolicy.ToString() : null;
     }
 }

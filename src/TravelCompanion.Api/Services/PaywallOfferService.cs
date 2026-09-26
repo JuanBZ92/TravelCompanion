@@ -1,5 +1,3 @@
-using System.Security.Cryptography;
-using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using TravelCompanion.Api.Data;
@@ -16,8 +14,6 @@ public sealed class PaywallOfferService(
     IOptions<StorePurchaseOptions> purchaseOptions,
     IOptions<ProductFeatureOptions> features)
 {
-    private const string CopyExperiment = "paywall-copy-v1";
-
     public async Task<PaywallOfferDto> GetAsync(HttpContext httpContext, Guid tripId,
         PaywallEntryPoint entryPoint, string platform, CancellationToken cancellationToken)
     {
@@ -31,20 +27,23 @@ public sealed class PaywallOfferService(
         var days = await dbContext.Reservations.AsNoTracking().Where(item => item.TripId == trip.Id)
             .Select(item => item.Date).Distinct().OrderBy(item => item).ToListAsync(cancellationToken);
         var itemCount = await dbContext.Reservations.CountAsync(item => item.TripId == trip.Id, cancellationToken);
-        var routes = await dbContext.ThematicRoutes.CountAsync(item => item.TripId == trip.Id && item.AppUserId == session.User.Id, cancellationToken);
         var additional = await dbContext.Recommendations.CountAsync(item => item.DestinationId == trip.DestinationId
-            && item.AccessLevel != ContentAccessLevel.Free, cancellationToken);
-        var variant = await GetOrCreateVariantAsync(session.User.Id, cancellationToken);
+            && item.AccessLevel != ContentAccessLevel.Free && item.AccessLevel != ContentAccessLevel.AdminOnly, cancellationToken);
+        const string variant = "contextual-v2";
         var product = platform.Equals("ios", StringComparison.OrdinalIgnoreCase)
             ? purchaseOptions.Value.AppleProductId : purchaseOptions.Value.GoogleProductId;
         var isEnglish = !ProductLanguage.IsSpanish(httpContext);
-        var benefits = variant == "continuity"
-            ? isEnglish
-                ? new[] { "Keep and recover this trip", "Edit until seven days after your trip", "30 Assistant requests per day" }
-                : new[] { "Conserva y recupera este viaje", "Edita hasta siete días después del viaje", "30 consultas diarias al Assistant" }
-            : isEnglish
-                ? new[] { "Complete recommendation catalog", "Plan every day of your trip with Builder", "30 Assistant requests per day" }
-                : new[] { "Catálogo completo de recomendaciones", "Planea todos los días de tu viaje con Builder", "30 consultas diarias al Assistant" };
+        var dailyLimit = Math.Clamp(purchaseOptions.Value.DailyAssistantLimit, 1, 100);
+        var lead = entryPoint switch
+        {
+            PaywallEntryPoint.Assistant => isEnglish ? "Get help completing your next day" : "Recibe ayuda para completar tu próximo día",
+            PaywallEntryPoint.Map => isEnglish ? "Discover places beyond the free area" : "Descubre lugares más allá de la zona gratuita",
+            PaywallEntryPoint.Offline => isEnglish ? "Take your full itinerary with you, even without a connection" : "Lleva tu itinerario completo contigo, incluso sin conexión",
+            _ => isEnglish ? "Plan every day of your trip" : "Planea todos los días de tu viaje"
+        };
+        var benefits = isEnglish
+            ? new[] { lead, "Keep editing throughout your pass", $"{dailyLimit} Assistant requests per day", "Prepare your full itinerary for offline use", "Keep your tickets and PDFs on this device" }
+            : new[] { lead, "Sigue editando mientras tu pase esté activo", $"{dailyLimit} consultas diarias al Asistente", "Prepara tu itinerario completo para consultarlo sin conexión", "Guarda tus tickets y PDF en este dispositivo" };
         var now = DateTimeOffset.UtcNow;
         var passExpiry = grant is { IsTrial: false, Status: BuilderAccessStatus.Active }
             ? grant.ExpiresAtUtc : StorePurchaseService.CalculateExpiry(trip, now.AddYears(1));
@@ -53,41 +52,9 @@ public sealed class PaywallOfferService(
             $"{purchaseOptions.Value.ReferencePrice:0.00} {purchaseOptions.Value.ReferenceCurrency}",
             purchaseOptions.Value.NewPurchasesEnabled && (platform.Equals("ios", StringComparison.OrdinalIgnoreCase)
                 || platform.Equals("android", StringComparison.OrdinalIgnoreCase)),
-            variant, entryPoint, days, itemCount, routes, additional,
-            grant?.TrialDraftExpiresAtUtc, passExpiry,
+            variant, entryPoint, days, itemCount, 0, additional,
+            grant?.FreePolicy == FreeAccessPolicy.PersistentFree ? null : grant?.TrialDraftExpiresAtUtc, passExpiry,
             Math.Clamp(purchaseOptions.Value.DailyAssistantLimit, 1, 100), benefits, nextUtcDay);
     }
 
-    private async Task<string> GetOrCreateVariantAsync(Guid userId, CancellationToken cancellationToken)
-    {
-        var existing = await dbContext.ProductExperimentAssignments.AsNoTracking()
-            .SingleOrDefaultAsync(item => item.AppUserId == userId && item.Experiment == CopyExperiment, cancellationToken);
-        if (existing is not null) return existing.Variant;
-
-        var variant = AssignVariant(userId, CopyExperiment);
-        var assignment = new ProductExperimentAssignment
-        {
-            Id = Guid.NewGuid(), AppUserId = userId, Experiment = CopyExperiment,
-            Variant = variant, AssignedAtUtc = DateTimeOffset.UtcNow
-        };
-        dbContext.ProductExperimentAssignments.Add(assignment);
-        try
-        {
-            await dbContext.SaveChangesAsync(cancellationToken);
-            return variant;
-        }
-        catch (DbUpdateException)
-        {
-            dbContext.Entry(assignment).State = EntityState.Detached;
-            return await dbContext.ProductExperimentAssignments.AsNoTracking()
-                .Where(item => item.AppUserId == userId && item.Experiment == CopyExperiment)
-                .Select(item => item.Variant).SingleAsync(cancellationToken);
-        }
-    }
-
-    private static string AssignVariant(Guid userId, string experiment)
-    {
-        var hash = SHA256.HashData(Encoding.UTF8.GetBytes($"{experiment}:{userId:N}"));
-        return (hash[0] & 1) == 0 ? "continuity" : "catalog-tools";
-    }
 }

@@ -547,13 +547,15 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
             entity.Property(item => item.AppVersion).HasMaxLength(32);
             entity.Property(item => item.Platform).HasMaxLength(24);
             entity.Property(item => item.AccessState).HasMaxLength(32);
+            entity.Property(item => item.FreePolicyVariant).HasMaxLength(32);
             entity.Property(item => item.PaywallVariant).HasMaxLength(40);
             entity.Property(item => item.SchemaVersion).HasDefaultValue(1);
         });
 
         modelBuilder.Entity<ProductAnalyticsDailyAggregate>(entity =>
         {
-            entity.HasIndex(item => new { item.Date, item.Name, item.Source, item.Platform, item.AppVersion, item.PaywallVariant }).IsUnique();
+            entity.HasIndex(item => new { item.Date, item.Name, item.Source, item.Platform, item.AppVersion, item.PaywallVariant, item.FreePolicyVariant }).IsUnique();
+            entity.Property(item => item.FreePolicyVariant).HasMaxLength(32);
             entity.Property(item => item.Name).HasMaxLength(80);
             entity.Property(item => item.Source).HasMaxLength(40);
             entity.Property(item => item.Platform).HasMaxLength(24);

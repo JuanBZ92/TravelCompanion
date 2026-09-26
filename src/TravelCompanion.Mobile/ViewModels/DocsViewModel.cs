@@ -14,7 +14,8 @@ public sealed partial class DocsViewModel(
     AuthSessionService sessionService,
     OfflineCacheService offlineCacheService,
     OfflineSyncCoordinator syncCoordinator,
-    MobileSyncStateStore syncStateStore) : ViewModelBase, ISessionStateResettable
+    MobileSyncStateStore syncStateStore,
+    TripDocumentStore documentStore) : ViewModelBase, ISessionStateResettable
 {
     [ObservableProperty]
     private string title = "Documentos";
@@ -56,12 +57,17 @@ public sealed partial class DocsViewModel(
 
     private async Task LoadCoreAsync(CancellationToken cancellationToken)
     {
-        if (!sessionService.HasKnownValidAccess)
+        if (!sessionService.HasSession)
         {
             sessionService.Clear();
             await Shell.Current.GoToAsync("//login");
             return;
         }
+        Title = Text("TabDocs");
+        Subtitle = Text("LocalDocumentsNotice");
+        await RefreshLocalDocumentsAsync(cancellationToken);
+        OnPropertyChanged(nameof(CanAttachDocument));
+        if (!sessionService.HasCuratedDocs || !sessionService.HasKnownValidAccess) return;
         var contextVersion = sessionService.ContextVersion;
         var userId = sessionService.CurrentUserId;
         var tripId = sessionService.CurrentTripId;
@@ -79,9 +85,13 @@ public sealed partial class DocsViewModel(
             if (cached is not null)
             {
                 ApplyDocs(cached.Value);
+                await RefreshDocumentAvailabilityAsync(cancellationToken);
                 MarkLastUpdated(cached.SavedAt);
                 StatusMessage = OfflineCacheService.FormatSavedAt(cached.SavedAt);
-                return;
+                var versions = await syncStateStore.GetCachedStateAsync(cancellationToken);
+                if (Connectivity.Current.NetworkAccess != NetworkAccess.Internet
+                    || versions is not null && cached.Metadata?.DataVersion == versions.DocumentsVersion.ToString(CultureInfo.InvariantCulture))
+                    return;
             }
 
             var result = await apiClient.GetTravelDocsResultAsync(token, cancellationToken);
@@ -102,8 +112,7 @@ public sealed partial class DocsViewModel(
             {
                 if (cached is null)
                 {
-                    ApplyPreviewDocs();
-                    StatusMessage = "Vista previa con documentos dummy. Carga los documentos reales desde el admin cuando esten disponibles.";
+                    StatusMessage = Text("NoDocuments");
                 }
                 else
                 {
@@ -113,6 +122,7 @@ public sealed partial class DocsViewModel(
             else
             {
                 ApplyDocs(docs);
+                await RefreshDocumentAvailabilityAsync(cancellationToken);
                 var metadata = await syncStateStore.CreateCacheMetadataAsync(
                     "documents",
                     $"downloaded:{DateTimeOffset.UtcNow.UtcTicks}",
@@ -133,13 +143,13 @@ public sealed partial class DocsViewModel(
             if (cached is not null)
             {
                 ApplyDocs(cached.Value);
+                await RefreshDocumentAvailabilityAsync(cancellationToken);
                 MarkLastUpdated(cached.SavedAt);
                 StatusMessage = $"Mostrando documentos guardados mientras recuperamos la conexion. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
             }
             else
             {
-                ApplyPreviewDocs();
-                StatusMessage = "No pudimos cargar documentos reales. Mostrando una vista previa dummy.";
+                StatusMessage = Text("NoDocuments");
             }
 
             ErrorMessage = null;
@@ -175,6 +185,8 @@ public sealed partial class DocsViewModel(
     public void ResetForNewSession()
     {
         HasLoaded = false;
+        LocalDocuments.Clear();
+        OnPropertyChanged(nameof(CanAttachDocument));
         ErrorMessage = null;
         Journeys.Clear();
         HotelDocuments.Clear();
@@ -201,7 +213,7 @@ public sealed partial class DocsViewModel(
             return;
         }
 
-        Title = "Documentos";
+        Title = Text("TabDocs");
         Subtitle = $"{docs.DestinationName} · {docs.StartsOn:dd/MM} - {docs.EndsOn:dd/MM}";
         FlightAirline = docs.Flights?.Airline ?? "Vuelos";
         FlightPassenger = docs.Flights?.PassengerName ?? docs.TravelerName;
@@ -216,12 +228,12 @@ public sealed partial class DocsViewModel(
 
         foreach (var document in docs.HotelDocuments)
         {
-            HotelDocuments.Add(new DocumentItemViewModel(document, apiClient.BaseAddress));
+            HotelDocuments.Add(new DocumentItemViewModel(document, apiClient.BaseAddress, documentStore, () => RefreshLocalDocumentsAsync(default)));
         }
 
         foreach (var document in docs.OtherDocuments)
         {
-            OtherDocuments.Add(new DocumentItemViewModel(document, apiClient.BaseAddress));
+            OtherDocuments.Add(new DocumentItemViewModel(document, apiClient.BaseAddress, documentStore, () => RefreshLocalDocumentsAsync(default)));
         }
 
         foreach (var hotel in docs.Hotels)
@@ -230,93 +242,6 @@ public sealed partial class DocsViewModel(
         }
 
         NotifySectionsChanged();
-    }
-
-    private void ApplyPreviewDocs()
-    {
-        ApplyDocs(new TravelDocsDto(
-            Guid.Empty,
-            "Viajero demo",
-            "Japon",
-            new DateOnly(2026, 10, 5),
-            new DateOnly(2026, 10, 15),
-            new FlightDocsSectionDto(
-                "Japan Airlines",
-                "Viajero demo",
-                "Buenos Aires -> Tokyo",
-                "DEMO-PNR",
-                [
-                    new FlightJourneyDto(
-                        "ida",
-                        "Ida",
-                        "Buenos Aires -> Tokyo",
-                        [
-                            new FlightLegDto(
-                                Guid.Empty,
-                                new DateOnly(2026, 10, 5),
-                                new TimeOnly(13, 30),
-                                new DateOnly(2026, 10, 6),
-                                new TimeOnly(9, 25),
-                                "JL0042",
-                                "19h 55m",
-                                "Economy",
-                                "EZE · Buenos Aires",
-                                "HND · Tokyo",
-                                null)
-                        ]),
-                    new FlightJourneyDto(
-                        "vuelta",
-                        "Vuelta",
-                        "Tokyo -> Buenos Aires",
-                        [
-                            new FlightLegDto(
-                                Guid.Empty,
-                                new DateOnly(2026, 10, 15),
-                                new TimeOnly(22, 45),
-                                new DateOnly(2026, 10, 16),
-                                new TimeOnly(19, 10),
-                                "JL0041",
-                                "20h 25m",
-                                "Economy",
-                                "HND · Tokyo",
-                                "EZE · Buenos Aires",
-                                null)
-                        ])
-                ]),
-            [
-                new TravelDocumentDto(
-                    Guid.Empty,
-                    TravelDocumentCategory.Hotel,
-                    "Hotel Tokyo",
-                    "Confirmacion Hotel demo Ginza",
-                    string.Empty,
-                    10)
-            ],
-            [
-                new TravelDocumentDto(
-                    Guid.Empty,
-                    TravelDocumentCategory.Other,
-                    "Trenes",
-                    "Tickets y pases de transporte",
-                    string.Empty,
-                    20),
-                new TravelDocumentDto(
-                    Guid.Empty,
-                    TravelDocumentCategory.Other,
-                    "Seguro de viaje",
-                    "Poliza y telefonos utiles",
-                    string.Empty,
-                    30)
-            ],
-            [
-                new TravelHotelDocDto(
-                    Guid.Empty,
-                    "Tokyo",
-                    "Hotel demo Ginza",
-                    "06/10 - 10/10",
-                    "DEMO-HTL-1026",
-                    "Ginza, Chuo City, Tokyo")
-            ]));
     }
 
     private void NotifySectionsChanged()
@@ -372,40 +297,43 @@ public sealed class FlightLegItemViewModel(FlightLegDto leg, int index)
     public bool HasConnectionNote => !string.IsNullOrWhiteSpace(ConnectionNote);
 }
 
-public sealed class DocumentItemViewModel
+public sealed class DocumentItemViewModel : ObservableObject
 {
-    public DocumentItemViewModel(TravelDocumentDto document, Uri? apiBaseAddress)
+    private readonly TravelDocumentDto _document;
+    private readonly TripDocumentStore _store;
+    private string _availability = LocalizationResourceManager.Instance["RequiresConnection"];
+    public DocumentItemViewModel(TravelDocumentDto document, Uri? apiBaseAddress, TripDocumentStore store, Func<Task> changed)
     {
-        Title = document.Title;
-        Subtitle = document.Subtitle;
-        FileUrl = ResolveFileUrl(document.FileUrl, apiBaseAddress);
-        OpenCommand = new AsyncRelayCommand(OpenAsync);
+        _document = document; _store = store;
+        Title = document.Title; Subtitle = document.Subtitle;
+        FileUrl = Uri.TryCreate(document.FileUrl, UriKind.Absolute, out var uri) ? uri.ToString()
+            : apiBaseAddress is null ? document.FileUrl : new Uri(apiBaseAddress, document.FileUrl).ToString();
+        OpenCommand = new AsyncRelayCommand(async () =>
+        {
+            try
+            {
+                var local = (await store.ListAsync()).FirstOrDefault(item => item.SourceUrl == document.FileUrl);
+                if (local is not null) await store.OpenAsync(local.Id);
+                else if (Uri.TryCreate(FileUrl, UriKind.Absolute, out var target) && target.Scheme is "https" or "http")
+                    await Launcher.OpenAsync(target);
+            }
+            catch { await Shell.Current.DisplayAlertAsync(Title, LocalizationResourceManager.Instance["DocumentUnavailable"], "OK"); }
+        });
+        DownloadCommand = new AsyncRelayCommand(async () =>
+        {
+            try { await store.DownloadAsync(document.FileUrl, document.Title); await RefreshAsync(); await changed(); }
+            catch { await Shell.Current.DisplayAlertAsync(Title, LocalizationResourceManager.Instance["DocumentError"], "OK"); }
+        });
     }
-
     public string Title { get; }
     public string Subtitle { get; }
     public string FileUrl { get; }
+    public string Availability { get => _availability; private set => SetProperty(ref _availability, value); }
+    public string DownloadText => LocalizationResourceManager.Instance["DownloadDocument"];
     public ICommand OpenCommand { get; }
-
-    private async Task OpenAsync()
-    {
-        if (!string.IsNullOrWhiteSpace(FileUrl))
-        {
-            await Launcher.OpenAsync(FileUrl);
-        }
-    }
-
-    private static string ResolveFileUrl(string fileUrl, Uri? apiBaseAddress)
-    {
-        if (string.IsNullOrWhiteSpace(fileUrl) || Uri.TryCreate(fileUrl, UriKind.Absolute, out _))
-        {
-            return fileUrl;
-        }
-
-        return apiBaseAddress is null
-            ? fileUrl
-            : new Uri(apiBaseAddress, fileUrl).ToString();
-    }
+    public ICommand DownloadCommand { get; }
+    public async Task RefreshAsync(CancellationToken ct = default) => Availability = LocalizationResourceManager.Instance[
+        await _store.IsDownloadedAsync(_document.FileUrl, ct) ? "OfflineReady" : "RequiresConnection"];
 }
 
 public sealed class HotelItemViewModel(TravelHotelDocDto hotel)

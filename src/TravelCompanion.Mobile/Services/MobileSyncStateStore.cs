@@ -91,6 +91,13 @@ public sealed class MobileSyncStateStore(
 
     public Task ClearAsync() => offlineCacheService.DeleteAsync(GetCacheKey());
 
+    public async Task<MobileSyncStateDto?> GetCachedStateAsync(CancellationToken cancellationToken = default)
+    {
+        var context = CaptureContext();
+        var cached = await offlineCacheService.GetAsync<MobileSyncCacheEntry>(context.CacheKey, cancellationToken);
+        return IsCurrent(context) ? cached?.Value.State : null;
+    }
+
     public async Task<OfflineCacheMetadata> CreateCacheMetadataAsync(
         string dataScope,
         string fallbackDataVersion,

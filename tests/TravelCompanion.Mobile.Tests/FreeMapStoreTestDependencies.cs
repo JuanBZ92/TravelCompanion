@@ -5,6 +5,7 @@ namespace TravelCompanion.Mobile.Services;
 // Controlled I/O for tests that execute the production FreeMapStore.
 public sealed class TravelCompanionApiClient
 {
+    public Uri BaseAddress { get; } = new("https://example.invalid/");
     public int CityRequests;
     public Func<Task<FreeMapPreviewDto?>> FetchCity = () => Task.FromResult<FreeMapPreviewDto?>(null);
     public Task<FreeMapPreviewDto?> GetFreeMapCityAsync(string token, string city, CancellationToken ct)
@@ -21,11 +22,13 @@ public sealed class OfflineCacheService
     public readonly Dictionary<string, object> Entries = [];
     public int Reads;
     public int Writes;
-    public Task<OfflineCacheResult<T>?> GetAsync<T>(string key, CancellationToken ct = default)
+    public Task<OfflineCacheResult<T>?> GetAsync<T>(string key, TimeSpan? maxAge = null, CancellationToken cancellationToken = default)
     {
         Reads++;
         return Task.FromResult(Entries.GetValueOrDefault(key) as OfflineCacheResult<T>);
     }
+    public Task<OfflineCacheResult<T>?> GetAsync<T>(string key, CancellationToken ct) => GetAsync<T>(key, null, ct);
+    public Task SaveAsync<T>(string key, T value, CancellationToken ct = default) => SaveAsync(key, value, new OfflineCacheMetadata(), ct);
     public Task SaveAsync<T>(string key, T value, OfflineCacheMetadata metadata, CancellationToken ct = default)
     {
         Writes++;

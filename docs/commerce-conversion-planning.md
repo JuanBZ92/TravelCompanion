@@ -1,5 +1,7 @@
 # Compra, conversión y planificación avanzada
 
+> Actualización septiembre de 2026: consultar el [plan de valor y conversión](launch-value-cycle.md). Las propuestas y rutas temáticas descritas más abajo son históricas: sus endpoints retirados conservan respuesta 410 y esta implementación no los reactiva. La nueva revisión de viaje usa el editor y la mejora de día existentes. El Free persistente tiene cuotas independientes para chat y mejoras de día.
+
 ## Configuración
 
 Las migraciones `AddCommerceConversionProposalsAndRoutes`, `AddPurchaseReconciliationAndRouteLinks` y `AddProductExperimentAssignments` añaden identidad verificada, intenciones y transacciones de tienda, notificaciones, analítica, cuotas, propuestas, operaciones de deshacer, rutas, evidencia cifrada para conciliación y asignaciones estables de experimentos.

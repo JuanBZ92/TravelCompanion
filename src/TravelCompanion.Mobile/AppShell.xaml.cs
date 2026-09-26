@@ -20,6 +20,7 @@ public partial class AppShell : Shell
         Routing.RegisterRoute(nameof(ItineraryItemEditorPage), typeof(ItineraryItemEditorPage));
         Routing.RegisterRoute(nameof(PaywallPage), typeof(PaywallPage));
         Routing.RegisterRoute(nameof(AccountPage), typeof(AccountPage));
+        Routing.RegisterRoute(nameof(TripReviewPage), typeof(TripReviewPage));
 
         var sessionService = MauiProgram.Services.GetRequiredService<AuthSessionService>();
         sessionService.StateChanged += OnSessionStateChanged;
@@ -64,7 +65,7 @@ public partial class AppShell : Shell
         ScheduleTab.IsVisible = usesMainTabs && (!sessionService.IsFreeMapPreview || sessionService.IsBuilder);
         PassTab.IsVisible = sessionService.HasSession && sessionService.IsFreeMapPreview;
         AssistantTab.IsVisible = sessionService.IsBuilder;
-        DocsTab.IsVisible = sessionService.HasCuratedDocs;
+        DocsTab.IsVisible = sessionService.HasSession && (sessionService.HasCuratedDocs || sessionService.IsBuilder && !sessionService.IsFreeMapPreview);
         AccountTab.IsVisible = sessionService.HasSession && !sessionService.IsFreeMapPreview;
         LogoutTab.IsVisible = sessionService.HasSession;
     }
@@ -95,7 +96,7 @@ public partial class AppShell : Shell
                 _paywallInProgress = true;
                 Dispatcher.Dispatch(async () =>
                 {
-                    try { await PaywallNavigation.OpenAsync(TravelCompanion.Shared.Dtos.PaywallEntryPoint.Today); }
+                    try { await PaywallNavigation.OpenAsync(TravelCompanion.Shared.Dtos.PaywallEntryPoint.Today, limitReached: true); }
                     finally { _paywallInProgress = false; }
                 });
             }

@@ -93,7 +93,7 @@ public sealed class TravelCompanionApiClient
         }
         using var response = await _httpClient.PostAsJsonAsync(
             "api/auth/pin-login",
-            new PinLoginRequestDto(pin, clientInstanceId),
+            new PinLoginRequestDto(pin, clientInstanceId, SupportsPersistentFree: true),
             JsonOptions,
             cancellationToken).ConfigureAwait(false);
 

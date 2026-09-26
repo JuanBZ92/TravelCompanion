@@ -1,5 +1,9 @@
 # Travel Companion - Documentacion funcional
 
+## Actualización de conversión y valor del pase — septiembre de 2026
+
+El [plan incremental de valor y conversión](launch-value-cycle.md) describe el comportamiento implementado, su activación y límites. Incluye creación sin PIN, Free persistente para nuevas cuentas compatibles (desactivado por defecto), paywall contextual, revisión de todos los días, preparación offline y documentos personales locales para Builder de pago. Ante descripciones históricas de pruebas temporales, rutas o almacenamiento, prevalece ese alcance.
+
 Este documento describe que producto estamos construyendo, que funcionalidades existen y que decisiones funcionales estan vigentes. Debe mantenerse actualizado cada vez que se agregue o cambie comportamiento visible para usuarios, admins o clientes.
 
 ## Vision

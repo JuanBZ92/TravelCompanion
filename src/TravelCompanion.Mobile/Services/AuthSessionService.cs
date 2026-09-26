@@ -56,6 +56,8 @@ public sealed class AuthSessionService
     }
     public bool IsBuilder => ExperienceMode == TravelCompanion.Shared.Dtos.ExperienceMode.SelfServiceBuilder;
     public bool IsTrial => IsFreeMapPreview && Preferences.Default.ContainsKey(TrialStateKey);
+    public FreeAccessPolicy FreePolicy => (FreeAccessPolicy)Preferences.Default.Get("auth_free_policy", 0);
+    public int DayImprovementsRemaining => Preferences.Default.Get("auth_day_improvements_remaining", 0);
     public TrialAccessState? TrialState => Enum.TryParse<TrialAccessState>(
         Preferences.Default.Get(TrialStateKey, string.Empty), out var state) ? state : null;
     public DateTimeOffset? TrialEditingExpiresAtUtc => ReadTimestamp(TrialEditingExpiresAtUtcKey);
@@ -72,6 +74,7 @@ public sealed class AuthSessionService
         && Preferences.Default.Get(CanEditItineraryKey, IsBuilder)
         && (!IsTrial
             || TrialState == TrialAccessState.NotStarted
+            || FreePolicy == FreeAccessPolicy.PersistentFree && TrialState == TrialAccessState.Editing
             || TrialEditingExpiresAtUtc is { } editingExpiry && editingExpiry > DateTimeOffset.UtcNow);
     public bool CanSearchGooglePlaces => Preferences.Default.Get(CanSearchGooglePlacesKey, !IsFreeMapPreview);
     public bool HasCuratedDocs => Preferences.Default.Get(HasCuratedDocsKey, !IsBuilder && !IsFreeMapPreview);
@@ -230,6 +233,8 @@ public sealed class AuthSessionService
         }
 
         Preferences.Default.Set(TrialStateKey, trial.State.ToString());
+        Preferences.Default.Set("auth_free_policy", (int)trial.FreePolicy);
+        Preferences.Default.Set("auth_day_improvements_remaining", trial.DayImprovementsRemaining);
         SetTimestamp(TrialEditingExpiresAtUtcKey, trial.EditingExpiresAtUtc);
         SetTimestamp(TrialDraftExpiresAtUtcKey, trial.DraftExpiresAtUtc);
         Preferences.Default.Set(TrialAssistantRemainingKey, trial.AssistantRequestsRemaining);
@@ -308,6 +313,8 @@ public sealed class AuthSessionService
     {
         Preferences.Default.Remove(TrialStateKey);
         Preferences.Default.Remove(TrialEditingExpiresAtUtcKey);
+        Preferences.Default.Remove("auth_free_policy");
+        Preferences.Default.Remove("auth_day_improvements_remaining");
         Preferences.Default.Remove(TrialDraftExpiresAtUtcKey);
         Preferences.Default.Remove(TrialAssistantRemainingKey);
         Preferences.Default.Remove(TrialPassPriceKey);

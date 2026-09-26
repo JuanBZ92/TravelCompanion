@@ -57,6 +57,7 @@ public sealed partial class PaywallViewModel(
     [RelayCommand]
     private Task LoadOfferAsync() => LoadAsync(async ct =>
     {
+        Benefits.Clear();
         CanBuy = false;
         DisplayPrice = string.Empty;
         StateText = string.Empty;
@@ -262,6 +263,7 @@ public sealed partial class PaywallViewModel(
 
     private async Task ResumeOriginAsync()
     {
+        await analytics.TrackAsync("paid_trip_opened", "purchase", tripId: sessions.CurrentTripId);
         var pending = pendingActions.TakeAction();
         if (pending is not null)
         {

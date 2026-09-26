@@ -25,7 +25,7 @@ public sealed class BuilderTripService(
         }
 
         var grant = await LoadGrantAsync(access.User.Id, access.TripId, cancellationToken);
-        var trialStatus = grant?.IsTrial == true ? freeTrialAccessService?.ToStatus(grant) : null;
+        var trialStatus = grant?.IsTrial == true && freeTrialAccessService is not null ? await freeTrialAccessService.GetStatusAsync(access.User.Id, cancellationToken) : null;
         if (trialStatus?.State == TrialAccessState.Expired)
         {
             return EmptySetup(
@@ -233,7 +233,7 @@ public sealed class BuilderTripService(
         return EmptySetup(
             grant.Destination?.Name ?? "Japan",
             grant.Destination?.TimeZoneId ?? "Asia/Tokyo",
-            grant.IsTrial ? freeTrialAccessService?.ToStatus(grant) : null);
+            grant.IsTrial && freeTrialAccessService is not null ? await freeTrialAccessService.GetStatusAsync(access.User.Id, cancellationToken) : null);
     }
 
     private async Task<TravelerAccessContext?> GetBuilderAccessAsync(HttpContext context, CancellationToken cancellationToken)

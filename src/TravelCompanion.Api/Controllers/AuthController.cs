@@ -74,9 +74,9 @@ public sealed class AuthController(
         if (freePreviewOptions.Value.Enabled
             && string.Equals(pin, freePreviewOptions.Value.Pin, StringComparison.Ordinal))
         {
-            var previewAccount = await freePreviewAccountService.GetOrCreateAsync(request.ClientInstanceId, cancellationToken);
+            var previewAccount = await freePreviewAccountService.GetOrCreateAsync(request.ClientInstanceId, cancellationToken, request.SupportsPersistentFree);
             var trialGrant = await freeTrialAccessService.GetGrantAsync(previewAccount.Id, cancellationToken);
-            var trialStatus = freeTrialAccessService.ToStatus(trialGrant);
+            var trialStatus = await freeTrialAccessService.GetStatusAsync(previewAccount.Id, cancellationToken);
             var lifetimeDays = Math.Clamp(freePreviewOptions.Value.SessionLifetimeDays, 1, 30);
             var (_, previewToken) = await sessionService.CreateSessionAsync(
                 previewAccount,

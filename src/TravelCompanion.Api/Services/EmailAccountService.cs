@@ -17,7 +17,8 @@ public sealed class EmailAccountService(
     UserSessionService sessionService,
     ITransactionalEmailSender emailSender,
     IOptions<EmailVerificationOptions> options,
-    ProductAnalyticsService? analytics = null)
+    ProductAnalyticsService? analytics = null,
+    FreeTrialAccessService? freeTrialAccessService = null)
 {
     public async Task<EmailCodeRequestedDto> RequestCodeAsync(
         HttpContext httpContext, RequestEmailCodeDto request, CancellationToken cancellationToken)
@@ -167,14 +168,17 @@ public sealed class EmailAccountService(
         var tripId = source?.TripId ?? await dbContext.Trips.Where(item => item.AppUserId == target.Id)
             .OrderByDescending(item => item.UpdatedAtUtc).Select(item => (Guid?)item.Id).FirstOrDefaultAsync(cancellationToken);
         var pass = tripId.HasValue ? await dbContext.BuilderAccessGrants.AsNoTracking().SingleOrDefaultAsync(grant =>
-            grant.AppUserId == target.Id && grant.TripId == tripId, cancellationToken) : null;
+            grant.AppUserId == target.Id && grant.TripId == tripId, cancellationToken)
+            : freeTrialAccessService is null ? null : await freeTrialAccessService.GetGrantAsync(target.Id, cancellationToken);
+        var trial = pass?.IsTrial == true && freeTrialAccessService is not null
+            ? await freeTrialAccessService.GetStatusAsync(pass, cancellationToken) : null;
         var mode = AccessGrantPolicy.ResolveSessionMode(pass, now);
         var (_, token) = await sessionService.CreateSessionAsync(target, cancellationToken, tripId, mode);
         if (analytics is not null)
             await analytics.RecordServerEventAsync(target.Id, tripId, "email_verification_completed", "account", null, cancellationToken);
         return new(target.Id, target.Email, target.DisplayName, false, token, tripId,
             AccessMode: mode, ExperienceMode: pass is not null ? ExperienceMode.SelfServiceBuilder : ExperienceMode.FreePreview,
-            Capabilities: CreateAccountCapabilities(mode), EmailVerified: true);
+            Capabilities: CreateAccountCapabilities(mode, trial, !tripId.HasValue), TrialAccess: trial, EmailVerified: true);
     }
 
     public async Task<TravelerAccountDto> GetAccountAsync(HttpContext httpContext, CancellationToken cancellationToken)
@@ -231,9 +235,11 @@ public sealed class EmailAccountService(
         if (transaction is not null) await transaction.CommitAsync(cancellationToken);
         var mode = AccessGrantPolicy.ResolveSessionMode(pass, now);
         var (_, token) = await sessionService.CreateSessionAsync(session.User, cancellationToken, trip.Id, mode);
+        var trial = pass?.IsTrial == true && freeTrialAccessService is not null
+            ? await freeTrialAccessService.GetStatusAsync(pass, cancellationToken) : null;
         return new(session.User.Id, session.User.Email, session.User.DisplayName, false, token, trip.Id,
             trip.Destination?.Name, mode, pass is not null ? ExperienceMode.SelfServiceBuilder : ExperienceMode.FreePreview,
-            CreateAccountCapabilities(mode), EmailVerified: session.User.EmailVerified);
+            CreateAccountCapabilities(mode, trial), TrialAccess: trial, EmailVerified: session.User.EmailVerified);
     }
 
     public async Task<AuthSessionDto> ArchiveTripAsync(HttpContext httpContext, Guid tripId, CancellationToken cancellationToken)
@@ -373,8 +379,10 @@ public sealed class EmailAccountService(
     }
 
     private static string NormalizeEmail(string email) => email.Trim().ToLowerInvariant();
-    private static TravelerCapabilitiesDto CreateAccountCapabilities(SessionAccessMode mode) => mode switch
+    private static TravelerCapabilitiesDto CreateAccountCapabilities(SessionAccessMode mode,
+        TrialAccessStatusDto? trial = null, bool requiresSetup = false) => mode switch
     {
+        SessionAccessMode.FreeMapPreview when trial?.IsTrial == true => new(false, true, trial.CanEdit, false, requiresSetup, false),
         SessionAccessMode.Builder => TravelerAccessService.CreateCapabilities(ExperienceMode.SelfServiceBuilder, false),
         SessionAccessMode.BuilderReadOnly => new(false, false, false, false, false, false),
         _ => TravelerAccessService.CreateCapabilities(ExperienceMode.FreePreview, false)

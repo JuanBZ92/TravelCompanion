@@ -7,9 +7,10 @@
              Title="{Binding PageTitle}"
              Shell.NavBarIsVisible="False"
              BackgroundColor="{StaticResource Mist}">
-    <Grid Padding="28" RowDefinitions="*,Auto,*"
+    <ScrollView>
+    <Grid Padding="28" RowDefinitions="Auto"
           BackgroundColor="{StaticResource Mist}">
-        <VerticalStackLayout Grid.Row="1" Spacing="24">
+        <VerticalStackLayout Spacing="24">
             <VerticalStackLayout Spacing="10">
                 <Label Text="YUKU JAPAN"
                        CharacterSpacing="6"
@@ -31,6 +32,7 @@
                        TextColor="#8A6F3D" />
             </VerticalStackLayout>
 
+            <Button Text="{Binding CreateTripText}" Command="{Binding CreateTripCommand}" IsEnabled="{Binding IsNotBusy}" />
             <Border BackgroundColor="{StaticResource AccentSoft}"
                     Stroke="#D8CFC4"
                     StrokeThickness="1"
@@ -84,4 +86,5 @@
             </Border>
         </VerticalStackLayout>
     </Grid>
+    </ScrollView>
 </ContentPage>

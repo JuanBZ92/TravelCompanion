@@ -8,7 +8,8 @@ namespace TravelCompanion.Api.Services;
 
 public sealed class ItineraryService(
     TravelCompanionDbContext dbContext,
-    FreeTrialAccessService? freeTrialAccessService = null) : IItineraryService
+    FreeTrialAccessService? freeTrialAccessService = null,
+    ProductAnalyticsService? analytics = null) : IItineraryService
 {
     public async Task<SaveItineraryItemResponse> SaveItineraryItemAsync(
         AppUser user,
@@ -102,6 +103,7 @@ public sealed class ItineraryService(
                 trip.PlanRevision);
         }
 
+        var isFirstTravelerItem = !trip.Reservations.Any(item => item.Owner == ItineraryItemOwner.Traveler);
         TimeOnly? endsAt = request.TimePrecision == ItineraryTimePrecision.Exact
             ? request.EndsAt ?? request.StartsAt.AddMinutes(recommendation.SuggestedDurationMinutes)
             : null;
@@ -178,6 +180,9 @@ public sealed class ItineraryService(
 
             throw;
         }
+
+        if (isFirstTravelerItem && analytics is not null)
+            await analytics.RecordServerEventAsync(user.Id, trip.Id, "first_item_saved", "assistant", null, cancellationToken);
 
         return new SaveItineraryItemResponse(
             true,

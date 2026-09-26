@@ -93,12 +93,12 @@
   <data name="TabDiscover" xml:space="preserve"><value>Discover</value></data>
   <data name="TabMap" xml:space="preserve"><value>Mapa</value></data>
   <data name="TabToday" xml:space="preserve"><value>Itinerario</value></data>
-  <data name="TabAssistant" xml:space="preserve"><value>Assistant</value></data>
-  <data name="TabDocs" xml:space="preserve"><value>Docs</value></data>
+  <data name="TabAssistant" xml:space="preserve"><value>Asistente</value></data>
+  <data name="TabDocs" xml:space="preserve"><value>Documentos</value></data>
   <data name="TabLogout" xml:space="preserve"><value>Salir</value></data>
-  <data name="LoginTitle" xml:space="preserve"><value>Ingresa tu PIN</value></data>
-  <data name="LoginDescription" xml:space="preserve"><value>Ingresa el PIN de acceso a tu viaje.</value></data>
-  <data name="LoginFreePreview" xml:space="preserve"><value>Explora el mapa curado gratis con el PIN 0000.</value></data>
+  <data name="LoginTitle" xml:space="preserve"><value>Tu viaje empieza aquí</value></data>
+  <data name="LoginDescription" xml:space="preserve"><value>Crea tu primer plan. Si ya tienes un viaje, ábrelo con tu PIN o recupera tu cuenta.</value></data>
+  <data name="LoginFreePreview" xml:space="preserve"><value>Empieza gratis, sin datos de pago.</value></data>
   <data name="LoginOpenTrip" xml:space="preserve"><value>Abrir viaje</value></data>
   <data name="LoginBiometric" xml:space="preserve"><value>Desbloquear con biometría</value></data>
   <data name="LoginPinLengthError" xml:space="preserve"><value>Ingresa tu PIN de 4 o 6 números.</value></data>
@@ -200,7 +200,7 @@
   <data name="AccountSelectTripError" xml:space="preserve"><value>No pudimos abrir este viaje.</value></data>
   <data name="AccountDelete" xml:space="preserve"><value>Eliminar cuenta</value></data>
   <data name="AccountDeleteTitle" xml:space="preserve"><value>¿Eliminar la cuenta?</value></data>
-  <data name="AccountDeleteWarning" xml:space="preserve"><value>Se eliminarán tu cuenta y la analítica personal. Esta acción no se puede deshacer.</value></data>
+  <data name="AccountDeleteWarning" xml:space="preserve"><value>Se eliminarán tu cuenta, la analítica personal y las copias locales de documentos. Los archivos originales se conservan. Esta acción no se puede deshacer.</value></data>
   <data name="AccountDeleteConfirm" xml:space="preserve"><value>Eliminar</value></data>
   <data name="AccountDeleteError" xml:space="preserve"><value>No pudimos eliminar tu cuenta.</value></data>
   <data name="AccountExpiresFormat" xml:space="preserve"><value>Acceso hasta {0:dd/MM/yyyy}</value></data>
@@ -365,11 +365,77 @@ A tu manera.</value></data>
   <data name="PaywallCatalogBody" xml:space="preserve"><value>Explora nuestros lugares seleccionados, también fuera del radio free.</value></data>
   <data name="PaywallPlannerTitle" xml:space="preserve"><value>Todos tus días, a tu manera</value></data>
   <data name="PaywallPlannerBody" xml:space="preserve"><value>Organiza el viaje entero y sigue editándolo mientras tu pase esté activo.</value></data>
-  <data name="PaywallAssistantTitle" xml:space="preserve"><value>Ideas con tu AI Assistant</value></data>
-  <data name="PaywallAssistantBody" xml:space="preserve"><value>Encuentra recomendaciones para decidir qué hacer y completar tu día.</value></data>
+  <data name="PaywallAssistantTitle" xml:space="preserve"><value>Ayuda para decidir qué hacer</value></data>
+  <data name="PaywallAssistantBody" xml:space="preserve"><value>Recibe recomendaciones para completar cada día de tu viaje.</value></data>
   <data name="PaywallPaymentNote" xml:space="preserve"><value>Un pago · Un viaje · Sin renovación automática</value></data>
   <data name="PaywallPricePending" xml:space="preserve"><value>Precio de tienda pendiente</value></data>
   <data name="PaywallRetryOffer" xml:space="preserve"><value>Reintentar cargar oferta</value></data>
   <data name="PaywallYourTrip" xml:space="preserve"><value>EL VIAJE QUE YA EMPEZASTE</value></data>
   <data name="PaywallSetup" xml:space="preserve"><value>Crear mi viaje</value></data>
+  <data name="CreateTrip" xml:space="preserve"><value>Crear mi viaje</value></data>
+  <data name="OptionalDetails" xml:space="preserve"><value>Hoteles y más ciudades (opcional)</value></data>
+  <data name="PersistentFreeSummary" xml:space="preserve"><value>Free · 3 días para planificar · {0} consultas y {1} mejoras disponibles. Tu borrador no caduca.</value></data>
+  <data name="UpgradeTrip" xml:space="preserve"><value>Ampliar mi viaje</value></data>
+  <data name="ReviewTrip" xml:space="preserve"><value>Revisar mi viaje</value></data>
+  <data name="OfflineReady" xml:space="preserve"><value>Listo sin conexión</value></data>
+  <data name="OfflineIncomplete" xml:space="preserve"><value>Descarga incompleta. Se conserva la última copia disponible.</value></data>
+  <data name="OfflineUpdate" xml:space="preserve"><value>Actualización disponible</value></data>
+  <data name="OfflineNotPrepared" xml:space="preserve"><value>Prepara tu viaje para consultarlo sin conexión.</value></data>
+  <data name="OfflineScope" xml:space="preserve"><value>Incluye itinerario, lugares y archivos descargados. Asistente, mapas externos y rutas requieren conexión.</value></data>
+  <data name="DownloadTrip" xml:space="preserve"><value>Guardar para usar sin conexión</value></data>
+  <data name="LocalDocuments" xml:space="preserve"><value>Archivos de este dispositivo</value></data>
+  <data name="LocalDocumentsNotice" xml:space="preserve"><value>Guardado solo en este dispositivo; no se recupera al reinstalar. Conserva el archivo original.</value></data>
+  <data name="AttachDocument" xml:space="preserve"><value>Adjuntar PDF o imagen</value></data>
+  <data name="DocumentLimit" xml:space="preserve"><value>PDF, JPEG o PNG. Máximo 20 MB por archivo.</value></data>
+  <data name="DocumentUnavailable" xml:space="preserve"><value>No se pudo abrir el archivo. Comprueba que siga descargado y tengas una app compatible.</value></data>
+  <data name="DocumentError" xml:space="preserve"><value>No se pudo guardar el archivo. Comprueba el formato y el espacio disponible.</value></data>
+  <data name="RequiresConnection" xml:space="preserve"><value>Requiere conexión</value></data>
+  <data name="DownloadDocument" xml:space="preserve"><value>Descargar archivo</value></data>
+  <data name="RenameDocument" xml:space="preserve"><value>Cambiar nombre</value></data>
+  <data name="DeleteLocalCopy" xml:space="preserve"><value>Eliminar copia local</value></data>
+  <data name="DocumentRenamePrompt" xml:space="preserve"><value>Nombre del documento</value></data>
+  <data name="NoDocuments" xml:space="preserve"><value>Todavía no hay documentos para este viaje.</value></data>
+  <data name="DocumentReadOnly" xml:space="preserve"><value>Puedes consultar los archivos guardados. Activa el pase para adjuntar más.</value></data>
+  <data name="ReviewNoDates" xml:space="preserve"><value>No hay días para revisar.</value></data>
+  <data name="ReviewIncomplete" xml:space="preserve"><value>Faltan horarios; todavía no podemos comprobar todos los conflictos.</value></data>
+  <data name="ReviewPlans" xml:space="preserve"><value>Ver planes implicados</value></data>
+  <data name="ReviewImprove" xml:space="preserve"><value>Mejorar este día</value></data>
+  <data name="ReviewCoverage" xml:space="preserve"><value>Revisión de los horarios conocidos. Los tiempos de traslado son estimaciones; no se comprueban cierres ni cambios en tiempo real.</value></data>
+  <data name="ReviewViewDay" xml:space="preserve"><value>Ver este día</value></data>
+  <data name="SetupArrival" xml:space="preserve"><value>Llegada</value></data>
+  <data name="SetupDeparture" xml:space="preserve"><value>Salida</value></data>
+  <data name="SetupCity" xml:space="preserve"><value>Ciudad</value></data>
+  <data name="SetupHotel" xml:space="preserve"><value>Hotel o base (opcional)</value></data>
+  <data name="SetupAddress" xml:space="preserve"><value>Dirección del hotel (opcional)</value></data>
+  <data name="SetupAddCity" xml:space="preserve"><value>+ Agregar otra ciudad</value></data>
+  <data name="SetupRetry" xml:space="preserve"><value>Reintentar</value></data>
+  <data name="SetupEditEyebrow" xml:space="preserve"><value>EDITAR ITINERARIO · JAPÓN</value></data>
+  <data name="SetupCreateEyebrow" xml:space="preserve"><value>CREAR ITINERARIO · JAPÓN</value></data>
+  <data name="SetupEditTitle" xml:space="preserve"><value>Editar itinerario</value></data>
+  <data name="SetupCreateTitle" xml:space="preserve"><value>Primero, las bases</value></data>
+  <data name="SetupEditDescription" xml:space="preserve"><value>Ajusta fechas, ciudades y hoteles. Tus planes se conservan en sus días actuales.</value></data>
+  <data name="SetupCreateDescription" xml:space="preserve"><value>Elige tu ciudad y las fechas. Puedes agregar hoteles y más ciudades después.</value></data>
+  <data name="SetupSave" xml:space="preserve"><value>Guardar cambios</value></data>
+  <data name="SetupCreate" xml:space="preserve"><value>Crear itinerario</value></data>
+  <data name="TimedTrialNotStarted" xml:space="preserve"><value>La prueba por tiempo comenzará al crear el itinerario.</value></data>
+  <data name="TimedTrialRemaining" xml:space="preserve"><value>Prueba gratuita · {0:00}:{1:00} para editar</value></data>
+  <data name="TimedTrialDraft" xml:space="preserve"><value>Borrador protegido hasta {0:d MMM}. Activa el pase para seguir editando.</value></data>
+  <data name="TimedTrialEnded" xml:space="preserve"><value>La prueba terminó. Activa el pase para continuar.</value></data>
+  <data name="OfflinePendingResources" xml:space="preserve"><value>Pendiente: {0}</value></data>
+  <data name="SetupSessionExpired" xml:space="preserve"><value>Tu sesión venció. Vuelve a ingresar.</value></data>
+  <data name="SetupLoadFailed" xml:space="preserve"><value>No pudimos cargar la configuración del viaje. Reintenta en unos segundos.</value></data>
+  <data name="SetupTooManyCities" xml:space="preserve"><value>No puedes agregar más ciudades que días de viaje.</value></data>
+  <data name="SetupNoHotels" xml:space="preserve"><value>No hay hoteles coincidentes. Puedes completarlo manualmente.</value></data>
+  <data name="SetupNoResults" xml:space="preserve"><value>Sin resultados. Puedes escribir el hotel y direccion manualmente.</value></data>
+  <data name="SetupSearchUnavailable" xml:space="preserve"><value>Busqueda no disponible. Puedes escribir el hotel y direccion manualmente.</value></data>
+  <data name="SetupHotelSelected" xml:space="preserve"><value>Hotel seleccionado. La ubicacion exacta se completara cuando este disponible.</value></data>
+  <data name="SetupCityRequired" xml:space="preserve"><value>Agrega al menos una ciudad.</value></data>
+  <data name="SetupDateGaps" xml:space="preserve"><value>Revisa las fechas: las ciudades deben cubrir todo el viaje sin huecos.</value></data>
+  <data name="SetupInvalidDeparture" xml:space="preserve"><value>La fecha de salida no puede ser anterior a la llegada.</value></data>
+  <data name="SetupMaxDays" xml:space="preserve"><value>El viaje puede tener como máximo 91 días.</value></data>
+  <data name="SetupCityNames" xml:space="preserve"><value>Completa el nombre de todas las ciudades.</value></data>
+  <data name="SetupCityOverlap" xml:space="preserve"><value>Revisa las fechas de {0}: solo el día de traslado puede compartirse entre ciudades.</value></data>
+  <data name="SetupCityCoverage" xml:space="preserve"><value>Las ciudades deben cubrir todos los días entre llegada y salida.</value></data>
+  <data name="DeleteTripTitle" xml:space="preserve"><value>Eliminar itinerario</value></data>
+  <data name="DeleteTripWithDocuments" xml:space="preserve"><value>Se borrarán el itinerario y sus copias locales de documentos. Tus archivos originales, PIN y acceso pago seguirán disponibles.</value></data>
 </root>

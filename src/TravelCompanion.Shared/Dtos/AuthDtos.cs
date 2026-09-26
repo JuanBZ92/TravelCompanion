@@ -15,7 +15,8 @@ public sealed record PinLoginRequestDto(
     [param: Required]
     [param: RegularExpression(@"^(\d{4}|\d{6})$")]
     string Pin,
-    [param: MaxLength(128)] string? ClientInstanceId = null);
+    [param: MaxLength(128)] string? ClientInstanceId = null,
+    bool SupportsPersistentFree = false);
 
 public enum ExperienceMode
 {
@@ -69,6 +70,8 @@ public sealed record TrialAccessStatusDto(
     string Currency,
     string? PurchaseUrl)
 {
+    public FreeAccessPolicy FreePolicy { get; init; }
+    public int DayImprovementsRemaining { get; init; }
     public bool CanEdit => State is TrialAccessState.NotStarted or TrialAccessState.Editing or TrialAccessState.Paid;
     public bool CanUseAssistant => State == TrialAccessState.Paid || AssistantRequestsRemaining > 0;
 }

@@ -34,16 +34,7 @@ public sealed class FreeTrialAccessService(
     public TrialAccessStatusDto ToStatus(BuilderAccessGrant? grant, DateTimeOffset? now = null)
     {
         var current = now ?? DateTimeOffset.UtcNow;
-        var state = grant switch
-        {
-            null => TrialAccessState.NoAccess,
-            { IsTrial: false } => TrialAccessState.Paid,
-            { ConvertedAtUtc: not null } => TrialAccessState.Paid,
-            { TrialEditingStartedAtUtc: null } => TrialAccessState.NotStarted,
-            { TrialEditingExpiresAtUtc: { } editExpiry } when editExpiry > current => TrialAccessState.Editing,
-            { TrialDraftExpiresAtUtc: { } draftExpiry } when draftExpiry > current => TrialAccessState.ReadOnly,
-            _ => TrialAccessState.Expired
-        };
+        var state = AccessGrantPolicy.ResolveState(grant, current);
         var limit = Math.Clamp(options.Value.AssistantRequestLimit, 0, 3);
         return new TrialAccessStatusDto(
             grant?.IsTrial == true && grant.ConvertedAtUtc is null,
@@ -53,11 +44,19 @@ public sealed class FreeTrialAccessService(
             state == TrialAccessState.Paid ? int.MaxValue : Math.Max(0, limit - (grant?.TrialAssistantRequestsUsed ?? 0)),
             options.Value.PassPrice,
             string.IsNullOrWhiteSpace(options.Value.Currency) ? "EUR" : options.Value.Currency.Trim().ToUpperInvariant(),
-            options.Value.PurchaseUrl);
+            options.Value.PurchaseUrl) { FreePolicy = grant?.FreePolicy ?? FreeAccessPolicy.TimedTrial };
     }
 
-    public async Task<TrialAccessStatusDto> GetStatusAsync(Guid userId, CancellationToken cancellationToken = default) =>
-        ToStatus(await GetGrantAsync(userId, cancellationToken));
+    public async Task<TrialAccessStatusDto> GetStatusAsync(Guid userId, CancellationToken cancellationToken = default)
+        => await GetStatusAsync(await GetGrantAsync(userId, cancellationToken), cancellationToken);
+
+    public async Task<TrialAccessStatusDto> GetStatusAsync(BuilderAccessGrant? grant, CancellationToken cancellationToken = default)
+    {
+        var used = grant is null ? 0 : await dbContext.AssistantUsageLeases.CountAsync(item =>
+            item.BuilderAccessGrantId == grant.Id && item.OperationKey.StartsWith(AssistantUsageService.FullDayPrefix)
+            && item.CompletedAtUtc != null, cancellationToken);
+        return ToStatus(grant) with { DayImprovementsRemaining = Math.Max(0, FreePlanningPolicy.MaximumDayImprovements - used) };
+    }
 
     public async Task<TrialAccessStatusDto> StartEditingAsync(Guid userId, CancellationToken cancellationToken = default)
     {
@@ -69,8 +68,8 @@ public sealed class FreeTrialAccessService(
             var editingMinutes = Math.Clamp(options.Value.TrialEditingMinutes, 5, 180);
             var retentionDays = Math.Clamp(options.Value.DraftRetentionDays, 1, 30);
             grant.TrialEditingStartedAtUtc = now;
-            grant.TrialEditingExpiresAtUtc = now.AddMinutes(editingMinutes);
-            grant.TrialDraftExpiresAtUtc = grant.TrialEditingExpiresAtUtc.Value.AddDays(retentionDays);
+            grant.TrialEditingExpiresAtUtc = grant.FreePolicy == FreeAccessPolicy.PersistentFree ? null : now.AddMinutes(editingMinutes);
+            grant.TrialDraftExpiresAtUtc = grant.TrialEditingExpiresAtUtc?.AddDays(retentionDays);
             await dbContext.SaveChangesAsync(cancellationToken);
             if (analytics is not null)
                 await analytics.RecordServerEventAsync(userId, grant.TripId, "trial_started", "editing", null, cancellationToken);
@@ -81,7 +80,7 @@ public sealed class FreeTrialAccessService(
                 grant.TrialDraftExpiresAtUtc);
         }
 
-        return ToStatus(grant);
+        return await GetStatusAsync(userId, cancellationToken);
     }
 
     public async Task<TrialAccessStatusDto> RequireEditingAsync(Guid userId, bool startIfNeeded, CancellationToken cancellationToken = default)
@@ -89,7 +88,7 @@ public sealed class FreeTrialAccessService(
         var grant = await GetGrantAsync(userId, cancellationToken);
         var status = startIfNeeded && grant?.TrialEditingStartedAtUtc is null
             ? await StartEditingAsync(userId, cancellationToken)
-            : ToStatus(grant);
+            : await GetStatusAsync(userId, cancellationToken);
         if (!status.CanEdit)
         {
             logger.LogInformation("Free trial edit paywall reached. UserId={UserId}; State={TrialState}.", userId, status.State);

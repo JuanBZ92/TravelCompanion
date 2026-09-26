@@ -3,8 +3,35 @@ using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Mobile.Tests;
 
+[Collection("Free map session")]
 public sealed class AuthSessionLogoutTests
 {
+    [Theory]
+    [InlineData(TravelCompanion.Shared.FreeAccessPolicy.TimedTrial, false)]
+    [InlineData(TravelCompanion.Shared.FreeAccessPolicy.PersistentFree, true)]
+    public async Task Persistent_free_edits_without_clock_and_policy_survives_app_restart(TravelCompanion.Shared.FreeAccessPolicy policy, bool expected)
+    {
+        var session = new AuthSessionService();
+        try
+        {
+            await session.SaveAsync(Session() with
+            {
+                AccessMode = TravelCompanion.Shared.SessionAccessMode.FreeMapPreview,
+                ExperienceMode = ExperienceMode.SelfServiceBuilder,
+                Capabilities = new(false, true, true, false, false),
+                TrialAccess = new(true, TrialAccessState.Editing, null, null, 2, 24.99m, "EUR", null)
+                    { FreePolicy = policy, DayImprovementsRemaining = 1 }
+            });
+            var restarted = new AuthSessionService();
+            Assert.Equal(expected, restarted.CanEditItinerary);
+            Assert.Equal(policy, restarted.FreePolicy);
+            Assert.Equal(1, restarted.DayImprovementsRemaining);
+            restarted.ApplyTrialAccess(new(true, TrialAccessState.Revoked, null, null, 0, 24.99m, "EUR", null) { FreePolicy = policy });
+            Assert.False(restarted.CanEditItinerary);
+        }
+        finally { session.Clear(); }
+    }
+
     private static AuthSessionDto Session() => new(Guid.NewGuid(), "test@example.com", "Test", false, "test-token", Guid.NewGuid());
 
     [Theory]

@@ -39,7 +39,7 @@ public sealed class ExpiredTrialCleanupWorker(
             ? await dbContext.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, cancellationToken)
             : null;
         var candidates = await dbContext.BuilderAccessGrants
-            .Where(grant => grant.IsTrial
+            .Where(grant => grant.IsTrial && grant.FreePolicy == FreeAccessPolicy.TimedTrial
                 && grant.ConvertedAtUtc == null
                 && grant.TrialDraftExpiresAtUtc != null
                 && grant.TrialDraftExpiresAtUtc <= now
@@ -60,7 +60,7 @@ public sealed class ExpiredTrialCleanupWorker(
         dbContext.ChangeTracker.Clear();
         var grants = await dbContext.BuilderAccessGrants
             .Where(grant => tripIds.Contains(grant.TripId!.Value)
-                && grant.IsTrial && grant.ConvertedAtUtc == null
+                && grant.IsTrial && grant.FreePolicy == FreeAccessPolicy.TimedTrial && grant.ConvertedAtUtc == null
                 && grant.TrialDraftExpiresAtUtc != null && grant.TrialDraftExpiresAtUtc <= now)
             .ToListAsync(cancellationToken);
         tripIds = grants.Select(grant => grant.TripId!.Value).ToList();
