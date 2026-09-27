@@ -445,4 +445,37 @@ Your way.</value></data>
   <data name="DocumentActionsNamed" xml:space="preserve"><value>Options for {0}</value></data>
   <data name="LoginExistingTrip" xml:space="preserve"><value>I already have a trip</value></data>
   <data name="LoginPinHint" xml:space="preserve"><value>4 or 6 digits</value></data>
+  <data name="AssistantDestinationFallback" xml:space="preserve"><value>Japan</value></data>
+  <data name="AssistantHomeIntro" xml:space="preserve"><value>Choose what you need for your trip.</value></data>
+  <data name="AssistantForDay" xml:space="preserve"><value>FOR THIS DAY</value></data>
+  <data name="AssistantChooseDate" xml:space="preserve"><value>Choose a trip date</value></data>
+  <data name="AssistantCompleteDay" xml:space="preserve"><value>Complete my day</value></data>
+  <data name="AssistantCompleteDayHelp" xml:space="preserve"><value>Ideas for open time, without moving your bookings.</value></data>
+  <data name="AssistantFindPlace" xml:space="preserve"><value>Find a place</value></data>
+  <data name="AssistantAsk" xml:space="preserve"><value>Ask the Assistant</value></data>
+  <data name="AssistantBackHome" xml:space="preserve"><value>Back to Assistant home</value></data>
+  <data name="AssistantSearchIntro" xml:space="preserve"><value>Keep the defaults or choose up to three interests.</value></data>
+  <data name="AssistantInterests" xml:space="preserve"><value>What interests you?</value></data>
+  <data name="AssistantOptionalBudget" xml:space="preserve"><value>Budget · optional</value></data>
+  <data name="AssistantOptionalWalk" xml:space="preserve"><value>Walking · optional</value></data>
+  <data name="AssistantShowIdeas" xml:space="preserve"><value>Show ideas</value></data>
+  <data name="AssistantYourDay" xml:space="preserve"><value>Your day</value></data>
+  <data name="AssistantNoIdeas" xml:space="preserve"><value>No suitable ideas for this day. Try different criteria.</value></data>
+  <data name="AssistantOpenActivity" xml:space="preserve"><value>View activity details</value></data>
+  <data name="AssistantAskAboutDay" xml:space="preserve"><value>Ask about this day</value></data>
+  <data name="AssistantAnotherOption" xml:space="preserve"><value>Another option</value></data>
+  <data name="AssistantAdjust" xml:space="preserve"><value>Adjust</value></data>
+  <data name="AssistantClose" xml:space="preserve"><value>Close</value></data>
+  <data name="AssistantHomeQuota" xml:space="preserve"><value>{0} day improvements · {1} questions</value></data>
+  <data name="AssistantSearchQuota" xml:space="preserve"><value>{0} questions available</value></data>
+  <data name="AssistantSearchRequest" xml:space="preserve"><value>I want an idea for this day.</value></data>
+  <data name="AssistantProposalNeedsRefresh" xml:space="preserve"><value>The itinerary changed. Generate a new proposal to continue.</value></data>
+  <data name="AssistantProposalSaved" xml:space="preserve"><value>Saved</value></data>
+  <data name="AssistantProposalIdea" xml:space="preserve"><value>Idea to add</value></data>
+  <data name="AssistantProposalStay" xml:space="preserve"><value>Stay</value></data>
+  <data name="AssistantProposalFlexible" xml:space="preserve"><value>No fixed time</value></data>
+  <data name="AssistantProposalMorning" xml:space="preserve"><value>Morning · no fixed time</value></data>
+  <data name="AssistantProposalMidday" xml:space="preserve"><value>Midday · no fixed time</value></data>
+  <data name="AssistantProposalAfternoon" xml:space="preserve"><value>Afternoon · no fixed time</value></data>
+  <data name="AssistantProposalNight" xml:space="preserve"><value>Evening · no fixed time</value></data>
 </root>

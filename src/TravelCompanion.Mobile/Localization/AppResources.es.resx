@@ -445,4 +445,37 @@ A tu manera.</value></data>
   <data name="DocumentActionsNamed" xml:space="preserve"><value>Opciones de {0}</value></data>
   <data name="LoginExistingTrip" xml:space="preserve"><value>Ya tengo un viaje</value></data>
   <data name="LoginPinHint" xml:space="preserve"><value>4 o 6 dígitos</value></data>
+  <data name="AssistantDestinationFallback" xml:space="preserve"><value>Japón</value></data>
+  <data name="AssistantHomeIntro" xml:space="preserve"><value>Elegí qué querés resolver para tu viaje.</value></data>
+  <data name="AssistantForDay" xml:space="preserve"><value>PARA ESTE DÍA</value></data>
+  <data name="AssistantChooseDate" xml:space="preserve"><value>Elegir fecha del viaje</value></data>
+  <data name="AssistantCompleteDay" xml:space="preserve"><value>Completar mi día</value></data>
+  <data name="AssistantCompleteDayHelp" xml:space="preserve"><value>Ideas para los espacios libres, sin mover tus reservas.</value></data>
+  <data name="AssistantFindPlace" xml:space="preserve"><value>Buscar un lugar</value></data>
+  <data name="AssistantAsk" xml:space="preserve"><value>Preguntar al Asistente</value></data>
+  <data name="AssistantBackHome" xml:space="preserve"><value>Volver al inicio del Asistente</value></data>
+  <data name="AssistantSearchIntro" xml:space="preserve"><value>Podés dejar todo como está o elegir hasta tres intereses.</value></data>
+  <data name="AssistantInterests" xml:space="preserve"><value>¿Qué te interesa?</value></data>
+  <data name="AssistantOptionalBudget" xml:space="preserve"><value>Presupuesto · opcional</value></data>
+  <data name="AssistantOptionalWalk" xml:space="preserve"><value>Caminata · opcional</value></data>
+  <data name="AssistantShowIdeas" xml:space="preserve"><value>Ver ideas</value></data>
+  <data name="AssistantYourDay" xml:space="preserve"><value>Tu día</value></data>
+  <data name="AssistantNoIdeas" xml:space="preserve"><value>No encontramos ideas compatibles para este día. Probá con otros criterios.</value></data>
+  <data name="AssistantOpenActivity" xml:space="preserve"><value>Ver detalle de esta actividad</value></data>
+  <data name="AssistantAskAboutDay" xml:space="preserve"><value>Preguntar sobre este día</value></data>
+  <data name="AssistantAnotherOption" xml:space="preserve"><value>Otra opción</value></data>
+  <data name="AssistantAdjust" xml:space="preserve"><value>Ajustar</value></data>
+  <data name="AssistantClose" xml:space="preserve"><value>Cerrar</value></data>
+  <data name="AssistantHomeQuota" xml:space="preserve"><value>{0} mejoras del día · {1} consultas</value></data>
+  <data name="AssistantSearchQuota" xml:space="preserve"><value>{0} consultas disponibles</value></data>
+  <data name="AssistantSearchRequest" xml:space="preserve"><value>Busco una idea para este día.</value></data>
+  <data name="AssistantProposalNeedsRefresh" xml:space="preserve"><value>El itinerario cambió. Generá otra propuesta para continuar.</value></data>
+  <data name="AssistantProposalSaved" xml:space="preserve"><value>Guardado</value></data>
+  <data name="AssistantProposalIdea" xml:space="preserve"><value>Idea para sumar</value></data>
+  <data name="AssistantProposalStay" xml:space="preserve"><value>Estadía</value></data>
+  <data name="AssistantProposalFlexible" xml:space="preserve"><value>Sin hora fija</value></data>
+  <data name="AssistantProposalMorning" xml:space="preserve"><value>Mañana · sin hora fija</value></data>
+  <data name="AssistantProposalMidday" xml:space="preserve"><value>Mediodía · sin hora fija</value></data>
+  <data name="AssistantProposalAfternoon" xml:space="preserve"><value>Tarde · sin hora fija</value></data>
+  <data name="AssistantProposalNight" xml:space="preserve"><value>Noche · sin hora fija</value></data>
 </root>

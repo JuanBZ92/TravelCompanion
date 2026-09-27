@@ -78,7 +78,11 @@ public sealed partial class TravelChatViewModel
                 if (replacementTarget is not null) replacementTarget.FeedbackStatusMessage = ErrorMessage;
                 return;
             }
-            if (response.TrialAccess is not null) sessionService.ApplyTrialAccess(response.TrialAccess);
+            if (response.TrialAccess is not null)
+            {
+                sessionService.ApplyTrialAccess(response.TrialAccess);
+                RefreshAssistantContext();
+            }
             _conversationId = response.ConversationId;
             if (response.MissingContext?.Field == "upgrade")
             {
@@ -108,12 +112,6 @@ public sealed partial class TravelChatViewModel
                 && cards.Count > 0 && response.Intent == "day_plan")
                 await analytics.TrackAsync("day_improvement_proposal_generated", "assistant", tripId: sessionService.CurrentTripId);
             StatusMessage = response.Message;
-            if (action.AdaptationReason is not null && cards.Count > 0)
-            {
-                var lines = string.Join("\n", cards.Select(card => $"• {card.Title}"));
-                await Shell.Current.DisplayAlertAsync("Propuesta para tu día",
-                    $"{response.Message}\n\nAlternativas:\n{lines}\n\nGuardá solo las que quieras aplicar.", "Revisar");
-            }
             if (replacementTarget is not null)
             {
                 if (cards.Count == 1 && response.MissingContext is null && response.Intent == "day_plan")
@@ -122,6 +120,7 @@ public sealed partial class TravelChatViewModel
                     cards[0].FeedbackStatusMessage = Resource("AssistantAlternativeReady");
                     owner?.ReplaceCard(replacementTarget, cards[0]);
                     OnMessagesChanged();
+                    if (owner is not null) await ShowAssistantProposalAsync(owner.Cards.ToList(), response.Message);
                 }
                 else replacementTarget.FeedbackStatusMessage = response.Message;
                 return;
@@ -133,15 +132,22 @@ public sealed partial class TravelChatViewModel
                 Messages.Add(new TravelChatMessageViewModel(response.Message, false, cards));
                 OnMessagesChanged();
                 completeDay = cards;
+                await ShowAssistantProposalAsync(cards, response.Message);
                 return;
             }
-            if (cards.Count == 0) return;
+            if (cards.Count == 0)
+            {
+                if (response.MissingContext is null)
+                    await ShowAssistantProposalAsync(cards, response.Message);
+                return;
+            }
             var pendingMessage = new TravelChatMessageViewModel(string.Empty, false, cards);
             Messages.Add(pendingMessage);
             OnMessagesChanged();
             StatusMessage = response.Message;
             SuggestedReplies.Clear();
             OnMessagesChanged();
+            await ShowAssistantProposalAsync(cards, response.Message);
         }
         catch (OperationCanceledException)
         {

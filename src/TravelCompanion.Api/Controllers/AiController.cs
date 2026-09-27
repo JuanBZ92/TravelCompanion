@@ -124,15 +124,21 @@ public sealed class AiController(
             }
             catch (TrialUpgradeRequiredException exception)
             {
+                var paidDailyLimit = access.Session.AccessMode == TravelCompanion.Shared.SessionAccessMode.Builder;
                 return Ok(new TravelChatResponse(
                     request.ConversationId ?? Guid.NewGuid().ToString("N"),
-                    personalized
+                    paidDailyLimit
+                        ? "Has alcanzado el límite diario del Assistant. Se reinicia a las 00:00 UTC."
+                        : personalized
                         ? "La prueba personalizada ya se utilizó o no quedan mejoras del día. Activá el Pase Japón para continuar."
                         : access.Session.AccessMode == TravelCompanion.Shared.SessionAccessMode.FreeMapPreview
                         ? "Activa tu pase para continuar. La prueba incluye tres días, tres mejoras del día y tres consultas del Assistant, con 30 minutos de edición."
-                        : "Has alcanzado el límite diario del Assistant. Se reinicia a las 00:00 UTC.",
-                    "upgrade_required", [], ["Activar mi pase"],
-                    new MissingContextDto("upgrade", "No quedan consultas disponibles por ahora.", ["Activar mi pase"]),
+                        : "No quedan consultas disponibles por ahora.",
+                    paidDailyLimit ? "daily_limit" : "upgrade_required", [],
+                    paidDailyLimit ? [] : ["Activar mi pase"],
+                    new MissingContextDto(paidDailyLimit ? "daily_limit" : "upgrade",
+                        paidDailyLimit ? "Tu cuota diaria se renovará a las 00:00 UTC." : "No quedan consultas disponibles por ahora.",
+                        paidDailyLimit ? [] : ["Activar mi pase"]),
                     TrialAccess: trialStatus is null ? exception.Status : await freeTrialAccessService.GetStatusAsync(user.Id, cancellationToken)));
             }
         }

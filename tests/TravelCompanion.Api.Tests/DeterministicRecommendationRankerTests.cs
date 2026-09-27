@@ -135,7 +135,26 @@ public sealed class DeterministicRecommendationRankerTests
         Assert.Contains(riskyScore.NegativeReasons, reason => reason.Contains("presupuesto", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(riskyScore.NegativeReasons, reason => reason.Contains("restricciones alimentarias", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(riskyScore.NegativeReasons, reason => reason.Contains("abierto", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains(riskyScore.NegativeReasons, reason => reason.Contains("valoracion", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(riskyScore.NegativeReasons, reason => reason.Contains("valoracion", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Low_rating_affects_order_without_becoming_a_warning()
+    {
+        var ranker = new DeterministicRecommendationRanker();
+        var profile = new TravelPreferenceProfile { UserId = Guid.NewGuid() };
+        var context = new TravelPlanningContext("Tokyo", new DateOnly(2026, 10, 6),
+            null, null, null, null);
+        var lowRated = CreateRecommendation("Low rated", "Culture", "Tokyo", 60,
+            35.665486m, 139.770667m, rating: 3.2);
+        var unrated = CreateRecommendation("Unrated", "Culture", "Tokyo", 60,
+            35.665486m, 139.770667m);
+
+        var ranked = ranker.Rank(profile, [], [lowRated, unrated], context);
+
+        Assert.Equal(unrated.Id, ranked[0].Recommendation.Id);
+        Assert.Equal(8, ranked[0].Score - ranked[1].Score);
+        Assert.Empty(ranked[1].NegativeReasons);
     }
 
     [Fact]

@@ -75,6 +75,49 @@ public sealed class TravelChatEndpointTests
     }
 
     [Fact]
+    public async Task Paid_daily_limit_does_not_suggest_buying_the_pass_again()
+    {
+        await using var factory = new TravelCompanionApiFactory();
+        await factory.SeedPlanningUserAsync();
+        string paidToken;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<TravelCompanionDbContext>();
+            var user = await db.AppUsers.SingleAsync();
+            var trip = await db.Trips.SingleAsync();
+            var grant = new BuilderAccessGrant
+            {
+                Id = Guid.NewGuid(), AppUserId = user.Id, DestinationId = trip.DestinationId,
+                TripId = trip.Id, IsTrial = false, Status = BuilderAccessStatus.Active,
+                PurchasedAtUtc = DateTimeOffset.UtcNow
+            };
+            db.BuilderAccessGrants.Add(grant);
+            db.AssistantDailyUsages.Add(new AssistantDailyUsage
+            {
+                Id = Guid.NewGuid(), BuilderAccessGrantId = grant.Id,
+                UtcDate = DateOnly.FromDateTime(DateTime.UtcNow), SuccessfulRequests = 100
+            });
+            await db.SaveChangesAsync();
+            var sessions = scope.ServiceProvider.GetRequiredService<UserSessionService>();
+            (_, paidToken) = await sessions.CreateSessionAsync(user, tripId: trip.Id,
+                accessMode: SessionAccessMode.Builder);
+        }
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", paidToken);
+
+        var response = await client.PostAsJsonAsync("/api/ai/travel-chat",
+            new TravelChatRequest("Busco un lugar", null, "Tokyo",
+                new DateOnly(2026, 10, 6), null, "es-ES"));
+
+        response.EnsureSuccessStatusCode();
+        var body = await response.Content.ReadFromJsonAsync<TravelChatResponse>(SnapshotJsonOptions);
+        Assert.NotNull(body);
+        Assert.Equal("daily_limit", body.Intent);
+        Assert.Equal("daily_limit", body.MissingContext?.Field);
+        Assert.Empty(body.SuggestedReplies);
+    }
+
+    [Fact]
     public async Task TravelChat_returns_stable_structured_contract_for_authenticated_mobile_client()
     {
         await using var factory = new TravelCompanionApiFactory();

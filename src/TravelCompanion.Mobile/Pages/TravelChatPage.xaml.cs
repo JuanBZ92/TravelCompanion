@@ -1,4 +1,5 @@
 using TravelCompanion.Mobile.ViewModels;
+using TravelCompanion.Mobile.Services;
 
 namespace TravelCompanion.Mobile.Pages;
 
@@ -61,6 +62,10 @@ public partial class TravelChatPage : ContentPage, IQueryAttributable
                 else if (reason is null) await _viewModel.RequestDayAlternativeAsync(reviewDate, city, summary);
                 else await _viewModel.RequestDayAdaptationAsync(reviewDate, city, reason, delay);
             }
+            else
+            {
+                await _viewModel.RefreshAssistantProposalAsync();
+            }
         }
         catch (OperationCanceledException)
         {
@@ -75,7 +80,52 @@ public partial class TravelChatPage : ContentPage, IQueryAttributable
     protected override void OnDisappearing()
     {
         _viewModel.CancelActiveOperations();
+        _viewModel.OpenAssistantCard(null);
         base.OnDisappearing();
+    }
+
+    protected override bool OnBackButtonPressed() =>
+        _viewModel.TryAssistantBack() || base.OnBackButtonPressed();
+
+    private void OnQuickCriterionClicked(object? sender, EventArgs e)
+    {
+        if ((sender as BindableObject)?.BindingContext is TravelChatGuidedOptionViewModel option)
+            _viewModel.SelectQuickCriterionCommand.Execute(option);
+    }
+
+    private async void OnProposalRowClicked(object? sender, EventArgs e)
+    {
+        if ((sender as BindableObject)?.BindingContext is AssistantProposalRow row)
+            await _viewModel.OpenProposalRowAsync(row);
+    }
+
+    private async void OnSaveDetailClicked(object? sender, EventArgs e) =>
+        await _viewModel.SaveAssistantCardCommand.ExecuteAsync(null);
+
+    private async void OnReplaceDetailClicked(object? sender, EventArgs e) =>
+        await _viewModel.ReplaceAssistantCardCommand.ExecuteAsync(null);
+
+    private void OnAdjustDetailClicked(object? sender, EventArgs e) =>
+        _viewModel.AdjustAssistantCardCommand.Execute(null);
+
+    private void OnCloseDetailClicked(object? sender, EventArgs e) =>
+        _viewModel.CloseAssistantCardCommand.Execute(null);
+
+    private async void OnAssistantDateSelected(object? sender, DateChangedEventArgs e)
+    {
+        if (e.NewDate is { } date) await _viewModel.UpdateCityForDateAsync(date);
+    }
+
+    private void OnOpenCardClicked(object? sender, EventArgs e)
+    {
+        if ((sender as BindableObject)?.BindingContext is TravelChatCardViewModel card)
+            _viewModel.OpenAssistantCard(card);
+    }
+
+    private async void OnAvoidDetailTagClicked(object? sender, EventArgs e)
+    {
+        if ((sender as BindableObject)?.BindingContext is TravelChatTagActionViewModel tagAction)
+            await _viewModel.AvoidTagCommand.ExecuteAsync(tagAction.Tag);
     }
 
     private static bool ReduceMotion

@@ -56,7 +56,7 @@ public sealed class DeterministicRecommendationRanker : IRecommendationRanker
 
         ApplyBudgetScore(profile, recommendation, positives, negatives, ref score);
         ApplyDietaryRestrictionScore(profile, recommendation, searchableText, positives, negatives, ref score);
-        ApplyRatingScore(recommendation, positives, negatives, ref score);
+        ApplyRatingScore(recommendation, positives, ref score);
         ApplyOpeningHoursScore(recommendation, context, positives, negatives, ref score);
         ApplyDuplicateScore(reservations, recommendation, negatives, ref score);
 
@@ -181,7 +181,6 @@ public sealed class DeterministicRecommendationRanker : IRecommendationRanker
     private static void ApplyRatingScore(
         Recommendation recommendation,
         List<string> positives,
-        List<string> negatives,
         ref double score)
     {
         if (!recommendation.Rating.HasValue)
@@ -206,7 +205,6 @@ public sealed class DeterministicRecommendationRanker : IRecommendationRanker
         if (recommendation.Rating.Value < 3.5)
         {
             score -= 8;
-            negatives.Add("Su valoracion es mas baja que otras opciones.");
         }
     }
 

@@ -1070,8 +1070,12 @@ public sealed partial class TravelChatService(
         var walkingOptions = criteria.WalkingMinuteOptions.Append(criteria.MaxWalkingMinutes ?? 0)
             .Where(value => value is 15 or 30).Distinct().Order().ToList();
 
+        // A broad search intentionally has no leading category. Choosing the first
+        // category would turn an unfiltered request into a food recommendation.
+        var primaryCategory = criteria.Category is null && categories.Count == 9
+            ? null : categories[0];
         return new GuidedPlanCriteriaDto(
-            categories[0],
+            primaryCategory,
             GuidedTravelPriorities.IsValid(criteria.Priority) ? criteria.Priority : GuidedTravelPriorities.Direct,
             budgets.FirstOrDefault(),
             walkingOptions.Count == 0 ? null : walkingOptions.Max(),

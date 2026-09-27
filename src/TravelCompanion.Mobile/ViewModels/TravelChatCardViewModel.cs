@@ -57,6 +57,10 @@ public sealed partial class TravelChatCardViewModel : ObservableObject
     public Guid SaveMutationId { get; } = Guid.NewGuid();
     public DateOnly? PlanningDate { get; set; }
     public bool IsDayPlanCard => _card.IsDayPlan;
+    public bool IsExistingDayStop => _card.Type == "existing_day_stop";
+    public string AnotherOptionLabel => Resource("AssistantAnotherOption");
+    public string AdjustLabel => Resource("AssistantAdjust");
+    public string CloseLabel => Resource("AssistantClose");
     public bool ShowPreferenceAdjustment => !IsDayPlanCard;
     public Guid? ReplacesRecommendationId => _card.ReplacesRecommendationId;
     public bool HasLongTransfer => _card.HasLongTransfer;
@@ -155,11 +159,21 @@ public sealed partial class TravelChatCardViewModel : ObservableObject
     public IReadOnlyList<string> WhyItFits => _card.WhyItFits.Take(2).ToList();
     public bool HasReasons => WhyItFits.Count > 0;
     public bool ShowReasons => HasReasons && (IsDayPlanCard || IsDetailsVisible);
-    public IReadOnlyList<string> Warnings => _card.Warnings.Take(1).ToList();
+    public IReadOnlyList<string> Warnings => _card.Warnings
+        .Where(warning => !IsLegacyLowRatingWarning(warning))
+        .Take(1).ToList();
     public IReadOnlyList<string> WarningLabels => Warnings
         .Select(warning => $"{Resource("AssistantAttentionPrefix")}: {warning}")
         .ToList();
     public bool HasWarnings => Warnings.Count > 0;
+
+    private static bool IsLegacyLowRatingWarning(string warning)
+    {
+        // Previously generated assistant cards can still carry this warning.
+        var text = warning.Trim();
+        return text.StartsWith("Su valoraci", StringComparison.OrdinalIgnoreCase)
+            && text.EndsWith("baja que otras opciones.", StringComparison.OrdinalIgnoreCase);
+    }
 
     [RelayCommand]
     private void ToggleDetails() => IsDetailsVisible = !IsDetailsVisible;
@@ -222,6 +236,9 @@ public sealed partial class TravelChatCardViewModel : ObservableObject
         OnPropertyChanged(nameof(SummaryLine));
         OnPropertyChanged(nameof(TagActions));
         OnPropertyChanged(nameof(WarningLabels));
+        OnPropertyChanged(nameof(AnotherOptionLabel));
+        OnPropertyChanged(nameof(AdjustLabel));
+        OnPropertyChanged(nameof(CloseLabel));
     }
 
     private static string Resource(string key)

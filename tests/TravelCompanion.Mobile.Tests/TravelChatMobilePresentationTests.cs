@@ -8,6 +8,64 @@ namespace TravelCompanion.Mobile.Tests;
 public sealed class TravelChatMobilePresentationTests
 {
     [Fact]
+    public void Day_proposal_keeps_bookings_and_avoids_duplicate_saved_recommendations()
+    {
+        var day = new DateOnly(2026, 9, 27);
+        var savedRecommendation = Guid.NewGuid();
+        var booking = ProposalItem(day, "Hotel check-in", new TimeOnly(15, 0),
+            ReservationType.Lodging);
+        var saved = ProposalItem(day, "Museum", new TimeOnly(11, 0),
+            recommendationId: savedRecommendation);
+        var duplicate = ProposalCard("Museum", savedRecommendation, "11:00", false);
+        var idea = ProposalCard("Garden", Guid.NewGuid(), "09:00", true);
+
+        var rows = AssistantDayProposalBuilder.Build([booking, saved], [duplicate, idea], day);
+
+        Assert.Equal(3, rows.Count);
+        Assert.Equal("Garden", rows[0].Title);
+        Assert.Equal("Museum", rows[1].Title);
+        Assert.Equal("Hotel check-in", rows[2].Title);
+        Assert.Single(rows.Where(row => row.IsSuggestion));
+        Assert.DoesNotContain("09:00", rows[0].When);
+    }
+
+    [Fact]
+    public void Day_proposal_shows_ongoing_hotel_without_inventing_a_new_check_in()
+    {
+        var hotel = ProposalItem(new DateOnly(2026, 9, 27), "Hotel",
+            new TimeOnly(15, 0), ReservationType.Lodging) with
+        { EndsOn = new DateOnly(2026, 9, 30) };
+
+        var rows = AssistantDayProposalBuilder.Build([hotel], [], new DateOnly(2026, 9, 28));
+
+        var row = Assert.Single(rows);
+        Assert.True(row.IsOngoingStay);
+        Assert.DoesNotContain("15:00", row.When);
+    }
+
+    [Fact]
+    public void Day_proposal_does_not_label_an_unscheduled_idea_as_evening()
+    {
+        var day = new DateOnly(2026, 9, 27);
+        var idea = ProposalCard("Open plan", Guid.NewGuid(), null, true);
+
+        var row = Assert.Single(AssistantDayProposalBuilder.Build([], [idea], day));
+
+        Assert.Equal(LocalizationResourceManager.Instance["AssistantProposalFlexible"], row.When);
+    }
+
+    private static ScheduleItemDto ProposalItem(DateOnly date, string title, TimeOnly time,
+        ReservationType type = ReservationType.Event, Guid? recommendationId = null) =>
+        new(Guid.NewGuid(), recommendationId, type, date, time, null, null, title,
+            "Tokyo", title, string.Empty, string.Empty, string.Empty,
+            null, null, null, null, null, null);
+
+    private static TravelChatCardViewModel ProposalCard(string title, Guid recommendationId,
+        string? start, bool periodOnly) => new(new TravelCardDto(
+            "recommendation", title, "Tokyo", null, start, null, "medium", null, null,
+            [], [], recommendationId.ToString(), null) { IsPeriodOnly = periodOnly });
+
+    [Fact]
     public void Normalize_travel_chat_response_handles_malformed_backend_payload()
     {
         var response = new TravelChatResponse(
@@ -102,6 +160,20 @@ public sealed class TravelChatMobilePresentationTests
 
         Assert.False(viewModel.CanSave);
         Assert.Equal("Saved", viewModel.SaveButtonText);
+    }
+
+    [Theory]
+    [InlineData("Su valoracion es mas baja que otras opciones.")]
+    [InlineData("Su valoración es más baja que otras opciones.")]
+    public void Existing_low_rating_warning_is_hidden_but_other_warnings_remain(string legacyWarning)
+    {
+        var card = new TravelCardDto("recommendation", "Café", null, null,
+            null, null, null, null, null, [], [legacyWarning, "Puede haber fila."], null, null);
+
+        var viewModel = new TravelChatCardViewModel(card);
+
+        Assert.Equal(["Puede haber fila."], viewModel.Warnings);
+        Assert.True(viewModel.HasWarnings);
     }
 
     [Fact]

@@ -123,13 +123,13 @@ public sealed partial class TravelChatViewModel(
     public DateTime PlanningDate
     {
         get => _planningDate;
-        set => SetProperty(ref _planningDate, value);
+        set { if (SetProperty(ref _planningDate, value)) RefreshAssistantContext(); }
     }
 
     public string? City
     {
         get => _city;
-        set => SetProperty(ref _city, value);
+        set { if (SetProperty(ref _city, value)) RefreshAssistantContext(); }
     }
 
     public string? MissingContextMessage
@@ -258,6 +258,7 @@ public sealed partial class TravelChatViewModel(
         {
             return;
         }
+        SetAssistantSurface("conversation");
         _adaptationRevision = null;
         _adaptationTripId = null;
         _adaptationCards.Clear();
@@ -296,6 +297,7 @@ public sealed partial class TravelChatViewModel(
 
     public async Task RequestDayAdaptationAsync(DateOnly date, string? city, string reason, int? delayMinutes)
     {
+        SetAssistantSurface("conversation");
         if (IsBusy) return;
         var contextVersion = sessionService.ContextVersion;
         if (!sessionService.CanEditItinerary || sessionService.IsFreeMapPreview)
@@ -333,6 +335,7 @@ public sealed partial class TravelChatViewModel(
 
     public async Task RequestPersonalizedDayAsync(DateOnly date, string? city, GuidedPlanCriteriaDto criteria)
     {
+        SetAssistantSurface("conversation");
         if (IsBusy) return;
         if (!sessionService.CanEditItinerary)
         {
@@ -387,6 +390,16 @@ public sealed partial class TravelChatViewModel(
         PlanningDate = DateTime.Today;
         City = null;
         Messages.Clear();
+        ProposalRows.Clear();
+        _proposalCards.Clear();
+        _proposalMessage = string.Empty;
+        OnPropertyChanged(nameof(ProposalMessage));
+        _proposalTripId = null;
+        _proposalRevision = null;
+        _expectingProposalSave = false;
+        _quickSearchSubmission = false;
+        SelectedDetailCard = null;
+        SetAssistantSurface("home");
         ResetDefaultSuggestedReplies();
         ClearMissingContext();
         RestartGuidedFlow();
@@ -659,6 +672,7 @@ public sealed partial class TravelChatViewModel(
             if (response.TrialAccess is not null)
             {
                 sessionService.ApplyTrialAccess(response.TrialAccess);
+                RefreshAssistantContext();
             }
             _conversationId = response.ConversationId;
             _lastIntent = response.Intent;
@@ -668,6 +682,9 @@ public sealed partial class TravelChatViewModel(
             var cards = (response.Cards ?? [])
                 .Select(card => new TravelChatCardViewModel(card))
                 .ToList();
+            var wasQuickSearch = _quickSearchSubmission;
+            var showQuickSearchProposal = wasQuickSearch && response.MissingContext is null && cards.Count > 0;
+            _quickSearchSubmission = false;
             var responseMessage = response.Message;
             if (isFullDaySubmission && response.MissingContext is null && cards.Count > 0)
             {
@@ -721,9 +738,23 @@ public sealed partial class TravelChatViewModel(
             }
 
             ApplyMissingContext(response.MissingContext);
+            if (showQuickSearchProposal)
+                await ShowAssistantProposalAsync(cards, response.Message);
+            else if (wasQuickSearch)
+            {
+                SetAssistantSurface("search");
+                StatusMessage = response.Message;
+                if (response.MissingContext?.Field == "upgrade")
+                    await PaywallNavigation.OpenAsync(PaywallEntryPoint.Assistant, limitReached: true);
+            }
             if (isFullDaySubmission && response.MissingContext?.Field == "upgrade")
             {
                 await PaywallNavigation.OpenAsync(PaywallEntryPoint.Today, limitReached: true);
+                return;
+            }
+            if (!isFullDaySubmission && !wasQuickSearch && response.MissingContext?.Field == "upgrade")
+            {
+                await PaywallNavigation.OpenAsync(PaywallEntryPoint.Assistant, limitReached: true);
                 return;
             }
             if (response.MissingContext is not null
@@ -757,6 +788,11 @@ public sealed partial class TravelChatViewModel(
         }
         finally
         {
+            if (_quickSearchSubmission)
+            {
+                _quickSearchSubmission = false;
+                SetAssistantSurface("search");
+            }
             IsBusy = false;
             _isFullDayProgressActive = false;
             OnPropertyChanged(nameof(ShowGlobalLoading));
@@ -1486,6 +1522,7 @@ public sealed partial class TravelChatViewModel(
         OnPropertyChanged(nameof(RestartText));
         OnPropertyChanged(nameof(WriteRequestText));
         OnPropertyChanged(nameof(MenuText));
+        RefreshAssistantLabels();
         SecondaryMenuOptions.Clear();
         foreach (var option in CreateSecondaryMenuOptions())
         {
@@ -1523,9 +1560,20 @@ public sealed partial class TravelChatViewModel(
     private void ApplyPlanningContext(TripScheduleDto? schedule)
     {
         if (schedule is null) return;
+        SetAssistantDateRange(schedule);
         // Returning from the replacement dialog must keep the day being edited.
         var selectedDate = DateOnly.FromDateTime(PlanningDate);
         if (_isFullDayFlow && selectedDate >= schedule.StartsOn && selectedDate <= schedule.EndsOn) return;
+        var tripToday = DateOnly.FromDateTime(UpcomingActivitySelector.GetTripNow(
+            schedule.TimeZoneId, DateTimeOffset.UtcNow));
+        if (tripToday >= schedule.StartsOn && tripToday <= schedule.EndsOn
+            && (!sessionService.IsTrial || FreePlanningPolicy.CanPlanDate(schedule.StartsOn, tripToday)))
+        {
+            PlanningDate = tripToday.ToDateTime(TimeOnly.MinValue);
+            City = schedule.Items.Where(item => item.Date == tripToday)
+                .Select(item => item.City).FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+            return;
+        }
         var firstUsefulDay = schedule.Items
             .Where(item => !sessionService.IsFreeMapPreview || FreePlanningPolicy.CanPlanDate(schedule.StartsOn, item.Date))
             .GroupBy(item => item.Date)

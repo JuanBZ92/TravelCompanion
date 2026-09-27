@@ -47,6 +47,7 @@ public static class UpcomingActivitySelector
     };
 
     private static DateTime Start(ScheduleItemDto item) => item.Date.ToDateTime(item.StartsAt);
-    private static DateTime End(ScheduleItemDto item) => (item.EndsOn ?? item.Date)
-        .ToDateTime(item.EndsAt ?? item.StartsAt.AddMinutes(item.DurationMinutes ?? 60));
+    private static DateTime End(ScheduleItemDto item) => item.Type == ReservationType.Lodging
+        ? Start(item).AddHours(1) // The checkout date describes the stay, not the check-in activity.
+        : (item.EndsOn ?? item.Date).ToDateTime(item.EndsAt ?? item.StartsAt.AddMinutes(item.DurationMinutes ?? 60));
 }

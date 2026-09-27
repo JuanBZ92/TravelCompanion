@@ -2,6 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:system="clr-namespace:System;assembly=System.Runtime"
+             xmlns:services="clr-namespace:TravelCompanion.Mobile.Services"
              xmlns:viewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
              x:Class="TravelCompanion.Mobile.Pages.TravelChatPage"
              x:Name="PageRoot"
@@ -10,9 +11,16 @@
              Shell.NavBarIsVisible="False"
              BackgroundColor="{StaticResource Mist}">
 
-    <Grid Padding="28,26,28,0" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="18">
-        <Grid ColumnDefinitions="*,140" ColumnSpacing="12">
-            <VerticalStackLayout Spacing="6">
+    <Grid>
+    <Grid Padding="28,26,28,0" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="18"
+          InputTransparent="{Binding HasSelectedDetailCard}"
+          IsVisible="{Binding ShowAssistantConversation}">
+        <Grid ColumnDefinitions="48,*,118" ColumnSpacing="8">
+            <Button Text="‹" Command="{Binding ReturnAssistantHomeCommand}"
+                    BackgroundColor="Transparent" TextColor="{StaticResource Ink}" FontSize="28"
+                    SemanticProperties.Description="{Binding AssistantBackHome}"
+                    MinimumWidthRequest="48" MinimumHeightRequest="48" />
+            <VerticalStackLayout Grid.Column="1" Spacing="6">
                 <Label Text="{Binding AssistantEyebrow}"
                        CharacterSpacing="6"
                        FontSize="11"
@@ -25,15 +33,18 @@
                        TextColor="#1A1714" />
             </VerticalStackLayout>
 
-            <VerticalStackLayout Grid.Column="1"
+            <VerticalStackLayout Grid.Column="2"
                                  Spacing="2"
                                  HorizontalOptions="End">
                 <DatePicker Date="{Binding PlanningDate}"
+                            DateSelected="OnAssistantDateSelected"
+                            MinimumDate="{Binding AssistantMinimumDate}"
+                            MaximumDate="{Binding AssistantMaximumDate}"
                             IsEnabled="{Binding IsNotBusy}"
                             FontSize="13"
                             TextColor="#1A1714"
                             HorizontalOptions="End"
-                            WidthRequest="138" />
+                            WidthRequest="116" />
                 <Label Text="{Binding LastUpdatedMessage}"
                        IsVisible="{Binding HasLastUpdated}"
                        HorizontalTextAlignment="End"
@@ -237,8 +248,9 @@
                                         <DataTemplate x:DataType="viewModels:TravelChatCardViewModel">
                                             <Border Loaded="OnCardLoaded" Unloaded="OnCardUnloaded" Style="{StaticResource Card}"
                                                     Padding="14"
-                                                    BackgroundColor="{StaticResource AccentSoft}"
-                                                    Stroke="#D8CFC4">
+                                                    BackgroundColor="{StaticResource Paper}"
+                                                    Stroke="{StaticResource Line}">
+                                                <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
                                                 <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="6">
                                                     <Grid ColumnDefinitions="*,Auto"
                                                           ColumnSpacing="8">
@@ -250,7 +262,7 @@
                                                                VerticalOptions="Center" />
                                                         <Button Grid.Column="1"
                                                                 Text="ⓘ"
-                                                                Command="{Binding ToggleDetailsCommand}"
+                                                                Clicked="OnOpenCardClicked"
                                                                 SemanticProperties.Description="{Binding DetailButtonText}"
                                                                 Style="{StaticResource GhostButton}"
                                                                 TextColor="{StaticResource Ink}"
@@ -281,7 +293,7 @@
                                                                 Direction="Row"
                                                                 Wrap="Wrap"
                                                                 AlignItems="Start"
-                                                                IsVisible="{Binding IsDetailsVisible}"
+                                                                 IsVisible="False"
                                                                 BindableLayout.ItemsSource="{Binding TagActions}">
                                                         <BindableLayout.ItemTemplate>
                                                             <DataTemplate x:DataType="viewModels:TravelChatTagActionViewModel">
@@ -304,7 +316,7 @@
                                                     </FlexLayout>
                                                     <VerticalStackLayout Grid.Row="5"
                                                                          Spacing="4"
-                                                                         IsVisible="{Binding ShowReasons}"
+                                                                          IsVisible="False"
                                                                          BindableLayout.ItemsSource="{Binding WhyItFits}">
                                                         <BindableLayout.ItemTemplate>
                                                             <DataTemplate x:DataType="system:String">
@@ -316,7 +328,7 @@
                                                     </VerticalStackLayout>
                                                     <VerticalStackLayout Grid.Row="6"
                                                                          Spacing="4"
-                                                                         IsVisible="{Binding HasWarnings}"
+                                                                          IsVisible="False"
                                                                          BindableLayout.ItemsSource="{Binding WarningLabels}">
                                                         <BindableLayout.ItemTemplate>
                                                             <DataTemplate x:DataType="system:String">
@@ -326,7 +338,7 @@
                                                             </DataTemplate>
                                                         </BindableLayout.ItemTemplate>
                                                     </VerticalStackLayout>
-                                                    <VerticalStackLayout Grid.Row="7" Spacing="8" Margin="0,8,0,0">
+                                                    <VerticalStackLayout Grid.Row="7" Spacing="8" Margin="0,8,0,0" IsVisible="False">
                                                         <Label Text="{Binding DayPlanStateText}" IsVisible="{Binding IsDayPlanCard}"
                                                                FontSize="12" FontAttributes="Bold" TextColor="{StaticResource Accent}" />
                                                         <Label Text="{Binding DayPlanHelpText}" IsVisible="{Binding IsDayPlanCard}"
@@ -372,7 +384,7 @@
                                                            Text="{Binding FeedbackStatusMessage}"
                                                            FontSize="12"
                                                            TextColor="{StaticResource Muted}"
-                                                           IsVisible="{Binding HasFeedbackStatus}" />
+                                                           IsVisible="False" />
                                                 </Grid>
                                             </Border>
                                         </DataTemplate>
@@ -457,5 +469,263 @@
                         MinimumHeightRequest="44" />
             </Grid>
         </VerticalStackLayout>
+    </Grid>
+
+    <Grid Padding="28,28,28,24" RowDefinitions="Auto,*,Auto" RowSpacing="24"
+          InputTransparent="{Binding HasSelectedDetailCard}"
+          IsVisible="{Binding ShowAssistantHome}">
+        <VerticalStackLayout Spacing="8">
+            <Label Text="YUKU · JAPAN" CharacterSpacing="4" FontSize="11" TextColor="{StaticResource Muted}" />
+            <Label Text="{Binding AssistantTitle}" FontFamily="serif" FontSize="36"
+                   SemanticProperties.HeadingLevel="Level1" TextColor="{StaticResource Ink}" />
+            <Label Text="{Binding AssistantHomeIntro}"
+                   FontSize="14" TextColor="{StaticResource InkSoft}" />
+        </VerticalStackLayout>
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Spacing="16">
+                <Border Padding="16,10" BackgroundColor="{StaticResource Paper}" Stroke="{StaticResource Line}">
+                    <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <VerticalStackLayout Spacing="3" VerticalOptions="Center">
+                            <Label Text="{Binding AssistantForDay}" CharacterSpacing="2" FontSize="10"
+                                   TextColor="{StaticResource Gold}" />
+                            <Label Text="{Binding AssistantContext}" FontSize="14" TextColor="{StaticResource Ink}" />
+                        </VerticalStackLayout>
+                        <DatePicker Grid.Column="1" Date="{Binding PlanningDate}" Format="dd/MM"
+                                    DateSelected="OnAssistantDateSelected"
+                                    MinimumDate="{Binding AssistantMinimumDate}"
+                                    MaximumDate="{Binding AssistantMaximumDate}"
+                                    FontSize="13" WidthRequest="72" TextColor="{StaticResource Ink}"
+                                    SemanticProperties.Description="{Binding AssistantChooseDate}" />
+                    </Grid>
+                </Border>
+                <VerticalStackLayout Spacing="10" Margin="0,12,0,0">
+                    <Button Text="{Binding AssistantCompleteDay}" Command="{Binding OpenCompleteDayCommand}"
+                            IsEnabled="{Binding IsNotBusy}"
+                            BackgroundColor="{StaticResource Accent}" TextColor="{StaticResource Paper}"
+                            CornerRadius="14" FontSize="17" FontFamily="OpenSansSemibold"
+                            MinimumHeightRequest="62" />
+                    <Label Text="{Binding AssistantCompleteDayHelp}"
+                           FontSize="12" TextColor="{StaticResource Muted}" />
+                    <Button Text="{Binding AssistantFindPlace}" Command="{Binding OpenQuickSearchCommand}"
+                            IsEnabled="{Binding IsNotBusy}"
+                            BackgroundColor="{StaticResource Paper}" TextColor="{StaticResource Ink}"
+                            BorderColor="{StaticResource Line}" BorderWidth="1" CornerRadius="14"
+                            FontSize="16" MinimumHeightRequest="58" Margin="0,12,0,0" />
+                    <Button Text="{Binding AssistantAsk}" Command="{Binding OpenAssistantConversationCommand}"
+                            IsEnabled="{Binding IsNotBusy}"
+                            BackgroundColor="{StaticResource Paper}" TextColor="{StaticResource Ink}"
+                            BorderColor="{StaticResource Line}" BorderWidth="1" CornerRadius="14"
+                            FontSize="16" MinimumHeightRequest="58" />
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+        </ScrollView>
+        <Label Grid.Row="2" Text="{Binding AssistantQuotaNote}"
+               IsVisible="{Binding ShowAssistantQuotaNote}" FontSize="12"
+               TextColor="{StaticResource Muted}" />
+    </Grid>
+
+    <Grid Padding="28,26,28,20" RowDefinitions="Auto,*,Auto" RowSpacing="12"
+          InputTransparent="{Binding HasSelectedDetailCard}"
+          IsVisible="{Binding ShowAssistantSearch}">
+        <Grid ColumnDefinitions="48,*" ColumnSpacing="8">
+            <Button Text="‹" Command="{Binding ReturnAssistantHomeCommand}"
+                    BackgroundColor="Transparent" TextColor="{StaticResource Ink}" FontSize="28"
+                    SemanticProperties.Description="{Binding AssistantBackHome}"
+                    MinimumWidthRequest="48" MinimumHeightRequest="48" />
+            <VerticalStackLayout Grid.Column="1" Spacing="3">
+                <Label Text="{Binding AssistantFindPlace}" FontFamily="serif" FontSize="27"
+                       SemanticProperties.HeadingLevel="Level1" TextColor="{StaticResource Ink}" />
+                <Label Text="{Binding AssistantContext}" FontSize="12" TextColor="{StaticResource Muted}" />
+            </VerticalStackLayout>
+        </Grid>
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Spacing="18" Padding="0,10,0,8">
+                <Label Text="{Binding AssistantSearchIntro}"
+                       FontSize="13" TextColor="{StaticResource InkSoft}" />
+                <Label Text="{Binding AssistantInterests}" FontSize="16" FontAttributes="Bold"
+                       SemanticProperties.HeadingLevel="Level2" TextColor="{StaticResource Ink}" />
+                <FlexLayout Direction="Row" Wrap="Wrap" BindableLayout.ItemsSource="{Binding QuickCategories}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="viewModels:TravelChatGuidedOptionViewModel">
+                            <Button Text="{Binding DisplayLabel}" Clicked="OnQuickCriterionClicked"
+                                    BackgroundColor="{StaticResource Paper}" TextColor="{StaticResource Ink}"
+                                    BorderColor="{StaticResource Line}" BorderWidth="1" CornerRadius="12"
+                                    FontSize="12" Padding="12,8" MinimumHeightRequest="48" Margin="0,0,8,8">
+                                <Button.Triggers>
+                                    <DataTrigger TargetType="Button" Binding="{Binding IsSelected}" Value="True">
+                                        <Setter Property="BackgroundColor" Value="{StaticResource AccentSoft}" />
+                                        <Setter Property="BorderColor" Value="{StaticResource Gold}" />
+                                    </DataTrigger>
+                                </Button.Triggers>
+                            </Button>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </FlexLayout>
+                <Label Text="{Binding AssistantOptionalBudget}" FontSize="15" FontAttributes="Bold"
+                       SemanticProperties.HeadingLevel="Level2" TextColor="{StaticResource Ink}" />
+                <FlexLayout Direction="Row" Wrap="Wrap" BindableLayout.ItemsSource="{Binding QuickBudgets}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="viewModels:TravelChatGuidedOptionViewModel">
+                            <Button Text="{Binding DisplayLabel}" Clicked="OnQuickCriterionClicked"
+                                    BackgroundColor="{StaticResource Paper}" TextColor="{StaticResource Ink}"
+                                    BorderColor="{StaticResource Line}" BorderWidth="1" CornerRadius="12"
+                                    FontSize="12" Padding="12,8" MinimumHeightRequest="48" Margin="0,0,8,8">
+                                <Button.Triggers>
+                                    <DataTrigger TargetType="Button" Binding="{Binding IsSelected}" Value="True">
+                                        <Setter Property="BackgroundColor" Value="{StaticResource AccentSoft}" />
+                                        <Setter Property="BorderColor" Value="{StaticResource Gold}" />
+                                    </DataTrigger>
+                                </Button.Triggers>
+                            </Button>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </FlexLayout>
+                <Label Text="{Binding AssistantOptionalWalk}" FontSize="15" FontAttributes="Bold"
+                       SemanticProperties.HeadingLevel="Level2" TextColor="{StaticResource Ink}" />
+                <FlexLayout Direction="Row" Wrap="Wrap" BindableLayout.ItemsSource="{Binding QuickWalking}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="viewModels:TravelChatGuidedOptionViewModel">
+                            <Button Text="{Binding DisplayLabel}" Clicked="OnQuickCriterionClicked"
+                                    BackgroundColor="{StaticResource Paper}" TextColor="{StaticResource Ink}"
+                                    BorderColor="{StaticResource Line}" BorderWidth="1" CornerRadius="12"
+                                    FontSize="12" Padding="12,8" MinimumHeightRequest="48" Margin="0,0,8,8">
+                                <Button.Triggers>
+                                    <DataTrigger TargetType="Button" Binding="{Binding IsSelected}" Value="True">
+                                        <Setter Property="BackgroundColor" Value="{StaticResource AccentSoft}" />
+                                        <Setter Property="BorderColor" Value="{StaticResource Gold}" />
+                                    </DataTrigger>
+                                </Button.Triggers>
+                            </Button>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </FlexLayout>
+            </VerticalStackLayout>
+        </ScrollView>
+        <VerticalStackLayout Grid.Row="2" Spacing="7">
+            <Label Text="{Binding StatusMessage}" IsVisible="{Binding HasStatus}"
+                   FontSize="12" TextColor="{StaticResource Accent}" />
+            <Label Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}"
+                   FontSize="12" TextColor="{StaticResource Rose}" />
+            <Label Text="{Binding AssistantSearchQuotaNote}" IsVisible="{Binding ShowAssistantQuotaNote}"
+                   FontSize="12" TextColor="{StaticResource Muted}" />
+            <Button Text="{Binding AssistantShowIdeas}" Command="{Binding SubmitQuickSearchCommand}"
+                    IsEnabled="{Binding IsNotBusy}"
+                    BackgroundColor="{StaticResource Accent}" TextColor="{StaticResource Paper}"
+                    CornerRadius="14" MinimumHeightRequest="54" FontFamily="OpenSansSemibold" />
+        </VerticalStackLayout>
+    </Grid>
+
+    <Grid Padding="28,26,28,18" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="13"
+          InputTransparent="{Binding HasSelectedDetailCard}"
+          IsVisible="{Binding ShowAssistantProposal}">
+        <Grid ColumnDefinitions="48,*" ColumnSpacing="8">
+            <Button Text="‹" Command="{Binding ReturnAssistantHomeCommand}"
+                    BackgroundColor="Transparent" TextColor="{StaticResource Ink}" FontSize="28"
+                    SemanticProperties.Description="{Binding AssistantBackHome}"
+                    MinimumWidthRequest="48" MinimumHeightRequest="48" />
+            <VerticalStackLayout Grid.Column="1" Spacing="3">
+                <Label Text="{Binding AssistantYourDay}" FontFamily="serif" FontSize="29"
+                       SemanticProperties.HeadingLevel="Level1" TextColor="{StaticResource Ink}" />
+                <Label Text="{Binding AssistantContext}" FontSize="12" TextColor="{StaticResource Muted}" />
+            </VerticalStackLayout>
+        </Grid>
+        <VerticalStackLayout Grid.Row="1" Spacing="6">
+            <Label Text="{Binding ProposalMessage}" FontSize="13"
+                   MaxLines="3" LineBreakMode="TailTruncation" TextColor="{StaticResource InkSoft}" />
+            <Label Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}"
+                   FontSize="12" TextColor="{StaticResource Rose}" />
+            <Label Text="{Binding StatusMessage}" IsVisible="{Binding HasStatus}"
+                   FontSize="12" TextColor="{StaticResource Accent}" />
+        </VerticalStackLayout>
+        <CollectionView Grid.Row="2" ItemsSource="{Binding ProposalRows}" SelectionMode="None"
+                        VerticalScrollBarVisibility="Never">
+            <CollectionView.EmptyView>
+                <Label Text="{Binding AssistantNoIdeas}"
+                       FontSize="14" TextColor="{StaticResource Muted}" />
+            </CollectionView.EmptyView>
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="services:AssistantProposalRow">
+                    <Border Padding="13,11" Margin="0,0,0,9" BackgroundColor="{StaticResource Paper}"
+                            Stroke="{StaticResource Line}">
+                        <Border.StrokeShape><RoundRectangle CornerRadius="13" /></Border.StrokeShape>
+                        <Grid ColumnDefinitions="*,48" ColumnSpacing="8" MinimumHeightRequest="56">
+                            <VerticalStackLayout Spacing="4" VerticalOptions="Center">
+                                <Label Text="{Binding When}" FontSize="11" TextColor="{StaticResource Gold}" />
+                                <Label Text="{Binding Title}" FontSize="15" MaxLines="2"
+                                       TextColor="{StaticResource Ink}" />
+                                <Label Text="{Binding Reason}" IsVisible="{Binding HasReason}"
+                                       FontSize="12" MaxLines="2" TextColor="{StaticResource InkSoft}" />
+                                <Label Text="{Binding Status}" FontSize="11" TextColor="{StaticResource Muted}" />
+                            </VerticalStackLayout>
+                            <Button Grid.Column="1" Text="›" Clicked="OnProposalRowClicked"
+                                    BackgroundColor="Transparent" TextColor="{StaticResource Accent}"
+                                    FontSize="24" MinimumWidthRequest="48" MinimumHeightRequest="48"
+                                    SemanticProperties.Description="{Binding Title}" />
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+        <Button Grid.Row="3" Text="{Binding AssistantAskAboutDay}"
+                Command="{Binding OpenAssistantConversationCommand}"
+                BackgroundColor="Transparent" TextColor="{StaticResource Accent}"
+                MinimumHeightRequest="48" FontSize="13" />
+    </Grid>
+
+    <Grid IsVisible="{Binding HasSelectedDetailCard}" BackgroundColor="#99000000">
+        <Border BindingContext="{Binding SelectedDetailCard}" x:DataType="viewModels:TravelChatCardViewModel"
+                VerticalOptions="End" Padding="24,22,24,28" BackgroundColor="{StaticResource Paper}"
+                Stroke="{StaticResource Line}">
+            <Border.StrokeShape><RoundRectangle CornerRadius="20,20,0,0" /></Border.StrokeShape>
+            <ScrollView MaximumHeightRequest="620">
+                <VerticalStackLayout Spacing="12">
+                    <Label Text="{Binding Title}" FontFamily="serif" FontSize="25"
+                           SemanticProperties.HeadingLevel="Level2" TextColor="{StaticResource Ink}" />
+                    <Label Text="{Binding SummaryLine}" FontSize="12" TextColor="{StaticResource Gold}" />
+                    <Label Text="{Binding Description}" FontSize="14" TextColor="{StaticResource InkSoft}" />
+                    <VerticalStackLayout Spacing="4" BindableLayout.ItemsSource="{Binding WhyItFits}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="system:String">
+                                <Label Text="{Binding .}" FontSize="12" TextColor="{StaticResource Muted}" />
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Spacing="4" BindableLayout.ItemsSource="{Binding WarningLabels}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="system:String">
+                                <Label Text="{Binding .}" FontSize="12" TextColor="{StaticResource Rose}" />
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                    <FlexLayout Direction="Row" Wrap="Wrap" BindableLayout.ItemsSource="{Binding TagActions}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="viewModels:TravelChatTagActionViewModel">
+                                <Button Text="{Binding Label}" Clicked="OnAvoidDetailTagClicked"
+                                        BackgroundColor="{StaticResource AccentSoft}"
+                                        TextColor="{StaticResource InkSoft}" CornerRadius="10"
+                                        MinimumHeightRequest="44" FontSize="12" Margin="0,0,8,8" />
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </FlexLayout>
+                    <Label Text="{Binding FeedbackStatusMessage}" IsVisible="{Binding HasFeedbackStatus}"
+                           FontSize="12" TextColor="{StaticResource InkSoft}" />
+                    <Button Text="{Binding SaveButtonText}" Clicked="OnSaveDetailClicked"
+                            IsEnabled="{Binding CanSave}" BackgroundColor="{StaticResource Accent}"
+                            TextColor="{StaticResource Paper}" CornerRadius="12" MinimumHeightRequest="52" />
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                        <Button Text="{Binding AnotherOptionLabel}" Clicked="OnReplaceDetailClicked"
+                                IsEnabled="{Binding CanFindAlternative}" BackgroundColor="Transparent"
+                                TextColor="{StaticResource Accent}" MinimumHeightRequest="48" />
+                        <Button Grid.Column="1" Text="{Binding AdjustLabel}" Clicked="OnAdjustDetailClicked"
+                                IsVisible="{Binding ShowPreferenceAdjustment}" BackgroundColor="Transparent"
+                                TextColor="{StaticResource Accent}" MinimumHeightRequest="48" />
+                    </Grid>
+                    <Button Text="{Binding CloseLabel}" Clicked="OnCloseDetailClicked" BackgroundColor="Transparent"
+                            TextColor="{StaticResource Muted}" MinimumHeightRequest="48" />
+                </VerticalStackLayout>
+            </ScrollView>
+        </Border>
+    </Grid>
     </Grid>
 </ContentPage>
