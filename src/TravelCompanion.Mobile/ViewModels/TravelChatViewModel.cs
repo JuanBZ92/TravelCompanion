@@ -48,6 +48,9 @@ public sealed partial class TravelChatViewModel(
     private Guid? _adaptationTripId;
     private readonly HashSet<TravelChatCardViewModel> _adaptationCards = [];
     private readonly HashSet<TravelChatCardViewModel> _personalizedCards = [];
+    private string? _personalizationRequestKey;
+    private Guid _personalizationOperationId;
+    private string? _personalizationOptionId;
     private bool _guidedPreferencesDirty;
     private Guid? _loadedPreferenceUserId;
     private TravelPreferenceProfileDto? _cachedPreferenceProfile;
@@ -259,6 +262,7 @@ public sealed partial class TravelChatViewModel(
         _adaptationTripId = null;
         _adaptationCards.Clear();
         _personalizedCards.Clear();
+        _personalizationRequestKey = null;
 
         if (!sessionService.CanEditItinerary)
         {
@@ -311,6 +315,7 @@ public sealed partial class TravelChatViewModel(
         _adaptationTripId = schedule.TripId;
         _adaptationCards.Clear();
         _personalizedCards.Clear();
+        _personalizationRequestKey = null;
         await analytics.TrackAsync("adaptation_requested", reason, tripId: schedule.TripId);
         PlanningDate = date.ToDateTime(TimeOnly.MinValue);
         City = city;
@@ -345,15 +350,22 @@ public sealed partial class TravelChatViewModel(
         _adaptationTripId = schedule.TripId;
         _adaptationCards.Clear();
         _personalizedCards.Clear();
+        var requestKey = $"{schedule.TripId}:{schedule.Revision}:{date}:{city}:{JsonSerializer.Serialize(criteria, PreferenceJsonOptions)}";
+        if (_personalizationRequestKey != requestKey)
+        {
+            _personalizationRequestKey = requestKey;
+            _personalizationOperationId = Guid.NewGuid();
+            _personalizationOptionId = Guid.NewGuid().ToString("N");
+        }
         PlanningDate = date.ToDateTime(TimeOnly.MinValue);
         City = city;
         _isFullDayFlow = true;
         Messages.Clear();
         OnMessagesChanged();
-        await RunDayPlanAsync(new GuidedTravelActionDto(GuidedTravelActions.FullDay, Guid.NewGuid().ToString("N"))
+        await RunDayPlanAsync(new GuidedTravelActionDto(GuidedTravelActions.FullDay, _personalizationOptionId)
         {
             PlanningMode = "personalized", ExpectedRevision = schedule.Revision, TripId = schedule.TripId
-        }, criteria: criteria);
+        }, criteria: criteria, operationId: _personalizationOperationId);
     }
 
     public void ResetForNewSession()
@@ -364,6 +376,7 @@ public sealed partial class TravelChatViewModel(
         _adaptationTripId = null;
         _adaptationCards.Clear();
         _personalizedCards.Clear();
+        _personalizationRequestKey = null;
         _lastIntent = null;
         _lastFailedMessage = null;
         _hasLoadedContext = false;

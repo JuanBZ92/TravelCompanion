@@ -40,7 +40,8 @@ public sealed partial class TravelChatViewModel
         };
 
     private async Task RunDayPlanAsync(GuidedTravelActionDto action,
-        TravelChatCardViewModel? replacementTarget = null, GuidedPlanCriteriaDto? criteria = null)
+        TravelChatCardViewModel? replacementTarget = null, GuidedPlanCriteriaDto? criteria = null,
+        Guid? operationId = null)
     {
         if (IsBusy) return;
         if (!sessionService.CanEditItinerary)
@@ -70,7 +71,7 @@ public sealed partial class TravelChatViewModel
             var response = await apiClient.SendTravelChatAsync(token, new TravelChatRequest(
                 Resource("AssistantGuidedFullDayRequestSummary"), _conversationId, City,
                 planningDate, null, CultureInfo.CurrentUICulture.Name,
-                action, Criteria: criteria, OperationId: Guid.NewGuid()), cancellationToken);
+                action, Criteria: criteria, OperationId: operationId ?? Guid.NewGuid()), cancellationToken);
             if (response is null)
             {
                 ErrorMessage = Resource("PlanningTryAgain");
@@ -99,6 +100,7 @@ public sealed partial class TravelChatViewModel
                 foreach (var card in cards) _adaptationCards.Add(card);
             if (action.PlanningMode == "personalized" && cards.Count > 0)
             {
+                _personalizationRequestKey = null;
                 foreach (var card in cards) _personalizedCards.Add(card);
                 await analytics.TrackAsync("personalization_proposal_generated", "assistant", tripId: sessionService.CurrentTripId);
             }
