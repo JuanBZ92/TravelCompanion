@@ -34,6 +34,14 @@ public sealed class ExpiredTrialCleanupWorker(
     {
         using var scope = scopeFactory.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<TravelCompanionDbContext>();
+        if (DbExecutionStrategy.ShouldExecute(dbContext))
+            return await DbExecutionStrategy.ExecuteAsync(dbContext,
+                () => PurgeCoreAsync(dbContext, cancellationToken), cancellationToken);
+        return await PurgeCoreAsync(dbContext, cancellationToken);
+    }
+
+    private async Task<int> PurgeCoreAsync(TravelCompanionDbContext dbContext, CancellationToken cancellationToken)
+    {
         var now = DateTimeOffset.UtcNow;
         await using var transaction = dbContext.Database.IsRelational()
             ? await dbContext.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, cancellationToken)

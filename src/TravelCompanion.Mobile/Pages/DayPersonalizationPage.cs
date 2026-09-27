@@ -95,7 +95,8 @@ public sealed class DayPersonalizationPage : ContentPage, IQueryAttributable
         foreach (var (key, label) in choices)
         {
             var chip = new Button { Text = label, FontSize = 12, CornerRadius = 16,
-                MinimumHeightRequest = 38, Padding = new Thickness(13, 6), Margin = new Thickness(0, 0, 8, 8) };
+                MinimumHeightRequest = 38, WidthRequest = Math.Max(78, label.Length * 8.5 + 34),
+                Padding = new Thickness(13, 6), Margin = new Thickness(0, 0, 8, 8) };
             chip.Clicked += (_, _) =>
             {
                 if (!_selectedInterests.Remove(key))

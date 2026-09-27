@@ -60,6 +60,7 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
 
     protected override void OnDisappearing()
     {
+        _viewModel.DismissDayImprovementSheetCommand.Execute(null);
         _viewModel.CancelLoading();
         _accessTimer?.Stop();
         base.OnDisappearing();

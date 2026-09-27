@@ -364,8 +364,8 @@ public sealed partial class TravelChatService
             message = cards.Count == 0
                 ? english ? "No suitable places were found. Your plans stay unchanged."
                     : "No encontré lugares compatibles. Tus planes siguen igual."
-                : english ? $"{cards.Count} suggestions for your pace and interests. Review before saving; existing plans stay in place."
-                    : $"{cards.Count} sugerencias para tu ritmo y tus gustos. Revisalas antes de guardar; tus planes actuales se conservan.";
+                : english ? $"{cards.Count} {(cards.Count == 1 ? "suggestion" : "suggestions")} for your pace and interests. Review before saving; existing plans stay in place."
+                    : $"{cards.Count} {(cards.Count == 1 ? "sugerencia" : "sugerencias")} para tu ritmo y tus gustos. Revisá antes de guardar; tus planes actuales se conservan.";
         if (personalized && await dbContext.Trips.AsNoTracking().AnyAsync(item =>
             item.Id == action.TripId && item.PlanRevision != action.ExpectedRevision, cancellationToken))
             return responseComposer.MissingContext(conversationId, "stale",
