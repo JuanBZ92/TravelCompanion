@@ -596,6 +596,11 @@ public partial class MapPage : ContentPage
             DismissSearchKeyboard();
             return true;
         }
+        if (_viewModel.HasSelectedRecommendation)
+        {
+            _viewModel.ResetSelection();
+            return true;
+        }
         return base.OnBackButtonPressed();
     }
 }

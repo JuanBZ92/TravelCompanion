@@ -21,6 +21,7 @@ public sealed partial class TravelChatService
         var trips = await dbContext.Trips.AsNoTracking()
             .Include(trip => trip.Destination)
             .Include(trip => trip.Reservations).ThenInclude(item => item.Recommendation)
+            .Include(trip => trip.Reservations).ThenInclude(item => item.TripDayBlock)
             .Where(trip => trip.AppUserId == user.Id && trip.PublicationStatus == TripPublicationStatus.Published
                 && trip.StartsOn <= date && trip.EndsOn >= date
                 && (adaptation == null && !personalized || trip.Id == action.TripId))
@@ -106,7 +107,8 @@ public sealed partial class TravelChatService
             timeline.Insert(0, (new TimeOnly(8, 0), hotel.Title,
                 hotel.Latitude ?? hotel.Recommendation?.Latitude,
                 hotel.Longitude ?? hotel.Recommendation?.Longitude));
-        var occupied = existing.Where(item => item.Type == ReservationType.Event)
+        var occupied = existing.Where(item => item.Type == ReservationType.Event
+                && item.TimePrecision == ItineraryTimePrecision.PeriodOnly)
             .Select(DaySlot).ToHashSet();
         var slots = selected.Count > 0
             ? selected.Select(item => (Slot: DaySlot(item), Original: (Reservation?)item)).ToList()
@@ -134,7 +136,12 @@ public sealed partial class TravelChatService
             var editable = existing.Where(CanReplaceDayStop).Select(item => WithDayTransfer(new TravelCardDto(
                 "existing_day_stop", item.Title, null, null, item.StartsAt.ToString("HH:mm"),
                 item.EndsAt?.ToString("HH:mm"), item.Recommendation?.PriceLevel, null, null, [], [],
-                item.RecommendationId?.ToString(), item.Id.ToString()) { IsDayPlan = true, IsPeriodOnly = item.TimePrecision != ItineraryTimePrecision.Exact },
+                item.RecommendationId?.ToString(), item.Id.ToString())
+                {
+                    IsDayPlan = true,
+                    IsPeriodOnly = item.TimePrecision != ItineraryTimePrecision.Exact,
+                    PeriodKey = item.TripDayBlock?.PeriodKey
+                },
                 timeline, item.StartsAt, item.Latitude ?? item.Recommendation?.Latitude,
                 item.Longitude ?? item.Recommendation?.Longitude, english)).ToList();
             return new(conversationId,
@@ -256,8 +263,9 @@ public sealed partial class TravelChatService
                 .Where(item => !used.Contains(item.Recommendation.Id)
                     && !drafts.Any(draft => draft.RecommendationId == item.Recommendation.Id)
                     && (slot is 1 or 3 || MatchesDaySlot(item.Recommendation, slot))
+                    && (slot >= 3 || !IsNightlifeDayCandidate(item.Recommendation))
                     && (!personalized || HasDietaryEvidence(item.Recommendation, preferenceProfile.DietaryRestrictions))
-                    && (!personalized || !OverlapsExactReservation(existing, date, time,
+                    && (original is not null || !OverlapsExactReservation(existing, date, time,
                         item.Recommendation.SuggestedDurationMinutes)));
             if (adaptation == "indoors")
                 options = options.Where(item => IsIndoorCandidate(item.Recommendation));
@@ -310,6 +318,8 @@ public sealed partial class TravelChatService
             {
                 IsPeriodOnly = original?.TimePrecision != ItineraryTimePrecision.Exact,
                 IsDayPlan = true,
+                PeriodKey = savedDraftTarget?.TripDayBlock?.PeriodKey
+                    ?? original?.TripDayBlock?.PeriodKey ?? DaySlotPeriod(slot),
                 ReplacesRecommendationId = isDraftChange ? savedDraftTarget?.RecommendationId : original?.RecommendationId,
                 ProviderPlaceId = recommendation.ProviderPlaceId
             });
@@ -444,6 +454,15 @@ public sealed partial class TravelChatService
 
     private static int DaySlot(Reservation item)
     {
+        // A saved period is the traveler's choice, independent of the placeholder time.
+        switch (item.TripDayBlock?.PeriodKey)
+        {
+            case "midday": return 2;
+            case "afternoon": return 3;
+            case "night": return 4;
+            case "morning":
+                return item.Recommendation is not null && IsFoodRecommendation(item.Recommendation) ? 0 : 1;
+        }
         if (item.StartsAt >= new TimeOnly(18, 0)) return 4;
         if (item.StartsAt >= new TimeOnly(15, 0)) return 3;
         if (item.StartsAt >= new TimeOnly(12, 0)) return 2;
@@ -477,6 +496,19 @@ public sealed partial class TravelChatService
     private static string DaySlotLabel(int slot, bool english) => english
         ? new[] { "Morning coffee", "Morning visit", "Lunch", "Afternoon place", "Dinner" }[slot]
         : new[] { "Café de mañana", "Visita de mañana", "Almuerzo", "Lugar de tarde", "Cena" }[slot];
+
+    private static string DaySlotPeriod(int slot) => slot switch
+    {
+        0 or 1 => "morning",
+        2 => "midday",
+        3 => "afternoon",
+        _ => "night"
+    };
+
+    private static bool IsNightlifeDayCandidate(Recommendation item) =>
+        new[] { item.Category }.Concat(item.Tags).Any(value =>
+            new[] { "bar", "cocktail", "cocktails", "nightlife", "club", "cocteles", "cócteles" }
+                .Contains(value, StringComparer.OrdinalIgnoreCase));
 
     private static int? DayPriceRank(string? price) => price?.ToLowerInvariant() switch
     { "free" => 0, "low" => 1, "medium" => 2, "high" => 3, _ => null };

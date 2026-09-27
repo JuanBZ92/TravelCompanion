@@ -93,7 +93,7 @@ public sealed class TripWorkbookImportServiceTests
             [
                 new WorkbookRow(1, "Tokyo", "Hotel Test Tokyo", "Tarde", "Tarde curada de ramen y paseo corto.", "Ramen One - Tokyo - Food", "-", "-", "No", "-", "-"),
                 new WorkbookRow(2, "Tokyo", "Hotel Test Tokyo", "Mañana", "autofill", "-", "-", "-", "No", "-", "Dia sin curar."),
-                new WorkbookRow(2, "Tokyo", "Hotel Test Tokyo", "Noche", "Cena confirmada.", "Ramen One - Tokyo - Food", "-", "-", "Si", "20:00", "A nombre del cliente."),
+                new WorkbookRow(2, "Tokyo", "Hotel Test Tokyo", "Noche", "Cena confirmada.", "Ramen One - Tokyo - Food", "-", "-", "Si", "10:00", "A nombre del cliente."),
             ]);
 
         var preview = await service.PreviewAsync(new MemoryStream(workbookBytes));
@@ -137,9 +137,11 @@ public sealed class TripWorkbookImportServiceTests
         Assert.Equal(ramen.Id, recommendationItem.RecommendationId);
         Assert.Equal(ItineraryTimePrecision.PeriodOnly, recommendationItem.TimePrecision);
         Assert.Equal("Descripcion: Tarde curada de ramen y paseo corto.", recommendationItem.Notes);
-        Assert.Single(importedReservations, reservation =>
+        var confirmed = Assert.Single(importedReservations, reservation =>
             reservation.Type == ReservationType.Event
             && reservation.PlanningKind == ScheduleItemKind.ConfirmedReservation);
+        Assert.Equal(new TimeOnly(10, 0), confirmed.StartsAt);
+        Assert.Equal("night", (await dbContext.TripDayBlocks.FindAsync(confirmed.TripDayBlockId))?.PeriodKey);
         Assert.Single(importedReservations, reservation =>
             reservation.Type == ReservationType.Lodging
             && reservation.PlanningKind == ScheduleItemKind.ConfirmedReservation);

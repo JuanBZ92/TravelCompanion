@@ -709,6 +709,11 @@
                 </VerticalStackLayout>
                 </ScrollView>
                 <VerticalStackLayout Grid.Row="2" Spacing="8">
+                    <Grid ColumnDefinitions="*,*" IsVisible="{Binding CanChoosePeriod}">
+                        <Label Text="{Binding PeriodLabel}" VerticalOptions="Center" FontSize="13" TextColor="{StaticResource InkSoft}" />
+                        <Picker Grid.Column="1" Title="{Binding PeriodLabel}" ItemsSource="{Binding PeriodOptions}"
+                                SelectedIndex="{Binding SelectedPeriodIndex, Mode=TwoWay}" />
+                    </Grid>
                     <BoxView HeightRequest="1" BackgroundColor="{StaticResource Line}"
                              Margin="0,0,0,8" />
                     <Button Text="{Binding SaveButtonText}" Clicked="OnSaveDetailClicked"

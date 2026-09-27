@@ -8,6 +8,30 @@ public partial class AppShell : Shell
     private bool _logoutInProgress;
     private bool _paywallInProgress;
     private int _pendingMutationCount;
+    private readonly NavigationTrail _tabHistory = new();
+    private bool _returningToTab;
+
+    protected override void OnNavigated(ShellNavigatedEventArgs args)
+    {
+        base.OnNavigated(args);
+        var route = CurrentItem?.CurrentItem?.CurrentItem?.Route;
+        if (CurrentItem?.Route != "main") { _tabHistory.Clear(); return; }
+        if (!_returningToTab && route is not null && route != "logout") _tabHistory.Visit(route);
+    }
+
+    public async Task<bool> TryPreviousTabAsync()
+    {
+        var previous = _tabHistory.Previous;
+        if (previous is null) return false;
+        _returningToTab = true;
+        try
+        {
+            await GoToAsync($"//main/{previous}");
+            _tabHistory.Pop();
+            return true;
+        }
+        finally { _returningToTab = false; }
+    }
 
     public AppShell()
     {
@@ -66,6 +90,7 @@ public partial class AppShell : Shell
             }
         }
         ScheduleTab.IsVisible = usesMainTabs && (!sessionService.IsFreeMapPreview || sessionService.IsBuilder);
+        JournalTab.IsVisible = ScheduleTab.IsVisible;
         PassTab.IsVisible = sessionService.HasSession && sessionService.IsFreeMapPreview;
         AssistantTab.IsVisible = sessionService.IsBuilder;
         DocsTab.IsVisible = sessionService.HasSession && (sessionService.HasCuratedDocs || sessionService.IsBuilder && !sessionService.IsFreeMapPreview);

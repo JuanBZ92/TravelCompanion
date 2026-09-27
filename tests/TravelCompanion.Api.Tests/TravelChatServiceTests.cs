@@ -354,7 +354,8 @@ public sealed class TravelChatServiceTests
             new TimeOnly(11, 0),
             new TimeOnly(12, 30),
             clientMutationId,
-            ItineraryTimePrecision.PeriodOnly);
+            ItineraryTimePrecision.PeriodOnly,
+            PeriodKey: "night");
         var response = await service.SaveItineraryItemAsync(
             user,
             request,
@@ -372,6 +373,8 @@ public sealed class TravelChatServiceTests
         Assert.Equal(response.Item.Id, differentDayResponse.Item?.Id);
         Assert.Equal(ScheduleItemKind.Recommendation, response.Item.PlanningKind);
         Assert.Equal(ItineraryTimePrecision.PeriodOnly, response.Item.TimePrecision);
+        Assert.Equal("night", response.Item.PeriodKey);
+        Assert.Equal(new TimeOnly(18, 30), response.Item.StartsAt);
         Assert.Equal(ItineraryFlexibility.Flexible, response.Item.Flexibility);
         Assert.Null(response.Item.EndsAt);
         Assert.Equal(90, response.Item.DurationMinutes);
@@ -2514,6 +2517,54 @@ public sealed class TravelChatServiceTests
         Assert.DoesNotContain(proposal.Cards, card => card.ReservationId == confirmed.Id.ToString());
         Assert.Contains("reservas confirmadas", proposal.Message);
         Assert.Equal(2, await db.Reservations.CountAsync());
+    }
+
+    [Fact]
+    public async Task Short_midday_booking_and_saved_afternoon_period_leave_room_for_lunch()
+    {
+        await using var db = CreateDbContext();
+        var destination = Guid.NewGuid();
+        var cafe = DayRecommendation(destination, "Cafe", "Food");
+        var museum = DayRecommendation(destination, "Museum", "Culture");
+        var lunch = DayRecommendation(destination, "Lunch", "Food");
+        var park = DayRecommendation(destination, "Park", "Nature");
+        var dinner = DayRecommendation(destination, "Dinner", "Food");
+        var user = await SeedPlanningWorldAsync(db, destination, cafe, museum, lunch, park, dinner);
+        db.Reservations.RemoveRange(await db.Reservations.ToListAsync());
+        var trip = await db.Trips.SingleAsync();
+        var day = new TripDayPlan { Id = Guid.NewGuid(), TripId = trip.Id, Date = new(2026, 10, 6) };
+        var block = new TripDayBlock { Id = Guid.NewGuid(), TripDayPlanId = day.Id,
+            TripDayPlan = day, PeriodKey = "afternoon" };
+        var afternoon = DayReservation(trip.Id, park, new(14, 30));
+        afternoon.TripDayBlock = block;
+        afternoon.TripDayBlockId = block.Id;
+        var midday = DayReservation(trip.Id, cafe, new(12, 0));
+        midday.TimePrecision = ItineraryTimePrecision.Exact;
+        midday.EndsAt = new(12, 45);
+        db.Reservations.AddRange(DayReservation(trip.Id, cafe, new(9, 0)),
+            DayReservation(trip.Id, museum, new(10, 30)), midday, afternoon,
+            DayReservation(trip.Id, dinner, new(19, 30)));
+        await db.SaveChangesAsync();
+        var response = await CreateService(db).CreatePlanAsync(user, DayRequest(), CancellationToken.None);
+        Assert.NotEqual("day_complete", response.Intent);
+        var idea = Assert.Single(response.Cards);
+        Assert.Equal(lunch.Id.ToString(), idea.RecommendationId);
+        Assert.Equal("midday", idea.PeriodKey);
+        Assert.Equal(5, await db.Reservations.CountAsync());
+    }
+
+    [Fact]
+    public async Task Morning_suggestions_exclude_explicit_cocktail_bars()
+    {
+        await using var db = CreateDbContext();
+        var destination = Guid.NewGuid();
+        var cocktails = DayRecommendation(destination, "Cocktail bar", "Nightlife");
+        var user = await SeedPlanningWorldAsync(db, destination, cocktails);
+        db.Reservations.RemoveRange(await db.Reservations.ToListAsync());
+        await db.SaveChangesAsync();
+        var response = await CreateService(db).CreatePlanAsync(user, DayRequest(), CancellationToken.None);
+        Assert.DoesNotContain(response.Cards, card => card.PeriodKey is "morning" or "midday");
+        Assert.Contains(response.Cards, card => card.PeriodKey == "afternoon");
     }
 
     [Fact]

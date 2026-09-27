@@ -262,6 +262,8 @@ For a personalized request, `POST /api/ai/travel-chat` keeps `GuidedAction.Actio
 
 Personalized cards remain `IsDayPlan`/`IsPeriodOnly` and are saved individually through `POST /api/ai/save-itinerary-item` with `ExpectedTripId` and `ExpectedRevision`. A stale revision requires regeneration. The client preserves the date and criteria when the server returns `upgrade_required`, so activation can resume the request. Analytics compare `day_improvement_*` with `personalization_*` events only for consented accounts; demos and internal accounts are excluded.
 
+Day-plan cards may include an optional `PeriodKey` (`morning`, `midday`, `afternoon`, `night`). The mobile client lets the traveler change it for a new flexible suggestion and passes it as optional `SaveItineraryItemRequest.PeriodKey`. The server stores that chosen block independently of `StartsAt`, creating a day block for older trips when needed. For flexible plans with an explicit period, `StartsAt` is normalized to the block's internal sort placeholder, never presented as an exact time. Requests without `PeriodKey` retain time-based assignment for compatibility. Replacing a saved plan retains its existing block. A flexible period label is not an exact time.
+
 `GuidedAction.Action = "full_day"` requires `Date` and ignores saved preferences, conversation filters, and submitted `Criteria`.
 It fills missing slots with a morning café, a morning visit, lunch, an afternoon visit, and dinner.
 Existing events occupy their corresponding slot; exact reservations and flights block overlapping start times. Lodging does not occupy activity slots.

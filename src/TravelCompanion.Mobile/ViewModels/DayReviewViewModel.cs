@@ -50,7 +50,12 @@ public sealed class DayReviewIssueViewModel
     public string Message => _issue.Message;
     public IReadOnlyList<Guid> ItemIds => _issue.ItemIds;
     public bool CanOpenPlan => _issue.Kind != DayReviewIssueKinds.PackedDay && _issue.ItemIds.Count > 0;
-    public string ActionLabel => _issue.Kind == DayReviewIssueKinds.Overlap ? "Corregir horario" : "Ajustar plan";
+    public string ActionLabel => _issue.Kind switch
+    {
+        DayReviewIssueKinds.Overlap => "Corregir horario",
+        DayReviewIssueKinds.PeriodOrderConflict => "Revisar franja",
+        _ => "Ajustar plan"
+    };
     public string SeverityColor => _issue.Severity switch
     {
         DayReviewSeverities.Critical => "#B5483F",

@@ -13,6 +13,7 @@ public static class DayReviewIssueKinds
     public const string TightTransfer = "tight_transfer";
     public const string PackedDay = "packed_day";
     public const string IncompleteInformation = "incomplete_information";
+    public const string PeriodOrderConflict = "period_order_conflict";
 }
 
 public static class DayReviewSeverities

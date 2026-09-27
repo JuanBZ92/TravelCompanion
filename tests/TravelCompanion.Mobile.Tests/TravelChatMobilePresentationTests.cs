@@ -8,6 +8,27 @@ namespace TravelCompanion.Mobile.Tests;
 public sealed class TravelChatMobilePresentationTests
 {
     [Fact]
+    public void Flexible_day_idea_allows_period_choice_but_existing_reservation_does_not()
+    {
+        var dto = new TravelCardDto("day_stop", "Cocktails", "Tokyo", null, "09:00", null,
+            "medium", null, null, [], [], Guid.NewGuid().ToString(), null)
+            { IsPeriodOnly = true, IsDayPlan = true, PeriodKey = "morning" };
+        var card = new TravelChatCardViewModel(dto);
+        Assert.False(new TravelChatCardViewModel(dto with { PeriodKey = null }).CanChoosePeriod);
+        Assert.True(card.CanChoosePeriod);
+        card.SelectedPeriodIndex = 2;
+        Assert.Equal("afternoon", card.PeriodKey);
+        Assert.Equal("morning", dto.PeriodKey);
+        card.IsSaved = true;
+        Assert.False(card.CanChoosePeriod);
+        card.SelectedPeriodIndex = 3;
+        Assert.Equal("afternoon", card.PeriodKey);
+        var replacement = new TravelChatCardViewModel(dto) { ReservationId = Guid.NewGuid() };
+        Assert.False(replacement.CanChoosePeriod);
+        replacement.SelectedPeriodIndex = 3;
+        Assert.Equal("morning", replacement.PeriodKey);
+    }
+    [Fact]
     public void Traveler_selected_assistant_day_survives_return_from_the_editor()
     {
         var first = new DateOnly(2026, 9, 27);
@@ -148,7 +169,7 @@ public sealed class TravelChatMobilePresentationTests
     }
 
     [Fact]
-    public void Quick_search_uses_distinct_periods_as_chronological_context()
+    public void Quick_search_does_not_use_flexible_periods_as_chronological_context()
     {
         var day = new DateOnly(2026, 9, 28);
         var morning = ProposalItem(day, "Morning booking", new TimeOnly(10, 0));
@@ -160,9 +181,9 @@ public sealed class TravelChatMobilePresentationTests
         var rows = AssistantDayProposalBuilder.BuildQuickSearch(
             [morning, midday, night], [first, second], day);
 
-        Assert.Equal(["Morning idea", "Lunch", "Night idea"], rows.Select(row => row.Title));
-        Assert.Equal(LocalizationResourceManager.Instance["AssistantProposalMorning"], rows[0].When);
-        Assert.Equal(LocalizationResourceManager.Instance["AssistantProposalNight"], rows[2].When);
+        Assert.Equal(["Morning idea", "Night idea"], rows.Select(row => row.Title));
+        Assert.All(rows, row => Assert.Equal(
+            LocalizationResourceManager.Instance["AssistantProposalFlexible"], row.When));
     }
 
     [Fact]

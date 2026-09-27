@@ -110,6 +110,32 @@ public sealed class ItineraryService(
         }
 
         var isFirstTravelerItem = !trip.Reservations.Any(item => item.Owner == ItineraryItemOwner.Traveler);
+        var requestedPeriod = request.PeriodKey is null
+            ? TripPlanPeriods.Resolve(request.StartsAt)
+            : TripPlanPeriods.Find(request.PeriodKey);
+        if (requestedPeriod is null)
+            return new(false, "Momento del día inválido. Actualiza la propuesta.", null, trip.PlanRevision);
+        var day = trip.DayPlans.FirstOrDefault(item => item.Date == request.Date);
+        if (day is null && request.PeriodKey is not null && replaced is null)
+        {
+            day = new TripDayPlan
+            {
+                Id = Guid.NewGuid(), TripId = trip.Id, Trip = trip, Date = request.Date,
+                DayNumber = request.Date.DayNumber - trip.StartsOn.DayNumber + 1,
+                City = ResolveCity(recommendation, trip)
+            };
+            trip.DayPlans.Add(day);
+        }
+        var block = day?.Blocks.FirstOrDefault(item => item.PeriodKey == requestedPeriod.Key);
+        if (block is null && day is not null && request.PeriodKey is not null && replaced is null)
+        {
+            block = new TripDayBlock
+            {
+                Id = Guid.NewGuid(), TripDayPlanId = day.Id, TripDayPlan = day,
+                PeriodKey = requestedPeriod.Key, SortOrder = requestedPeriod.SortOrder
+            };
+            day.Blocks.Add(block);
+        }
         TimeOnly? endsAt = request.TimePrecision == ItineraryTimePrecision.Exact
             ? request.EndsAt ?? request.StartsAt.AddMinutes(recommendation.SuggestedDurationMinutes)
             : null;
@@ -120,9 +146,8 @@ public sealed class ItineraryService(
             TripId = trip.Id,
             RecommendationId = recommendation.Id,
             ProviderPlaceId = recommendation.ProviderPlaceId,
-            TripDayBlockId = trip.DayPlans
-                .FirstOrDefault(day => day.Date == request.Date)?
-                .Blocks.FirstOrDefault(block => block.PeriodKey == TripPlanPeriods.Resolve(request.StartsAt).Key)?.Id,
+            TripDayBlockId = block?.Id,
+            TripDayBlock = block,
             Type = ReservationType.Event,
             PlanningKind = ScheduleItemKind.Recommendation,
             Owner = ItineraryItemOwner.Traveler,
@@ -131,7 +156,8 @@ public sealed class ItineraryService(
             Flexibility = ItineraryFlexibility.Flexible,
             DurationMinutes = recommendation.SuggestedDurationMinutes,
             Date = request.Date,
-            StartsAt = request.StartsAt,
+            StartsAt = request.PeriodKey is not null && request.TimePrecision == ItineraryTimePrecision.PeriodOnly
+                ? requestedPeriod.StartsAt : request.StartsAt,
             EndsAt = endsAt,
             Title = recommendation.Title,
             City = ResolveCity(recommendation, trip),
@@ -156,6 +182,7 @@ public sealed class ItineraryService(
             reservation.Notes = replaced.Notes;
             reservation.TimeZoneId = replaced.TimeZoneId;
             reservation.TripDayBlockId = replaced.TripDayBlockId;
+            reservation.TripDayBlock = replaced.TripDayBlock;
             dbContext.Entry(replaced).CurrentValues.SetValues(reservation);
         }
         dbContext.RecommendationInteractionSignals.Add(CreateSavedSignal(user, trip.Id, recommendation.Id));

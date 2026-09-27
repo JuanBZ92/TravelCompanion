@@ -370,6 +370,13 @@ Ambientes esperados:
 - `staging`: validacion previa a produccion.
 - `prod`: datos reales, backups, monitoreo y dominios reales.
 
+## Journal, propuestas y navegación Android
+
+- Journal reúne las notas personales de las actividades del viaje activo, con fecha, lugar y acceso al detalle. Excluye descripciones editoriales y textos automáticos del Asistente. Usa el itinerario disponible sin conexión y se vacía al cambiar de sesión.
+- En el detalle de una idea nueva de «Completar el día», el viajero puede elegir Mañana, Mediodía, Tarde o Noche antes de guardar. No modifica automáticamente reservas existentes ni fija una hora exacta.
+- «Completar el día» respeta la franja guardada de los planes flexibles. Una reserva con hora ocupa su intervalo, no toda la franja; las sugerencias nuevas evitan solaparse con esas reservas.
+- Atrás cierra primero el detalle o estado abierto, luego recorre páginas y pestañas visitadas. En la raíz, Android muestra «Volvé a presionar Atrás para cerrar» y requiere otra pulsación dentro de dos segundos.
+
 ## Regla de mantenimiento
 
 Actualizar este documento cuando se cambie cualquiera de estos puntos:

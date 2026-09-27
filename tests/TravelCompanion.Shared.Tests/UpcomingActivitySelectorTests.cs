@@ -40,6 +40,7 @@ public sealed class UpcomingActivitySelectorTests
         Assert.Equal(booking, UpcomingActivitySelector.Select([flexible, booking], Day, "Asia/Tokyo", morning));
         Assert.Null(UpcomingActivitySelector.Select([flexible, booking], Day, "Asia/Tokyo", night));
         Assert.Null(UpcomingActivitySelector.Select([booking], Day, "Asia/Tokyo", night));
+        Assert.Null(UpcomingActivitySelector.Select([flexible], Day, "Asia/Tokyo", morning));
     }
 
     [Fact]

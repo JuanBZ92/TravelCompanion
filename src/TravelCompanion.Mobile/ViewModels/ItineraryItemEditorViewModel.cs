@@ -169,6 +169,7 @@ public sealed partial class ItineraryItemEditorViewModel(
     {
         CancelPlaceSearch();
         _existingItem = null;
+        Notes = string.Empty;
         _editingTimeZoneValid = true;
         ReminderEnabled = false;
         _recommendation = recommendation;
@@ -218,6 +219,7 @@ public sealed partial class ItineraryItemEditorViewModel(
     {
         CancelPlaceSearch();
         _existingItem = null;
+        Notes = string.Empty;
         _editingTimeZoneValid = true;
         ReminderEnabled = false;
         _recommendation = null;

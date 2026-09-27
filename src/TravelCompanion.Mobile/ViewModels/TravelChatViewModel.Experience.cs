@@ -11,6 +11,7 @@ namespace TravelCompanion.Mobile.ViewModels;
 public sealed partial class TravelChatViewModel
 {
     private string _assistantSurface = "home";
+    private readonly Stack<string> _assistantHistory = new();
     private bool _quickSearchSubmission;
     private bool _proposalIsQuickSearch;
     private string _proposalMessage = string.Empty;
@@ -91,9 +92,10 @@ public sealed partial class TravelChatViewModel
     }
     public bool HasSelectedDetailCard => SelectedDetailCard is not null;
 
-    private void SetAssistantSurface(string surface)
+    private void SetAssistantSurface(string surface, bool remember = true)
     {
         if (_assistantSurface == surface) return;
+        if (remember) _assistantHistory.Push(_assistantSurface);
         _assistantSurface = surface;
         OnPropertyChanged(nameof(ShowAssistantHome));
         OnPropertyChanged(nameof(ShowAssistantSearch));
@@ -107,6 +109,12 @@ public sealed partial class TravelChatViewModel
         OnPropertyChanged(nameof(AssistantQuotaNote));
         OnPropertyChanged(nameof(AssistantSearchQuotaNote));
         OnPropertyChanged(nameof(ShowAssistantQuotaNote));
+    }
+
+    private void RestoreAssistantSearch()
+    {
+        if (_assistantHistory.TryPeek(out var previous) && previous == "search") _assistantHistory.Pop();
+        SetAssistantSurface("search", remember: false);
     }
 
     private void SetAssistantDateRange(TripScheduleDto schedule)
@@ -217,18 +225,22 @@ public sealed partial class TravelChatViewModel
     [RelayCommand]
     private void ReturnAssistantHome()
     {
-        _quickSearchSubmission = false;
-        if (IsBusy) CancelActiveOperations();
-        SelectedDetailCard = null;
-        IsSecondaryMenuVisible = false;
-        SetAssistantSurface("home");
+        TryAssistantBack();
     }
 
     public bool TryAssistantBack()
     {
-        if (HasSelectedDetailCard) { SelectedDetailCard = null; return true; }
+        if (HasSelectedDetailCard) { CloseAssistantCard(); return true; }
+        if (IsSecondaryMenuVisible) { IsSecondaryMenuVisible = false; return true; }
+        if (ShowAssistantConversation && HasGuidedQuestion && CanGoBack)
+        {
+            GoBackGuided();
+            return true;
+        }
         if (ShowAssistantHome) return false;
-        ReturnAssistantHome();
+        _quickSearchSubmission = false;
+        if (IsBusy) CancelActiveOperations();
+        SetAssistantSurface(_assistantHistory.TryPop(out var previous) ? previous : "home", remember: false);
         return true;
     }
 
@@ -308,7 +320,7 @@ public sealed partial class TravelChatViewModel
         _proposalMessage = message;
         OnPropertyChanged(nameof(ProposalMessage));
         await RefreshAssistantProposalAsync();
-        SetAssistantSurface("proposal");
+        SetAssistantSurface("proposal", remember: false);
         if (cards.Count > 0)
             await analytics.TrackAsync("proposal_previewed", "assistant", tripId: sessionService.CurrentTripId);
     }
@@ -356,7 +368,14 @@ public sealed partial class TravelChatViewModel
     public void OpenAssistantCard(TravelChatCardViewModel? card) => SelectedDetailCard = card;
 
     [RelayCommand]
-    private void CloseAssistantCard() => SelectedDetailCard = null;
+    private void CloseAssistantCard()
+    {
+        SelectedDetailCard = null;
+        // A period choice is local until Save; refresh its label without regenerating ideas.
+        var rows = ProposalRows.ToArray();
+        ProposalRows.Clear();
+        foreach (var row in rows) ProposalRows.Add(row);
+    }
 
     [RelayCommand]
     private async Task SaveAssistantCardAsync()

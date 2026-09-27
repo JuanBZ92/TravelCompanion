@@ -401,7 +401,8 @@ public sealed partial class TravelChatViewModel(
         _assistantDateSelectedByTraveler = false;
         _quickSearchSubmission = false;
         SelectedDetailCard = null;
-        SetAssistantSurface("home");
+        _assistantHistory.Clear();
+        SetAssistantSurface("home", remember: false);
         ResetDefaultSuggestedReplies();
         ClearMissingContext();
         RestartGuidedFlow();
@@ -745,7 +746,7 @@ public sealed partial class TravelChatViewModel(
                     isQuickSearch: true);
             else if (wasQuickSearch)
             {
-                SetAssistantSurface("search");
+                RestoreAssistantSearch();
                 StatusMessage = response.Message;
                 if (response.MissingContext?.Field == "upgrade")
                     await PaywallNavigation.OpenAsync(PaywallEntryPoint.Assistant, limitReached: true);
@@ -794,7 +795,7 @@ public sealed partial class TravelChatViewModel(
             if (_quickSearchSubmission)
             {
                 _quickSearchSubmission = false;
-                SetAssistantSurface("search");
+                RestoreAssistantSearch();
             }
             IsBusy = false;
             _isFullDayProgressActive = false;
@@ -1187,7 +1188,8 @@ public sealed partial class TravelChatViewModel(
                             card.ReservationId,
                             card.ReplacesRecommendationId,
                             _adaptationCards.Contains(card) ? _adaptationRevision : null,
-                            _adaptationCards.Contains(card) ? _adaptationTripId : null),
+                            _adaptationCards.Contains(card) ? _adaptationTripId : null,
+                            card.PeriodKey),
                         cancellationToken);
                 }
                 catch (OperationCanceledException) { break; }

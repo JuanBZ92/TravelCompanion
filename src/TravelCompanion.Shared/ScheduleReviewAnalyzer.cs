@@ -39,6 +39,7 @@ public static class ScheduleReviewAnalyzer
         AddOverlapIssues(date, timedItems, issues);
         AddTransferIssues(date, timedItems, issues);
         AddPackedDayIssue(date, timedItems, issues);
+        AddPeriodOrderIssue(date, items ?? [], issues);
 
         var orderedIssues = issues
             .OrderBy(issue => SeverityOrder(issue.Severity))
@@ -57,7 +58,11 @@ public static class ScheduleReviewAnalyzer
 
         var criticalCount = orderedIssues.Count(issue => issue.Severity == DayReviewSeverities.Critical);
         var status = criticalCount > 0 ? DayReviewStatuses.NeedsAttention : DayReviewStatuses.Tight;
-        var title = criticalCount > 0 ? "Tu día necesita ajustes" : "Tu día tiene poco margen";
+        var title = criticalCount > 0 ? "Tu día necesita ajustes"
+            : orderedIssues.Any(issue => issue.Kind == DayReviewIssueKinds.PeriodOrderConflict)
+                && orderedIssues.All(issue => issue.Kind is DayReviewIssueKinds.PeriodOrderConflict
+                    or DayReviewIssueKinds.IncompleteInformation)
+                ? "Revisá el orden de tus planes" : "Tu día tiene poco margen";
         var summaryText = orderedIssues.Count == 1
             ? "Encontramos 1 punto que conviene revisar."
             : $"Encontramos {orderedIssues.Count} puntos que conviene revisar.";
@@ -66,6 +71,57 @@ public static class ScheduleReviewAnalyzer
 
     public static bool HasTimedReservation(DateOnly date, IReadOnlyList<ScheduleItemDto>? items) =>
         (items ?? []).Any(item => CoversDate(item, date) && IsTimedReservation(item));
+
+    private static void AddPeriodOrderIssue(DateOnly date,
+        IReadOnlyList<ScheduleItemDto> items,
+        ICollection<DayReviewIssueDto> issues)
+    {
+        var comparable = items.Where(item => item.Date == date && item.HasExactTime
+                && (item.Flexibility != ItineraryFlexibility.Flexible
+                    || item.PlanningKind == ScheduleItemKind.ConfirmedReservation
+                    || item.Type == ReservationType.Flight)
+                && item.Type != ReservationType.Lodging
+                && (!item.EndsOn.HasValue || item.EndsOn == date)
+                && (!item.EndsAt.HasValue || item.EndsAt >= item.StartsAt)
+                && !string.IsNullOrWhiteSpace(item.TimeZoneId)
+                && PeriodOrder(item.PeriodKey) >= 0)
+            .ToList();
+        var conflicts = (from earlierPeriod in comparable
+                         from laterPeriod in comparable
+                         where PeriodOrder(earlierPeriod.PeriodKey) < PeriodOrder(laterPeriod.PeriodKey)
+                             && laterPeriod.StartsAt < earlierPeriod.StartsAt
+                             && string.Equals(earlierPeriod.TimeZoneId, laterPeriod.TimeZoneId,
+                                 StringComparison.OrdinalIgnoreCase)
+                         select (EarlierPeriod: earlierPeriod, LaterPeriod: laterPeriod))
+            .OrderBy(pair => pair.LaterPeriod.StartsAt)
+            .ThenBy(pair => pair.EarlierPeriod.StartsAt)
+            .ToList();
+        if (conflicts.Count == 0) return;
+
+        var first = conflicts[0];
+        var message = $"«{PeriodLabel(first.LaterPeriod.PeriodKey)}» ({first.LaterPeriod.StartsAt:HH\\:mm}) aparece antes que «{PeriodLabel(first.EarlierPeriod.PeriodKey)}» ({first.EarlierPeriod.StartsAt:HH\\:mm}). Revisá la franja o la hora.";
+        if (conflicts.Count > 1) message += $" Hay {conflicts.Count - 1} cruces más.";
+        issues.Add(new(DayReviewIssueKinds.PeriodOrderConflict, DayReviewSeverities.Warning,
+            "Franjas y horarios en distinto orden", message,
+            [first.EarlierPeriod.Id, first.LaterPeriod.Id]));
+    }
+
+    private static int PeriodOrder(string? key) => key switch
+    {
+        "morning" => 0,
+        "midday" => 1,
+        "afternoon" => 2,
+        "night" => 3,
+        _ => -1
+    };
+
+    private static string PeriodLabel(string? key) => key switch
+    {
+        "morning" => "Mañana",
+        "midday" => "Mediodía",
+        "afternoon" => "Tarde",
+        _ => "Noche"
+    };
 
     private static void AddIncompleteInformationIssues(
         IReadOnlyList<ScheduleItemDto> timedItems,

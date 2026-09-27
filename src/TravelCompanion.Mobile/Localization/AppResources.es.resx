@@ -481,4 +481,8 @@ A tu manera.</value></data>
   <data name="AssistantProposalMidday" xml:space="preserve"><value>Mediodía · sin hora fija</value></data>
   <data name="AssistantProposalAfternoon" xml:space="preserve"><value>Tarde · sin hora fija</value></data>
   <data name="AssistantProposalNight" xml:space="preserve"><value>Noche · sin hora fija</value></data>
+  <data name="JournalIntroduction" xml:space="preserve"><value>Tus notas personales, lugar por lugar.</value></data>
+  <data name="JournalEmpty" xml:space="preserve"><value>Agregá una nota personal al editar una actividad. La vas a encontrar acá.</value></data>
+  <data name="JournalRefreshError" xml:space="preserve"><value>No pudimos actualizar tus notas. Las entradas guardadas siguen disponibles.</value></data>
+  <data name="BackAgainToClose" xml:space="preserve"><value>Volvé a presionar Atrás para cerrar.</value></data>
 </root>

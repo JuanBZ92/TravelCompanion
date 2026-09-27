@@ -69,6 +69,25 @@ public sealed partial class TravelChatCardViewModel : ObservableObject
     public TimeOnly? StartsAt { get; }
     public TimeOnly? EndsAt { get; }
     public ItineraryTimePrecision TimePrecision { get; }
+    private int _selectedPeriodIndex = -1;
+    private static readonly string[] PeriodKeys = ["morning", "midday", "afternoon", "night"];
+    public string[] PeriodOptions => CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "es"
+        ? ["Mañana", "Mediodía", "Tarde", "Noche"] : ["Morning", "Midday", "Afternoon", "Evening"];
+    public string PeriodLabel => CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "es"
+        ? "Momento del día" : "Time of day";
+    public bool CanChoosePeriod => IsDayPlanCard && !IsSaved && !ReservationId.HasValue
+        && !IsSaving && !IsSearchingAlternative && TimePrecision == ItineraryTimePrecision.PeriodOnly
+        && Array.IndexOf(PeriodKeys, _card.PeriodKey) >= 0;
+    public int SelectedPeriodIndex
+    {
+        get => _selectedPeriodIndex >= 0 ? _selectedPeriodIndex : Array.IndexOf(PeriodKeys, _card.PeriodKey);
+        set
+        {
+            if (value is < 0 or > 3 || !CanChoosePeriod) return;
+            if (SetProperty(ref _selectedPeriodIndex, value)) OnPropertyChanged(nameof(PeriodKey));
+        }
+    }
+    public string? PeriodKey => _selectedPeriodIndex >= 0 ? PeriodKeys[_selectedPeriodIndex] : _card.PeriodKey;
     public bool CanSave => RecommendationId.HasValue && !IsSaved && !IsSearchingAlternative && !IsSaving;
     public bool CanFindAlternative => HasRecommendationId && !IsSearchingAlternative && !IsSaving;
     private bool _isSaving;
@@ -79,6 +98,7 @@ public sealed partial class TravelChatCardViewModel : ObservableObject
         {
             if (!SetProperty(ref _isSaving, value)) return;
             OnPropertyChanged(nameof(CanSave));
+            OnPropertyChanged(nameof(CanChoosePeriod));
             OnPropertyChanged(nameof(CanFindAlternative));
             OnPropertyChanged(nameof(SaveButtonText));
         }
@@ -91,6 +111,7 @@ public sealed partial class TravelChatCardViewModel : ObservableObject
             if (SetProperty(ref _isSearchingAlternative, value))
             {
                 OnPropertyChanged(nameof(CanSave));
+                OnPropertyChanged(nameof(CanChoosePeriod));
                 OnPropertyChanged(nameof(CanFindAlternative));
             }
         }
@@ -139,6 +160,7 @@ public sealed partial class TravelChatCardViewModel : ObservableObject
             if (SetProperty(ref _isSaved, value))
             {
                 OnPropertyChanged(nameof(CanSave));
+                OnPropertyChanged(nameof(CanChoosePeriod));
                 OnPropertyChanged(nameof(SaveButtonText));
                 OnPropertyChanged(nameof(DayPlanStateText));
                 OnPropertyChanged(nameof(DayPlanHelpText));

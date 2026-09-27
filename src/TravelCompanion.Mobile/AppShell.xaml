@@ -63,6 +63,9 @@
             ContentTemplate="{DataTemplate pages:DocsPage}"
             Route="docs" />
 
+        <ShellContent x:Name="JournalTab" Title="Journal" Icon="tab_journal.svg"
+                      ContentTemplate="{DataTemplate pages:JournalPage}" Route="journal" />
+
         <ShellContent
             x:Name="PassTab"
             Title="Pase Japón"

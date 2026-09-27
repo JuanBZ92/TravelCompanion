@@ -104,6 +104,8 @@ public sealed record TravelCardDto(
     public bool IsDayPlan { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public Guid? ReplacesRecommendationId { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? PeriodKey { get; init; }
 }
 
 public sealed record MissingContextDto(
@@ -145,7 +147,8 @@ public sealed record SaveItineraryItemRequest(
     Guid? ReplaceReservationId = null,
     Guid? ExpectedRecommendationId = null,
     int? ExpectedRevision = null,
-    Guid? ExpectedTripId = null);
+    Guid? ExpectedTripId = null,
+    string? PeriodKey = null);
 
 public sealed record SaveItineraryItemResponse(
     bool Saved,

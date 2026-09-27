@@ -130,6 +130,8 @@ public static class MauiProgram
         builder.Services.AddTransient<PaywallViewModel>();
         builder.Services.AddTransient<AccountViewModel>();
         builder.Services.AddSingleton<DocsViewModel>();
+        builder.Services.AddSingleton<JournalViewModel>();
+        builder.Services.AddSingleton<ISessionStateResettable>(sp => sp.GetRequiredService<JournalViewModel>());
         builder.Services.AddSingleton<ISessionStateResettable>(sp => sp.GetRequiredService<DocsViewModel>());
 
         builder.Services.AddTransient<LoginPage>();

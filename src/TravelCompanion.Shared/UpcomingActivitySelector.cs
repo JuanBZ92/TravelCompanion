@@ -21,7 +21,7 @@ public static class UpcomingActivitySelector
         var now = GetTripNow(timeZoneId, instant);
         if (selectedDate != DateOnly.FromDateTime(now)) return null;
 
-        var timed = items
+        return items
             .Where(item => item.HasExactTime &&
                 (item.Date == selectedDate || item.Date < selectedDate && item.EndsOn >= selectedDate))
             .Where(item => End(item) >= now)
@@ -31,20 +31,7 @@ public static class UpcomingActivitySelector
                 || item.Type == ReservationType.Flight ? 0 : 1)
             .ThenBy(item => Start(item))
             .FirstOrDefault();
-        if (timed is not null) return timed;
-
-        return items.Where(item => item.Date == selectedDate && !item.HasExactTime
-                && now.TimeOfDay < PeriodEnd(item).ToTimeSpan())
-            .OrderBy(item => item.SortOrder).FirstOrDefault();
     }
-
-    private static TimeOnly PeriodEnd(ScheduleItemDto item) => item.EffectivePeriodKey switch
-    {
-        "morning" => new TimeOnly(12, 0),
-        "midday" => new TimeOnly(15, 0),
-        "afternoon" => new TimeOnly(20, 0),
-        _ => TimeOnly.MaxValue
-    };
 
     private static DateTime Start(ScheduleItemDto item) => item.Date.ToDateTime(item.StartsAt);
     private static DateTime End(ScheduleItemDto item) => item.Type == ReservationType.Lodging

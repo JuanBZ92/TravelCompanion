@@ -21,13 +21,7 @@ public sealed record AssistantProposalRow(
         : Suggestion is { } card
             ? card.IsDayPlanCard && card.TimePrecision == ItineraryTimePrecision.Exact
                 && card.StartsAt is { } start
-                ? start.ToString("HH:mm") : PeriodLabel(card.StartsAt is { } flexibleStart
-                    && flexibleStart != TimeOnly.MinValue
-                    ? flexibleStart.Hour switch
-                    {
-                        < 12 => "morning", < 15 => "midday", < 20 => "afternoon", _ => "night"
-                    }
-                    : null)
+                ? start.ToString("HH:mm") : PeriodLabel(card.PeriodKey)
             : string.Empty;
 
     private static string PeriodLabel(string? period) => period switch
@@ -93,6 +87,10 @@ public static class AssistantDayProposalBuilder
                 : new AssistantProposalRow(null, card, false, card.StartsAt ?? TimeOnly.MaxValue));
         }
 
+        // A flexible moment is a label, not a time window. Keep the proposed order
+        // unless every idea has an exact time that can anchor saved plans.
+        if (results.Any(row => GetWindow(row) is null)) return results;
+
         var anchors = results.Select(GetWindow).Where(window => window.HasValue)
             .Select(window => window.GetValueOrDefault()).ToList();
         var resultSavedIds = results.Where(row => row.SavedItem is not null)
@@ -124,9 +122,7 @@ public static class AssistantDayProposalBuilder
         if (row.IsOngoingStay) return null;
         if (row.SavedItem is { } saved)
         {
-            if (!saved.HasExactTime)
-                return saved.StartsAt == TimeOnly.MinValue && saved.PeriodKey is null
-                    ? null : PeriodWindow(saved.EffectivePeriodKey, saved.StartsAt);
+            if (!saved.HasExactTime) return null;
             if (saved.Type != ReservationType.Lodging && saved.EndsOn is null
                 && saved.EndsAt is { } overnightEnd && overnightEnd < saved.StartsAt) return null;
 
@@ -140,26 +136,11 @@ public static class AssistantDayProposalBuilder
 
         var card = row.Suggestion;
         if (card?.StartsAt is not { } startsAt || startsAt == TimeOnly.MinValue) return null;
-        if (card.TimePrecision != ItineraryTimePrecision.Exact)
-            return PeriodWindow(startsAt.Hour switch
-            {
-                < 5 => "night", < 12 => "morning", < 15 => "midday",
-                < 20 => "afternoon", _ => "night"
-            }, startsAt);
+        if (card.TimePrecision != ItineraryTimePrecision.Exact) return null;
         if (card.EndsAt is { } suggestionEndsAt && suggestionEndsAt < startsAt) return null;
         return new TimeWindow(Minutes(startsAt),
             card.EndsAt is { } suggestionEnd ? Minutes(suggestionEnd) : Minutes(startsAt));
     }
-
-    private static TimeWindow? PeriodWindow(string period, TimeOnly reference) => period switch
-    {
-        "morning" => new TimeWindow(5 * 60, 12 * 60),
-        "midday" => new TimeWindow(12 * 60, 15 * 60),
-        "afternoon" => new TimeWindow(15 * 60, 20 * 60),
-        "night" when reference.Hour < 5 => new TimeWindow(0, 5 * 60),
-        "night" => new TimeWindow(20 * 60, 24 * 60),
-        _ => null
-    };
 
     private static int Minutes(TimeOnly time) => time.Hour * 60 + time.Minute;
 

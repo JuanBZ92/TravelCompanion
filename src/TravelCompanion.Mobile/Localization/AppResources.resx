@@ -481,4 +481,8 @@ Your way.</value></data>
   <data name="AssistantProposalMidday" xml:space="preserve"><value>Midday · no fixed time</value></data>
   <data name="AssistantProposalAfternoon" xml:space="preserve"><value>Afternoon · no fixed time</value></data>
   <data name="AssistantProposalNight" xml:space="preserve"><value>Evening · no fixed time</value></data>
+  <data name="JournalIntroduction" xml:space="preserve"><value>Your personal notes, one place at a time.</value></data>
+  <data name="JournalEmpty" xml:space="preserve"><value>Add a personal note when editing an activity. It will appear here.</value></data>
+  <data name="JournalRefreshError" xml:space="preserve"><value>Couldn't refresh your notes. Your saved entries are still available.</value></data>
+  <data name="BackAgainToClose" xml:space="preserve"><value>Press Back again to close.</value></data>
 </root>

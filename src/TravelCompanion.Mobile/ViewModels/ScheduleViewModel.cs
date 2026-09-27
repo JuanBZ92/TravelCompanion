@@ -1305,7 +1305,9 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
 
         var selectedDate = _selectedDate.Value;
         var hasTimedReservation = ScheduleReviewAnalyzer.HasTimedReservation(selectedDate, _allItems);
-        SelectedDayReview = hasTimedReservation && _dayReviewsByDate.TryGetValue(selectedDate, out var review)
+        SelectedDayReview = _dayReviewsByDate.TryGetValue(selectedDate, out var review)
+            && (hasTimedReservation || review.Issues.Any(issue => issue.Kind == DayReviewIssueKinds.PeriodOrderConflict))
+            && review.Issues.Count > 0
             ? new DayReviewViewModel(review)
             : null;
         if (SelectedDayReview is not null && _trackedDayReviews.Add(selectedDate))

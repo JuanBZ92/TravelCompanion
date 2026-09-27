@@ -152,6 +152,64 @@ public sealed class ScheduleReviewAnalyzerTests
         Assert.True(ScheduleReviewAnalyzer.HasTimedReservation(Date, [confirmed]));
     }
 
+    [Fact]
+    public void Warns_once_when_explicit_periods_disagree_with_exact_time_order()
+    {
+        var morning = Item("Museo", new TimeOnly(11, 0), new TimeOnly(11, 30))
+            with { PeriodKey = "morning", TimeZoneId = "Asia/Tokyo" };
+        var afternoon = Item("Café", new TimeOnly(10, 0), new TimeOnly(10, 30))
+            with { PeriodKey = "afternoon", TimeZoneId = "Asia/Tokyo" };
+
+        var review = ScheduleReviewAnalyzer.AnalyzeDay(Date, [afternoon, morning]);
+
+        var issue = Assert.Single(review.Issues);
+        Assert.Equal(DayReviewIssueKinds.PeriodOrderConflict, issue.Kind);
+        Assert.Equal(DayReviewSeverities.Warning, issue.Severity);
+        Assert.Contains("«Tarde» (10:00)", issue.Message);
+        Assert.Contains("«Mañana» (11:00)", issue.Message);
+        Assert.Equal("Revisá el orden de tus planes", review.Title);
+        Assert.Empty(ScheduleReviewAnalyzer.AnalyzeDay(Date,
+            [afternoon with { PeriodKey = "morning" }, morning]).Issues);
+    }
+
+    [Fact]
+    public void Warns_for_personal_timed_plans_without_a_confirmed_reservation()
+    {
+        var morning = Item("Museo", new TimeOnly(11, 0), new TimeOnly(11, 30)) with
+        { PeriodKey = "morning", PlanningKind = ScheduleItemKind.ManualEvent,
+            Flexibility = ItineraryFlexibility.FixedByTraveler, TimeZoneId = "Asia/Tokyo" };
+        var afternoon = Item("Café", new TimeOnly(10, 0), new TimeOnly(10, 30)) with
+        { PeriodKey = "afternoon", PlanningKind = ScheduleItemKind.ManualEvent,
+            Flexibility = ItineraryFlexibility.FixedByTraveler, TimeZoneId = "Asia/Tokyo" };
+
+        Assert.False(ScheduleReviewAnalyzer.HasTimedReservation(Date, [morning, afternoon]));
+        Assert.Contains(ScheduleReviewAnalyzer.AnalyzeDay(Date, [morning, afternoon]).Issues,
+            issue => issue.Kind == DayReviewIssueKinds.PeriodOrderConflict);
+    }
+
+    [Fact]
+    public void Period_warning_ignores_flexible_legacy_overnight_and_different_time_zones()
+    {
+        var morning = Item("Mañana", new TimeOnly(11, 0), new TimeOnly(11, 30))
+            with { PeriodKey = "morning", TimeZoneId = "Asia/Tokyo" };
+        var afternoon = Item("Tarde", new TimeOnly(10, 0), new TimeOnly(10, 30))
+            with { PeriodKey = "afternoon", TimeZoneId = "Europe/Madrid" };
+        var flexible = afternoon with { TimePrecision = ItineraryTimePrecision.PeriodOnly,
+            TimeZoneId = "Asia/Tokyo" };
+        var flexibleWithTime = afternoon with { Flexibility = ItineraryFlexibility.Flexible,
+            PlanningKind = ScheduleItemKind.Recommendation, TimeZoneId = "Asia/Tokyo" };
+        var legacy = afternoon with { PeriodKey = null, TimeZoneId = "Asia/Tokyo" };
+        var unknownZone = afternoon with { TimeZoneId = null };
+        var overnight = afternoon with { TimeZoneId = "Asia/Tokyo", EndsOn = Date.AddDays(1),
+            EndsAt = new TimeOnly(1, 0) };
+
+        var review = ScheduleReviewAnalyzer.AnalyzeDay(Date,
+            [morning, afternoon, flexible, flexibleWithTime, legacy, unknownZone, overnight]);
+
+        Assert.DoesNotContain(review.Issues,
+            issue => issue.Kind == DayReviewIssueKinds.PeriodOrderConflict);
+    }
+
     private static ScheduleItemDto Item(
         string title,
         TimeOnly startsAt,

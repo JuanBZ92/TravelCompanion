@@ -249,8 +249,9 @@ public sealed partial class TripWorkbookImportService(
             dbContext.Reservations.RemoveRange(importedReservations);
         }
 
-        var reservations = CreateReservations(trip, destination, metadata, parseResult.Rows);
-        ApplyDayPlans(trip, metadata, parseResult.Rows, reservations);
+        var reservations = CreateReservations(trip, destination, metadata, parseResult.Rows,
+            out var periodByReservationId);
+        ApplyDayPlans(trip, metadata, parseResult.Rows, reservations, periodByReservationId);
         foreach (var reservation in reservations)
         {
             dbContext.Reservations.Add(reservation);
@@ -283,7 +284,8 @@ public sealed partial class TripWorkbookImportService(
         Trip trip,
         TripWorkbookMetadata metadata,
         IReadOnlyList<TripWorkbookRowDraft> rows,
-        IReadOnlyList<Reservation> reservations)
+        IReadOnlyList<Reservation> reservations,
+        IReadOnlyDictionary<Guid, string> periodByReservationId)
     {
         var existingDays = trip.DayPlans.ToDictionary(day => day.Date);
         var desiredDates = new HashSet<DateOnly>();
@@ -334,8 +336,9 @@ public sealed partial class TripWorkbookImportService(
         dbContext.TripDayPlans.RemoveRange(trip.DayPlans.Where(day => !desiredDates.Contains(day.Date)).ToList());
         foreach (var reservation in reservations)
         {
-            var period = TripPlanPeriods.Resolve(reservation.StartsAt);
-            if (blocksByDateAndPeriod.TryGetValue((reservation.Date, period.Key), out var block))
+            var periodKey = periodByReservationId.GetValueOrDefault(reservation.Id)
+                ?? TripPlanPeriods.Resolve(reservation.StartsAt).Key;
+            if (blocksByDateAndPeriod.TryGetValue((reservation.Date, periodKey), out var block))
             {
                 reservation.TripDayBlockId = block.Id;
             }
@@ -611,8 +614,10 @@ public sealed partial class TripWorkbookImportService(
         Trip trip,
         Destination destination,
         TripWorkbookMetadata metadata,
-        IReadOnlyList<TripWorkbookRowDraft> rows)
+        IReadOnlyList<TripWorkbookRowDraft> rows,
+        out Dictionary<Guid, string> periodByReservationId)
     {
+        periodByReservationId = [];
         var reservations = new List<Reservation>();
         reservations.AddRange(CreateLodgingReservations(trip.Id, destination, metadata, rows));
 
@@ -632,7 +637,7 @@ public sealed partial class TripWorkbookImportService(
                     ? recommendation.SuggestedDurationMinutes
                     : row.Period.DefaultDurationMinutes;
                 var endsAt = startsAt.AddMinutes(durationMinutes);
-                reservations.Add(new Reservation
+                var reservation = new Reservation
                 {
                     Id = Guid.NewGuid(),
                     TripId = trip.Id,
@@ -659,7 +664,9 @@ public sealed partial class TripWorkbookImportService(
                     Notes = CreateReservationNotes(row.CuratedDescription, row.Notes),
                     SourceName = SourceName,
                     SourceUrl = recommendation?.SourceUrl
-                });
+                };
+                reservations.Add(reservation);
+                periodByReservationId.Add(reservation.Id, row.Period.Key);
                 startsAt = endsAt.AddMinutes(15);
             }
         }

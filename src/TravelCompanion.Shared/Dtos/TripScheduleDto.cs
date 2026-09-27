@@ -103,11 +103,11 @@ public sealed record ScheduleItemDto(
             ? $"Horario de salida: {StartsAt:HH\\:mm}"
             : $"Hora: {StartsAt:HH\\:mm}";
 
-    public string PeriodDisplay => StartsAt.Hour switch
+    public string PeriodDisplay => EffectivePeriodKey switch
     {
-        < 12 => "Mañana",
-        < 15 => "Mediodía",
-        < 20 => "Tarde",
+        "morning" => "Mañana",
+        "midday" => "Mediodía",
+        "afternoon" => "Tarde",
         _ => "Noche"
     };
 

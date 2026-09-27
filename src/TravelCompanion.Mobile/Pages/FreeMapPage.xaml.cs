@@ -204,4 +204,14 @@ public partial class FreeMapPage : ContentPage
         _map.Pins.Clear();
     }
 #endif
+
+    protected override bool OnBackButtonPressed()
+    {
+        if (_viewModel.HasSelection)
+        {
+            _viewModel.CloseSelectionCommand.Execute(null);
+            return true;
+        }
+        return base.OnBackButtonPressed();
+    }
 }
