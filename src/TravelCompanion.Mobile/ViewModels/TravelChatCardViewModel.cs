@@ -108,7 +108,11 @@ public sealed partial class TravelChatCardViewModel : ObservableObject
     public bool IsDetailsVisible
     {
         get => _isDetailsVisible;
-        private set => SetProperty(ref _isDetailsVisible, value);
+        private set
+        {
+            if (SetProperty(ref _isDetailsVisible, value))
+                OnPropertyChanged(nameof(ShowReasons));
+        }
     }
     public bool HasFeedbackActions => HasRecommendationId;
     public string? FeedbackStatusMessage
@@ -150,6 +154,7 @@ public sealed partial class TravelChatCardViewModel : ObservableObject
     public bool HasTags => Tags.Count > 0;
     public IReadOnlyList<string> WhyItFits => _card.WhyItFits.Take(2).ToList();
     public bool HasReasons => WhyItFits.Count > 0;
+    public bool ShowReasons => HasReasons && (IsDayPlanCard || IsDetailsVisible);
     public IReadOnlyList<string> Warnings => _card.Warnings.Take(1).ToList();
     public IReadOnlyList<string> WarningLabels => Warnings
         .Select(warning => $"{Resource("AssistantAttentionPrefix")}: {warning}")

@@ -690,11 +690,11 @@
         </VerticalStackLayout>
 
         <Grid IsVisible="{Binding ShowDayImprovementSheet}">
-            <BoxView Color="#77000000">
-                <BoxView.GestureRecognizers>
+            <Grid BackgroundColor="Transparent">
+                <Grid.GestureRecognizers>
                     <TapGestureRecognizer Command="{Binding DismissDayImprovementSheetCommand}" />
-                </BoxView.GestureRecognizers>
-            </BoxView>
+                </Grid.GestureRecognizers>
+            </Grid>
             <Border VerticalOptions="End"
                     BackgroundColor="#F7F2EB"
                     StrokeThickness="0"

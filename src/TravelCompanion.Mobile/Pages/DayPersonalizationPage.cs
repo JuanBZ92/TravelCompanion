@@ -40,7 +40,7 @@ public sealed class DayPersonalizationPage : ContentPage, IQueryAttributable
         _pace.ItemsSource = English ? new[] { "Relaxed", "Balanced", "Active" } : ["Tranquilo", "Equilibrado", "Intenso"];
         _budget.ItemsSource = English ? new[] { "Low", "Medium", "High" } : ["Bajo", "Medio", "Alto"];
         _continue.Clicked += OnContinueClicked;
-        var content = new VerticalStackLayout { Spacing = 18, Padding = new Thickness(24, 28, 24, 32) };
+        var content = new VerticalStackLayout { Spacing = 12, Padding = new Thickness(24, 20, 24, 24) };
         content.Add(new Label { Text = English ? "A day that fits you" : "Un día a tu medida",
             FontFamily = "serif", FontSize = 30, TextColor = Color.FromArgb("#1A1714") });
         content.Add(new Label { Text = English
@@ -78,7 +78,7 @@ public sealed class DayPersonalizationPage : ContentPage, IQueryAttributable
 
     private static VerticalStackLayout Field(string label, View control)
     {
-        var field = new VerticalStackLayout { Spacing = 8 };
+        var field = new VerticalStackLayout { Spacing = 6 };
         field.Add(new Label { Text = label, CharacterSpacing = 2, FontSize = 10,
             TextColor = Color.FromArgb("#9D794F") });
         field.Add(control);
@@ -125,6 +125,9 @@ public sealed class DayPersonalizationPage : ContentPage, IQueryAttributable
         chip.TextColor = selected ? Colors.White : Color.FromArgb("#3D3329");
         chip.BorderColor = Color.FromArgb("#D8C7B2");
         chip.BorderWidth = selected ? 0 : 1;
+        SemanticProperties.SetDescription(chip, $"{chip.Text}, {(selected
+            ? English ? "selected" : "seleccionado"
+            : English ? "not selected" : "no seleccionado")}");
     }
 
     private void ShowError(string message) { _error.Text = message; _error.IsVisible = true; }

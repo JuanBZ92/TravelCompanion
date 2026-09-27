@@ -388,7 +388,15 @@ public sealed partial class TravelChatService
         var text = $"{recommendation.Title} {recommendation.Category} {string.Join(' ', recommendation.Tags)}";
         var interest = profile.Interests.FirstOrDefault(value => text.Contains(value, StringComparison.OrdinalIgnoreCase));
         if (interest is not null)
-            return [english ? $"Matches your interest in {interest}." : $"Coincide con tu interés por {interest}."];
+        {
+            var label = english ? interest : interest.Trim().ToLowerInvariant() switch
+            {
+                "food" => "gastronomía", "culture" => "cultura", "nature" => "naturaleza",
+                "history" => "historia", "art" => "arte", "shopping" => "compras",
+                "gardens" => "jardines", "nightlife" => "vida nocturna", _ => interest
+            };
+            return [english ? $"Matches your interest in {label}." : $"Coincide con tu interés por {label}."];
+        }
         var transfer = LargestAdjacentTransfer(timeline, time, recommendation.Latitude, recommendation.Longitude);
         if (transfer.Distance is <= 2 && transfer.Title is not null)
             return [english ? $"Near {transfer.Title} in a straight line." : $"Cerca de {transfer.Title} en línea recta."];

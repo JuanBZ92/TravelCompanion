@@ -122,6 +122,24 @@ public sealed class TravelChatMobilePresentationTests
     }
 
     [Fact]
+    public void Day_plan_shows_its_reason_without_expanding_details()
+    {
+        var dayPlan = new TravelChatCardViewModel(new TravelCardDto(
+            "recommendation", "Museum", "Morning", null, "09:00", "10:00",
+            "medium", null, null, ["Coincide con tu interés por arte."], [],
+            Guid.NewGuid().ToString(), null) { IsDayPlan = true });
+        var ordinary = new TravelChatCardViewModel(new TravelCardDto(
+            "recommendation", "Museum", "Morning", null, "09:00", "10:00",
+            "medium", null, null, ["Coincide con tu interés por arte."], [],
+            Guid.NewGuid().ToString(), null));
+
+        Assert.True(dayPlan.ShowReasons);
+        Assert.False(ordinary.ShowReasons);
+        ordinary.ToggleDetailsCommand.Execute(null);
+        Assert.True(ordinary.ShowReasons);
+    }
+
+    [Fact]
     public void Day_plan_card_keeps_replacement_identity_and_exposes_distance_action()
     {
         var reservationId = Guid.NewGuid();

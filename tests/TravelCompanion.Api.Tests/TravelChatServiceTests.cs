@@ -2075,13 +2075,13 @@ public sealed class TravelChatServiceTests
             },
             new GuidedPlanCriteriaDto(Budget: "medium")
             {
-                TravelPace = "relaxed", Interests = ["art"]
+                TravelPace = "relaxed", Interests = ["culture", "art"]
             }), CancellationToken.None);
 
         Assert.Null(response.MissingContext);
         Assert.Equal(2, response.Cards.Count);
         Assert.Contains(response.Cards, card => card.Title == "Art gallery"
-            && card.WhyItFits.Any(reason => reason.Contains("art", StringComparison.OrdinalIgnoreCase)));
+            && card.WhyItFits.Any(reason => reason.Contains("cultura", StringComparison.OrdinalIgnoreCase)));
         Assert.All(response.Cards, card => Assert.True(card.IsPeriodOnly));
         Assert.All(response.Cards, card => Assert.Null(card.ReservationId));
         Assert.Equal(lunch.Id, (await db.Reservations.SingleAsync()).Id);
