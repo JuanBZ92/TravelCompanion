@@ -17,6 +17,7 @@ public class MainActivity : MauiAppCompatActivity
 	{
 		AppCompatDelegate.DefaultNightMode = AppCompatDelegate.ModeNightNo;
 		base.OnCreate(savedInstanceState);
+        Platforms.Android.JournalFileSaver.Register(this);
 		OnBackPressedDispatcher.AddCallback(this, new NavigationBackCallback(this));
 	}
 

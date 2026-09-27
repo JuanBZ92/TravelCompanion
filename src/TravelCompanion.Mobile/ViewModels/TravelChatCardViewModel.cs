@@ -89,6 +89,7 @@ public sealed partial class TravelChatCardViewModel : ObservableObject
     }
     public string? PeriodKey => _selectedPeriodIndex >= 0 ? PeriodKeys[_selectedPeriodIndex] : _card.PeriodKey;
     public bool CanSave => RecommendationId.HasValue && !IsSaved && !IsSearchingAlternative && !IsSaving;
+    public string SaveIcon => IsSaved ? "action_saved.svg" : "action_save.svg";
     public bool CanFindAlternative => HasRecommendationId && !IsSearchingAlternative && !IsSaving;
     private bool _isSaving;
     public bool IsSaving
@@ -159,6 +160,7 @@ public sealed partial class TravelChatCardViewModel : ObservableObject
         {
             if (SetProperty(ref _isSaved, value))
             {
+                OnPropertyChanged(nameof(SaveIcon));
                 OnPropertyChanged(nameof(CanSave));
                 OnPropertyChanged(nameof(CanChoosePeriod));
                 OnPropertyChanged(nameof(SaveButtonText));

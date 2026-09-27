@@ -372,8 +372,13 @@ Ambientes esperados:
 
 ## Journal, propuestas y navegación Android
 
-- Journal reúne las notas personales de las actividades del viaje activo, con fecha, lugar y acceso al detalle. Excluye descripciones editoriales y textos automáticos del Asistente. Usa el itinerario disponible sin conexión y se vacía al cambiar de sesión.
+- Journal organiza recuerdos por fecha y ciudad, con notas editables, portada, galería y accesos al lugar. Permite agregar recuerdos a cualquier actividad consultable, incluso reservas protegidas y cuentas Free sin edición de itinerario.
+- Las notas tienen revisión propia y se sincronizan con el backend. Sin conexión quedan pendientes; los conflictos conservan ambas versiones hasta elegir. Se importan las notas personales existentes, sin textos editoriales ni placeholders. Borrar una actividad conserva el recuerdo; borrar viaje o cuenta elimina sus notas.
+- Las fotos se copian al almacenamiento privado del dispositivo, separadas por usuario y viaje: hasta 10 por recuerdo, máximo 2048 px y miniaturas, orientación normalizada y sin metadatos GPS. No hay nube ni cámara; cerrar sesión no borra fotos. Se puede elegir portada o quitar una copia sin tocar el original.
+- En Android, el álbum PDF incluye todo el viaje o días seleccionados, título y portada elegibles, notas completas y fotos. Ofrece vista previa, destino del sistema y compartir, con progreso y cancelación. No incluye códigos de reserva ni adjuntos. Se avisa si falta una foto.
+- La navegación principal de viajes builder tiene cinco destinos: Viaje, Mapa, Asistente, Journal y Cuenta. Los viajes sin Asistente mantienen sus restricciones. Documentos se abre desde Viaje o Cuenta; Pase Japón y Salir están en Cuenta. Journal requiere un viaje seleccionado.
 - En el detalle de una idea nueva de «Completar el día», el viajero puede elegir Mañana, Mediodía, Tarde o Noche antes de guardar. No modifica automáticamente reservas existentes ni fija una hora exacta.
+- Las tarjetas de propuestas permiten guardar el plan del día sin abrir el detalle y pedir otra opción mediante iconos. El detalle conserva la elección de franja y usa las mismas acciones con nombres accesibles y estados de carga.
 - «Completar el día» respeta la franja guardada de los planes flexibles. Una reserva con hora ocupa su intervalo, no toda la franja; las sugerencias nuevas evitan solaparse con esas reservas.
 - Atrás cierra primero el detalle o estado abierto, luego recorre páginas y pestañas visitadas. En la raíz, Android muestra «Volvé a presionar Atrás para cerrar» y requiere otra pulsación dentro de dos segundos.
 

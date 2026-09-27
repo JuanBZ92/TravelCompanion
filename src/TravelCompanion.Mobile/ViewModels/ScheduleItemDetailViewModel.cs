@@ -14,6 +14,33 @@ public sealed partial class ScheduleItemDetailViewModel(
     ReservationDocumentLinkStore documentLinks) : ViewModelBase, IQueryAttributable
 {
     private ScheduleItemDto? _scheduleItem;
+    private string? personalNote;
+    public async Task RefreshJournalAsync()
+    {
+        var item = ScheduleItem;
+        if (item is null) return;
+        try
+        {
+            var store = MauiProgram.Services.GetRequiredService<JournalStore>();
+            var scope = store.Scope();
+            var entries = await store.LoadAsync(scope, [item], false, default);
+            if (!store.IsCurrent(scope) || ScheduleItem?.Id != item.Id) return;
+            personalNote = entries.FirstOrDefault(x => x.Note.ActivityId == item.Id)?.Text ?? "";
+            OnPropertyChanged(nameof(NotesText)); OnPropertyChanged(nameof(HasNotes));
+        }
+        catch (OperationCanceledException) { }
+    }
+    [RelayCommand]
+    private async Task OpenJournalAsync()
+    {
+        if (ScheduleItem is not { } item) return;
+        var store = MauiProgram.Services.GetRequiredService<JournalStore>();
+        var scope = store.Scope();
+        var entries = await store.LoadAsync(scope, [item], false, default);
+        var memory = entries.FirstOrDefault(x => x.Note.ActivityId == item.Id)
+            ?? new JournalMemory(new(item.Id, scope.TripId, item.Title, item.City, item.Date, "", 0, DateTimeOffset.UtcNow));
+        await Shell.Current.Navigation.PushModalAsync(new Pages.JournalMemoryPage(scope, memory, item));
+    }
     private ReservationDocumentLink? _documentLink;
     public bool HasLinkedDocument => _documentLink is not null;
     public string LinkedDocumentTitle => _documentLink?.Title ?? string.Empty;
@@ -37,6 +64,7 @@ public sealed partial class ScheduleItemDetailViewModel(
         {
             if (SetProperty(ref _scheduleItem, value))
             {
+                personalNote = null;
                 _documentLink = null;
                 OnPropertyChanged(nameof(HasLinkedDocument));
                 OnPropertyChanged(nameof(LinkedDocumentTitle));
@@ -98,8 +126,8 @@ public sealed partial class ScheduleItemDetailViewModel(
         ? "Direccion no disponible"
         : ScheduleItem.Address;
 
-    public string NotesText => ItineraryNotePreview.IsAssistantPlaceholder(ScheduleItem?.Notes)
-        ? string.Empty : ScheduleItem?.Notes ?? string.Empty;
+    public string NotesText => personalNote ?? (ScheduleItem is { IsTravelerOwned: true } item
+        && !ItineraryNotePreview.IsAssistantPlaceholder(item.Notes) ? item.Notes : string.Empty);
     public bool HasNotes => !string.IsNullOrWhiteSpace(NotesText);
     public bool HasAddress => ScheduleItem is not null && !string.IsNullOrWhiteSpace(ScheduleItem.Address);
 

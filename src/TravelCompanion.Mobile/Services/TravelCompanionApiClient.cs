@@ -9,7 +9,7 @@ using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Mobile.Services;
 
-public sealed class TravelCompanionApiClient
+public sealed partial class TravelCompanionApiClient
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {

@@ -584,6 +584,56 @@ namespace TravelCompanion.Api.Data.Migrations
                     b.ToTable("ItineraryProposals");
                 });
 
+            modelBuilder.Entity("TravelCompanion.Api.Models.JournalNote", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ActivityId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("City")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("MutationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Notes")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("TripId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TripId");
+
+                    b.HasIndex("UserId", "TripId", "ActivityId")
+                        .IsUnique();
+
+                    b.ToTable("JournalNotes");
+                });
+
             modelBuilder.Entity("TravelCompanion.Api.Models.MobileDataVersion", b =>
                 {
                     b.Property<string>("Scope")
@@ -2396,6 +2446,21 @@ namespace TravelCompanion.Api.Data.Migrations
                     b.Navigation("SourceRoute");
 
                     b.Navigation("Trip");
+                });
+
+            modelBuilder.Entity("TravelCompanion.Api.Models.JournalNote", b =>
+                {
+                    b.HasOne("TravelCompanion.Api.Models.Trip", null)
+                        .WithMany()
+                        .HasForeignKey("TripId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("TravelCompanion.Api.Models.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("TravelCompanion.Api.Models.NotificationDeviceRegistration", b =>

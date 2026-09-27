@@ -43,6 +43,8 @@ public partial class AppShell : Shell
         Routing.RegisterRoute(nameof(BuilderSetupPage), typeof(BuilderSetupPage));
         Routing.RegisterRoute(nameof(ItineraryItemEditorPage), typeof(ItineraryItemEditorPage));
         Routing.RegisterRoute(nameof(AccountPage), typeof(AccountPage));
+        Routing.RegisterRoute(nameof(DocsPage), typeof(DocsPage));
+        Routing.RegisterRoute(nameof(PaywallPage), typeof(PaywallPage));
         Routing.RegisterRoute(nameof(TripReviewPage), typeof(TripReviewPage));
         Routing.RegisterRoute(nameof(DayPersonalizationPage), typeof(DayPersonalizationPage));
 
@@ -90,12 +92,9 @@ public partial class AppShell : Shell
             }
         }
         ScheduleTab.IsVisible = usesMainTabs && (!sessionService.IsFreeMapPreview || sessionService.IsBuilder);
-        JournalTab.IsVisible = ScheduleTab.IsVisible;
-        PassTab.IsVisible = sessionService.HasSession && sessionService.IsFreeMapPreview;
+        JournalTab.IsVisible = ScheduleTab.IsVisible && sessionService.CurrentTripId.HasValue;
         AssistantTab.IsVisible = sessionService.IsBuilder;
-        DocsTab.IsVisible = sessionService.HasSession && (sessionService.HasCuratedDocs || sessionService.IsBuilder && !sessionService.IsFreeMapPreview);
-        AccountTab.IsVisible = sessionService.HasSession && !sessionService.IsFreeMapPreview;
-        LogoutTab.IsVisible = sessionService.HasSession;
+        AccountTab.IsVisible = sessionService.HasSession;
     }
 
     public static string GetAuthenticatedLandingRoute(AuthSessionService sessionService)
@@ -205,13 +204,10 @@ public partial class AppShell : Shell
         ChangePasswordTab.Title = resources["TabChangePassword"];
         FreeMapTab.Title = resources["TabMap"];
         MapTab.Title = resources["TabMap"];
-        ScheduleTab.Title = resources["TabToday"];
+        ScheduleTab.Title = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "es" ? "Viaje" : "Trip";
         AssistantTab.Title = _pendingMutationCount > 0
             ? $"{resources["TabAssistant"]} ({_pendingMutationCount})"
             : resources["TabAssistant"];
-        DocsTab.Title = resources["TabDocs"];
         AccountTab.Title = resources["TabAccount"];
-        PassTab.Title = resources["PaywallPageTitle"];
-        LogoutTab.Title = resources["TabLogout"];
     }
 }

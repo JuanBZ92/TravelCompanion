@@ -8,6 +8,24 @@ namespace TravelCompanion.Mobile.Tests;
 public sealed class TravelChatMobilePresentationTests
 {
     [Fact]
+    public void Card_icon_actions_follow_save_and_alternative_state()
+    {
+        var card = ProposalCard("Cafe", Guid.NewGuid(), "09:00", true);
+        Assert.Equal("action_save.svg", card.SaveIcon);
+        Assert.True(card.CanSave);
+        card.IsSaving = true;
+        Assert.False(card.CanSave);
+        Assert.False(card.CanFindAlternative);
+        card.IsSaving = false;
+        card.IsSearchingAlternative = true;
+        Assert.False(card.CanSave);
+        Assert.False(card.CanFindAlternative);
+        card.IsSearchingAlternative = false;
+        card.IsSaved = true;
+        Assert.Equal("action_saved.svg", card.SaveIcon);
+        Assert.False(card.CanSave);
+    }
+    [Fact]
     public void Flexible_day_idea_allows_period_choice_but_existing_reservation_does_not()
     {
         var dto = new TravelCardDto("day_stop", "Cocktails", "Tokyo", null, "09:00", null,

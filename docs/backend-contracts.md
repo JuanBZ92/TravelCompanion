@@ -334,3 +334,15 @@ Free map previews include all catalog markers assigned to the selected city, inc
 Vuelos y check-in con hora exacta también reciben un aviso 24 horas antes; las reservas comunes mantienen solo 180/45 minutos. Los avisos cuyo momento ya pasó no se envían retroactivamente.
 
 Cambios de ciudad: se comparan días consecutivos del itinerario. Si cambia la ciudad, se programa un aviso de preparación a las 09:00 del día anterior en la zona del viaje, sin inferir hora de salida. El DTO usa `reservationId: null`, `tripDayId` y un ID estable `city-change-{dayId}`. Editar/eliminar el cambio lo reemplaza/cancela en la siguiente sincronización.
+
+### Personal Journal
+
+`GET /api/mobile/trips/{tripId}/journal` and `PUT /api/mobile/trips/{tripId}/journal/{activityId}` require an authenticated session for the selected owned, published trip. They do not require itinerary editing or a paid pass. The PUT accepts `{ notes, expectedRevision, mutationId }`, with at most 2000 characters. It returns `{ saved, entry }`; an outdated revision returns HTTP 409 with `saved: false` and the server entry. A repeated mutation ID returns its result while current; older replays cannot overwrite a newer revision. A new note starts at expected revision 0. Missing activities cannot create notes, but existing memories of deleted activities remain editable.
+
+`JournalNoteDto` contains activity/trip IDs, title/city/date snapshot, personal notes, revision and updatedAt. No confirmation codes or document references are returned. Photos remain private to the client device and are never uploaded by these endpoints.
+
+`AddPersonalJournal` is additive and backfills traveler-owned personal notes, excluding empty text, assistant placeholders and matching catalog descriptions. The unique key is user/trip/activity. Activity deletion has no cascade; trip/user deletion does. The account soft-delete workflow explicitly erases Journal notes.
+
+Legacy itinerary create/update/delete synchronizes personal notes into Journal. Journal writes mirror traveler-owned notes back into the legacy reservation and advance the trip revision to protect old editors; protected reservation data is unchanged. New itinerary mutations can pass optional `preservePersonalNotes: true` when notes are edited through Journal separately. Omitted values preserve old-client behavior.
+
+On successful anonymous-account linking, the verification response includes optional `linkedFromUserId`. Journal notes move with the owned trips in the same backend transaction. The mobile client uses that explicit result (not ordinary account switching) to transfer the current trip's local notes/photos before replacing the session.

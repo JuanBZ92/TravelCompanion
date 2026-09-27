@@ -57,7 +57,8 @@ public sealed record ItineraryItemMutationRequest(
     ItineraryFlexibility Flexibility = ItineraryFlexibility.Flexible,
     int? DurationMinutes = null,
     bool? ReminderEnabled = null,
-    [param: MaxLength(128)] string? TimeZoneId = null);
+    [param: MaxLength(128)] string? TimeZoneId = null,
+    bool PreservePersonalNotes = false);
 
 public sealed record ItineraryItemMutationResponse(
     bool Success,

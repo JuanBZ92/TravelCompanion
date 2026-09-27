@@ -115,6 +115,7 @@ public sealed class TravelerItineraryService(
         dbContext.Reservations.Add(item);
         trip.PlanRevision++;
         trip.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        await JournalService.SyncLegacyAsync(dbContext, trip, item, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
         if (isFirstTravelerItem && analytics is not null)
             await analytics.RecordServerEventAsync(access.User.Id, trip.Id, "first_item_saved", "itinerary", null, cancellationToken);
@@ -170,7 +171,7 @@ public sealed class TravelerItineraryService(
         item.City = request.City?.Trim() ?? block.TripDayPlan?.City ?? item.City;
         item.LocationName = request.LocationName?.Trim() ?? request.Title.Trim();
         item.Address = request.Address?.Trim() ?? string.Empty;
-        item.Notes = request.Notes?.Trim() ?? string.Empty;
+        if (!request.PreservePersonalNotes) item.Notes = request.Notes?.Trim() ?? string.Empty;
         if (!item.RecommendationId.HasValue)
         {
             var googlePlaceId = request.GooglePlaceId?.Trim();
@@ -200,6 +201,7 @@ public sealed class TravelerItineraryService(
             item.Flexibility);
         trip.PlanRevision++;
         trip.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        await JournalService.SyncLegacyAsync(dbContext, trip, item, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
         if (transaction is not null) await transaction.CommitAsync(cancellationToken);
         return new(true, "Itinerario actualizado.", trip.PlanRevision, ToDto(item));
@@ -235,6 +237,7 @@ public sealed class TravelerItineraryService(
         dbContext.Reservations.Remove(item);
         trip.PlanRevision++;
         trip.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        await JournalService.SyncLegacyAsync(dbContext, trip, item, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
         if (transaction is not null) await transaction.CommitAsync(cancellationToken);
         return new(true, "Item eliminado.", trip.PlanRevision, DeletedItemId: id);

@@ -1333,7 +1333,7 @@ public sealed partial class TravelChatViewModel(
 
         if (normalized == NormalizeCommandText(Resource("AssistantOpenDocs")))
         {
-            await Shell.Current.GoToAsync("//main/docs");
+            await Shell.Current.GoToAsync(nameof(DocsPage));
             return true;
         }
 

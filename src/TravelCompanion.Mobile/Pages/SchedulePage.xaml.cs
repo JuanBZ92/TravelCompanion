@@ -8,6 +8,7 @@ namespace TravelCompanion.Mobile.Pages;
 
 public partial class SchedulePage : ContentPage, IQueryAttributable
 {
+    private async void OnDocumentsClicked(object? sender, EventArgs e) => await Shell.Current.GoToAsync(nameof(DocsPage));
     private readonly ScheduleViewModel _viewModel;
     private readonly ILogger<SchedulePage> _logger;
     private bool _isHandlingAppearance;

@@ -68,6 +68,20 @@ public sealed partial class ItineraryItemEditorViewModel(
     private readonly ItineraryEditorContext _editorContext = new();
     private int _revision { get => _editorContext.Revision; set => _editorContext.Revision = value; }
     private ScheduleItemDto? _existingItem;
+    public bool IsNewItem => _existingItem is null;
+    public bool IsExistingItem => _existingItem is not null;
+    [RelayCommand]
+    private async Task OpenJournalAsync()
+    {
+        if (_existingItem is null) return;
+        var store = MauiProgram.Services.GetRequiredService<JournalStore>();
+        var scope = store.Scope();
+        var entries = await store.LoadAsync(scope, [_existingItem], false, default);
+        var memory = entries.FirstOrDefault(x => x.Note.ActivityId == _existingItem.Id)
+            ?? new JournalMemory(new(_existingItem.Id, scope.TripId, _existingItem.Title, _existingItem.City,
+                _existingItem.Date, "", 0, DateTimeOffset.UtcNow));
+        await Shell.Current.Navigation.PushModalAsync(new Pages.JournalMemoryPage(scope, memory, _existingItem));
+    }
     private IReadOnlyList<BuilderTripSetupSegmentDto> _segments = [];
     private CancellationTokenSource? _placeSearch;
     private string _placeSessionToken = Guid.NewGuid().ToString();
@@ -186,6 +200,7 @@ public sealed partial class ItineraryItemEditorViewModel(
         _applyingPlaceSelection = false;
         OnPropertyChanged(nameof(HeaderTitle));
         OnPropertyChanged(nameof(EditorTitle));
+        OnPropertyChanged(nameof(IsNewItem)); OnPropertyChanged(nameof(IsExistingItem));
         OnPropertyChanged(nameof(SaveButtonText));
         OnPropertyChanged(nameof(CanSearchPlaces));
         OnPropertyChanged(nameof(ShowTitleInput));
@@ -236,6 +251,7 @@ public sealed partial class ItineraryItemEditorViewModel(
         SelectedPeriod = periodKey switch { "morning" => "Mañana", "midday" => "Medio día", "night" => "Noche", _ => "Tarde" };
         OnPropertyChanged(nameof(HeaderTitle));
         OnPropertyChanged(nameof(EditorTitle));
+        OnPropertyChanged(nameof(IsNewItem)); OnPropertyChanged(nameof(IsExistingItem));
         OnPropertyChanged(nameof(SaveButtonText));
         OnPropertyChanged(nameof(CanSearchPlaces));
         OnPropertyChanged(nameof(ShowTitleInput));
@@ -277,6 +293,7 @@ public sealed partial class ItineraryItemEditorViewModel(
         _flexibility = item.Flexibility;
         OnPropertyChanged(nameof(HeaderTitle));
         OnPropertyChanged(nameof(EditorTitle));
+        OnPropertyChanged(nameof(IsNewItem)); OnPropertyChanged(nameof(IsExistingItem));
         OnPropertyChanged(nameof(SaveButtonText));
         OnPropertyChanged(nameof(CanSearchPlaces));
         OnPropertyChanged(nameof(ShowTitleInput));
@@ -438,6 +455,7 @@ public sealed partial class ItineraryItemEditorViewModel(
         TitleText = suggestion.Name;
         OnPropertyChanged(nameof(HeaderTitle));
         OnPropertyChanged(nameof(EditorTitle));
+        OnPropertyChanged(nameof(IsNewItem)); OnPropertyChanged(nameof(IsExistingItem));
         OnPropertyChanged(nameof(SaveButtonText));
         OnPropertyChanged(nameof(CanSearchPlaces));
         OnPropertyChanged(nameof(ShowTitleInput));
@@ -479,6 +497,7 @@ public sealed partial class ItineraryItemEditorViewModel(
             TitleText = place.Title;
             OnPropertyChanged(nameof(HeaderTitle));
         OnPropertyChanged(nameof(EditorTitle));
+        OnPropertyChanged(nameof(IsNewItem)); OnPropertyChanged(nameof(IsExistingItem));
         OnPropertyChanged(nameof(SaveButtonText));
         OnPropertyChanged(nameof(CanSearchPlaces));
             OnPropertyChanged(nameof(ShowTitleInput));
@@ -544,7 +563,8 @@ public sealed partial class ItineraryItemEditorViewModel(
             LocationName, Address,
             Notes, _recommendation?.Latitude ?? _selectedLatitude, _recommendation?.Longitude ?? _selectedLongitude,
             _revision, Guid.NewGuid().ToString("N"), Flexibility: _flexibility, DurationMinutes: duration,
-            ReminderEnabled: UseExactTime && ReminderEnabled, TimeZoneId: UseExactTime ? ReservationTimeZone : null);
+            ReminderEnabled: UseExactTime && ReminderEnabled, TimeZoneId: UseExactTime ? ReservationTimeZone : null,
+            PreservePersonalNotes: _existingItem is not null);
         var result = await SaveMutationAsync(mutation);
         if (!_editorContext.IsCurrent(sessionService.ContextVersion)) return;
         if (result?.HasOverlap == true)
@@ -671,6 +691,7 @@ public sealed partial class ItineraryItemEditorViewModel(
         _selectedLongitude = null;
         OnPropertyChanged(nameof(HeaderTitle));
         OnPropertyChanged(nameof(EditorTitle));
+        OnPropertyChanged(nameof(IsNewItem)); OnPropertyChanged(nameof(IsExistingItem));
         OnPropertyChanged(nameof(SaveButtonText));
         OnPropertyChanged(nameof(CanSearchPlaces));
         OnPropertyChanged(nameof(ShowTitleInput));

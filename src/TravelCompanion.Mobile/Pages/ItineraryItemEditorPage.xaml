@@ -76,7 +76,8 @@
                     <Label Text="{Binding [ItemReminderHint], Source={x:Static services:LocalizationResourceManager.Instance}}" FontSize="12" TextColor="#6E675F" />
                 </VerticalStackLayout>
                 <VerticalStackLayout Spacing="6"><Label Text="{Binding [ItemDurationLabel], Source={x:Static services:LocalizationResourceManager.Instance}}" Style="{StaticResource Eyebrow}"/><Entry Text="{Binding DurationMinutes}" Keyboard="Numeric" /></VerticalStackLayout>
-                <Editor Placeholder="Notas personales (opcional)" Text="{Binding Notes}" AutoSize="TextChanges" MinimumHeightRequest="100" />
+                <Button Text="Editar recuerdo en Journal" Command="{Binding OpenJournalCommand}" IsVisible="{Binding IsExistingItem}" Style="{StaticResource GhostButton}" />
+                <Editor IsVisible="{Binding IsNewItem}" Placeholder="Notas personales (opcional)" Text="{Binding Notes}" AutoSize="TextChanges" MinimumHeightRequest="100" />
                 <Border IsVisible="{Binding HasError}" Style="{StaticResource ErrorPanel}"><Label Text="{Binding ErrorMessage}" /></Border>
                 <ActivityIndicator IsVisible="{Binding IsBusy}" IsRunning="{Binding IsBusy}" />
             </VerticalStackLayout>

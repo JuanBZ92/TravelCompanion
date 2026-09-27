@@ -4,8 +4,8 @@
              xmlns:viewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
              x:Class="TravelCompanion.Mobile.Pages.DocsPage"
              x:DataType="viewModels:DocsViewModel"
-             Title="Docs"
-             Shell.NavBarIsVisible="False"
+             Title="Documentos"
+             Shell.NavBarIsVisible="True"
              BackgroundColor="{StaticResource Mist}">
 
     <ContentPage.Resources>

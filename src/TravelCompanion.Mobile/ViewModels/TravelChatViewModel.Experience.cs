@@ -378,9 +378,11 @@ public sealed partial class TravelChatViewModel
     }
 
     [RelayCommand]
-    private async Task SaveAssistantCardAsync()
+    private Task SaveAssistantCardAsync() => SaveProposalCardAsync(SelectedDetailCard);
+
+    public async Task SaveProposalCardAsync(TravelChatCardViewModel? card)
     {
-        if (SelectedDetailCard is not { } card) return;
+        if (card is null || !card.CanSave) return;
         if (ShowAssistantProposal && _proposalRevision.HasValue)
         {
             var latest = (await bootstrapStore.GetCachedAsync())?.Value.Schedule;
@@ -395,20 +397,22 @@ public sealed partial class TravelChatViewModel
         await SaveItineraryItemCommand.ExecuteAsync(card);
         if (card.IsSaved)
         {
-            SelectedDetailCard = null;
+            if (SelectedDetailCard == card) SelectedDetailCard = null;
             _proposalRevision = null;
             await RefreshAssistantProposalAsync();
         }
     }
 
     [RelayCommand]
-    private async Task ReplaceAssistantCardAsync()
+    private Task ReplaceAssistantCardAsync() => ReplaceProposalCardAsync(SelectedDetailCard);
+
+    public async Task ReplaceProposalCardAsync(TravelChatCardViewModel? card)
     {
-        if (SelectedDetailCard is not { } card) return;
+        if (card is null || !card.CanFindAlternative || IsBusy) return;
         var message = Messages.FirstOrDefault(item => item.Cards.Contains(card));
         var previousCards = message?.Cards.ToList();
         var wasQuickSearch = _proposalIsQuickSearch;
-        SelectedDetailCard = null;
+        if (SelectedDetailCard == card) SelectedDetailCard = null;
         await ReplaceRecommendationCommand.ExecuteAsync(card);
         if (!card.IsDayPlanCard && message is not null && previousCards is not null
             && !message.Cards.SequenceEqual(previousCards))

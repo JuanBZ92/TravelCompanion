@@ -5,6 +5,10 @@ namespace TravelCompanion.Mobile.Services;
 // Controlled I/O for tests that execute the production FreeMapStore.
 public sealed class TravelCompanionApiClient
 {
+    public Func<Task<List<JournalNoteDto>>> FetchJournal = () => Task.FromResult(new List<JournalNoteDto>());
+    public Func<SaveJournalNoteRequest, Task<JournalSaveResult>> SaveJournal = _ => throw new HttpRequestException();
+    public Task<List<JournalNoteDto>> GetJournalAsync(string token, Guid trip, CancellationToken ct) => FetchJournal();
+    public Task<JournalSaveResult> SaveJournalAsync(string token, Guid trip, Guid activity, SaveJournalNoteRequest request, CancellationToken ct) => SaveJournal(request);
     public Uri BaseAddress { get; } = new("https://example.invalid/");
     public int CityRequests;
     public Func<Task<FreeMapPreviewDto?>> FetchCity = () => Task.FromResult<FreeMapPreviewDto?>(null);

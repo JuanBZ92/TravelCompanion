@@ -437,6 +437,9 @@ public sealed class CommercePlanningTests
         };
         db.AddRange(destination, target, source, trip, grant, intent, route, proposal, operation,
             sourceAssignment, targetAssignment, challenge);
+        var journal = new JournalNote { Id = Guid.NewGuid(), UserId = source.Id, TripId = trip.Id, ActivityId = Guid.NewGuid(),
+            Title = "Café", City = "Tokyo", Date = trip.StartsOn, Notes = "Mi recuerdo", Revision = 1, UpdatedAt = DateTimeOffset.UtcNow };
+        db.JournalNotes.Add(journal);
         await db.SaveChangesAsync();
         var sessions = new UserSessionService(db);
         var (_, token) = await sessions.CreateSessionAsync(source, tripId: trip.Id, accessMode: SessionAccessMode.FreeMapPreview);
@@ -447,6 +450,9 @@ public sealed class CommercePlanningTests
                 Microsoft.Extensions.Options.Options.Create(new FreePreviewOptions()), NullLogger<FreeTrialAccessService>.Instance));
 
         var linked = await service.VerifyCodeAsync(http, new(email, code), default);
+        Assert.Equal(source.Id, linked.LinkedFromUserId);
+        Assert.Equal(target.Id, (await db.JournalNotes.SingleAsync()).UserId);
+        Assert.Equal("Mi recuerdo", journal.Notes);
 
         Assert.Equal(FreeAccessPolicy.PersistentFree, linked.TrialAccess?.FreePolicy);
         Assert.Equal(TrialAccessState.Editing, linked.TrialAccess?.State);

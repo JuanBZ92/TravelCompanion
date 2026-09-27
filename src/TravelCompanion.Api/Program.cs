@@ -147,6 +147,7 @@ builder.Services.AddScoped<UserSessionService>();
 builder.Services.AddScoped<TravelerAccessService>();
 builder.Services.AddScoped<BuilderTripService>();
 builder.Services.AddScoped<TravelerItineraryService>();
+builder.Services.AddScoped<JournalService>();
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<IGooglePlacesService, GooglePlacesService>();
 builder.Services.AddSingleton<IGoogleRoutesService, GoogleRoutesService>();

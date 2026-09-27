@@ -115,7 +115,11 @@ public sealed class EmailAccountService(
         {
             target.PersonalizedDayTrialUsedAtUtc ??= source.User.PersonalizedDayTrialUsedAtUtc;
             var sourceTrips = await dbContext.Trips.Where(trip => trip.AppUserId == source.User.Id).ToListAsync(cancellationToken);
+            foreach (var sourceTripId in sourceTrips.Select(x => x.Id).Order())
+                await TripConcurrencyLock.LockAsync(dbContext, sourceTripId, cancellationToken);
             foreach (var trip in sourceTrips) trip.AppUserId = target.Id;
+            var sourceJournal = await dbContext.JournalNotes.Where(note => note.UserId == source.User.Id).ToListAsync(cancellationToken);
+            foreach (var note in sourceJournal) note.UserId = target.Id;
             var sourceGrants = await dbContext.BuilderAccessGrants.Where(grant => grant.AppUserId == source.User.Id).ToListAsync(cancellationToken);
             foreach (var grant in sourceGrants) grant.AppUserId = target.Id;
             var sourcePurchaseIntents = await dbContext.StorePurchaseIntents
@@ -179,7 +183,8 @@ public sealed class EmailAccountService(
             await analytics.RecordServerEventAsync(target.Id, tripId, "email_verification_completed", "account", null, cancellationToken);
         return new(target.Id, target.Email, target.DisplayName, false, token, tripId,
             AccessMode: mode, ExperienceMode: pass is not null ? ExperienceMode.SelfServiceBuilder : ExperienceMode.FreePreview,
-            Capabilities: CreateAccountCapabilities(mode, trial, !tripId.HasValue), TrialAccess: trial, EmailVerified: true);
+            Capabilities: CreateAccountCapabilities(mode, trial, !tripId.HasValue), TrialAccess: trial, EmailVerified: true,
+            LinkedFromUserId: source is not null && target.Id != source.User.Id && IsAnonymous(source.User) ? source.User.Id : null);
     }
 
     public async Task<TravelerAccountDto> GetAccountAsync(HttpContext httpContext, CancellationToken cancellationToken)
@@ -318,6 +323,7 @@ public sealed class EmailAccountService(
             await TripConcurrencyLock.LockAsync(dbContext, tripId, cancellationToken);
         dbContext.Reservations.RemoveRange(await dbContext.Reservations.Where(item => tripIds.Contains(item.TripId)).ToListAsync(cancellationToken));
         dbContext.TravelDocuments.RemoveRange(await dbContext.TravelDocuments.Where(item => tripIds.Contains(item.TripId)).ToListAsync(cancellationToken));
+        dbContext.JournalNotes.RemoveRange(await dbContext.JournalNotes.Where(item => item.UserId == user.Id).ToListAsync(cancellationToken));
         dbContext.ThematicRoutes.RemoveRange(await dbContext.ThematicRoutes.Where(item => item.AppUserId == user.Id).ToListAsync(cancellationToken));
         dbContext.ItineraryProposals.RemoveRange(await dbContext.ItineraryProposals.Where(item => item.AppUserId == user.Id).ToListAsync(cancellationToken));
         dbContext.ItineraryOperations.RemoveRange(await dbContext.ItineraryOperations.Where(item => item.AppUserId == user.Id).ToListAsync(cancellationToken));

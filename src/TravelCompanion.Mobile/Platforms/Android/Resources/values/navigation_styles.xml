@@ -5,7 +5,7 @@
     <item name="enforceTextAppearance">false</item>
     <item name="enforceMaterialTheme">false</item>
     <item name="elevation">0dp</item>
-    <item name="itemBackground">?attr/selectableItemBackgroundBorderless</item>
+    <item name="itemBackground">@drawable/yuku_navigation_item</item>
     <item name="itemHorizontalTranslationEnabled">false</item>
     <item name="itemIconSize">24dp</item>
     <item name="labelVisibilityMode">labeled</item>

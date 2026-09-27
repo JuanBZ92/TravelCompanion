@@ -125,6 +125,7 @@
                            TextColor="{StaticResource Accent}" />
                 </VerticalStackLayout>
 
+                <Button Text="Mi recuerdo en Journal" Command="{Binding OpenJournalCommand}" Style="{StaticResource GhostButton}" />
                 <Button Text="Abrir mapa"
                         Command="{Binding OpenMapsCommand}"
                         IsEnabled="{Binding HasAddress}"

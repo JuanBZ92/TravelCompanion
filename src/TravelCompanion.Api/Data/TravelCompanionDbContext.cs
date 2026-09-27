@@ -16,6 +16,7 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
     public DbSet<TripDayBlock> TripDayBlocks => Set<TripDayBlock>();
     public DbSet<TripPlanDraft> TripPlanDrafts => Set<TripPlanDraft>();
     public DbSet<Reservation> Reservations => Set<Reservation>();
+    public DbSet<JournalNote> JournalNotes => Set<JournalNote>();
     public DbSet<TravelDocument> TravelDocuments => Set<TravelDocument>();
     public DbSet<AppUser> AppUsers => Set<AppUser>();
     public DbSet<UserEntitlement> UserEntitlements => Set<UserEntitlement>();
@@ -48,6 +49,13 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<JournalNote>(entity =>
+        {
+            entity.HasIndex(x => new { x.UserId, x.TripId, x.ActivityId }).IsUnique();
+            entity.Property(x => x.Revision).IsConcurrencyToken();
+            entity.HasOne<AppUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne<Trip>().WithMany().HasForeignKey(x => x.TripId).OnDelete(DeleteBehavior.Cascade);
+        });
         modelBuilder.Entity<MobileDataVersion>(entity =>
         {
             entity.HasKey(version => version.Scope);

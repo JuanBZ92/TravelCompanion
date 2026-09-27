@@ -109,6 +109,7 @@ public sealed partial class PaywallViewModel(
             if (string.IsNullOrWhiteSpace(code)) return;
             var verified = await api.VerifyEmailCodeAsync(token, email, new string(code.Where(char.IsDigit).ToArray()), ct)
                 ?? throw new InvalidOperationException(Resource("AccountCodeInvalid"));
+            await MauiProgram.Services.GetRequiredService<JournalStore>().TransferLinkedTripAsync(verified);
             await logout.ResetContentAsync(sessions.CurrentUserId, preservePendingItineraryAction: true);
             await sessions.SaveAsync(verified); token = verified.Token;
         }

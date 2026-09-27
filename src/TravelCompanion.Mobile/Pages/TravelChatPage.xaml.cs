@@ -102,6 +102,18 @@ public partial class TravelChatPage : ContentPage, IQueryAttributable
     private async void OnSaveDetailClicked(object? sender, EventArgs e) =>
         await _viewModel.SaveAssistantCardCommand.ExecuteAsync(null);
 
+    private async void OnSaveProposalClicked(object? sender, EventArgs e)
+    {
+        if ((sender as BindableObject)?.BindingContext is AssistantProposalRow row)
+            await _viewModel.SaveProposalCardAsync(row.Suggestion);
+    }
+
+    private async void OnReplaceProposalClicked(object? sender, EventArgs e)
+    {
+        if ((sender as BindableObject)?.BindingContext is AssistantProposalRow row)
+            await _viewModel.ReplaceProposalCardAsync(row.Suggestion);
+    }
+
     private async void OnReplaceDetailClicked(object? sender, EventArgs e) =>
         await _viewModel.ReplaceAssistantCardCommand.ExecuteAsync(null);
 

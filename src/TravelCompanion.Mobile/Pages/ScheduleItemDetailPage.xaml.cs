@@ -46,6 +46,7 @@ public partial class ScheduleItemDetailPage : ContentPage
         base.OnAppearing();
         SubscribeToViewModel();
         _ = _viewModel.RefreshLinkedDocumentAsync();
+        _ = _viewModel.RefreshJournalAsync();
         _ = RefreshMapAsync();
     }
 

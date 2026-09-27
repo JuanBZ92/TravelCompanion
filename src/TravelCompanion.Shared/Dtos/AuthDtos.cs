@@ -132,4 +132,5 @@ public sealed record AuthSessionDto(
     ExperienceMode ExperienceMode = ExperienceMode.CuratedPremium,
     TravelerCapabilitiesDto? Capabilities = null,
     TrialAccessStatusDto? TrialAccess = null,
-    bool EmailVerified = false);
+    bool EmailVerified = false,
+    Guid? LinkedFromUserId = null);

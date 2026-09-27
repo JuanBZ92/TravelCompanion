@@ -11,6 +11,7 @@ public sealed class OfflineSyncCoordinator(
     MobileDiscoverStore discoverStore,
     MobileTodayStore todayStore,
     FreeMapStore freeMapStore,
+    JournalStore journalStore,
     ILogger<OfflineSyncCoordinator> logger)
 {
     private readonly SemaphoreSlim _syncLock = new(1, 1);
@@ -58,6 +59,8 @@ public sealed class OfflineSyncCoordinator(
             var result = await mutationQueue
                 .ReplayPendingAsync(token, cancellationToken)
                 .ConfigureAwait(false);
+            if (sessionService.CurrentTripId.HasValue)
+                await journalStore.ReplayPendingAsync(cancellationToken).ConfigureAwait(false);
             await SynchronizeVersionsAsync(token, force: false, cancellationToken).ConfigureAwait(false);
             await PublishPendingCountAsync(cancellationToken).ConfigureAwait(false);
             return result;

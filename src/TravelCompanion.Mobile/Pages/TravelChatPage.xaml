@@ -11,6 +11,21 @@
              Shell.NavBarIsVisible="False"
              BackgroundColor="{StaticResource Mist}">
 
+    <ContentPage.Resources>
+        <Style x:Key="AssistantIconAction" TargetType="ImageButton">
+            <Setter Property="BackgroundColor" Value="Transparent" />
+            <Setter Property="WidthRequest" Value="48" />
+            <Setter Property="HeightRequest" Value="48" />
+            <Setter Property="Padding" Value="12" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Style.Triggers>
+                <Trigger TargetType="ImageButton" Property="IsEnabled" Value="False">
+                    <Setter Property="Opacity" Value="0.45" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </ContentPage.Resources>
+
     <Grid>
     <Grid Padding="28,26,28,0" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="8"
           InputTransparent="{Binding HasSelectedDetailCard}"
@@ -249,17 +264,9 @@
                                                                TextColor="#1A1714"
                                                                MaxLines="2"
                                                                VerticalOptions="Center" />
-                                                        <Button Grid.Column="1"
-                                                                Text="ⓘ"
-                                                                Clicked="OnOpenCardClicked"
-                                                                SemanticProperties.Description="{Binding DetailButtonText}"
-                                                                Style="{StaticResource GhostButton}"
-                                                                TextColor="{StaticResource Ink}"
-                                                                FontSize="18"
-                                                                Padding="0"
-                                                                MinimumWidthRequest="44"
-                                                                MinimumHeightRequest="44"
-                                                                VerticalOptions="Start" />
+                                                        <ImageButton Grid.Column="1" Source="action_info.svg" Clicked="OnOpenCardClicked"
+                                                                     SemanticProperties.Description="{Binding DetailButtonText}" ToolTipProperties.Text="{Binding DetailButtonText}"
+                                                                     Style="{StaticResource AssistantIconAction}" VerticalOptions="Start" />
                                                     </Grid>
                                                     <Label Grid.Row="1"
                                                            Text="{Binding Subtitle}"
@@ -327,53 +334,21 @@
                                                             </DataTemplate>
                                                         </BindableLayout.ItemTemplate>
                                                     </VerticalStackLayout>
-                                                    <VerticalStackLayout Grid.Row="7" Spacing="8" Margin="0,8,0,0" IsVisible="False">
-                                                        <Label Text="{Binding DayPlanStateText}" IsVisible="{Binding IsDayPlanCard}"
-                                                               FontSize="12" FontAttributes="Bold" TextColor="{StaticResource Accent}" />
-                                                        <Label Text="{Binding DayPlanHelpText}" IsVisible="{Binding IsDayPlanCard}"
-                                                               FontSize="12" TextColor="{StaticResource Muted}" />
-                                                        <Button Text="{Binding SaveButtonText}"
-                                                                Clicked="OnSaveItineraryItemClicked"
-                                                                SemanticProperties.Description="{Binding SaveButtonText}"
-                                                                IsEnabled="{Binding CanSave}"
-                                                                TextColor="{StaticResource Ink}"
-                                                                BackgroundColor="{StaticResource AccentSoft}"
-                                                                BorderColor="{StaticResource Gold}"
-                                                                BorderWidth="1"
-                                                                CornerRadius="0"
-                                                                FontFamily="OpenSansSemibold"
-                                                                FontSize="13"
-                                                                Padding="8,10"
-                                                                MinimumHeightRequest="44" />
-                                                        <Button
-                                                                Text="{Binding ReplaceButtonText}"
-                                                                Clicked="OnReplaceRecommendationClicked"
-                                                                SemanticProperties.Description="{Binding ReplaceButtonText}"
-                                                                IsEnabled="{Binding CanFindAlternative}"
-                                                                Style="{StaticResource GhostButton}"
-                                                                TextColor="{StaticResource Ink}"
-                                                                FontSize="13"
-                                                                Padding="8,10"
-                                                                MinimumHeightRequest="44" />
-                                                        <ActivityIndicator IsVisible="{Binding IsSearchingAlternative}"
-                                                                           IsRunning="{Binding IsSearchingAlternative}"
-                                                                           Color="{StaticResource Accent}" HeightRequest="24" />
-                                                        <Button
-                                                                Text="{Binding AdjustButtonText}"
-                                                                IsVisible="{Binding ShowPreferenceAdjustment}"
-                                                                Clicked="OnAdjustGuidedPlanClicked"
-                                                                SemanticProperties.Description="{Binding AdjustButtonText}"
-                                                                Style="{StaticResource GhostButton}"
-                                                                TextColor="{StaticResource Ink}"
-                                                                FontSize="13"
-                                                                Padding="8,10"
-                                                                MinimumHeightRequest="44" />
-                                                    </VerticalStackLayout>
+                                                    <HorizontalStackLayout Grid.Row="7" Spacing="6" HorizontalOptions="End" IsVisible="{Binding HasRecommendationId}">
+                                                        <ActivityIndicator IsRunning="{Binding IsSaving}" IsVisible="{Binding IsSaving}" WidthRequest="24" HeightRequest="24" Color="{StaticResource Accent}" />
+                                                        <ActivityIndicator IsRunning="{Binding IsSearchingAlternative}" IsVisible="{Binding IsSearchingAlternative}" WidthRequest="24" HeightRequest="24" Color="{StaticResource Accent}" />
+                                                        <ImageButton Source="action_alternative.svg" Clicked="OnReplaceRecommendationClicked"
+                                                                     IsEnabled="{Binding CanFindAlternative}" Style="{StaticResource AssistantIconAction}"
+                                                                     SemanticProperties.Description="{Binding AnotherOptionLabel}" ToolTipProperties.Text="{Binding AnotherOptionLabel}" />
+                                                        <ImageButton Source="{Binding SaveIcon}" Clicked="OnSaveItineraryItemClicked"
+                                                                     IsEnabled="{Binding CanSave}" Style="{StaticResource AssistantIconAction}" BackgroundColor="{StaticResource Accent}"
+                                                                     SemanticProperties.Description="{Binding SaveButtonText}" ToolTipProperties.Text="{Binding SaveButtonText}" />
+                                                    </HorizontalStackLayout>
                                                     <Label Grid.Row="8"
                                                            Text="{Binding FeedbackStatusMessage}"
                                                            FontSize="12"
                                                            TextColor="{StaticResource Muted}"
-                                                           IsVisible="False" />
+                                                           IsVisible="{Binding HasFeedbackStatus}" />
                                                 </Grid>
                                             </Border>
                                         </DataTemplate>
@@ -640,19 +615,36 @@
                     <Border Padding="13,11" Margin="0,0,0,9" BackgroundColor="{StaticResource Paper}"
                             Stroke="{StaticResource Line}">
                         <Border.StrokeShape><RoundRectangle CornerRadius="13" /></Border.StrokeShape>
-                        <Grid ColumnDefinitions="*,48" ColumnSpacing="8" MinimumHeightRequest="56">
+                        <Grid ColumnDefinitions="*,48" RowDefinitions="Auto,Auto,Auto" RowSpacing="6" ColumnSpacing="8" MinimumHeightRequest="56">
                             <VerticalStackLayout Spacing="4" VerticalOptions="Center">
                                 <Label Text="{Binding When}" FontSize="11" TextColor="{StaticResource Gold}" />
                                 <Label Text="{Binding Title}" FontSize="15" MaxLines="2"
                                        TextColor="{StaticResource Ink}" />
                                 <Label Text="{Binding Reason}" IsVisible="{Binding HasReason}"
                                        FontSize="12" MaxLines="2" TextColor="{StaticResource InkSoft}" />
-                                <Label Text="{Binding Status}" FontSize="11" TextColor="{StaticResource Muted}" />
                             </VerticalStackLayout>
-                            <Button Grid.Column="1" Text="›" Clicked="OnProposalRowClicked"
-                                    BackgroundColor="Transparent" TextColor="{StaticResource Accent}"
-                                    FontSize="24" MinimumWidthRequest="48" MinimumHeightRequest="48"
-                                    SemanticProperties.Description="{Binding Title}" />
+                            <ImageButton Grid.Column="1" Source="action_info.svg" Clicked="OnProposalRowClicked"
+                                         Style="{StaticResource AssistantIconAction}" VerticalOptions="Start"
+                                         SemanticProperties.Description="{Binding Title}"
+                                         ToolTipProperties.Text="{Binding Title}" />
+                            <Grid Grid.Row="1" Grid.ColumnSpan="2" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <Label Text="{Binding Status}" FontSize="11" TextColor="{StaticResource Muted}" VerticalOptions="Center" />
+                                <HorizontalStackLayout Grid.Column="1" Spacing="6" IsVisible="{Binding IsSuggestion}">
+                                    <ActivityIndicator IsRunning="{Binding Suggestion.IsSearchingAlternative}" IsVisible="{Binding Suggestion.IsSearchingAlternative}"
+                                                       WidthRequest="24" HeightRequest="24" Color="{StaticResource Accent}" />
+                                    <ActivityIndicator IsRunning="{Binding Suggestion.IsSaving}" IsVisible="{Binding Suggestion.IsSaving}"
+                                                       WidthRequest="24" HeightRequest="24" Color="{StaticResource Accent}" />
+                                    <ImageButton Source="action_alternative.svg" Clicked="OnReplaceProposalClicked"
+                                                 IsEnabled="{Binding Suggestion.CanFindAlternative}" Style="{StaticResource AssistantIconAction}"
+                                                 SemanticProperties.Description="{Binding Suggestion.AnotherOptionLabel}" ToolTipProperties.Text="{Binding Suggestion.AnotherOptionLabel}" />
+                                    <ImageButton Source="{Binding Suggestion.SaveIcon}" Clicked="OnSaveProposalClicked"
+                                                 IsEnabled="{Binding Suggestion.CanSave}" Style="{StaticResource AssistantIconAction}"
+                                                 BackgroundColor="{StaticResource Accent}"
+                                                 SemanticProperties.Description="{Binding Suggestion.SaveButtonText}" ToolTipProperties.Text="{Binding Suggestion.SaveButtonText}" />
+                                </HorizontalStackLayout>
+                            </Grid>
+                            <Label Grid.Row="2" Grid.ColumnSpan="2" Text="{Binding Suggestion.FeedbackStatusMessage}"
+                                   IsVisible="{Binding Suggestion.HasFeedbackStatus}" FontSize="12" TextColor="{StaticResource InkSoft}" />
                         </Grid>
                     </Border>
                 </DataTemplate>
@@ -679,10 +671,9 @@
                         <Label Text="{Binding Title}" FontFamily="serif" FontSize="26"
                                VerticalTextAlignment="Center" LineHeight="1.05"
                                SemanticProperties.HeadingLevel="Level2" TextColor="{StaticResource Ink}" />
-                        <Button Grid.Column="1" Text="×" Clicked="OnCloseDetailClicked"
+                        <ImageButton Grid.Column="1" Source="action_close.svg" Clicked="OnCloseDetailClicked"
                                 SemanticProperties.Description="{Binding CloseLabel}"
-                                BackgroundColor="Transparent" TextColor="{StaticResource Muted}"
-                                FontSize="27" Padding="0" WidthRequest="44" HeightRequest="44" />
+                                ToolTipProperties.Text="{Binding CloseLabel}" Style="{StaticResource AssistantIconAction}" />
                     </Grid>
                     <Label Text="{Binding SummaryLine}" FontSize="12" TextColor="{StaticResource Gold}"
                            Margin="0,12,0,0" />
@@ -716,18 +707,19 @@
                     </Grid>
                     <BoxView HeightRequest="1" BackgroundColor="{StaticResource Line}"
                              Margin="0,0,0,8" />
-                    <Button Text="{Binding SaveButtonText}" Clicked="OnSaveDetailClicked"
-                            IsEnabled="{Binding CanSave}" BackgroundColor="{StaticResource Accent}"
-                            TextColor="{StaticResource Paper}" CornerRadius="12" MinimumHeightRequest="52"
-                            FontSize="16" FontFamily="OpenSansSemibold" />
-                    <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                        <Button Text="{Binding AnotherOptionLabel}" Clicked="OnReplaceDetailClicked"
-                                IsEnabled="{Binding CanFindAlternative}" BackgroundColor="Transparent"
-                                TextColor="{StaticResource Accent}" MinimumHeightRequest="48" FontSize="14" />
-                        <Button Grid.Column="1" Text="{Binding AdjustLabel}" Clicked="OnAdjustDetailClicked"
-                                IsVisible="{Binding ShowPreferenceAdjustment}" BackgroundColor="Transparent"
-                                TextColor="{StaticResource Accent}" MinimumHeightRequest="48" FontSize="14" />
-                    </Grid>
+                    <HorizontalStackLayout HorizontalOptions="End" Spacing="12">
+                        <ActivityIndicator IsRunning="{Binding IsSaving}" IsVisible="{Binding IsSaving}"
+                                           WidthRequest="24" HeightRequest="24" Color="{StaticResource Accent}" />
+                        <ImageButton Source="action_alternative.svg" Clicked="OnReplaceDetailClicked"
+                                     IsEnabled="{Binding CanFindAlternative}" Style="{StaticResource AssistantIconAction}"
+                                     SemanticProperties.Description="{Binding AnotherOptionLabel}" ToolTipProperties.Text="{Binding AnotherOptionLabel}" />
+                        <ImageButton Source="today_adjust.svg" Clicked="OnAdjustDetailClicked"
+                                     IsVisible="{Binding ShowPreferenceAdjustment}" Style="{StaticResource AssistantIconAction}"
+                                     SemanticProperties.Description="{Binding AdjustLabel}" ToolTipProperties.Text="{Binding AdjustLabel}" />
+                        <ImageButton Source="{Binding SaveIcon}" Clicked="OnSaveDetailClicked"
+                                     IsEnabled="{Binding CanSave}" Style="{StaticResource AssistantIconAction}" BackgroundColor="{StaticResource Accent}"
+                                     SemanticProperties.Description="{Binding SaveButtonText}" ToolTipProperties.Text="{Binding SaveButtonText}" />
+                    </HorizontalStackLayout>
                 </VerticalStackLayout>
             </Grid>
         </Border>

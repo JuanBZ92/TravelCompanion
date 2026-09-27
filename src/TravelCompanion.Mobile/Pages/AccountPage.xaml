@@ -38,6 +38,9 @@
                     </Grid>
                 </Border>
 
+                <Button Text="Documentos" Clicked="OnDocumentsClicked" Style="{StaticResource GhostButton}" />
+                <Button Text="Pase Japón" Clicked="OnPassClicked" Style="{StaticResource GhostButton}" />
+                <Button Text="Cerrar sesión" Clicked="OnLogoutClicked" Style="{StaticResource GhostButton}" />
                 <Label Text="{Binding [AccountTripsTitle], Source={x:Static services:LocalizationResourceManager.Instance}}"
                        Style="{StaticResource Title}" SemanticProperties.HeadingLevel="Level2" />
                 <Label Text="{Binding [AccountNoTrips], Source={x:Static services:LocalizationResourceManager.Instance}}"
