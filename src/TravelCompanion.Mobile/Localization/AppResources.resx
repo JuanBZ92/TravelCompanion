@@ -485,4 +485,8 @@ Your way.</value></data>
   <data name="JournalEmpty" xml:space="preserve"><value>Add a personal note when editing an activity. It will appear here.</value></data>
   <data name="JournalRefreshError" xml:space="preserve"><value>Couldn't refresh your notes. Your saved entries are still available.</value></data>
   <data name="BackAgainToClose" xml:space="preserve"><value>Press Back again to close.</value></data>
+  <data name="AccountPass" xml:space="preserve"><value>Japan Pass</value></data>
+  <data name="AccountIntro" xml:space="preserve"><value>Your trips and preferences, all in one place.</value></data>
+  <data name="AccountPreferences" xml:space="preserve"><value>Preferences</value></data>
+  <data name="AccountSignOut" xml:space="preserve"><value>Sign out</value></data>
 </root>

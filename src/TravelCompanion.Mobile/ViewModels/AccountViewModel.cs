@@ -19,7 +19,7 @@ public sealed partial class AccountViewModel(
     private bool _behaviorAnalyticsEnabled;
 
     public ObservableCollection<AccountTripItem> Trips { get; } = [];
-    public string PageTitle => Resource("AccountPageTitle");
+    public string PageTitle => Resource("TabAccount");
     public string Email { get => _email; private set => SetProperty(ref _email, value); }
     public bool EmailVerified { get => _emailVerified; private set => SetProperty(ref _emailVerified, value); }
     public bool HasTrips => Trips.Count > 0;
@@ -182,6 +182,7 @@ public sealed record AccountTripItem(
     bool IsArchived)
 {
     public bool CanArchive => !IsArchived;
+    public bool HasExpiry => !string.IsNullOrWhiteSpace(ExpiryLabel);
 
     public static AccountTripItem From(AccountTripDto trip, bool isCurrent)
     {

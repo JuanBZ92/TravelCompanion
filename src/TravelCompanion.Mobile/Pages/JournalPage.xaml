@@ -9,7 +9,7 @@
             <Label Text="TU DIARIO DE VIAJE" CharacterSpacing="3" FontSize="10" TextColor="{StaticResource InkSoft}" />
             <Grid ColumnDefinitions="*,48,48">
                 <Label Text="Journal" FontFamily="serif" FontSize="36" TextColor="{StaticResource Ink}" SemanticProperties.HeadingLevel="Level1" />
-                <ImageButton Grid.Column="1" Source="journal_add.svg" Command="{Binding AddMemoryCommand}" Padding="12"
+                <ImageButton Grid.Column="1" Source="journal_add.svg" Command="{Binding AddMemoryCommand}" IsVisible="{Binding CanAddMemory}" Padding="12"
                              BackgroundColor="Transparent" WidthRequest="48" HeightRequest="48" SemanticProperties.Description="Agregar recuerdo" />
                 <ImageButton Grid.Column="2" Source="journal_export.svg" Command="{Binding ExportCommand}" IsVisible="{Binding CanExport}" Padding="12"
                              BackgroundColor="Transparent" WidthRequest="48" HeightRequest="48" SemanticProperties.Description="Crear álbum PDF" />
@@ -28,8 +28,9 @@
                 <CollectionView.EmptyView>
                     <VerticalStackLayout Spacing="16" Padding="0,36">
                         <Label Text="¿Qué querés recordar?" FontFamily="serif" FontSize="25" TextColor="{StaticResource Ink}" />
-                        <Label Text="Elegí un lugar de tu viaje y sumá una nota o tus fotos favoritas." TextColor="{StaticResource InkSoft}" FontSize="15" />
-                        <Button Text="Mi primer recuerdo" Command="{Binding AddMemoryCommand}" CornerRadius="20" />
+                        <Label Text="{Binding EmptyMessage}" TextColor="{StaticResource InkSoft}" FontSize="15" />
+                        <Button Text="Mi primer recuerdo" Command="{Binding AddMemoryCommand}" IsVisible="{Binding CanAddMemory}" CornerRadius="20" />
+                        <Button Text="Mis viajes" Command="{Binding OpenAccountCommand}" IsVisible="{Binding NeedsTrip}" CornerRadius="20" />
                     </VerticalStackLayout>
                 </CollectionView.EmptyView>
                 <CollectionView.ItemTemplate>

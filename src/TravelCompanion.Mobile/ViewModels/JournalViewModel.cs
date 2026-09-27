@@ -30,12 +30,25 @@ public sealed partial class JournalViewModel(MobileBootstrapStore bootstrapStore
     public string TripTitle { get; private set; } = "Tu viaje, en recuerdos";
     public string Summary => Entries.Count == 0 ? "Los lugares pasan. Tus recuerdos quedan." : $"{Entries.Count} recuerdos · {Entries.Sum(x => x.Memory.Images.Length)} fotos";
     public bool CanExport => DeviceInfo.Platform == DevicePlatform.Android && Entries.Count > 0;
+    public bool HasTrip => sessions.HasSession && sessions.CurrentTripId.HasValue;
+    public bool CanAddMemory => HasTrip && Activities.Count > 0;
+    public bool NeedsTrip => !HasTrip;
+    public string EmptyMessage => !HasTrip
+        ? "Abrí un viaje desde Cuenta para empezar tu Journal. Tus recuerdos también están disponibles en Free."
+        : Activities.Count == 0 ? "Cuando tu viaje tenga actividades, podrás agregarles notas y fotos desde acá."
+        : "Elegí un lugar de tu viaje y sumá una nota o tus fotos favoritas.";
     public IReadOnlyList<ScheduleItemDto> Activities { get; private set; } = [];
     public IReadOnlyList<JournalMemory> Memories { get; private set; } = [];
     public Task LoadAsync() => LoadJournalAsync(true);
     [RelayCommand] private Task RefreshAsync() => LoadJournalAsync(true);
     private Task LoadJournalAsync(bool refresh) => base.LoadAsync(async ct =>
     {
+        if (!HasTrip)
+        {
+            Entries.Clear(); Groups.Clear(); Activities = []; Memories = []; TripTitle = "Tu viaje, en recuerdos";
+            NotifyContentChanged();
+            return;
+        }
         var scope = store.Scope();
         var cached = await bootstrapStore.GetCachedAsync(cancellationToken: ct);
         var schedule = cached?.Value.Schedule;
@@ -63,12 +76,20 @@ public sealed partial class JournalViewModel(MobileBootstrapStore bootstrapStore
         Groups.Clear();
         foreach (var group in rows.GroupBy(x => (x.Memory.Note.Date, x.Memory.Note.City)))
             Groups.Add(new($"{group.Key.Date:d MMMM} · {group.Key.City}", group));
-        OnPropertyChanged(nameof(TripTitle)); OnPropertyChanged(nameof(Summary)); OnPropertyChanged(nameof(CanExport));
+        NotifyContentChanged();
     });
+    private void NotifyContentChanged()
+    {
+        OnPropertyChanged(nameof(TripTitle)); OnPropertyChanged(nameof(Summary)); OnPropertyChanged(nameof(CanExport));
+        OnPropertyChanged(nameof(HasTrip)); OnPropertyChanged(nameof(NeedsTrip));
+        OnPropertyChanged(nameof(CanAddMemory)); OnPropertyChanged(nameof(EmptyMessage));
+        AddMemoryCommand.NotifyCanExecuteChanged();
+    }
+    [RelayCommand] private Task OpenAccountAsync() => Shell.Current.GoToAsync("//main/account");
     [RelayCommand] private Task OpenEntryAsync(JournalRow? row) => row is null ? Task.CompletedTask :
         Shell.Current.Navigation.PushModalAsync(new JournalMemoryPage(store.Scope(), row.Memory,
             Activities.FirstOrDefault(x => x.Id == row.Memory.Note.ActivityId)));
-    [RelayCommand] private Task AddMemoryAsync() => Shell.Current.Navigation.PushModalAsync(new JournalActivityPickerPage(Activities, Memories));
+    [RelayCommand(CanExecute = nameof(CanAddMemory))] private Task AddMemoryAsync() => Shell.Current.Navigation.PushModalAsync(new JournalActivityPickerPage(Activities, Memories));
     [RelayCommand] private Task AddPhotoAsync(JournalRow? row) => row is null ? Task.CompletedTask :
         Shell.Current.Navigation.PushModalAsync(new JournalMemoryPage(store.Scope(), row.Memory,
             Activities.FirstOrDefault(x => x.Id == row.Memory.Note.ActivityId), startWithPhotos: true));
@@ -81,5 +102,6 @@ public sealed partial class JournalViewModel(MobileBootstrapStore bootstrapStore
     public void ResetForNewSession()
     {
         ResetLoadState(); Entries.Clear(); Groups.Clear(); Activities = []; Memories = []; TripTitle = "Tu viaje, en recuerdos";
+        NotifyContentChanged();
     }
 }

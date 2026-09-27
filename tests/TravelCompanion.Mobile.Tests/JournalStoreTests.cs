@@ -8,6 +8,31 @@ namespace TravelCompanion.Mobile.Tests;
 public sealed class JournalStoreTests
 {
     [Fact]
+    public async Task FreeReadOnlyTripCanKeepNotesAndPhotosWithoutItineraryEditing()
+    {
+        var sessions = new AuthSessionService();
+        var store = new JournalStore(new(), sessions, new());
+        try
+        {
+            await sessions.SaveAsync(Session() with
+            {
+                AccessMode = SessionAccessMode.FreeMapPreview,
+                ExperienceMode = ExperienceMode.FreePreview,
+                Capabilities = new(false, false, false, false, false)
+            });
+            Assert.False(sessions.CanEditItinerary);
+            var scope = store.Scope();
+            var memory = Memory(scope.TripId);
+            await store.SaveAsync(scope, memory, "Mi recuerdo en Free");
+            await store.AddPhotosAsync(scope, memory, [new FileResult()]);
+            var saved = Assert.Single(await store.LoadAsync(scope, [], false, default));
+            Assert.Equal("Mi recuerdo en Free", saved.Text);
+            Assert.NotNull(await store.PhotoAsync(scope, Assert.Single(saved.Images).Id));
+        }
+        finally { sessions.Clear(); }
+    }
+
+    [Fact]
     public async Task VerifiedLinkTransfersPendingNoteAndLocalPhotosToNewOwner()
     {
         var sessions = new AuthSessionService(); var account = Session(); var store = new JournalStore(new(), sessions, new());

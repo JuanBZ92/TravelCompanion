@@ -485,4 +485,8 @@ A tu manera.</value></data>
   <data name="JournalEmpty" xml:space="preserve"><value>Agregá una nota personal al editar una actividad. La vas a encontrar acá.</value></data>
   <data name="JournalRefreshError" xml:space="preserve"><value>No pudimos actualizar tus notas. Las entradas guardadas siguen disponibles.</value></data>
   <data name="BackAgainToClose" xml:space="preserve"><value>Volvé a presionar Atrás para cerrar.</value></data>
+  <data name="AccountPass" xml:space="preserve"><value>Pase Japón</value></data>
+  <data name="AccountIntro" xml:space="preserve"><value>Tus viajes y preferencias, en un solo lugar.</value></data>
+  <data name="AccountPreferences" xml:space="preserve"><value>Preferencias</value></data>
+  <data name="AccountSignOut" xml:space="preserve"><value>Cerrar sesión</value></data>
 </root>

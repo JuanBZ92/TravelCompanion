@@ -92,7 +92,7 @@ public partial class AppShell : Shell
             }
         }
         ScheduleTab.IsVisible = usesMainTabs && (!sessionService.IsFreeMapPreview || sessionService.IsBuilder);
-        JournalTab.IsVisible = ScheduleTab.IsVisible && sessionService.CurrentTripId.HasValue;
+        JournalTab.IsVisible = usesMainTabs;
         AssistantTab.IsVisible = sessionService.IsBuilder;
         AccountTab.IsVisible = sessionService.HasSession;
     }
