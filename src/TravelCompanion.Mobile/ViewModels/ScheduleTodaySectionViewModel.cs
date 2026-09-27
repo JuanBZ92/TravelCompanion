@@ -1,3 +1,4 @@
+using System.Globalization;
 using TravelCompanion.Shared.Dtos;
 using TravelCompanion.Mobile.Services;
 
@@ -42,6 +43,26 @@ internal static class ScheduleRecommendationFallback
     {
         ProviderPlaceId = item.ProviderPlaceId
     };
+}
+
+internal static class ScheduleStayDateFormatter
+{
+    public static string Detailed(ScheduleItemDto item)
+    {
+        var culture = CultureInfo.GetCultureInfo("es-ES");
+        string Moment(DateOnly date, TimeOnly? time) => date.ToString("dddd d 'de' MMMM", culture)
+            + (time is { } value ? $" · {value:HH\\:mm}" : string.Empty);
+        return $"Entrada · {Moment(item.Date, item.HasExactTime ? item.StartsAt : null)}\n"
+            + $"Salida · {Moment(item.EndsOn!.Value, item.EndsAt)}";
+    }
+
+    public static string Compact(ScheduleItemDto item)
+    {
+        string Moment(DateOnly date, TimeOnly? time) => date.ToString("d/M", CultureInfo.InvariantCulture)
+            + (time is { } value ? $" {value:HH\\:mm}" : string.Empty);
+        return $"Entrada {Moment(item.Date, item.HasExactTime ? item.StartsAt : null)} · "
+            + $"salida {Moment(item.EndsOn!.Value, item.EndsAt)}";
+    }
 }
 
 public sealed record ScheduleTodayLoadingSectionViewModel(
@@ -92,7 +113,17 @@ public sealed class ScheduleTodaySectionViewModel(
                 || value.Contains("ya tenés", StringComparison.OrdinalIgnoreCase))
             && value.Contains("cargad", StringComparison.OrdinalIgnoreCase);
 
-        return isGeneratedLoadedMessage ? string.Empty : value;
+        var generatedDayPrefix = $"{periodLabel} del día ";
+        var isGenericDayCaption = false;
+        if (value.StartsWith(generatedDayPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            var rest = value[generatedDayPrefix.Length..];
+            var citySeparator = rest.IndexOf(" en ", StringComparison.OrdinalIgnoreCase);
+            isGenericDayCaption = citySeparator > 0 && int.TryParse(rest[..citySeparator], out _)
+                && citySeparator + 4 < rest.Length;
+        }
+
+        return isGeneratedLoadedMessage || isGenericDayCaption ? string.Empty : value;
     }
 }
 
@@ -236,7 +267,9 @@ public sealed class TodayReservationViewModel
         bool canCalculateRoutes = false)
     {
         Item = item;
-        TimeLabel = item.HasExactTime
+        TimeLabel = item.Type == TravelCompanion.Shared.ReservationType.Lodging && item.EndsOn.HasValue
+            ? ScheduleStayDateFormatter.Compact(item)
+            : item.HasExactTime
             ? item.HasEnd
                 ? $"{item.StartsAt:HH\\:mm} - {item.EndLabel}"
                 : $"{item.StartsAt:HH\\:mm}"
@@ -264,8 +297,14 @@ public sealed class TodayReservationViewModel
     }
 
     public ScheduleItemDto Item { get; }
+    public bool IsLodging => Item.Type == TravelCompanion.Shared.ReservationType.Lodging;
+    public bool ShowSupplementalContent => !IsLodging;
     public string TimeLabel { get; }
     public string Title { get; }
+    public double DisplayTitleFontSize => IsLodging ? 18 : 21;
+    public string DisplayTitle => IsLodging && Title.StartsWith("Estadía en ", StringComparison.OrdinalIgnoreCase)
+        ? Title[11..]
+        : Title;
     public string Detail { get; }
     public string Place { get; }
     public bool HasPlace => !string.IsNullOrWhiteSpace(Place)

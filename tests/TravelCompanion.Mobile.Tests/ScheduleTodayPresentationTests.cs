@@ -194,6 +194,19 @@ public sealed class ScheduleTodayPresentationTests
         Assert.False(section.HasDescription);
     }
 
+    [Theory]
+    [InlineData("Mañana", "Mañana del día 1 en Tokyo.")]
+    [InlineData("Tarde", "Tarde del día 10 en Osaka.")]
+    public void Generic_demo_day_caption_is_hidden(string period, string description)
+    {
+        var section = new ScheduleTodaySectionViewModel(
+            1, new DateOnly(2026, 10, 1), "morning", period, description,
+            [new TodayLocationViewModel(CreateRecommendation("Plan", "culture"), 0.5m, true)], []);
+
+        Assert.False(section.HasDescription);
+        Assert.False(section.ShowDescription);
+    }
+
     [Fact]
     public void Assigned_recommendation_created_from_schedule_fallback_is_visible()
     {
@@ -231,6 +244,26 @@ public sealed class ScheduleTodayPresentationTests
 
         Assert.Equal(curatedDescription, section.Description);
         Assert.True(section.HasDescription);
+    }
+
+    [Fact]
+    public void Hotel_stay_shows_separate_localized_check_in_and_check_out_dates()
+    {
+        var stay = new ScheduleItemDto(
+            Guid.NewGuid(), null, ReservationType.Lodging,
+            new DateOnly(2026, 9, 27), new TimeOnly(15, 0),
+            new DateOnly(2026, 10, 1), new TimeOnly(11, 0),
+            "Estadía en YUKU Hotel", "Tokyo", "YUKU Hotel", "Shinjuku, Tokyo",
+            "HTL-DEMO", string.Empty, null, null, null, null, null, null);
+
+        Assert.Equal("Entrada · domingo 27 de septiembre · 15:00\n"
+            + "Salida · jueves 1 de octubre · 11:00",
+            ScheduleStayDateFormatter.Detailed(stay));
+        var card = new TodayReservationViewModel(stay);
+        Assert.Equal("Entrada 27/9 15:00 · salida 1/10 11:00", card.TimeLabel);
+        Assert.Equal("YUKU Hotel", card.DisplayTitle);
+        Assert.Equal(18, card.DisplayTitleFontSize);
+        Assert.False(card.ShowSupplementalContent);
     }
 
     private static RecommendationDto CreateRecommendation(string title, string tag) => new(

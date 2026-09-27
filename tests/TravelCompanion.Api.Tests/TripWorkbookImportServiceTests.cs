@@ -135,6 +135,7 @@ public sealed class TripWorkbookImportServiceTests
             reservation.Type == ReservationType.Event
             && reservation.PlanningKind == ScheduleItemKind.Recommendation);
         Assert.Equal(ramen.Id, recommendationItem.RecommendationId);
+        Assert.Equal(ItineraryTimePrecision.PeriodOnly, recommendationItem.TimePrecision);
         Assert.Equal("Descripcion: Tarde curada de ramen y paseo corto.", recommendationItem.Notes);
         Assert.Single(importedReservations, reservation =>
             reservation.Type == ReservationType.Event

@@ -321,6 +321,14 @@
         <Setter Property="HeightRequest" Value="42" />
     </Style>
 
+    <Style TargetType="ImageButton" x:Key="ContextIconButton">
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="BorderWidth" Value="0" />
+        <Setter Property="Padding" Value="10" />
+        <Setter Property="WidthRequest" Value="44" />
+        <Setter Property="HeightRequest" Value="44" />
+    </Style>
+
     <Style TargetType="Border" x:Key="Chip">
         <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Mist}, Dark={StaticResource NightSurfaceAlt}}" />
         <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}" />

@@ -166,7 +166,8 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     public bool ShowDayReview => !ShowTodayLoading && SelectedDayReview?.HasIssues == true;
     public bool ShowImproveDay => _selectedDate.HasValue && _tripId.HasValue
         && _sessionService.ExperienceMode != ExperienceMode.CuratedPremium;
-    public bool ShowAdaptDay => ShowImproveDay;
+    public bool ShowAdaptDay => ShowImproveDay && _selectedDate is { } date
+        && _allItems.Any(item => item.Date == date && item.CanAdapt);
     public bool IsSelectedDayLocked => _sessionService.IsFreeMapPreview
         && _tripStartsOn is { } start && _selectedDate is { } date
         && !FreePlanningPolicy.CanPlanDate(start, date);
@@ -227,9 +228,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         && !_tripStartsOn.HasValue;
     public bool HasPreviewMessage => !string.IsNullOrWhiteSpace(PreviewMessage);
     public bool HasStayCard => !string.IsNullOrWhiteSpace(StayTitle);
-    public string StayAddress => _selectedHotelBase?.Address ?? string.Empty;
     public bool CanOpenStayMap => _selectedHotelBase is not null;
-    public string? StayAttribution => _selectedHotelBase?.Attribution;
 
     [RelayCommand]
     private async Task OpenStayMapAsync()
@@ -1249,9 +1248,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
             _selectedCity = "Tu viaje";
             _selectedHotelBase = null;
             StayTitle = null;
-            OnPropertyChanged(nameof(StayAddress));
             OnPropertyChanged(nameof(CanOpenStayMap));
-            OnPropertyChanged(nameof(StayAttribution));
             PreviewMessage = null;
             SelectedTimelineItems = [];
             TodaySections = [];
@@ -1273,9 +1270,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         _selectedHotelBase = _hotelsByDate.GetValueOrDefault(selectedDate);
         _selectedHotelBase ??= _today?.Date == selectedDate ? _today.HotelBase : null;
         StayTitle = _selectedHotelBase?.Name ?? GetStayTitleForDate(selectedDate);
-        OnPropertyChanged(nameof(StayAddress));
         OnPropertyChanged(nameof(CanOpenStayMap));
-        OnPropertyChanged(nameof(StayAttribution));
         PreviewMessage = null;
 
         var selectedItems = _allItems

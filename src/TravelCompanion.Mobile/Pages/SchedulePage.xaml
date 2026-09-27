@@ -85,31 +85,36 @@
                     <Border Padding="14,12" BackgroundColor="#FFFCF8" Stroke="#DDD4C9"
                             StrokeThickness="1" IsVisible="{Binding HasFocusItem}">
                         <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
-                        <VerticalStackLayout Spacing="4">
-                            <Label Text="A CONTINUACIÓN" CharacterSpacing="2" FontSize="10"
-                                   FontAttributes="Bold" TextColor="#9D794F" />
-                            <Label Text="{Binding FocusTitle}" FontFamily="serif" FontSize="21"
-                                   TextColor="#1A1714" MaxLines="2" LineBreakMode="TailTruncation" />
-                            <Label Text="{Binding FocusMeta}" FontSize="13" TextColor="#6E675F" />
-                            <Label Text="{Binding FocusPlace}" FontSize="13" TextColor="#6E675F"
-                                   MaxLines="1" LineBreakMode="TailTruncation" />
-                            <FlexLayout Wrap="Wrap" Direction="Row" AlignItems="Center" Margin="0,5,0,0">
-                                <Button Text="Cómo llegar" Command="{Binding OpenFocusMapCommand}"
-                                        IsVisible="{Binding CanOpenFocusMap}" Style="{StaticResource GhostButton}"
-                                        FontSize="12" MinimumHeightRequest="40" Margin="0,0,6,4" />
-                                <Button Text="Ver detalle" Command="{Binding OpenFocusDetailCommand}"
-                                        Style="{StaticResource GhostButton}" FontSize="12"
-                                        MinimumHeightRequest="40" Margin="0,0,6,4" />
-                                <Button Text="Ver documento" Command="{Binding OpenFocusDocumentCommand}"
-                                        IsVisible="{Binding HasFocusDocument}" Style="{StaticResource GhostButton}"
-                                        FontSize="12" MinimumHeightRequest="40" Margin="0,0,6,4" />
-                            </FlexLayout>
-                        </VerticalStackLayout>
+                        <Grid ColumnDefinitions="*,44" ColumnSpacing="12">
+                            <VerticalStackLayout Spacing="4" VerticalOptions="Center">
+                                <Label Text="A CONTINUACIÓN" CharacterSpacing="2" FontSize="10"
+                                       FontAttributes="Bold" TextColor="#9D794F" />
+                                <Label Text="{Binding FocusTitle}" FontFamily="serif" FontSize="21"
+                                       TextColor="#1A1714" MaxLines="2" LineBreakMode="TailTruncation" />
+                                <Label Text="{Binding FocusMeta}" FontSize="13" TextColor="#6E675F" />
+                                <Label Text="{Binding FocusPlace}" FontSize="13" TextColor="#6E675F"
+                                       MaxLines="1" LineBreakMode="TailTruncation" />
+                            </VerticalStackLayout>
+                            <VerticalStackLayout Grid.Column="1" Spacing="6" VerticalOptions="Center">
+                                <ImageButton Source="tab_map.svg" Command="{Binding OpenFocusMapCommand}"
+                                             IsVisible="{Binding CanOpenFocusMap}" Style="{StaticResource ContextIconButton}"
+                                             SemanticProperties.Description="Cómo llegar en Google Maps"
+                                             ToolTipProperties.Text="Cómo llegar" />
+                                <ImageButton Source="action_info.svg" Command="{Binding OpenFocusDetailCommand}"
+                                             Style="{StaticResource ContextIconButton}"
+                                             SemanticProperties.Description="Ver detalle de la actividad"
+                                             ToolTipProperties.Text="Ver detalle" />
+                                <ImageButton Source="tab_docs.svg" Command="{Binding OpenFocusDocumentCommand}"
+                                             IsVisible="{Binding HasFocusDocument}" Style="{StaticResource ContextIconButton}"
+                                             SemanticProperties.Description="Ver documento asociado"
+                                             ToolTipProperties.Text="Ver documento" />
+                            </VerticalStackLayout>
+                        </Grid>
                     </Border>
                     <Label Text="Por hoy, todo listo." IsVisible="{Binding ShowFinishedToday}"
                            FontSize="12" TextColor="#8E867D" />
 
-                    <Border Padding="16,14"
+                    <Border Padding="14,10"
                             BackgroundColor="#FAF6F0"
                             Stroke="#E5DED5"
                             StrokeThickness="1"
@@ -117,29 +122,17 @@
                         <Border.StrokeShape>
                             <RoundRectangle CornerRadius="10" />
                         </Border.StrokeShape>
-                        <Grid ColumnDefinitions="36,*,1,36" ColumnSpacing="12">
-                            <Border BackgroundColor="#EFE7DC" StrokeThickness="0" WidthRequest="36" HeightRequest="36" StrokeShape="RoundRectangle 18" VerticalOptions="Center">
-                                <Image Source="today_hotel.svg" WidthRequest="20" HeightRequest="20" />
-                            </Border>
-                            <VerticalStackLayout Grid.Column="1" Spacing="4" VerticalOptions="Center">
-                            <Label Text="{Binding StayTitle}"
-                                   FontSize="16"
-                                   FontAttributes="Bold"
-                                   TextColor="#1A1714"
-                                   LineBreakMode="TailTruncation"
-                                   MaxLines="2" />
-                            <Label Text="{Binding StayAddress}" FontSize="12" TextColor="#8E867D" MaxLines="2" LineBreakMode="TailTruncation" IsVisible="{Binding CanOpenStayMap}" />
-                            <Label Text="{Binding StayAttribution}" FontSize="11" TextColor="#6E675F" IsVisible="{Binding CanOpenStayMap}" />
-                            </VerticalStackLayout>
-                            <BoxView Grid.Column="2" BackgroundColor="#E5DED5" IsVisible="{Binding CanOpenStayMap}" />
-                            <ImageButton Grid.Column="3"
-                                         Source="tab_map.svg"
-                                         Command="{Binding OpenStayMapCommand}"
+                        <Grid ColumnDefinitions="24,*,44" ColumnSpacing="10" MinimumHeightRequest="44">
+                            <Image Source="today_hotel.svg" WidthRequest="22" HeightRequest="22"
+                                   VerticalOptions="Center" />
+                            <Label Grid.Column="1" Text="{Binding StayTitle}" FontSize="14"
+                                   FontAttributes="Bold" TextColor="#1A1714" MaxLines="1"
+                                   LineBreakMode="TailTruncation" VerticalOptions="Center" />
+                            <ImageButton Grid.Column="2" Source="tab_map.svg" Command="{Binding OpenStayMapCommand}"
                                          IsVisible="{Binding CanOpenStayMap}"
-                                         Style="{StaticResource MapPreviewIconButton}"
-                                         HorizontalOptions="Center"
-                                         VerticalOptions="Center"
-                                         SemanticProperties.Description="Abrir hotel en Google Maps" />
+                                         Style="{StaticResource ContextIconButton}"
+                                         SemanticProperties.Description="Abrir hotel en Google Maps"
+                                         ToolTipProperties.Text="Cómo llegar al hotel" />
                         </Grid>
                     </Border>
 
@@ -205,22 +198,41 @@
                             MinimumHeightRequest="68">
                         <Button.Shadow><Shadow Brush="#BD9568" Offset="0,3" Radius="8" Opacity="0.18" /></Button.Shadow>
                     </Button>
-                    <Grid ColumnDefinitions="28,*,28" ColumnSpacing="10" Padding="16,10" InputTransparent="True">
+                    <Grid ColumnDefinitions="28,*,32" ColumnSpacing="10" Padding="16,10" InputTransparent="True">
                         <Image Source="today_sparkles.svg" HeightRequest="26" WidthRequest="26" />
                         <VerticalStackLayout Grid.Column="1" Spacing="3" VerticalOptions="Center">
                             <Label Text="{Binding ImproveDayLabel}" TextColor="White" FontSize="16" />
                             <Label Text="{Binding ImproveDaySubtitle}" TextColor="#F1E5D5" FontSize="10" />
                         </VerticalStackLayout>
-                        <Border Grid.Column="2" BackgroundColor="#30FFFFFF" StrokeThickness="0" StrokeShape="RoundRectangle 14" HeightRequest="28" VerticalOptions="Center">
-                            <Label Text="→" FontSize="24" TextColor="White" HorizontalTextAlignment="Center" VerticalTextAlignment="Center" />
+                        <Border Grid.Column="2" BackgroundColor="#30FFFFFF" StrokeThickness="0"
+                                StrokeShape="RoundRectangle 16" WidthRequest="32" HeightRequest="32"
+                                VerticalOptions="Center">
+                            <Image Source="today_arrow.svg" WidthRequest="20" HeightRequest="20"
+                                   HorizontalOptions="Center" VerticalOptions="Center" />
                         </Border>
                     </Grid>
                     </Grid>
 
-                    <Button Text="Adaptar mi día" Command="{Binding AdaptDayCommand}"
-                            IsVisible="{Binding ShowAdaptDay}" IsEnabled="{Binding IsNotBusy}"
-                            Style="{StaticResource GhostButton}" FontSize="13"
-                            MinimumHeightRequest="44" />
+                    <Grid IsVisible="{Binding ShowAdaptDay}" MinimumHeightRequest="60">
+                        <Button Text="" Command="{Binding AdaptDayCommand}"
+                                IsEnabled="{Binding IsNotBusy}"
+                                SemanticProperties.Description="Adaptar mi día. Reorganiza actividades flexibles."
+                                HorizontalOptions="Fill" BackgroundColor="#F8F4EE"
+                                BorderColor="#D8C7B2" BorderWidth="1"
+                                CornerRadius="20" Padding="16,10"
+                                MinimumHeightRequest="60" />
+                        <Grid ColumnDefinitions="28,*,24" ColumnSpacing="10" Padding="16,10" InputTransparent="True">
+                            <Image Source="today_adjust.svg" HeightRequest="24" WidthRequest="24"
+                                   VerticalOptions="Center" />
+                            <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                                <Label Text="Adaptar mi día" TextColor="#3D3329" FontSize="15"
+                                       FontAttributes="Bold" />
+                                <Label Text="Reorganiza actividades flexibles" TextColor="#786C5E" FontSize="10" />
+                            </VerticalStackLayout>
+                            <Image Grid.Column="2" Source="today_arrow_dark.svg" HeightRequest="20"
+                                   WidthRequest="20" VerticalOptions="Center" />
+                        </Grid>
+                    </Grid>
 
                     <Border Padding="18,16"
                             BackgroundColor="{Binding SelectedDayReview.BackgroundColor}"
@@ -562,9 +574,9 @@
                                                                        TextColor="#8A8078" />
                                                                 <Grid ColumnDefinitions="*,Auto,Auto"
                                                                       ColumnSpacing="4">
-                                                                    <Label Text="{Binding Title}"
+                                                                    <Label Text="{Binding DisplayTitle}"
                                                                            FontFamily="serif"
-                                                                           FontSize="21"
+                                                                           FontSize="{Binding DisplayTitleFontSize}"
                                                                            TextColor="#1A1714"
                                                                            LineBreakMode="WordWrap"
                                                                            MaxLines="3"
@@ -592,51 +604,45 @@
                                                                                  SemanticProperties.Description="Eliminar reserva"
                                                                                  ToolTipProperties.Text="Eliminar reserva" />
                                                                 </Grid>
-                                                                <Label Text="{Binding Notes}" IsVisible="{Binding HasNotes}" FontSize="13" TextColor="#6E675F" LineBreakMode="WordWrap" />
-
-                                                                <Label Text="{Binding Confirmation}"
-                                                                       FontSize="12"
-                                                                       TextColor="#8A8078"
-                                                                       IsVisible="{Binding HasConfirmation}"
-                                                                       LineBreakMode="TailTruncation"
-                                                                       MaxLines="1" />
-
-                                                                <FlexLayout Direction="Row" Wrap="NoWrap" AlignItems="Start" IsVisible="{Binding HasRoutes}" BindableLayout.ItemsSource="{Binding Routes}" Margin="0,10,0,0">
-                                                                    <BindableLayout.ItemTemplate>
-                                                                        <DataTemplate x:DataType="viewModels:ItineraryRouteViewModel">
-                                                                            <VerticalStackLayout FlexLayout.Basis="33.33%" Padding="3,0" Spacing="4">
-                                                                                <VerticalStackLayout.GestureRecognizers>
-                                                                                    <TapGestureRecognizer Command="{Binding ViewModel.CalculateRouteCommand, Source={x:Reference PageRoot}, x:DataType={x:Type pages:SchedulePage}}"
-                                                                                                          CommandParameter="{Binding .}" />
-                                                                                </VerticalStackLayout.GestureRecognizers>
-                                                                                <Image Source="{Binding Icon}" WidthRequest="22" HeightRequest="22" HorizontalOptions="Start" SemanticProperties.Description="{Binding Label}" />
-                                                                                <Label Text="{Binding Label}" FontSize="11" TextColor="#6E675F" />
-                                                                                <Label Text="{Binding Duration}" FontSize="12" TextColor="#1A1714" />
-                                                                                <Label Text="{Binding Departure}" FontSize="11" TextColor="#1A1714" />
-                                                                            </VerticalStackLayout>
-                                                                        </DataTemplate>
-                                                                    </BindableLayout.ItemTemplate>
-                                                                </FlexLayout>
-                                                                <Border IsVisible="{Binding HasRoutes}"
-                                                                        Padding="10,8"
-                                                                        Margin="0,8,0,0"
-                                                                        BackgroundColor="Transparent"
-                                                                        Stroke="#D8CFC4"
-                                                                        StrokeThickness="1">
-                                                                    <Border.GestureRecognizers>
-                                                                        <TapGestureRecognizer Command="{Binding ViewModel.CalculateRouteCommand, Source={x:Reference PageRoot}, x:DataType={x:Type pages:SchedulePage}}"
-                                                                                              CommandParameter="{Binding CurrentLocationRoute}" />
-                                                                    </Border.GestureRecognizers>
-                                                                    <Label Text="{Binding CurrentLocationRoute.Duration, StringFormat='Desde mi ubicación · {0}'}"
-                                                                           FontSize="11"
-                                                                           TextColor="#6E675F" />
-                                                                </Border>
-                                                                <Label Text="Toca un modo para calcular · origen: hotel · llegada 10 min antes"
-                                                                       IsVisible="{Binding HasRoutes}"
-                                                                       FontSize="10"
-                                                                       TextColor="#6E675F"
-                                                                       LineBreakMode="WordWrap"
-                                                                       Margin="0,4,0,0" />
+                                                                <VerticalStackLayout Spacing="4" IsVisible="{Binding ShowSupplementalContent}">
+                                                                    <Label Text="{Binding Notes}" IsVisible="{Binding HasNotes}" FontSize="13" TextColor="#6E675F" LineBreakMode="WordWrap" />
+                                                                    <Label Text="{Binding Confirmation}"
+                                                                           FontSize="12"
+                                                                           TextColor="#8A8078"
+                                                                           IsVisible="{Binding HasConfirmation}"
+                                                                           LineBreakMode="TailTruncation"
+                                                                           MaxLines="1" />
+                                                                    <FlexLayout Direction="Row" Wrap="NoWrap" AlignItems="Start" IsVisible="{Binding HasRoutes}" BindableLayout.ItemsSource="{Binding Routes}" Margin="0,10,0,0">
+                                                                        <BindableLayout.ItemTemplate>
+                                                                            <DataTemplate x:DataType="viewModels:ItineraryRouteViewModel">
+                                                                                <VerticalStackLayout FlexLayout.Basis="33.33%" Padding="3,0" Spacing="4">
+                                                                                    <VerticalStackLayout.GestureRecognizers>
+                                                                                        <TapGestureRecognizer Command="{Binding ViewModel.CalculateRouteCommand, Source={x:Reference PageRoot}, x:DataType={x:Type pages:SchedulePage}}"
+                                                                                                              CommandParameter="{Binding .}" />
+                                                                                    </VerticalStackLayout.GestureRecognizers>
+                                                                                    <Image Source="{Binding Icon}" WidthRequest="22" HeightRequest="22" HorizontalOptions="Start" SemanticProperties.Description="{Binding Label}" />
+                                                                                    <Label Text="{Binding Label}" FontSize="11" TextColor="#6E675F" />
+                                                                                    <Label Text="{Binding Duration}" FontSize="12" TextColor="#1A1714" />
+                                                                                    <Label Text="{Binding Departure}" FontSize="11" TextColor="#1A1714" />
+                                                                                </VerticalStackLayout>
+                                                                            </DataTemplate>
+                                                                        </BindableLayout.ItemTemplate>
+                                                                    </FlexLayout>
+                                                                    <Border IsVisible="{Binding HasRoutes}"
+                                                                            Padding="10,8"
+                                                                            Margin="0,8,0,0"
+                                                                            BackgroundColor="Transparent"
+                                                                            Stroke="#D8CFC4"
+                                                                            StrokeThickness="1">
+                                                                        <Border.GestureRecognizers>
+                                                                            <TapGestureRecognizer Command="{Binding ViewModel.CalculateRouteCommand, Source={x:Reference PageRoot}, x:DataType={x:Type pages:SchedulePage}}"
+                                                                                                  CommandParameter="{Binding CurrentLocationRoute}" />
+                                                                        </Border.GestureRecognizers>
+                                                                        <Label Text="{Binding CurrentLocationRoute.Duration, StringFormat='Desde mi ubicación · {0}'}"
+                                                                               FontSize="11"
+                                                                               TextColor="#6E675F" />
+                                                                    </Border>
+                                                                </VerticalStackLayout>
                                                             </VerticalStackLayout>
                                                             <Border.GestureRecognizers>
                                                                 <TapGestureRecognizer Tapped="OnTodayReservationTapped" />

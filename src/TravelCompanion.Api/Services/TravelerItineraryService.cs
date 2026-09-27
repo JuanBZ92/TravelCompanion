@@ -342,6 +342,7 @@ public sealed class TravelerItineraryService(
     {
         PeriodKey = item.TripDayBlock?.PeriodKey,
         CuratedNotes = item.Recommendation is { } recommendation
-            ? RecommendationPresentation.ToDto(recommendation).DisplayDescription : null
+            ? RecommendationPresentation.ToDto(recommendation).DisplayDescription : null,
+        CanAdapt = ItineraryPlanningPolicy.CanReplace(item)
     };
 }

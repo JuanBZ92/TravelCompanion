@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.Input;
 using TravelCompanion.Mobile.Services;
+using TravelCompanion.Shared;
 using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Mobile.ViewModels;
@@ -75,17 +76,22 @@ public sealed partial class ScheduleItemDetailViewModel(
     {
         get
         {
-            if (ScheduleItem is null)
-            {
-                return string.Empty;
-            }
-
-            var date = ScheduleItem.Date.ToString("dddd d MMMM");
-            if (!ScheduleItem.HasExactTime) return $"{date} · {ScheduleItem.PeriodDisplay}";
-            return ScheduleItem.HasEnd
-                ? $"{date} · {ScheduleItem.StartsAt:HH\\:mm} - {ScheduleItem.EndDisplay.Replace("Hasta: ", string.Empty).Replace("Horario de llegada: ", string.Empty)}"
-                : $"{date} · {ScheduleItem.StartsAt:HH\\:mm}";
+            return ScheduleItem is null ? string.Empty : FormatReservationTime(ScheduleItem);
         }
+    }
+
+    internal static string FormatReservationTime(ScheduleItemDto item)
+    {
+        if (item.Type == ReservationType.Lodging && item.EndsOn.HasValue)
+        {
+            return ScheduleStayDateFormatter.Detailed(item);
+        }
+
+        var startDate = item.Date.ToString("dddd d MMMM");
+        if (!item.HasExactTime) return $"{startDate} · {item.PeriodDisplay}";
+        return item.HasEnd
+            ? $"{startDate} · {item.StartsAt:HH\\:mm} - {item.EndDisplay.Replace("Hasta: ", string.Empty).Replace("Horario de llegada: ", string.Empty)}"
+            : $"{startDate} · {item.StartsAt:HH\\:mm}";
     }
 
     public string AddressText => ScheduleItem is null || string.IsNullOrWhiteSpace(ScheduleItem.Address)

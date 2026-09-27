@@ -644,6 +644,9 @@ public sealed partial class TripWorkbookImportService(
                     PlanningKind = row.IsReservation
                         ? ScheduleItemKind.ConfirmedReservation
                         : ScheduleItemKind.Recommendation,
+                    TimePrecision = row.IsReservation
+                        ? ItineraryTimePrecision.Exact
+                        : ItineraryTimePrecision.PeriodOnly,
                     Date = row.Date,
                     StartsAt = startsAt,
                     EndsAt = endsAt,
