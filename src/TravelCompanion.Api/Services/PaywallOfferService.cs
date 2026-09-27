@@ -44,6 +44,9 @@ public sealed class PaywallOfferService(
         var benefits = isEnglish
             ? new[] { lead, "Keep editing throughout your pass", $"{dailyLimit} Assistant requests per day", "Prepare your full itinerary for offline use", "Keep your tickets and PDFs on this device" }
             : new[] { lead, "Sigue editando mientras tu pase esté activo", $"{dailyLimit} consultas diarias al Asistente", "Prepara tu itinerario completo para consultarlo sin conexión", "Guarda tus tickets y PDF en este dispositivo" };
+        if (features.Value.PersonalizedDayEnabled)
+            benefits = [benefits[0], isEnglish ? "Plan each day around your interests and pace"
+                : "Armá cada día según tus gustos y tu ritmo", .. benefits.Skip(1)];
         var now = DateTimeOffset.UtcNow;
         var passExpiry = grant is { IsTrial: false, Status: BuilderAccessStatus.Active }
             ? grant.ExpiresAtUtc : StorePurchaseService.CalculateExpiry(trip, now.AddYears(1));

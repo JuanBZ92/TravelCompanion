@@ -735,6 +735,30 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         try
         {
             if (!CanEditSelectedDay) { await RedeemPassAsync(); return; }
+            var token = await _sessionService.GetTokenAsync();
+            DayPersonalizationOptionsDto? options = null;
+            if (!string.IsNullOrWhiteSpace(token))
+            {
+                try { options = await _apiClient.GetDayPersonalizationOptionsAsync(token); }
+                catch (HttpRequestException) { }
+                catch (TaskCanceledException) { }
+            }
+            if (options?.Enabled == true)
+            {
+                var selected = await Shell.Current.DisplayActionSheetAsync("Mejorar el día", "Cancelar", null,
+                    "Completar el día", "Personalizar mi día");
+                if (selected == "Personalizar mi día")
+                {
+                    await Shell.Current.GoToAsync(nameof(DayPersonalizationPage), new ShellNavigationQueryParameters
+                    {
+                        ["Date"] = _selectedDate!.Value,
+                        ["City"] = SelectedCity,
+                        ["Options"] = options
+                    });
+                    return;
+                }
+                if (selected != "Completar el día") return;
+            }
             await Shell.Current.GoToAsync("//main/assistant", new ShellNavigationQueryParameters
             {
                 ["ReviewDate"] = _selectedDate!.Value,

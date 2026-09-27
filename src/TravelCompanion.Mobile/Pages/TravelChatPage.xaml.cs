@@ -10,6 +10,7 @@ public partial class TravelChatPage : ContentPage, IQueryAttributable
     private string? _reviewSummary;
     private string? _adaptationReason;
     private int? _delayMinutes;
+    private TravelCompanion.Shared.Dtos.GuidedPlanCriteriaDto? _personalizedCriteria;
 
     public TravelChatPage()
         : this(MauiProgram.Services.GetRequiredService<TravelChatViewModel>())
@@ -32,6 +33,8 @@ public partial class TravelChatPage : ContentPage, IQueryAttributable
         _reviewSummary = query.TryGetValue("ReviewSummary", out var summaryValue) ? summaryValue as string : null;
         _adaptationReason = query.TryGetValue("AdaptationReason", out var reasonValue) ? reasonValue as string : null;
         _delayMinutes = query.TryGetValue("DelayMinutes", out var delayValue) && delayValue is int delay && delay > 0 ? delay : null;
+        _personalizedCriteria = query.TryGetValue("PersonalizedCriteria", out var criteriaValue)
+            ? criteriaValue as TravelCompanion.Shared.Dtos.GuidedPlanCriteriaDto : null;
     }
 
     protected override async void OnAppearing()
@@ -49,9 +52,13 @@ public partial class TravelChatPage : ContentPage, IQueryAttributable
                 _reviewSummary = null;
                 var reason = _adaptationReason;
                 var delay = _delayMinutes;
+                var personalizedCriteria = _personalizedCriteria;
                 _adaptationReason = null;
                 _delayMinutes = null;
-                if (reason is null) await _viewModel.RequestDayAlternativeAsync(reviewDate, city, summary);
+                _personalizedCriteria = null;
+                if (personalizedCriteria is not null)
+                    await _viewModel.RequestPersonalizedDayAsync(reviewDate, city, personalizedCriteria);
+                else if (reason is null) await _viewModel.RequestDayAlternativeAsync(reviewDate, city, summary);
                 else await _viewModel.RequestDayAdaptationAsync(reviewDate, city, reason, delay);
             }
         }

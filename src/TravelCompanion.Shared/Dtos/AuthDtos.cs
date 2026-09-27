@@ -72,6 +72,7 @@ public sealed record TrialAccessStatusDto(
 {
     public FreeAccessPolicy FreePolicy { get; init; }
     public int DayImprovementsRemaining { get; init; }
+    public bool PersonalizedDayTrialAvailable { get; init; }
     public bool CanEdit => State is TrialAccessState.NotStarted or TrialAccessState.Editing or TrialAccessState.Paid;
     public bool CanUseAssistant => State == TrialAccessState.Paid || AssistantRequestsRemaining > 0;
 }

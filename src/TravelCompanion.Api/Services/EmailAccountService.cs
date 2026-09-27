@@ -113,6 +113,7 @@ public sealed class EmailAccountService(
         }
         else if (source is not null && target.Id != source.User.Id && IsAnonymous(source.User))
         {
+            target.PersonalizedDayTrialUsedAtUtc ??= source.User.PersonalizedDayTrialUsedAtUtc;
             var sourceTrips = await dbContext.Trips.Where(trip => trip.AppUserId == source.User.Id).ToListAsync(cancellationToken);
             foreach (var trip in sourceTrips) trip.AppUserId = target.Id;
             var sourceGrants = await dbContext.BuilderAccessGrants.Where(grant => grant.AppUserId == source.User.Id).ToListAsync(cancellationToken);

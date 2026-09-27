@@ -332,6 +332,8 @@ Desde cada alerta se puede abrir el plan afectado. Los elementos creados por el 
 
 La tarjeta también permite pedir al Assistant una alternativa para la fecha seleccionada. La solicitud lleva la fecha y la ciudad al backend, conserva las reservas confirmadas como límites y busca opciones para los espacios libres. Guardar una sugerencia sigue abriendo el editor antes de modificar el itinerario.
 
+Cuando está activada la personalización, **Mejorar el día** ofrece **Completar el día** y **Personalizar mi día**. La segunda opción permite elegir ritmo, hasta tres intereses y presupuesto para esa fecha. El perfil existente se precarga, pero solo se actualiza si el viajero marca explícitamente «Guardar también como preferencias generales». La propuesta respeta los planes guardados, prioriza intereses y proximidad con coordenadas conocidas y se guarda por actividad. Free dispone de una propuesta personalizada útil por cuenta dentro de su cuota actual; después se abre Pase Japón conservando los criterios para continuar tras la activación.
+
 El menú del itinerario permite actualizar una copia offline de la agenda, recomendaciones y contenido de Today para la fecha seleccionada. También permite compartir una versión de texto ordenada por día; se omiten códigos de confirmación y notas privadas.
 
 Desde el mismo menú se puede crear una ruta temática de comida local, historia, arte, naturaleza o compras. La fecha y ciudad seleccionadas se pasan al Assistant, que propone varias paradas cercanas sin mover reservas. Cada parada se puede revisar, cambiar por otra y guardar por separado mediante el editor del Builder.

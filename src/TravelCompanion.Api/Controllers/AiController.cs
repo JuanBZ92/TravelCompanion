@@ -1,6 +1,8 @@
 using System.Security.Cryptography;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
+using TravelCompanion.Api.Options;
 using TravelCompanion.Api.Services;
 using TravelCompanion.Shared.Dtos;
 
@@ -17,8 +19,25 @@ public sealed class AiController(
     ITravelAssistantFeedbackService feedbackService,
     FreeTrialAccessService freeTrialAccessService,
     AssistantUsageService assistantUsageService,
-    ProductAnalyticsService analytics) : ControllerBase
+    ProductAnalyticsService analytics,
+    IUserProfileService profiles,
+    IOptions<ProductFeatureOptions> features) : ControllerBase
 {
+    [HttpGet("day-personalization")]
+    public async Task<ActionResult<DayPersonalizationOptionsDto>> DayPersonalization(CancellationToken cancellationToken)
+    {
+        var user = await sessionService.GetUserAsync(HttpContext, cancellationToken);
+        if (user is null) return Unauthorized();
+        var access = await accessService.GetAsync(HttpContext, cancellationToken);
+        var trial = access?.Session.AccessMode == TravelCompanion.Shared.SessionAccessMode.FreeMapPreview
+            ? await freeTrialAccessService.GetStatusAsync(user.Id, cancellationToken) : null;
+        return Ok(new DayPersonalizationOptionsDto(
+            features.Value.PersonalizedDayEnabled && access?.Session.AccessMode is
+                TravelCompanion.Shared.SessionAccessMode.Builder or TravelCompanion.Shared.SessionAccessMode.FreeMapPreview,
+            trial?.PersonalizedDayTrialAvailable == true,
+            await profiles.GetProfileDtoAsync(user.Id, cancellationToken)));
+    }
+
     [HttpPost("travel-chat")]
     public async Task<ActionResult<TravelChatResponse>> TravelChat(
         [FromBody] TravelChatRequest request,
@@ -39,6 +58,18 @@ public sealed class AiController(
         }
 
         var access = await accessService.GetAsync(HttpContext, cancellationToken);
+        var personalized = request.GuidedAction?.PlanningMode == "personalized";
+        if (request.GuidedAction?.PlanningMode is not (null or "personalized")
+            || personalized && request.GuidedAction?.Action != TravelCompanion.Shared.GuidedTravelActions.FullDay)
+            return this.ValidationError(nameof(request.GuidedAction), "Invalid day planning mode.");
+        if (personalized && !features.Value.PersonalizedDayEnabled)
+            return Ok(new TravelChatResponse(request.ConversationId ?? Guid.NewGuid().ToString("N"),
+                "La personalización todavía no está disponible.", "unavailable", [], [],
+                new MissingContextDto("unavailable", "La personalización todavía no está disponible.", [])));
+        if (personalized && access?.TripId != request.GuidedAction?.TripId)
+            return Ok(new TravelChatResponse(request.ConversationId ?? Guid.NewGuid().ToString("N"),
+                "El viaje cambió. Actualizá el itinerario y generá otra propuesta.", "stale", [], [],
+                new MissingContextDto("stale", "El viaje cambió. Actualizá el itinerario y generá otra propuesta.", [])));
         if (request.GuidedAction?.AdaptationReason is not null
             && request.GuidedAction.Action != TravelCompanion.Shared.GuidedTravelActions.FullDay)
             return this.ValidationError(nameof(request.GuidedAction), "Adaptation requires a full-day action.");
@@ -88,14 +119,16 @@ public sealed class AiController(
                 var operationId = request.OperationId ?? Guid.NewGuid();
                 usageLease = await assistantUsageService.ReserveAsync(user.Id, access.TripId,
                     request.GuidedAction?.Action == TravelCompanion.Shared.GuidedTravelActions.FullDay
-                        ? $"{AssistantUsageService.FullDayPrefix}{operationId:N}:{fingerprint}"
+                        ? $"{(personalized ? AssistantUsageService.PersonalizedDayPrefix : AssistantUsageService.FullDayPrefix)}{operationId:N}:{fingerprint}"
                         : $"chat:{operationId:N}:{fingerprint}", cancellationToken);
             }
             catch (TrialUpgradeRequiredException exception)
             {
                 return Ok(new TravelChatResponse(
                     request.ConversationId ?? Guid.NewGuid().ToString("N"),
-                    access.Session.AccessMode == TravelCompanion.Shared.SessionAccessMode.FreeMapPreview
+                    personalized
+                        ? "La prueba personalizada ya se utilizó o no quedan mejoras del día. Activá el Pase Japón para continuar."
+                        : access.Session.AccessMode == TravelCompanion.Shared.SessionAccessMode.FreeMapPreview
                         ? "Activa tu pase para continuar. La prueba incluye tres días, tres mejoras del día y tres consultas del Assistant, con 30 minutos de edición."
                         : "Has alcanzado el límite diario del Assistant. Se reinicia a las 00:00 UTC.",
                     "upgrade_required", [], ["Activar mi pase"],

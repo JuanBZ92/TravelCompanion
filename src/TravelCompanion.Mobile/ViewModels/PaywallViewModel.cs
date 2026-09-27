@@ -286,6 +286,17 @@ public sealed partial class PaywallViewModel(
             });
             return;
         }
+        var personalization = pendingActions.TakePersonalization();
+        if (personalization is not null)
+        {
+            await Shell.Current.GoToAsync("//main/assistant", new ShellNavigationQueryParameters
+            {
+                ["ReviewDate"] = personalization.Date,
+                ["ReviewCity"] = personalization.City ?? string.Empty,
+                ["PersonalizedCriteria"] = personalization.Criteria
+            });
+            return;
+        }
         await (_entryPoint switch
         {
             PaywallEntryPoint.Map => Shell.Current.GoToAsync("//main/map"),

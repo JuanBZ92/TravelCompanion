@@ -39,7 +39,8 @@ public sealed partial class TravelChatViewModel
             BudgetAdjustment = choice.Budget
         };
 
-    private async Task RunDayPlanAsync(GuidedTravelActionDto action, TravelChatCardViewModel? replacementTarget = null)
+    private async Task RunDayPlanAsync(GuidedTravelActionDto action,
+        TravelChatCardViewModel? replacementTarget = null, GuidedPlanCriteriaDto? criteria = null)
     {
         if (IsBusy) return;
         if (!sessionService.CanEditItinerary)
@@ -69,7 +70,7 @@ public sealed partial class TravelChatViewModel
             var response = await apiClient.SendTravelChatAsync(token, new TravelChatRequest(
                 Resource("AssistantGuidedFullDayRequestSummary"), _conversationId, City,
                 planningDate, null, CultureInfo.CurrentUICulture.Name,
-                action, OperationId: Guid.NewGuid()), cancellationToken);
+                action, Criteria: criteria, OperationId: Guid.NewGuid()), cancellationToken);
             if (response is null)
             {
                 ErrorMessage = Resource("PlanningTryAgain");
@@ -81,6 +82,8 @@ public sealed partial class TravelChatViewModel
             if (response.MissingContext?.Field == "upgrade")
             {
                 if (replacementTarget is not null) replacementTarget.FeedbackStatusMessage = response.Message;
+                if (action.PlanningMode == "personalized" && criteria is not null)
+                    pendingItineraryActionStore.SetPersonalization(planningDate, City, criteria);
                 await PaywallNavigation.OpenAsync(PaywallEntryPoint.Today, limitReached: true);
                 return;
             }
@@ -91,8 +94,17 @@ public sealed partial class TravelChatViewModel
                 return;
             }
             var cards = response.Cards.Select(item => new TravelChatCardViewModel(item) { PlanningDate = planningDate }).ToList();
-            if (action.AdaptationReason is not null || replacementTarget is not null && _adaptationCards.Contains(replacementTarget))
+            if (action.AdaptationReason is not null || action.PlanningMode == "personalized"
+                || replacementTarget is not null && _adaptationCards.Contains(replacementTarget))
                 foreach (var card in cards) _adaptationCards.Add(card);
+            if (action.PlanningMode == "personalized" && cards.Count > 0)
+            {
+                foreach (var card in cards) _personalizedCards.Add(card);
+                await analytics.TrackAsync("personalization_proposal_generated", "assistant", tripId: sessionService.CurrentTripId);
+            }
+            else if (action.AdaptationReason is null && replacementTarget is null
+                && cards.Count > 0 && response.Intent == "day_plan")
+                await analytics.TrackAsync("day_improvement_proposal_generated", "assistant", tripId: sessionService.CurrentTripId);
             StatusMessage = response.Message;
             if (action.AdaptationReason is not null && cards.Count > 0)
             {

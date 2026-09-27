@@ -42,6 +42,7 @@ public sealed record GuidedTravelActionDto(
     public int? DelayMinutes { get; init; }
     public int? ExpectedRevision { get; init; }
     public Guid? TripId { get; init; }
+    public string? PlanningMode { get; init; }
 }
 
 // Preview context only. The backend resolves catalog data and validates any saved replacement target.
@@ -59,7 +60,14 @@ public sealed record GuidedPlanCriteriaDto(
     public IReadOnlyList<int> WalkingMinuteOptions { get; init; } = [];
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
     public bool IgnorePreferences { get; init; }
+    public string? TravelPace { get; init; }
+    public IReadOnlyList<string> Interests { get; init; } = [];
 }
+
+public sealed record DayPersonalizationOptionsDto(
+    bool Enabled,
+    bool FreeTrialAvailable,
+    TravelPreferenceProfileDto Profile);
 
 public sealed record GuidedQuestionDto(
     string Id,

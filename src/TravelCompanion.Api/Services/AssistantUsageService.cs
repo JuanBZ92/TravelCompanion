@@ -16,6 +16,7 @@ public sealed class AssistantUsageService(
     IOptions<StorePurchaseOptions> paidOptions)
 {
     public const string FullDayPrefix = "full-day:";
+    public const string PersonalizedDayPrefix = "full-day:personalized:";
 
     public async Task<AssistantUsageLeaseResult> ReserveAsync(Guid userId, Guid? tripId, string operationKey, CancellationToken ct)
     {
@@ -33,6 +34,8 @@ public sealed class AssistantUsageService(
             .OrderByDescending(item => item.CreatedAtUtc).FirstOrDefaultAsync(ct)
             ?? throw new TrialUpgradeRequiredException(new(false, TravelCompanion.Shared.Dtos.TrialAccessState.NoAccess, null, null, 0,
                 freeOptions.Value.PassPrice, freeOptions.Value.Currency, freeOptions.Value.PurchaseUrl));
+        var personalizedTrial = grant.IsTrial && operationKey.StartsWith(PersonalizedDayPrefix, StringComparison.Ordinal);
+        if (personalizedTrial) await LockUserAsync(userId, ct);
         await LockGrantAsync(grant.Id, ct);
         await dbContext.Entry(grant).ReloadAsync(ct);
         var prior = await dbContext.AssistantUsageLeases.FirstOrDefaultAsync(item =>
@@ -62,6 +65,20 @@ public sealed class AssistantUsageService(
                 freeOptions.Value.PassPrice, freeOptions.Value.Currency, freeOptions.Value.PurchaseUrl)
                 { FreePolicy = grant.FreePolicy, DayImprovementsRemaining = Math.Max(0, FreePlanningPolicy.MaximumDayImprovements - dayUsed) });
         }
+        if (personalizedTrial)
+        {
+            var alreadyUsed = await dbContext.AppUsers.AsNoTracking().AnyAsync(item =>
+                item.Id == userId && item.PersonalizedDayTrialUsedAtUtc != null, ct);
+            var pending = await dbContext.AssistantUsageLeases.AsNoTracking().AnyAsync(item =>
+                item.BuilderAccessGrant!.AppUserId == userId
+                && item.OperationKey.StartsWith(PersonalizedDayPrefix)
+                && item.CompletedAtUtc == null && item.CancelledAtUtc == null && item.ExpiresAtUtc > now, ct);
+            if (alreadyUsed || pending)
+                throw new TrialUpgradeRequiredException(new(true, AccessGrantPolicy.ResolveState(grant, now),
+                    grant.TrialEditingExpiresAtUtc, grant.TrialDraftExpiresAtUtc, 0,
+                    freeOptions.Value.PassPrice, freeOptions.Value.Currency, freeOptions.Value.PurchaseUrl)
+                    { FreePolicy = grant.FreePolicy, PersonalizedDayTrialAvailable = false });
+        }
         var lease = prior ?? new AssistantUsageLease
         {
             Id = Guid.NewGuid(), BuilderAccessGrantId = grant.Id, OperationKey = operationKey
@@ -89,6 +106,8 @@ public sealed class AssistantUsageService(
         var lease = await dbContext.AssistantUsageLeases.Include(item => item.BuilderAccessGrant).SingleAsync(item => item.Id == leaseId, ct);
         if (lease.CompletedAtUtc.HasValue || lease.CancelledAtUtc.HasValue) return;
         var grant = lease.BuilderAccessGrant!;
+        if (grant.IsTrial && lease.OperationKey.StartsWith(PersonalizedDayPrefix, StringComparison.Ordinal))
+            await LockUserAsync(grant.AppUserId, ct);
         await LockGrantAsync(grant.Id, ct);
         await dbContext.Entry(grant).ReloadAsync(ct);
         await dbContext.Entry(lease).ReloadAsync(ct);
@@ -103,6 +122,13 @@ public sealed class AssistantUsageService(
         if (grant.IsTrial)
         {
             if (!lease.OperationKey.StartsWith(FullDayPrefix, StringComparison.Ordinal)) grant.TrialAssistantRequestsUsed++;
+            if (lease.OperationKey.StartsWith(PersonalizedDayPrefix, StringComparison.Ordinal))
+            {
+                var user = await dbContext.AppUsers.SingleAsync(item => item.Id == grant.AppUserId, ct);
+                if (user.PersonalizedDayTrialUsedAtUtc.HasValue)
+                    throw new InvalidOperationException("La prueba personalizada ya se utilizó.");
+                user.PersonalizedDayTrialUsedAtUtc = now;
+            }
         }
         else
         {
@@ -145,5 +171,13 @@ public sealed class AssistantUsageService(
             return;
         await dbContext.Database.ExecuteSqlInterpolatedAsync(
             $"SELECT 1 FROM \"BuilderAccessGrants\" WHERE \"Id\" = {grantId} FOR UPDATE", ct);
+    }
+
+    private async Task LockUserAsync(Guid userId, CancellationToken ct)
+    {
+        if (dbContext.Database.ProviderName?.Contains("Npgsql", StringComparison.OrdinalIgnoreCase) != true
+            || dbContext.Database.CurrentTransaction is null) return;
+        await dbContext.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT 1 FROM \"AppUsers\" WHERE \"Id\" = {userId} FOR UPDATE", ct);
     }
 }

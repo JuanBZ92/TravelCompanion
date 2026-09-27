@@ -20,7 +20,9 @@ public sealed class ProductAnalyticsService(TravelCompanionDbContext dbContext, 
         "paywall_shown", "paywall_cta_selected", "email_verification_started",
         "day_review_viewed", "proposal_previewed", "route_viewed", "trip_created",
         "limit_reached", "paid_trip_opened", "offline_download_completed", "offline_download_failed",
-        "next_activity_opened", "adaptation_requested", "adaptation_applied"
+        "next_activity_opened", "adaptation_requested", "adaptation_applied",
+        "personalization_requested", "personalization_proposal_generated", "personalization_activity_saved",
+        "day_improvement_requested", "day_improvement_proposal_generated", "day_improvement_activity_saved"
     };
 
     public async Task<int> IngestAsync(HttpContext httpContext, ProductAnalyticsBatchDto batch,

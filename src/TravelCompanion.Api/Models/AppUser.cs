@@ -11,6 +11,7 @@ public sealed class AppUser
     public bool IsDemo { get; set; }
     public bool IsInternal { get; set; }
     public bool BehaviorAnalyticsConsent { get; set; }
+    public DateTimeOffset? PersonalizedDayTrialUsedAtUtc { get; set; }
     public string? PasswordHash { get; set; }
     public bool MustChangePassword { get; set; } = true;
     public DateTimeOffset? TemporaryPasswordIssuedAt { get; set; }

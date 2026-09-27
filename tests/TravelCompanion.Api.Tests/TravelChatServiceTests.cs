@@ -2047,6 +2047,81 @@ public sealed class TravelChatServiceTests
     }
 
     [Fact]
+    public async Task Personalized_day_uses_interests_and_pace_without_changing_a_fixed_reservation()
+    {
+        await using var db = CreateDbContext();
+        var destination = Guid.NewGuid();
+        var gallery = DayRecommendation(destination, "Art gallery", "Culture", "free");
+        gallery.Tags = ["art", "gallery"];
+        var temple = DayRecommendation(destination, "Temple", "Culture", "free");
+        temple.Tags = ["history", "temple"];
+        var garden = DayRecommendation(destination, "Garden", "Nature", "low");
+        garden.Tags = ["nature", "garden"];
+        var user = await SeedPlanningWorldAsync(db, destination, gallery, temple, garden);
+        var trip = await db.Trips.Include(item => item.Reservations).SingleAsync();
+        db.Reservations.RemoveRange(trip.Reservations);
+        var lunch = CreateReservation("Confirmed lunch", new TimeOnly(13, 0), "Tokyo");
+        lunch.TripId = trip.Id;
+        lunch.PlanningKind = ScheduleItemKind.ConfirmedReservation;
+        lunch.Flexibility = ItineraryFlexibility.ConfirmedReservation;
+        db.Reservations.Add(lunch);
+        await db.SaveChangesAsync();
+
+        var response = await CreateService(db).CreatePlanAsync(user, new TravelChatRequest(
+            "Personalize day", null, "Tokyo", new DateOnly(2026, 10, 6), null, "es-ES",
+            new GuidedTravelActionDto(GuidedTravelActions.FullDay, "art-day")
+            {
+                PlanningMode = "personalized", TripId = trip.Id, ExpectedRevision = trip.PlanRevision
+            },
+            new GuidedPlanCriteriaDto(Budget: "medium")
+            {
+                TravelPace = "relaxed", Interests = ["art"]
+            }), CancellationToken.None);
+
+        Assert.Null(response.MissingContext);
+        Assert.Equal(2, response.Cards.Count);
+        Assert.Contains(response.Cards, card => card.Title == "Art gallery"
+            && card.WhyItFits.Any(reason => reason.Contains("art", StringComparison.OrdinalIgnoreCase)));
+        Assert.All(response.Cards, card => Assert.True(card.IsPeriodOnly));
+        Assert.All(response.Cards, card => Assert.Null(card.ReservationId));
+        Assert.Equal(lunch.Id, (await db.Reservations.SingleAsync()).Id);
+    }
+
+    [Fact]
+    public async Task Personalized_day_requires_dietary_evidence_and_rejects_a_stale_revision()
+    {
+        await using var db = CreateDbContext();
+        var destination = Guid.NewGuid();
+        var unknownCafe = DayRecommendation(destination, "Cafe without dietary details", "Food");
+        var veganCafe = DayRecommendation(destination, "Vegan cafe", "Food");
+        veganCafe.Tags = ["vegan", "cafe"];
+        var gallery = DayRecommendation(destination, "Gallery", "Culture");
+        var user = await SeedPlanningWorldAsync(db, destination, unknownCafe, veganCafe, gallery);
+        var trip = await db.Trips.SingleAsync();
+        db.Reservations.RemoveRange(await db.Reservations.ToListAsync());
+        (await db.TravelPreferenceProfiles.SingleAsync(item => item.UserId == user.Id))
+            .DietaryRestrictions = ["vegan"];
+        await db.SaveChangesAsync();
+        var request = new TravelChatRequest("Personalize day", null, "Tokyo", new DateOnly(2026, 10, 6),
+            null, "es-ES", new GuidedTravelActionDto(GuidedTravelActions.FullDay)
+            {
+                PlanningMode = "personalized", TripId = trip.Id, ExpectedRevision = trip.PlanRevision
+            }, new GuidedPlanCriteriaDto(Budget: "medium") { TravelPace = "relaxed" });
+
+        var result = await CreateService(db).CreatePlanAsync(user, request, CancellationToken.None);
+        Assert.DoesNotContain(result.Cards, card => card.RecommendationId == unknownCafe.Id.ToString());
+        Assert.Contains(result.Cards, card => card.RecommendationId == veganCafe.Id.ToString());
+        Assert.All(result.Cards, card => Assert.Null(card.ReservationId));
+
+        var stale = await CreateService(db).CreatePlanAsync(user, request with
+        {
+            GuidedAction = request.GuidedAction! with { ExpectedRevision = trip.PlanRevision + 1 }
+        }, CancellationToken.None);
+        Assert.Equal("stale", stale.MissingContext?.Field);
+        Assert.Empty(stale.Cards);
+    }
+
+    [Fact]
     public async Task Save_replacement_preserves_identity_is_idempotent_and_rejects_stale_or_foreign_targets()
     {
         await using var db = CreateDbContext();

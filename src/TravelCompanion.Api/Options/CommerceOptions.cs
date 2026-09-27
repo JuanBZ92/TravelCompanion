@@ -49,4 +49,5 @@ public sealed class ProductFeatureOptions
     public bool PaywallEnabled { get; set; } = true;
     public bool ProposalsEnabled { get; set; } = true;
     public bool RoutesEnabled { get; set; } = true;
+    public bool PersonalizedDayEnabled { get; set; }
 }

@@ -47,6 +47,7 @@ public sealed partial class TravelChatViewModel(
     private int? _adaptationRevision;
     private Guid? _adaptationTripId;
     private readonly HashSet<TravelChatCardViewModel> _adaptationCards = [];
+    private readonly HashSet<TravelChatCardViewModel> _personalizedCards = [];
     private bool _guidedPreferencesDirty;
     private Guid? _loadedPreferenceUserId;
     private TravelPreferenceProfileDto? _cachedPreferenceProfile;
@@ -257,6 +258,7 @@ public sealed partial class TravelChatViewModel(
         _adaptationRevision = null;
         _adaptationTripId = null;
         _adaptationCards.Clear();
+        _personalizedCards.Clear();
 
         if (!sessionService.CanEditItinerary)
         {
@@ -284,6 +286,7 @@ public sealed partial class TravelChatViewModel(
         IsFreeTextVisible = false;
         IsSecondaryMenuVisible = false;
         HasGuidedQuestion = false;
+        await analytics.TrackAsync("day_improvement_requested", "schedule", tripId: sessionService.CurrentTripId);
         await RunDayPlanAsync(new GuidedTravelActionDto(GuidedTravelActions.FullDay, Guid.NewGuid().ToString("N")));
     }
 
@@ -307,6 +310,7 @@ public sealed partial class TravelChatViewModel(
         _adaptationRevision = schedule.Revision;
         _adaptationTripId = schedule.TripId;
         _adaptationCards.Clear();
+        _personalizedCards.Clear();
         await analytics.TrackAsync("adaptation_requested", reason, tripId: schedule.TripId);
         PlanningDate = date.ToDateTime(TimeOnly.MinValue);
         City = city;
@@ -322,6 +326,36 @@ public sealed partial class TravelChatViewModel(
         });
     }
 
+    public async Task RequestPersonalizedDayAsync(DateOnly date, string? city, GuidedPlanCriteriaDto criteria)
+    {
+        if (IsBusy) return;
+        if (!sessionService.CanEditItinerary)
+        {
+            pendingItineraryActionStore.SetPersonalization(date, city, criteria);
+            await PaywallNavigation.OpenAsync(PaywallEntryPoint.Today);
+            return;
+        }
+        var cached = await bootstrapStore.GetCachedAsync();
+        if (cached?.Value.Schedule is not { } schedule || schedule.TripId != sessionService.CurrentTripId)
+        {
+            ErrorMessage = "Actualizá el itinerario antes de personalizar el día.";
+            return;
+        }
+        _adaptationRevision = schedule.Revision;
+        _adaptationTripId = schedule.TripId;
+        _adaptationCards.Clear();
+        _personalizedCards.Clear();
+        PlanningDate = date.ToDateTime(TimeOnly.MinValue);
+        City = city;
+        _isFullDayFlow = true;
+        Messages.Clear();
+        OnMessagesChanged();
+        await RunDayPlanAsync(new GuidedTravelActionDto(GuidedTravelActions.FullDay, Guid.NewGuid().ToString("N"))
+        {
+            PlanningMode = "personalized", ExpectedRevision = schedule.Revision, TripId = schedule.TripId
+        }, criteria: criteria);
+    }
+
     public void ResetForNewSession()
     {
         ResetLoadState();
@@ -329,6 +363,7 @@ public sealed partial class TravelChatViewModel(
         _adaptationRevision = null;
         _adaptationTripId = null;
         _adaptationCards.Clear();
+        _personalizedCards.Clear();
         _lastIntent = null;
         _lastFailedMessage = null;
         _hasLoadedContext = false;
@@ -825,7 +860,8 @@ public sealed partial class TravelChatViewModel(
             if (card.IsDayPlanCard)
             {
                 var saved = await SaveFullDayCardsAsync([card], token, CancellationToken.None);
-                StatusMessage = saved == 1 ? Resource("AssistantSavedButton") : Resource("PlanningTryAgain");
+                StatusMessage = saved == 1 ? Resource("AssistantSavedButton")
+                    : card.FeedbackStatusMessage ?? Resource("PlanningTryAgain");
                 return;
             }
 
@@ -1135,7 +1171,10 @@ public sealed partial class TravelChatViewModel(
             }
         }
         if (savedCount > 0 && cardsToProcess.Any(_adaptationCards.Contains))
-            await analytics.TrackAsync("adaptation_applied", "assistant", tripId: sessionService.CurrentTripId);
+            await analytics.TrackAsync(cardsToProcess.Any(_personalizedCards.Contains)
+                ? "personalization_activity_saved" : "adaptation_applied", "assistant", tripId: sessionService.CurrentTripId);
+        else if (savedCount > 0 && cardsToProcess.Any(card => card.IsDayPlanCard))
+            await analytics.TrackAsync("day_improvement_activity_saved", "assistant", tripId: sessionService.CurrentTripId);
 
         if (savedItems.Count > 0)
         {

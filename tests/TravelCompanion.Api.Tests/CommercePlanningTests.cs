@@ -379,7 +379,8 @@ public sealed class CommercePlanningTests
         const string secret = "test-secret";
         var destination = new Destination { Id = Guid.NewGuid(), Name = "Japan", Slug = "japan", Country = "Japan", ShortDescription = "", HeroImageUrl = "", TimeZoneId = "Asia/Tokyo" };
         var target = new AppUser { Id = Guid.NewGuid(), Email = email, DisplayName = "Existing", EmailVerified = true };
-        var source = new AppUser { Id = Guid.NewGuid(), Email = $"{FreePreviewAccountService.AccountEmailPrefix}{Guid.NewGuid():N}@travelcompanion.system", DisplayName = "Preview" };
+        var source = new AppUser { Id = Guid.NewGuid(), Email = $"{FreePreviewAccountService.AccountEmailPrefix}{Guid.NewGuid():N}@travelcompanion.system", DisplayName = "Preview",
+            PersonalizedDayTrialUsedAtUtc = DateTimeOffset.UtcNow.AddMinutes(-5) };
         var trip = new Trip
         {
             Id = Guid.NewGuid(), AppUserId = source.Id, DestinationId = destination.Id, TravelerName = "Preview",
@@ -451,12 +452,14 @@ public sealed class CommercePlanningTests
         Assert.Equal(TrialAccessState.Editing, linked.TrialAccess?.State);
         Assert.True(linked.Capabilities?.CanEditItinerary);
         Assert.Equal(3, linked.TrialAccess?.DayImprovementsRemaining);
+        Assert.False(linked.TrialAccess?.PersonalizedDayTrialAvailable);
         var selectedContext = new DefaultHttpContext();
         selectedContext.Request.Headers.Authorization = $"Bearer {linked.Token}";
         var selected = await service.SelectTripAsync(selectedContext, trip.Id, default);
         Assert.Equal(linked.TrialAccess, selected.TrialAccess);
         Assert.True(selected.Capabilities?.CanEditItinerary);
         Assert.Equal(target.Id, linked.UserId);
+        Assert.NotNull((await db.AppUsers.SingleAsync(item => item.Id == target.Id)).PersonalizedDayTrialUsedAtUtc);
         Assert.Equal(trip.Id, linked.TripId);
         Assert.Equal(target.Id, (await db.Trips.SingleAsync(item => item.Id == trip.Id)).AppUserId);
         Assert.Equal(target.Id, (await db.BuilderAccessGrants.SingleAsync(item => item.Id == grant.Id)).AppUserId);
@@ -497,6 +500,39 @@ public sealed class CommercePlanningTests
         Assert.Equal(user.Id, stored.AnonymousUserId);
         Assert.Null(stored.AppUserId);
         Assert.Equal(SessionAccessMode.FreeMapPreview.ToString(), stored.AccessState);
+    }
+
+    [Fact]
+    public async Task Personalized_day_trial_is_reserved_once_per_account_and_only_committed_for_a_useful_result()
+    {
+        await using var db = CreateDb();
+        var (user, trip, _, _) = await SeedPurchaseTripAsync(db);
+        db.BuilderAccessGrants.Add(new BuilderAccessGrant
+        {
+            Id = Guid.NewGuid(), AppUserId = user.Id, TripId = trip.Id, DestinationId = trip.DestinationId,
+            IsTrial = true, Status = BuilderAccessStatus.Active,
+            TrialEditingStartedAtUtc = DateTimeOffset.UtcNow,
+            TrialEditingExpiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(30)
+        });
+        await db.SaveChangesAsync();
+        var usage = new AssistantUsageService(db, Microsoft.Extensions.Options.Options.Create(new FreePreviewOptions()),
+            Microsoft.Extensions.Options.Options.Create(new StorePurchaseOptions()));
+        var cancelled = await usage.ReserveAsync(user.Id, trip.Id, "full-day:personalized:cancelled", default);
+        await Assert.ThrowsAsync<TrialUpgradeRequiredException>(() =>
+            usage.ReserveAsync(user.Id, trip.Id, "full-day:personalized:parallel", default));
+        await usage.CancelAsync(cancelled.LeaseId, default);
+        Assert.Null(user.PersonalizedDayTrialUsedAtUtc);
+
+        var successful = await usage.ReserveAsync(user.Id, trip.Id, "full-day:personalized:useful", default);
+        await usage.CompleteAsync(successful.LeaseId, default);
+        await usage.CompleteAsync(successful.LeaseId, default);
+        Assert.NotNull(user.PersonalizedDayTrialUsedAtUtc);
+        Assert.Equal(successful.LeaseId, (await usage.ReserveAsync(user.Id, trip.Id,
+            "full-day:personalized:useful", default)).LeaseId);
+        await Assert.ThrowsAsync<TrialUpgradeRequiredException>(() =>
+            usage.ReserveAsync(user.Id, trip.Id, "full-day:personalized:second", default));
+        var basic = await usage.ReserveAsync(user.Id, trip.Id, "full-day:basic-remains", default);
+        Assert.NotEqual(Guid.Empty, basic.LeaseId);
     }
 
     [Fact]

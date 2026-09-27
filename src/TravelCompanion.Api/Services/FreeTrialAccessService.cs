@@ -55,7 +55,14 @@ public sealed class FreeTrialAccessService(
         var used = grant is null ? 0 : await dbContext.AssistantUsageLeases.CountAsync(item =>
             item.BuilderAccessGrantId == grant.Id && item.OperationKey.StartsWith(AssistantUsageService.FullDayPrefix)
             && item.CompletedAtUtc != null, cancellationToken);
-        return ToStatus(grant) with { DayImprovementsRemaining = Math.Max(0, FreePlanningPolicy.MaximumDayImprovements - used) };
+        var trialUsed = grant is not null && await dbContext.AppUsers.AsNoTracking()
+            .AnyAsync(user => user.Id == grant.AppUserId && user.PersonalizedDayTrialUsedAtUtc != null, cancellationToken);
+        return ToStatus(grant) with
+        {
+            DayImprovementsRemaining = Math.Max(0, FreePlanningPolicy.MaximumDayImprovements - used),
+            PersonalizedDayTrialAvailable = grant is not null && !trialUsed
+                && used < FreePlanningPolicy.MaximumDayImprovements
+        };
     }
 
     public async Task<TrialAccessStatusDto> StartEditingAsync(Guid userId, CancellationToken cancellationToken = default)

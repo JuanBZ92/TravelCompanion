@@ -581,6 +581,16 @@ public sealed class TravelCompanionApiClient
             : null;
     }
 
+    public async Task<DayPersonalizationOptionsDto?> GetDayPersonalizationOptionsAsync(
+        string token, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Get, "api/ai/day-personalization", token);
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<DayPersonalizationOptionsDto>(JsonOptions, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
     public async Task<TravelPreferenceProfileDto?> PatchTravelPreferenceProfileAsync(
         string token,
         TravelPreferenceProfilePatchDto patch,
