@@ -59,7 +59,7 @@ public sealed class TravelChatMobilePresentationTests
         Assert.Equal("Garden", rows[0].Title);
         Assert.Equal("Museum", rows[1].Title);
         Assert.Equal("Hotel check-in", rows[2].Title);
-        Assert.Single(rows.Where(row => row.IsSuggestion));
+        Assert.Single(rows, row => row.IsSuggestion);
         Assert.DoesNotContain("09:00", rows[0].When);
     }
 
@@ -95,11 +95,93 @@ public sealed class TravelChatMobilePresentationTests
         var saved = ProposalItem(day, "Museum", new TimeOnly(10, 0));
         var idea = ProposalCard("Cafe", Guid.NewGuid(), "00:00", periodOnly: false);
 
-        var rows = AssistantDayProposalBuilder.Build([saved], [idea], day);
+        var row = Assert.Single(AssistantDayProposalBuilder.BuildQuickSearch([saved], [idea], day));
 
-        Assert.Equal("Museum", rows[0].Title);
-        Assert.Equal("Cafe", rows[1].Title);
-        Assert.Equal(LocalizationResourceManager.Instance["AssistantProposalFlexible"], rows[1].When);
+        Assert.Equal("Cafe", row.Title);
+        Assert.Equal(LocalizationResourceManager.Instance["AssistantProposalFlexible"], row.When);
+    }
+
+    [Fact]
+    public void Quick_search_without_timing_shows_only_new_ideas_in_their_original_order()
+    {
+        var day = new DateOnly(2026, 9, 28);
+        var saved = ProposalItem(day, "Museum", new TimeOnly(11, 0));
+        var first = ProposalCard("Cafe", Guid.NewGuid(), null, false);
+        var second = ProposalCard("Garden", Guid.NewGuid(), "00:00", false);
+
+        var rows = AssistantDayProposalBuilder.BuildQuickSearch([saved], [first, second], day);
+
+        Assert.Equal(["Cafe", "Garden"], rows.Select(row => row.Title));
+        Assert.All(rows, row => Assert.True(row.IsSuggestion));
+    }
+
+    [Fact]
+    public void Quick_search_does_not_add_context_with_only_one_timed_idea()
+    {
+        var day = new DateOnly(2026, 9, 28);
+        var saved = ProposalItem(day, "Museum", new TimeOnly(12, 0));
+        var idea = ProposalCard("Cafe", Guid.NewGuid(), "09:00", false);
+
+        var row = Assert.Single(AssistantDayProposalBuilder.BuildQuickSearch([saved], [idea], day));
+
+        Assert.Equal("Cafe", row.Title);
+    }
+
+    [Fact]
+    public void Quick_search_keeps_only_saved_plans_between_timed_ideas()
+    {
+        var day = new DateOnly(2026, 9, 28);
+        var before = ProposalItem(day, "Breakfast", new TimeOnly(8, 0));
+        var between = ProposalItem(day, "Museum", new TimeOnly(12, 0)) with
+        { EndsAt = new TimeOnly(13, 0) };
+        var overlapsLastIdea = ProposalItem(day, "Long visit", new TimeOnly(15, 0)) with
+        { EndsAt = new TimeOnly(18, 0) };
+        var after = ProposalItem(day, "Dinner", new TimeOnly(20, 0));
+        var first = ProposalCard("Cafe", Guid.NewGuid(), "09:00", false);
+        var second = ProposalCard("Garden", Guid.NewGuid(), "17:00", false);
+
+        var rows = AssistantDayProposalBuilder.BuildQuickSearch(
+            [before, between, overlapsLastIdea, after], [first, second], day);
+
+        Assert.Equal(["Cafe", "Museum", "Garden"], rows.Select(row => row.Title));
+        Assert.Single(rows, row => row.IsSaved);
+    }
+
+    [Fact]
+    public void Quick_search_uses_distinct_periods_as_chronological_context()
+    {
+        var day = new DateOnly(2026, 9, 28);
+        var morning = ProposalItem(day, "Morning booking", new TimeOnly(10, 0));
+        var midday = ProposalItem(day, "Lunch", new TimeOnly(13, 0));
+        var night = ProposalItem(day, "Night booking", new TimeOnly(21, 0));
+        var first = ProposalCard("Morning idea", Guid.NewGuid(), "09:00", true);
+        var second = ProposalCard("Night idea", Guid.NewGuid(), "21:00", true);
+
+        var rows = AssistantDayProposalBuilder.BuildQuickSearch(
+            [morning, midday, night], [first, second], day);
+
+        Assert.Equal(["Morning idea", "Lunch", "Night idea"], rows.Select(row => row.Title));
+        Assert.Equal(LocalizationResourceManager.Instance["AssistantProposalMorning"], rows[0].When);
+        Assert.Equal(LocalizationResourceManager.Instance["AssistantProposalNight"], rows[2].When);
+    }
+
+    [Fact]
+    public void Quick_search_keeps_a_saved_result_without_listing_other_saved_plans()
+    {
+        var day = new DateOnly(2026, 9, 28);
+        var recommendationId = Guid.NewGuid();
+        var savedIdea = ProposalItem(day, "Cafe", new TimeOnly(10, 0),
+            recommendationId: recommendationId);
+        var otherSaved = ProposalItem(day, "Museum", new TimeOnly(12, 0));
+        var card = ProposalCard("Cafe", recommendationId, "10:00", false);
+        var newIdea = ProposalCard("Garden", Guid.NewGuid(), null, false);
+
+        var rows = AssistantDayProposalBuilder.BuildQuickSearch(
+            [savedIdea, otherSaved], [card, newIdea], day);
+
+        Assert.Equal(["Cafe", "Garden"], rows.Select(row => row.Title));
+        Assert.True(rows[0].IsSaved);
+        Assert.False(rows[1].IsSaved);
     }
 
     private static ScheduleItemDto ProposalItem(DateOnly date, string title, TimeOnly time,

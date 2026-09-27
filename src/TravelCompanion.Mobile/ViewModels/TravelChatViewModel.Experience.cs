@@ -12,6 +12,7 @@ public sealed partial class TravelChatViewModel
 {
     private string _assistantSurface = "home";
     private bool _quickSearchSubmission;
+    private bool _proposalIsQuickSearch;
     private string _proposalMessage = string.Empty;
     private TravelChatCardViewModel? _selectedDetailCard;
     private readonly List<TravelChatCardViewModel> _proposalCards = [];
@@ -293,7 +294,8 @@ public sealed partial class TravelChatViewModel
         finally { _quickSearchSubmission = false; }
     }
 
-    private async Task ShowAssistantProposalAsync(IReadOnlyList<TravelChatCardViewModel> cards, string message)
+    private async Task ShowAssistantProposalAsync(IReadOnlyList<TravelChatCardViewModel> cards,
+        string message, bool isQuickSearch = false)
     {
         StatusMessage = null;
         ProposalRows.Clear();
@@ -302,6 +304,7 @@ public sealed partial class TravelChatViewModel
         _proposalTripId = null;
         _proposalRevision = null;
         _pendingProposalSaveRecommendationId = null;
+        _proposalIsQuickSearch = isQuickSearch;
         _proposalMessage = message;
         OnPropertyChanged(nameof(ProposalMessage));
         await RefreshAssistantProposalAsync();
@@ -334,8 +337,11 @@ public sealed partial class TravelChatViewModel
         _proposalRevision = schedule.Revision;
         _pendingProposalSaveRecommendationId = null;
         ProposalRows.Clear();
-        foreach (var row in AssistantDayProposalBuilder.Build(schedule.Items, _proposalCards,
-            DateOnly.FromDateTime(PlanningDate))) ProposalRows.Add(row);
+        var date = DateOnly.FromDateTime(PlanningDate);
+        var rows = _proposalIsQuickSearch
+            ? AssistantDayProposalBuilder.BuildQuickSearch(schedule.Items, _proposalCards, date)
+            : AssistantDayProposalBuilder.Build(schedule.Items, _proposalCards, date);
+        foreach (var row in rows) ProposalRows.Add(row);
         OnPropertyChanged(nameof(HasProposalRows));
     }
 
@@ -382,11 +388,12 @@ public sealed partial class TravelChatViewModel
         if (SelectedDetailCard is not { } card) return;
         var message = Messages.FirstOrDefault(item => item.Cards.Contains(card));
         var previousCards = message?.Cards.ToList();
+        var wasQuickSearch = _proposalIsQuickSearch;
         SelectedDetailCard = null;
         await ReplaceRecommendationCommand.ExecuteAsync(card);
         if (!card.IsDayPlanCard && message is not null && previousCards is not null
             && !message.Cards.SequenceEqual(previousCards))
-            await ShowAssistantProposalAsync(message.Cards.ToList(), _proposalMessage);
+            await ShowAssistantProposalAsync(message.Cards.ToList(), _proposalMessage, wasQuickSearch);
     }
 
     [RelayCommand]

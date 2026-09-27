@@ -12,7 +12,7 @@
              BackgroundColor="{StaticResource Mist}">
 
     <Grid>
-    <Grid Padding="28,26,28,0" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="18"
+    <Grid Padding="28,26,28,0" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="8"
           InputTransparent="{Binding HasSelectedDetailCard}"
           IsVisible="{Binding ShowAssistantConversation}">
         <Grid ColumnDefinitions="48,*,118" ColumnSpacing="8">
@@ -385,7 +385,7 @@
             </CollectionView>
 
             <VerticalStackLayout Grid.Row="1" IsVisible="{Binding ShowEmptyState}"
-                                 Spacing="12" Margin="8,48,8,0">
+                                 Spacing="12" Margin="8,0,8,0">
                 <Label Text="{Binding AssistantConversationPrompt}" FontFamily="serif"
                        FontSize="26" TextColor="{StaticResource Ink}"
                        SemanticProperties.HeadingLevel="Level2" />

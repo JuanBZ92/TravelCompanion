@@ -393,6 +393,7 @@ public sealed partial class TravelChatViewModel(
         ProposalRows.Clear();
         _proposalCards.Clear();
         _proposalMessage = string.Empty;
+        _proposalIsQuickSearch = false;
         OnPropertyChanged(nameof(ProposalMessage));
         _proposalTripId = null;
         _proposalRevision = null;
@@ -740,7 +741,8 @@ public sealed partial class TravelChatViewModel(
 
             ApplyMissingContext(response.MissingContext);
             if (showQuickSearchProposal)
-                await ShowAssistantProposalAsync(cards, Resource("AssistantSearchProposalIntro"));
+                await ShowAssistantProposalAsync(cards, Resource("AssistantSearchProposalIntro"),
+                    isQuickSearch: true);
             else if (wasQuickSearch)
             {
                 SetAssistantSurface("search");

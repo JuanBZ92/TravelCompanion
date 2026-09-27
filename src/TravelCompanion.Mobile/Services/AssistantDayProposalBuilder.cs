@@ -72,4 +72,96 @@ public static class AssistantDayProposalBuilder
             .ThenBy(row => row.Title, StringComparer.CurrentCultureIgnoreCase)
             .ToList();
     }
+
+    public static IReadOnlyList<AssistantProposalRow> BuildQuickSearch(
+        IReadOnlyList<ScheduleItemDto> items,
+        IReadOnlyList<TravelChatCardViewModel> cards,
+        DateOnly date)
+    {
+        var dayItems = items.Where(item => item.Date == date).ToList();
+        var results = new List<AssistantProposalRow>();
+        var seenRecommendations = new HashSet<Guid>();
+        foreach (var card in cards)
+        {
+            if (card.IsExistingDayStop || card.RecommendationId is not { } recommendationId
+                || !seenRecommendations.Add(recommendationId)) continue;
+
+            var saved = dayItems.FirstOrDefault(item => item.RecommendationId == recommendationId
+                || card.ReservationId == item.Id);
+            results.Add(saved is not null
+                ? new AssistantProposalRow(saved, null, false, saved.StartsAt)
+                : new AssistantProposalRow(null, card, false, card.StartsAt ?? TimeOnly.MaxValue));
+        }
+
+        var anchors = results.Select(GetWindow).Where(window => window.HasValue)
+            .Select(window => window.GetValueOrDefault()).ToList();
+        var resultSavedIds = results.Where(row => row.SavedItem is not null)
+            .Select(row => row.SavedItem!.Id).ToHashSet();
+        var rows = new List<AssistantProposalRow>(results);
+        if (anchors.Count >= 2)
+        {
+            foreach (var item in dayItems)
+            {
+                if (resultSavedIds.Contains(item.Id)) continue;
+                var row = new AssistantProposalRow(item, null, false, item.StartsAt);
+                var window = GetWindow(row);
+                if (window is null) continue;
+                if (anchors.Any(anchor => anchor.End < window.Value.Start)
+                    && anchors.Any(anchor => anchor.Start > window.Value.End))
+                    rows.Add(row);
+            }
+        }
+
+        return rows.Select((row, index) => (Row: row, Index: index, Window: GetWindow(row)))
+            .OrderBy(entry => entry.Window?.Start ?? int.MaxValue)
+            .ThenBy(entry => entry.Index)
+            .Select(entry => entry.Row)
+            .ToList();
+    }
+
+    private static TimeWindow? GetWindow(AssistantProposalRow row)
+    {
+        if (row.IsOngoingStay) return null;
+        if (row.SavedItem is { } saved)
+        {
+            if (!saved.HasExactTime)
+                return saved.StartsAt == TimeOnly.MinValue && saved.PeriodKey is null
+                    ? null : PeriodWindow(saved.EffectivePeriodKey, saved.StartsAt);
+            if (saved.Type != ReservationType.Lodging && saved.EndsOn is null
+                && saved.EndsAt is { } overnightEnd && overnightEnd < saved.StartsAt) return null;
+
+            var start = Minutes(saved.StartsAt);
+            var savedEndMinute = saved.Type == ReservationType.Lodging ? start
+                : saved.EndsOn > saved.Date ? 1440
+                : saved.EndsAt is { } savedEndsAt && savedEndsAt >= saved.StartsAt
+                    ? Minutes(savedEndsAt) : start;
+            return new TimeWindow(start, savedEndMinute);
+        }
+
+        var card = row.Suggestion;
+        if (card?.StartsAt is not { } startsAt || startsAt == TimeOnly.MinValue) return null;
+        if (card.TimePrecision != ItineraryTimePrecision.Exact)
+            return PeriodWindow(startsAt.Hour switch
+            {
+                < 5 => "night", < 12 => "morning", < 15 => "midday",
+                < 20 => "afternoon", _ => "night"
+            }, startsAt);
+        if (card.EndsAt is { } suggestionEndsAt && suggestionEndsAt < startsAt) return null;
+        return new TimeWindow(Minutes(startsAt),
+            card.EndsAt is { } suggestionEnd ? Minutes(suggestionEnd) : Minutes(startsAt));
+    }
+
+    private static TimeWindow? PeriodWindow(string period, TimeOnly reference) => period switch
+    {
+        "morning" => new TimeWindow(5 * 60, 12 * 60),
+        "midday" => new TimeWindow(12 * 60, 15 * 60),
+        "afternoon" => new TimeWindow(15 * 60, 20 * 60),
+        "night" when reference.Hour < 5 => new TimeWindow(0, 5 * 60),
+        "night" => new TimeWindow(20 * 60, 24 * 60),
+        _ => null
+    };
+
+    private static int Minutes(TimeOnly time) => time.Hour * 60 + time.Minute;
+
+    private readonly record struct TimeWindow(int Start, int End);
 }
