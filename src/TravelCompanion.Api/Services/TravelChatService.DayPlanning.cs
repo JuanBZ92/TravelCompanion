@@ -101,8 +101,11 @@ public sealed partial class TravelChatService
             .Select(item => (Time: item.StartsAt, Title: item.Title,
                 Lat: item.Latitude ?? item.Recommendation?.Latitude, Lon: item.Longitude ?? item.Recommendation?.Longitude)).ToList();
         if (personalized && existing.FirstOrDefault(item => item.Type == ReservationType.Lodging
-            && item.Latitude.HasValue && item.Longitude.HasValue) is { } hotel)
-            timeline.Insert(0, (new TimeOnly(8, 0), hotel.Title, hotel.Latitude, hotel.Longitude));
+            && (item.Latitude ?? item.Recommendation?.Latitude).HasValue
+            && (item.Longitude ?? item.Recommendation?.Longitude).HasValue) is { } hotel)
+            timeline.Insert(0, (new TimeOnly(8, 0), hotel.Title,
+                hotel.Latitude ?? hotel.Recommendation?.Latitude,
+                hotel.Longitude ?? hotel.Recommendation?.Longitude));
         var occupied = existing.Where(item => item.Type == ReservationType.Event)
             .Select(DaySlot).ToHashSet();
         var slots = selected.Count > 0
@@ -223,7 +226,10 @@ public sealed partial class TravelChatService
         var cards = new List<TravelCardDto>();
         var blockedByFixed = 0;
         var used = new HashSet<Guid>();
-        var usedCategories = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var usedCategories = existing.Where(item => item.Type == ReservationType.Event
+                && item.Recommendation is not null)
+            .Select(item => item.Recommendation!.Category)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var (slot, original) in slots.OrderBy(item => item.Original?.StartsAt ?? DayStopTimes[item.Slot]))
         {
             var time = original?.StartsAt ?? DayStopTimes[slot];
