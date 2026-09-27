@@ -2122,6 +2122,43 @@ public sealed class TravelChatServiceTests
     }
 
     [Fact]
+    public async Task Personalized_day_skips_a_different_city_and_an_overnight_flight()
+    {
+        await using var db = CreateDbContext();
+        var destination = Guid.NewGuid();
+        var tokyoCafe = DayRecommendation(destination, "Tokyo cafe", "Food");
+        tokyoCafe.Latitude = 0;
+        tokyoCafe.Longitude = 0;
+        var osakaDinner = DayRecommendation(destination, "Osaka dinner", "Food");
+        osakaDinner.Neighborhood = "Namba, Osaka";
+        osakaDinner.Description = "Dinner in Osaka";
+        var user = await SeedPlanningWorldAsync(db, destination, tokyoCafe, osakaDinner);
+        var trip = await db.Trips.SingleAsync();
+        db.Reservations.RemoveRange(await db.Reservations.ToListAsync());
+        var flight = CreateReservation("Flight to Osaka", new TimeOnly(18, 0), "Tokyo");
+        flight.TripId = trip.Id;
+        flight.Type = ReservationType.Flight;
+        flight.EndsOn = new DateOnly(2026, 10, 7);
+        flight.EndsAt = new TimeOnly(2, 0);
+        flight.Flexibility = ItineraryFlexibility.ConfirmedReservation;
+        db.Reservations.Add(flight);
+        await db.SaveChangesAsync();
+
+        var result = await CreateService(db).CreatePlanAsync(user, new TravelChatRequest(
+            "Personalize day", null, "Tokyo", new DateOnly(2026, 10, 6), null, "es-ES",
+            new GuidedTravelActionDto(GuidedTravelActions.FullDay)
+            {
+                PlanningMode = "personalized", TripId = trip.Id, ExpectedRevision = trip.PlanRevision
+            }, new GuidedPlanCriteriaDto(Budget: "medium") { TravelPace = "efficient" }), CancellationToken.None);
+
+        Assert.DoesNotContain(result.Cards, card => card.RecommendationId == osakaDinner.Id.ToString());
+        Assert.DoesNotContain(result.Cards, card => card.StartTime == "19:30");
+        Assert.DoesNotContain(result.Cards.SelectMany(card => card.WhyItFits),
+            reason => reason.Contains("Cerca", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(flight.Id, (await db.Reservations.SingleAsync()).Id);
+    }
+
+    [Fact]
     public async Task Save_replacement_preserves_identity_is_idempotent_and_rejects_stale_or_foreign_targets()
     {
         await using var db = CreateDbContext();

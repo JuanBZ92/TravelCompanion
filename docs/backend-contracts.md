@@ -256,7 +256,7 @@ public sealed record TravelCardDto(
 
 ## Improve day and replace events
 
-`GET /api/ai/day-personalization` returns `Enabled`, `FreeTrialAvailable`, and the current preference profile for the signed-in traveler. `ProductFeatures:PersonalizedDayEnabled` gates the personalized flow; it defaults to `false` for staged rollout. The access response also includes `TrialAccessStatusDto.PersonalizedDayTrialAvailable`.
+`GET /api/ai/day-personalization` returns `Enabled`, `FreeTrialAvailable`, and the current preference profile for the signed-in traveler. `ProductFeatures:PersonalizedDayEnabled` gates the personalized flow and can be disabled through configuration during rollout. The access response also includes `TrialAccessStatusDto.PersonalizedDayTrialAvailable`.
 
 For a personalized request, `POST /api/ai/travel-chat` keeps `GuidedAction.Action = "full_day"` and sets optional `PlanningMode = "personalized"`, `TripId`, `ExpectedRevision`, and `Criteria` with `TravelPace` (`relaxed`, `balanced`, `efficient`), up to three `Interests`, and `Budget` (`low`, `medium`, `high`). Requests without `PlanningMode` keep the basic behavior. The server verifies the selected trip and revision, applies the day-only preferences while retaining dietary restrictions, and ranks authorized catalog entries. Its target is at most 3, 4, or 5 total events by pace; lodging does not count. A useful proposal consumes one existing improvement result. Free has one personalized result per account within that quota, recorded in `AppUsers.PersonalizedDayTrialUsedAtUtc`; cancelled and empty results do not consume it. Paid uses the existing shared daily quota.
 

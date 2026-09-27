@@ -176,8 +176,10 @@ public sealed partial class TravelChatService
                 preferenceProfile, existing, context with { City = candidateCity }, BalancedMode,
                 personalized ? new GuidedPlanCriteriaDto(Budget: request.Criteria!.Budget)
                     : new GuidedPlanCriteriaDto { IgnorePreferences = adaptation != "indoors" }, excluded, cancellationToken);
-            foreach (var candidate in result.RankedRecommendations.Where(item => cities.Count == 1
-                || item.Recommendation.Neighborhood.Contains(candidateCity, StringComparison.OrdinalIgnoreCase)))
+            foreach (var candidate in result.RankedRecommendations.Where(item =>
+                (!personalized && cities.Count == 1)
+                || item.Recommendation.Neighborhood.Contains(candidateCity, StringComparison.OrdinalIgnoreCase)
+                || personalized && item.Recommendation.Description.Contains(candidateCity, StringComparison.OrdinalIgnoreCase)))
                 if (cityByRecommendation.TryAdd(candidate.Recommendation.Id, candidateCity)) ranked.Add(candidate);
         }
         Reservation? draftOriginal = null;
@@ -419,8 +421,9 @@ public sealed partial class TravelChatService
     private static bool HasDietaryEvidence(Recommendation item, IReadOnlyList<string> restrictions)
     {
         if (restrictions.Count == 0 || !IsFoodRecommendation(item)) return true;
-        var evidence = $"{item.Title} {item.Description} {string.Join(' ', item.Tags)}";
-        return restrictions.All(restriction => evidence.Contains(restriction, StringComparison.OrdinalIgnoreCase));
+        return restrictions.All(restriction => item.Tags.Any(tag =>
+            tag.Equals(restriction, StringComparison.OrdinalIgnoreCase)
+            || tag.StartsWith($"{restriction} ", StringComparison.OrdinalIgnoreCase)));
     }
 
     private static bool CanReplaceDayStop(Reservation item) => ItineraryPlanningPolicy.CanReplace(item);
@@ -492,7 +495,8 @@ public sealed partial class TravelChatService
 
     private static double? DayDistance(decimal? lat1, decimal? lon1, decimal? lat2, decimal? lon2)
     {
-        if (!lat1.HasValue || !lon1.HasValue || !lat2.HasValue || !lon2.HasValue) return null;
+        if (!lat1.HasValue || !lon1.HasValue || !lat2.HasValue || !lon2.HasValue
+            || lat1 == 0 && lon1 == 0 || lat2 == 0 && lon2 == 0) return null;
         const double radians = Math.PI / 180;
         var a = Math.Pow(Math.Sin((double)(lat2.Value - lat1.Value) * radians / 2), 2)
             + Math.Cos((double)lat1.Value * radians) * Math.Cos((double)lat2.Value * radians)
