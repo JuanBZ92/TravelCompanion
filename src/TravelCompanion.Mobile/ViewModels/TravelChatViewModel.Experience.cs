@@ -17,7 +17,8 @@ public sealed partial class TravelChatViewModel
     private readonly List<TravelChatCardViewModel> _proposalCards = [];
     private Guid? _proposalTripId;
     private int? _proposalRevision;
-    private bool _expectingProposalSave;
+    private Guid? _pendingProposalSaveRecommendationId;
+    private bool _assistantDateSelectedByTraveler;
     private DateTime _assistantMinimumDate = new(2020, 1, 1);
     private DateTime _assistantMaximumDate = new(2100, 12, 31);
     private readonly HashSet<string> _quickCategories = new(StringComparer.OrdinalIgnoreCase);
@@ -73,6 +74,8 @@ public sealed partial class TravelChatViewModel
     public string AssistantNoIdeas => Resource("AssistantNoIdeas");
     public string AssistantOpenActivity => Resource("AssistantOpenActivity");
     public string AssistantAskAboutDay => Resource("AssistantAskAboutDay");
+    public string AssistantConversationPrompt => Resource("AssistantConversationPrompt");
+    public string AssistantConversationHelp => Resource("AssistantConversationHelp");
     public string AssistantAnotherOption => Resource("AssistantAnotherOption");
     public string AssistantAdjust => Resource("AssistantAdjust");
     public string AssistantClose => Resource("AssistantClose");
@@ -118,6 +121,7 @@ public sealed partial class TravelChatViewModel
     public async Task UpdateCityForDateAsync(DateTime selectedDate)
     {
         PlanningDate = selectedDate;
+        _assistantDateSelectedByTraveler = true;
         var schedule = (await bootstrapStore.GetCachedAsync())?.Value.Schedule;
         if (schedule is null || schedule.TripId != sessionService.CurrentTripId) return;
         var date = DateOnly.FromDateTime(PlanningDate);
@@ -148,6 +152,8 @@ public sealed partial class TravelChatViewModel
         OnPropertyChanged(nameof(AssistantNoIdeas));
         OnPropertyChanged(nameof(AssistantOpenActivity));
         OnPropertyChanged(nameof(AssistantAskAboutDay));
+        OnPropertyChanged(nameof(AssistantConversationPrompt));
+        OnPropertyChanged(nameof(AssistantConversationHelp));
         OnPropertyChanged(nameof(AssistantAnotherOption));
         OnPropertyChanged(nameof(AssistantAdjust));
         OnPropertyChanged(nameof(AssistantClose));
@@ -200,6 +206,8 @@ public sealed partial class TravelChatViewModel
         SelectedDetailCard = null;
         ErrorMessage = null;
         StatusMessage = null;
+        Messages.Clear();
+        OnMessagesChanged();
         HasGuidedQuestion = false;
         IsFreeTextVisible = true;
         SetAssistantSurface("conversation");
@@ -208,6 +216,7 @@ public sealed partial class TravelChatViewModel
     [RelayCommand]
     private void ReturnAssistantHome()
     {
+        _quickSearchSubmission = false;
         if (IsBusy) CancelActiveOperations();
         SelectedDetailCard = null;
         IsSecondaryMenuVisible = false;
@@ -286,12 +295,13 @@ public sealed partial class TravelChatViewModel
 
     private async Task ShowAssistantProposalAsync(IReadOnlyList<TravelChatCardViewModel> cards, string message)
     {
+        StatusMessage = null;
         ProposalRows.Clear();
         _proposalCards.Clear();
         _proposalCards.AddRange(cards);
         _proposalTripId = null;
         _proposalRevision = null;
-        _expectingProposalSave = false;
+        _pendingProposalSaveRecommendationId = null;
         _proposalMessage = message;
         OnPropertyChanged(nameof(ProposalMessage));
         await RefreshAssistantProposalAsync();
@@ -311,7 +321,10 @@ public sealed partial class TravelChatViewModel
             ErrorMessage = Resource("AssistantProposalNeedsRefresh");
             return;
         }
-        if (!_expectingProposalSave && _proposalTripId == schedule.TripId && _proposalRevision.HasValue
+        var savedThroughEditor = _pendingProposalSaveRecommendationId is { } pendingId
+            && schedule.Items.Any(item => item.RecommendationId == pendingId
+                && item.Date == DateOnly.FromDateTime(PlanningDate));
+        if (!savedThroughEditor && _proposalTripId == schedule.TripId && _proposalRevision.HasValue
             && schedule.Revision != _proposalRevision.Value && _proposalCards.Any(card => !card.IsSaved))
         {
             ErrorMessage = Resource("AssistantProposalNeedsRefresh");
@@ -319,7 +332,7 @@ public sealed partial class TravelChatViewModel
         }
         _proposalTripId = schedule.TripId;
         _proposalRevision = schedule.Revision;
-        _expectingProposalSave = false;
+        _pendingProposalSaveRecommendationId = null;
         ProposalRows.Clear();
         foreach (var row in AssistantDayProposalBuilder.Build(schedule.Items, _proposalCards,
             DateOnly.FromDateTime(PlanningDate))) ProposalRows.Add(row);
@@ -353,7 +366,7 @@ public sealed partial class TravelChatViewModel
                 return;
             }
         }
-        _expectingProposalSave = true;
+        _pendingProposalSaveRecommendationId = card.RecommendationId;
         await SaveItineraryItemCommand.ExecuteAsync(card);
         if (card.IsSaved)
         {
@@ -368,9 +381,11 @@ public sealed partial class TravelChatViewModel
     {
         if (SelectedDetailCard is not { } card) return;
         var message = Messages.FirstOrDefault(item => item.Cards.Contains(card));
+        var previousCards = message?.Cards.ToList();
         SelectedDetailCard = null;
         await ReplaceRecommendationCommand.ExecuteAsync(card);
-        if (!card.IsDayPlanCard && message is not null)
+        if (!card.IsDayPlanCard && message is not null && previousCards is not null
+            && !message.Cards.SequenceEqual(previousCards))
             await ShowAssistantProposalAsync(message.Cards.ToList(), _proposalMessage);
     }
 

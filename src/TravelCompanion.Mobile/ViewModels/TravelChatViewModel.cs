@@ -396,7 +396,8 @@ public sealed partial class TravelChatViewModel(
         OnPropertyChanged(nameof(ProposalMessage));
         _proposalTripId = null;
         _proposalRevision = null;
-        _expectingProposalSave = false;
+        _pendingProposalSaveRecommendationId = null;
+        _assistantDateSelectedByTraveler = false;
         _quickSearchSubmission = false;
         SelectedDetailCard = null;
         SetAssistantSurface("home");
@@ -739,7 +740,7 @@ public sealed partial class TravelChatViewModel(
 
             ApplyMissingContext(response.MissingContext);
             if (showQuickSearchProposal)
-                await ShowAssistantProposalAsync(cards, response.Message);
+                await ShowAssistantProposalAsync(cards, Resource("AssistantSearchProposalIntro"));
             else if (wasQuickSearch)
             {
                 SetAssistantSurface("search");
@@ -919,9 +920,9 @@ public sealed partial class TravelChatViewModel(
                 ["Recommendation"] = recommendation,
                 ["Date"] = DateOnly.FromDateTime(PlanningDate)
             };
-            if (card.StartsAt.HasValue)
+            if (card.StartsAt is { } suggestedStart && suggestedStart != TimeOnly.MinValue)
             {
-                parameters["SuggestedStartTime"] = card.StartsAt.Value;
+                parameters["SuggestedStartTime"] = suggestedStart;
             }
 
             await Shell.Current.GoToAsync(nameof(ItineraryItemEditorPage), parameters);
@@ -1078,7 +1079,8 @@ public sealed partial class TravelChatViewModel(
         bool alternative,
         TravelChatCardViewModel? replacementCard = null)
     {
-        if (_guidedCriteria is null || !GuidedTravelCategories.IsValid(_guidedCriteria.Category))
+        var criteria = _guidedCriteria;
+        if (!AssistantGuidedCriteriaPolicy.HasValidCategory(criteria))
         {
             RestartGuidedFlow();
             return;
@@ -1100,7 +1102,7 @@ public sealed partial class TravelChatViewModel(
             ? Resource("AssistantGuidedAnotherRequest")
             : _isFullDayFlow
                 ? Resource("AssistantGuidedFullDayRequestSummary")
-                : BuildGuidedRequestSummary(_guidedCriteria);
+                : BuildGuidedRequestSummary(criteria);
         IsFreeTextVisible = false;
         IsSecondaryMenuVisible = false;
         await SendMessageAsync();
@@ -1563,7 +1565,9 @@ public sealed partial class TravelChatViewModel(
         SetAssistantDateRange(schedule);
         // Returning from the replacement dialog must keep the day being edited.
         var selectedDate = DateOnly.FromDateTime(PlanningDate);
-        if (_isFullDayFlow && selectedDate >= schedule.StartsOn && selectedDate <= schedule.EndsOn) return;
+        if (AssistantPlanningDatePolicy.ShouldPreserveSelection(selectedDate, schedule.StartsOn,
+                DateOnly.FromDateTime(AssistantMaximumDate), _assistantDateSelectedByTraveler,
+                _isFullDayFlow)) return;
         var tripToday = DateOnly.FromDateTime(UpcomingActivitySelector.GetTripNow(
             schedule.TimeZoneId, DateTimeOffset.UtcNow));
         if (tripToday >= schedule.StartsOn && tripToday <= schedule.EndsOn

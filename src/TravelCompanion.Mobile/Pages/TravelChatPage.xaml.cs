@@ -122,12 +122,6 @@ public partial class TravelChatPage : ContentPage, IQueryAttributable
             _viewModel.OpenAssistantCard(card);
     }
 
-    private async void OnAvoidDetailTagClicked(object? sender, EventArgs e)
-    {
-        if ((sender as BindableObject)?.BindingContext is TravelChatTagActionViewModel tagAction)
-            await _viewModel.AvoidTagCommand.ExecuteAsync(tagAction.Tag);
-    }
-
     private static bool ReduceMotion
     {
         get

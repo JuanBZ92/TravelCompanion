@@ -22,33 +22,22 @@
                     MinimumWidthRequest="48" MinimumHeightRequest="48" />
             <VerticalStackLayout Grid.Column="1" Spacing="6">
                 <Label Text="{Binding AssistantEyebrow}"
-                       CharacterSpacing="6"
-                       FontSize="11"
-                       FontAttributes="Bold"
+                       CharacterSpacing="6" FontSize="11" FontAttributes="Bold"
                        TextColor="#8E867D" />
-                <Label Text="{Binding AssistantTitle}"
-                       FontFamily="serif"
-                       FontSize="34"
-                       SemanticProperties.HeadingLevel="Level1"
-                       TextColor="#1A1714" />
+                <Label Text="{Binding AssistantTitle}" FontFamily="serif" FontSize="34"
+                       SemanticProperties.HeadingLevel="Level1" TextColor="#1A1714" />
             </VerticalStackLayout>
-
-            <VerticalStackLayout Grid.Column="2"
-                                 Spacing="2"
-                                 HorizontalOptions="End">
+            <VerticalStackLayout Grid.Column="2" Spacing="2" HorizontalOptions="End">
                 <DatePicker Date="{Binding PlanningDate}"
                             DateSelected="OnAssistantDateSelected"
                             MinimumDate="{Binding AssistantMinimumDate}"
                             MaximumDate="{Binding AssistantMaximumDate}"
                             IsEnabled="{Binding IsNotBusy}"
-                            FontSize="13"
-                            TextColor="#1A1714"
-                            HorizontalOptions="End"
-                            WidthRequest="116" />
+                            FontSize="13" TextColor="#1A1714"
+                            HorizontalOptions="End" WidthRequest="116" />
                 <Label Text="{Binding LastUpdatedMessage}"
                        IsVisible="{Binding HasLastUpdated}"
-                       HorizontalTextAlignment="End"
-                       FontSize="10"
+                       HorizontalTextAlignment="End" FontSize="10"
                        TextColor="{StaticResource Muted}" />
             </VerticalStackLayout>
         </Grid>
@@ -395,11 +384,19 @@
                 </CollectionView.ItemTemplate>
             </CollectionView>
 
+            <VerticalStackLayout Grid.Row="1" IsVisible="{Binding ShowEmptyState}"
+                                 Spacing="12" Margin="8,48,8,0">
+                <Label Text="{Binding AssistantConversationPrompt}" FontFamily="serif"
+                       FontSize="26" TextColor="{StaticResource Ink}"
+                       SemanticProperties.HeadingLevel="Level2" />
+                <Label Text="{Binding AssistantConversationHelp}" FontSize="14"
+                       LineHeight="1.4" TextColor="{StaticResource Muted}" />
+            </VerticalStackLayout>
+
         </Grid>
 
         <VerticalStackLayout Grid.Row="3" Spacing="8" Padding="0,0,0,10">
-            <BoxView HeightRequest="1"
-                     HorizontalOptions="Fill"
+            <BoxView HeightRequest="1" HorizontalOptions="Fill"
                      BackgroundColor="{StaticResource Line}" />
             <FlexLayout Direction="Row" Wrap="Wrap" AlignItems="Center">
                 <Button Text="{Binding WriteRequestText, StringFormat='✎  {0}'}"
@@ -410,8 +407,7 @@
                         BorderWidth="0"
                         FontSize="13"
                         Padding="8,6"
-                        MinimumHeightRequest="44"
-                        Margin="0,0,8,6" />
+                        MinimumHeightRequest="44" Margin="0,0,8,6" />
                 <Button Text="{Binding MenuText, StringFormat='•••  {0}'}"
                         Command="{Binding ToggleSecondaryMenuCommand}"
                         SemanticProperties.Description="{Binding MenuText}"
@@ -420,8 +416,7 @@
                         BorderWidth="0"
                         FontSize="13"
                         Padding="8,6"
-                        MinimumHeightRequest="44"
-                        Margin="0,0,8,6" />
+                        MinimumHeightRequest="44" Margin="0,0,8,6" />
             </FlexLayout>
 
             <FlexLayout Direction="Row"
@@ -443,13 +438,9 @@
             </FlexLayout>
 
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10" IsVisible="{Binding IsFreeTextVisible}">
-                <Border Padding="12,0"
-                        BackgroundColor="{StaticResource AccentSoft}"
-                        Stroke="#D8CFC4"
-                        StrokeThickness="1">
-                    <Border.StrokeShape>
-                        <RoundRectangle CornerRadius="0" />
-                    </Border.StrokeShape>
+                <Border Padding="12,0" BackgroundColor="{StaticResource AccentSoft}"
+                        Stroke="#D8CFC4" StrokeThickness="1">
+                    <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
                     <Entry Text="{Binding MessageText}"
                            Placeholder="{Binding MessagePlaceholder}"
                            ReturnCommand="{Binding SendMessageCommand}"
@@ -457,16 +448,12 @@
                            PlaceholderColor="{StaticResource Muted}"
                            FontSize="14" />
                 </Border>
-
-                <Button Grid.Column="1"
-                        Text="{Binding SendButtonText}"
+                <Button Grid.Column="1" Text="{Binding SendButtonText}"
                         Command="{Binding SendMessageCommand}"
                         TextColor="{StaticResource Paper}"
                         BackgroundColor="{StaticResource Accent}"
-                        FontSize="14"
-                        Padding="16,10"
-                        MinimumWidthRequest="74"
-                        MinimumHeightRequest="44" />
+                        FontSize="14" Padding="16,10"
+                        MinimumWidthRequest="74" MinimumHeightRequest="44" />
             </Grid>
         </VerticalStackLayout>
     </Grid>
@@ -485,17 +472,21 @@
             <VerticalStackLayout Spacing="16">
                 <Border Padding="16,10" BackgroundColor="{StaticResource Paper}" Stroke="{StaticResource Line}">
                     <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" MinimumHeightRequest="48">
                         <VerticalStackLayout Spacing="3" VerticalOptions="Center">
                             <Label Text="{Binding AssistantForDay}" CharacterSpacing="2" FontSize="10"
                                    TextColor="{StaticResource Gold}" />
                             <Label Text="{Binding AssistantContext}" FontSize="14" TextColor="{StaticResource Ink}" />
                         </VerticalStackLayout>
-                        <DatePicker Grid.Column="1" Date="{Binding PlanningDate}" Format="dd/MM"
+                        <Label Grid.Column="1" Text="⌄" FontSize="23"
+                               TextColor="{StaticResource Muted}" VerticalTextAlignment="Center"
+                               HorizontalTextAlignment="Center" WidthRequest="28" />
+                        <DatePicker Grid.ColumnSpan="2" Date="{Binding PlanningDate}"
                                     DateSelected="OnAssistantDateSelected"
                                     MinimumDate="{Binding AssistantMinimumDate}"
                                     MaximumDate="{Binding AssistantMaximumDate}"
-                                    FontSize="13" WidthRequest="72" TextColor="{StaticResource Ink}"
+                                    IsEnabled="{Binding IsNotBusy}"
+                                    Opacity="0" HorizontalOptions="Fill" VerticalOptions="Fill"
                                     SemanticProperties.Description="{Binding AssistantChooseDate}" />
                     </Grid>
                 </Border>
@@ -673,58 +664,67 @@
                 MinimumHeightRequest="48" FontSize="13" />
     </Grid>
 
-    <Grid IsVisible="{Binding HasSelectedDetailCard}" BackgroundColor="#99000000">
+    <Grid IsVisible="{Binding HasSelectedDetailCard}" BackgroundColor="#80000000">
         <Border BindingContext="{Binding SelectedDetailCard}" x:DataType="viewModels:TravelChatCardViewModel"
-                VerticalOptions="End" Padding="24,22,24,28" BackgroundColor="{StaticResource Paper}"
-                Stroke="{StaticResource Line}">
-            <Border.StrokeShape><RoundRectangle CornerRadius="20,20,0,0" /></Border.StrokeShape>
-            <ScrollView MaximumHeightRequest="620">
-                <VerticalStackLayout Spacing="12">
-                    <Label Text="{Binding Title}" FontFamily="serif" FontSize="25"
-                           SemanticProperties.HeadingLevel="Level2" TextColor="{StaticResource Ink}" />
-                    <Label Text="{Binding SummaryLine}" FontSize="12" TextColor="{StaticResource Gold}" />
-                    <Label Text="{Binding Description}" FontSize="14" TextColor="{StaticResource InkSoft}" />
-                    <VerticalStackLayout Spacing="4" BindableLayout.ItemsSource="{Binding WhyItFits}">
+                VerticalOptions="End" Padding="24,10,24,20" BackgroundColor="{StaticResource Paper}"
+                StrokeThickness="0">
+            <Border.StrokeShape><RoundRectangle CornerRadius="24,24,0,0" /></Border.StrokeShape>
+            <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="12">
+                <BoxView HeightRequest="4" WidthRequest="36" CornerRadius="2"
+                         HorizontalOptions="Center" BackgroundColor="{StaticResource Line}" />
+                <ScrollView Grid.Row="1" MaximumHeightRequest="430" VerticalOptions="Start"
+                            VerticalScrollBarVisibility="Never">
+                <VerticalStackLayout Spacing="0">
+                    <Grid ColumnDefinitions="*,44" ColumnSpacing="8">
+                        <Label Text="{Binding Title}" FontFamily="serif" FontSize="26"
+                               VerticalTextAlignment="Center" LineHeight="1.05"
+                               SemanticProperties.HeadingLevel="Level2" TextColor="{StaticResource Ink}" />
+                        <Button Grid.Column="1" Text="×" Clicked="OnCloseDetailClicked"
+                                SemanticProperties.Description="{Binding CloseLabel}"
+                                BackgroundColor="Transparent" TextColor="{StaticResource Muted}"
+                                FontSize="27" Padding="0" WidthRequest="44" HeightRequest="44" />
+                    </Grid>
+                    <Label Text="{Binding SummaryLine}" FontSize="12" TextColor="{StaticResource Gold}"
+                           Margin="0,12,0,0" />
+                    <Label Text="{Binding Description}" FontSize="14" LineHeight="1.4"
+                           TextColor="{StaticResource InkSoft}" Margin="0,18,0,0" />
+                    <VerticalStackLayout Spacing="6" Margin="0,16,0,0"
+                                         BindableLayout.ItemsSource="{Binding WhyItFits}">
                         <BindableLayout.ItemTemplate>
                             <DataTemplate x:DataType="system:String">
                                 <Label Text="{Binding .}" FontSize="12" TextColor="{StaticResource Muted}" />
                             </DataTemplate>
                         </BindableLayout.ItemTemplate>
                     </VerticalStackLayout>
-                    <VerticalStackLayout Spacing="4" BindableLayout.ItemsSource="{Binding WarningLabels}">
+                    <VerticalStackLayout Spacing="4" Margin="0,12,0,0"
+                                         BindableLayout.ItemsSource="{Binding WarningLabels}">
                         <BindableLayout.ItemTemplate>
                             <DataTemplate x:DataType="system:String">
                                 <Label Text="{Binding .}" FontSize="12" TextColor="{StaticResource Rose}" />
                             </DataTemplate>
                         </BindableLayout.ItemTemplate>
                     </VerticalStackLayout>
-                    <FlexLayout Direction="Row" Wrap="Wrap" BindableLayout.ItemsSource="{Binding TagActions}">
-                        <BindableLayout.ItemTemplate>
-                            <DataTemplate x:DataType="viewModels:TravelChatTagActionViewModel">
-                                <Button Text="{Binding Label}" Clicked="OnAvoidDetailTagClicked"
-                                        BackgroundColor="{StaticResource AccentSoft}"
-                                        TextColor="{StaticResource InkSoft}" CornerRadius="10"
-                                        MinimumHeightRequest="44" FontSize="12" Margin="0,0,8,8" />
-                            </DataTemplate>
-                        </BindableLayout.ItemTemplate>
-                    </FlexLayout>
                     <Label Text="{Binding FeedbackStatusMessage}" IsVisible="{Binding HasFeedbackStatus}"
-                           FontSize="12" TextColor="{StaticResource InkSoft}" />
+                           FontSize="12" TextColor="{StaticResource InkSoft}" Margin="0,12,0,0" />
+                </VerticalStackLayout>
+                </ScrollView>
+                <VerticalStackLayout Grid.Row="2" Spacing="8">
+                    <BoxView HeightRequest="1" BackgroundColor="{StaticResource Line}"
+                             Margin="0,0,0,8" />
                     <Button Text="{Binding SaveButtonText}" Clicked="OnSaveDetailClicked"
                             IsEnabled="{Binding CanSave}" BackgroundColor="{StaticResource Accent}"
-                            TextColor="{StaticResource Paper}" CornerRadius="12" MinimumHeightRequest="52" />
+                            TextColor="{StaticResource Paper}" CornerRadius="12" MinimumHeightRequest="52"
+                            FontSize="16" FontFamily="OpenSansSemibold" />
                     <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
                         <Button Text="{Binding AnotherOptionLabel}" Clicked="OnReplaceDetailClicked"
                                 IsEnabled="{Binding CanFindAlternative}" BackgroundColor="Transparent"
-                                TextColor="{StaticResource Accent}" MinimumHeightRequest="48" />
+                                TextColor="{StaticResource Accent}" MinimumHeightRequest="48" FontSize="14" />
                         <Button Grid.Column="1" Text="{Binding AdjustLabel}" Clicked="OnAdjustDetailClicked"
                                 IsVisible="{Binding ShowPreferenceAdjustment}" BackgroundColor="Transparent"
-                                TextColor="{StaticResource Accent}" MinimumHeightRequest="48" />
+                                TextColor="{StaticResource Accent}" MinimumHeightRequest="48" FontSize="14" />
                     </Grid>
-                    <Button Text="{Binding CloseLabel}" Clicked="OnCloseDetailClicked" BackgroundColor="Transparent"
-                            TextColor="{StaticResource Muted}" MinimumHeightRequest="48" />
                 </VerticalStackLayout>
-            </ScrollView>
+            </Grid>
         </Border>
     </Grid>
     </Grid>

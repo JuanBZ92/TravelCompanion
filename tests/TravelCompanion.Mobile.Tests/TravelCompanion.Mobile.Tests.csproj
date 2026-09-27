@@ -32,6 +32,8 @@
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\InFlightRefresh.cs" Link="InFlightRefresh.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\DayPlanCardActions.cs" Link="DayPlanCardActions.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\AssistantDayProposalBuilder.cs" Link="AssistantDayProposalBuilder.cs" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\Services\AssistantPlanningDatePolicy.cs" Link="AssistantPlanningDatePolicy.cs" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\Services\AssistantGuidedCriteriaPolicy.cs" Link="AssistantGuidedCriteriaPolicy.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\ReservationLocalTime.cs" Link="ReservationLocalTime.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\AuthSessionService.cs" Link="AuthSessionService.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\FreeMapStore.cs" Link="FreeMapStore.cs" />

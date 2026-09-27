@@ -8,6 +8,40 @@ namespace TravelCompanion.Mobile.Tests;
 public sealed class TravelChatMobilePresentationTests
 {
     [Fact]
+    public void Traveler_selected_assistant_day_survives_return_from_the_editor()
+    {
+        var first = new DateOnly(2026, 9, 27);
+        var selected = first.AddDays(2);
+
+        Assert.True(AssistantPlanningDatePolicy.ShouldPreserveSelection(selected, first,
+            first.AddDays(4), selectedByTraveler: true, isFullDayFlow: false));
+        Assert.False(AssistantPlanningDatePolicy.ShouldPreserveSelection(selected, first,
+            first.AddDays(1), selectedByTraveler: true, isFullDayFlow: false));
+        Assert.False(AssistantPlanningDatePolicy.ShouldPreserveSelection(selected, first,
+            first.AddDays(4), selectedByTraveler: false, isFullDayFlow: false));
+    }
+
+    [Fact]
+    public void Search_without_selected_interests_can_request_another_option()
+    {
+        var broadSearch = new GuidedPlanCriteriaDto(Category: null)
+        {
+            Categories = [GuidedTravelCategories.Food, GuidedTravelCategories.Relax,
+                GuidedTravelCategories.Culture, GuidedTravelCategories.Walk,
+                GuidedTravelCategories.Dance, GuidedTravelCategories.Nature,
+                GuidedTravelCategories.Shopping, GuidedTravelCategories.Viewpoint,
+                GuidedTravelCategories.Nightlife]
+        };
+
+        Assert.True(AssistantGuidedCriteriaPolicy.HasValidCategory(broadSearch));
+        Assert.True(AssistantGuidedCriteriaPolicy.HasValidCategory(
+            new GuidedPlanCriteriaDto(GuidedTravelCategories.Food)));
+        Assert.False(AssistantGuidedCriteriaPolicy.HasValidCategory(new GuidedPlanCriteriaDto()));
+        Assert.False(AssistantGuidedCriteriaPolicy.HasValidCategory(
+            new GuidedPlanCriteriaDto { Categories = null! }));
+    }
+
+    [Fact]
     public void Day_proposal_keeps_bookings_and_avoids_duplicate_saved_recommendations()
     {
         var day = new DateOnly(2026, 9, 27);
@@ -52,6 +86,20 @@ public sealed class TravelChatMobilePresentationTests
         var row = Assert.Single(AssistantDayProposalBuilder.Build([], [idea], day));
 
         Assert.Equal(LocalizationResourceManager.Instance["AssistantProposalFlexible"], row.When);
+    }
+
+    [Fact]
+    public void Search_proposal_does_not_present_a_window_boundary_as_a_fixed_activity_time()
+    {
+        var day = new DateOnly(2026, 9, 28);
+        var saved = ProposalItem(day, "Museum", new TimeOnly(10, 0));
+        var idea = ProposalCard("Cafe", Guid.NewGuid(), "00:00", periodOnly: false);
+
+        var rows = AssistantDayProposalBuilder.Build([saved], [idea], day);
+
+        Assert.Equal("Museum", rows[0].Title);
+        Assert.Equal("Cafe", rows[1].Title);
+        Assert.Equal(LocalizationResourceManager.Instance["AssistantProposalFlexible"], rows[1].When);
     }
 
     private static ScheduleItemDto ProposalItem(DateOnly date, string title, TimeOnly time,

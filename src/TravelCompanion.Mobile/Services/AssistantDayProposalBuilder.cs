@@ -19,8 +19,10 @@ public sealed record AssistantProposalRow(
     public string When => IsOngoingStay ? Text("AssistantProposalStay") : SavedItem is { } saved
         ? saved.HasExactTime ? saved.StartsAt.ToString("HH:mm") : PeriodLabel(saved.EffectivePeriodKey)
         : Suggestion is { } card
-            ? card.TimePrecision == ItineraryTimePrecision.Exact && card.StartsAt is { } start
+            ? card.IsDayPlanCard && card.TimePrecision == ItineraryTimePrecision.Exact
+                && card.StartsAt is { } start
                 ? start.ToString("HH:mm") : PeriodLabel(card.StartsAt is { } flexibleStart
+                    && flexibleStart != TimeOnly.MinValue
                     ? flexibleStart.Hour switch
                     {
                         < 12 => "morning", < 15 => "midday", < 20 => "afternoon", _ => "night"
@@ -61,7 +63,9 @@ public static class AssistantDayProposalBuilder
             if (card.IsExistingDayStop || !card.RecommendationId.HasValue
                 || savedRecommendationIds.Contains(card.RecommendationId.Value)
                 || card.ReservationId is { } id && savedIds.Contains(id)) continue;
-            rows.Add(new AssistantProposalRow(null, card, false, card.StartsAt ?? TimeOnly.MaxValue));
+            rows.Add(new AssistantProposalRow(null, card, false,
+                card.StartsAt is { } start && start != TimeOnly.MinValue
+                    ? start : TimeOnly.MaxValue));
         }
         return rows.OrderBy(row => row.SortTime)
             .ThenBy(row => row.IsSuggestion ? 1 : 0)

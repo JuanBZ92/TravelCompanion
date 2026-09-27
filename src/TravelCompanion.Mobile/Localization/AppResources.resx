@@ -469,6 +469,9 @@ Your way.</value></data>
   <data name="AssistantHomeQuota" xml:space="preserve"><value>{0} day improvements · {1} questions</value></data>
   <data name="AssistantSearchQuota" xml:space="preserve"><value>{0} questions available</value></data>
   <data name="AssistantSearchRequest" xml:space="preserve"><value>I want an idea for this day.</value></data>
+  <data name="AssistantSearchProposalIntro" xml:space="preserve"><value>Ideas for your day. Choose one to see the details.</value></data>
+  <data name="AssistantConversationPrompt" xml:space="preserve"><value>What would you like to know?</value></data>
+  <data name="AssistantConversationHelp" xml:space="preserve"><value>Ask about your bookings, places or plans for this day.</value></data>
   <data name="AssistantProposalNeedsRefresh" xml:space="preserve"><value>The itinerary changed. Generate a new proposal to continue.</value></data>
   <data name="AssistantProposalSaved" xml:space="preserve"><value>Saved</value></data>
   <data name="AssistantProposalIdea" xml:space="preserve"><value>Idea to add</value></data>
