@@ -12,7 +12,7 @@ using MapKit;
 using UIKit;
 #endif
 #if !WINDOWS
-using MauiMap = Microsoft.Maui.Controls.Maps.Map;
+using MauiMap = TravelCompanion.Mobile.Controls.BatchedMap;
 using Microsoft.Maui.Controls.Maps;
 using Microsoft.Maui.Maps;
 #endif
@@ -75,7 +75,13 @@ public partial class MapPage : ContentPage
         _map.HandlerChanging += (_, _) => _retainedRegion = _map.VisibleRegion ?? _retainedRegion;
         _map.HandlerChanged += (_, _) =>
         {
-            if (_retainedRegion is { } region) Dispatcher.Dispatch(() => _map.MoveToRegion(region));
+            var handler = _map.Handler;
+            if (_retainedRegion is { } region) Dispatcher.Dispatch(() =>
+            {
+                if (!_isSubscribedToRecommendations || handler is null || !ReferenceEquals(handler, _map.Handler)) return;
+                try { _map.MoveToRegion(region); }
+                catch (Exception ex) { _logger.LogDebug(ex, "Could not restore map region."); }
+            });
         };
 #if IOS || MACCATALYST
         _map.HandlerChanged += OnMapHandlerChanged;
@@ -138,14 +144,14 @@ public partial class MapPage : ContentPage
 
     protected override void OnDisappearing()
     {
+#if !WINDOWS
+        UnsubscribeFromRecommendations();
+#endif
         CancelSearchDebounce();
         _viewModel.CancelSearch();
         _viewModel.CancelLoading();
         DismissSearchKeyboard();
         base.OnDisappearing();
-#if !WINDOWS
-        UnsubscribeFromRecommendations();
-#endif
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -191,6 +197,7 @@ public partial class MapPage : ContentPage
         {
             void ApplySelection()
             {
+                if (!_isSubscribedToRecommendations) return;
                 DismissSearchKeyboard();
                 TryRefreshMapPins(moveToBounds: false);
                 TryFocusRecommendation(_viewModel.SelectedRecommendation);
@@ -245,6 +252,7 @@ public partial class MapPage : ContentPage
 
     private void RefreshMapPins(bool moveToBounds = true)
     {
+        using var update = _map.BeginUpdate();
         var stopwatch = Stopwatch.StartNew();
         var recommendationsByKey = _viewModel.MapRecommendations
             .GroupBy(recommendation => recommendation.SelectionKey, StringComparer.Ordinal)
@@ -277,6 +285,7 @@ public partial class MapPage : ContentPage
                     args.HideInfoWindow = true;
                     void SelectPin()
                     {
+                        if (!_isSubscribedToRecommendations) return;
                         var current = _viewModel.MapRecommendations
                             .FirstOrDefault(item => item.SelectionKey == selectionKey);
                         if (current is not null) _viewModel.SelectRecommendationCommand.Execute(current);
@@ -320,6 +329,7 @@ public partial class MapPage : ContentPage
         }
 
         _hasRenderedPins = _map.Pins.Count > 0;
+        update.Dispose(); // Include the single native rebuild in the rendering measurement.
         stopwatch.Stop();
         _logger.LogInformation(
             "Map pins refreshed in {ElapsedMs}ms. Pins={PinCount}.",
@@ -329,6 +339,7 @@ public partial class MapPage : ContentPage
 
     private void TryRefreshMapPins(bool moveToBounds = true)
     {
+        if (!_isSubscribedToRecommendations) return;
         try
         {
             RefreshMapPins(moveToBounds);
@@ -376,6 +387,7 @@ public partial class MapPage : ContentPage
 
     private void TryFocusRecommendation(RecommendationDto? recommendation)
     {
+        if (!_isSubscribedToRecommendations) return;
         try
         {
             FocusRecommendation(recommendation);

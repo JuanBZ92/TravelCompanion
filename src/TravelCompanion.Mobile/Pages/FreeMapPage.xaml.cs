@@ -4,7 +4,7 @@ using TravelCompanion.Mobile.ViewModels;
 using TravelCompanion.Shared.Dtos;
 
 #if !WINDOWS
-using MauiMap = Microsoft.Maui.Controls.Maps.Map;
+using MauiMap = TravelCompanion.Mobile.Controls.BatchedMap;
 using Microsoft.Maui.Controls.Maps;
 using Microsoft.Maui.Maps;
 #endif
@@ -14,6 +14,8 @@ namespace TravelCompanion.Mobile.Pages;
 public partial class FreeMapPage : ContentPage
 {
     private readonly FreeMapViewModel _viewModel;
+    private bool _isActive;
+    private long _appearance;
 
 #if !WINDOWS
     private readonly MauiMap _map;
@@ -45,7 +47,13 @@ public partial class FreeMapPage : ContentPage
         _map.HandlerChanging += (_, _) => _retainedRegion = _map.VisibleRegion ?? _retainedRegion;
         _map.HandlerChanged += (_, _) =>
         {
-            if (_retainedRegion is { } region) Dispatcher.Dispatch(() => _map.MoveToRegion(region));
+            var handler = _map.Handler;
+            if (_retainedRegion is { } region) Dispatcher.Dispatch(() =>
+            {
+                if (!_isActive || handler is null || !ReferenceEquals(handler, _map.Handler)) return;
+                try { _map.MoveToRegion(region); }
+                catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex); }
+            });
         };
 #endif
     }
@@ -53,36 +61,59 @@ public partial class FreeMapPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        _isActive = true;
+        var appearance = ++_appearance;
         _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
         _viewModel.PropertyChanged += OnViewModelPropertyChanged;
-        var load = _viewModel.LoadCommand.ExecuteAsync(null);
-        RefreshMap();
-        await load;
-        RefreshMap();
-        FocusSelectedMarker();
+        try
+        {
+            var load = _viewModel.LoadCommand.ExecuteAsync(null);
+            TryUpdateMap();
+            await load;
+            if (_isActive && appearance == _appearance) TryUpdateMap();
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine(ex);
+            if (_isActive && appearance == _appearance) _viewModel.ErrorMessage = "No pudimos cargar el mapa. Volvé a intentarlo.";
+        }
     }
 
     protected override void OnDisappearing()
     {
+        _isActive = false;
+        _appearance++;
+        _viewModel.CancelLoading();
         base.OnDisappearing();
         _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(FreeMapViewModel.Preview))
+        if (e.PropertyName is nameof(FreeMapViewModel.Preview) or nameof(FreeMapViewModel.SelectedMarker))
+            TryUpdateMap();
+    }
+
+    private void TryUpdateMap()
+    {
+        if (!_isActive) return;
+        if (Dispatcher.IsDispatchRequired) { Dispatcher.Dispatch(TryUpdateMap); return; }
+        try { RefreshMap(); FocusSelectedMarker(); }
+        catch (Exception ex)
         {
-            RefreshMap();
-        }
-        else if (e.PropertyName == nameof(FreeMapViewModel.SelectedMarker))
-        {
-            FocusSelectedMarker();
+            System.Diagnostics.Debug.WriteLine(ex);
+#if !WINDOWS
+            _renderedPreview = null;
+#endif
+            _viewModel.ErrorMessage = "No pudimos mostrar el mapa. Volvé a intentarlo.";
         }
     }
 
     private void RefreshMap()
     {
 #if !WINDOWS
+        using var update = _map.BeginUpdate();
         var preview = _viewModel.Preview;
         if (ReferenceEquals(preview, _renderedPreview)) return;
         var changedCity = preview?.City.Slug != _renderedPreview?.City.Slug;
@@ -131,7 +162,7 @@ public partial class FreeMapPage : ContentPage
                 EventHandler<PinClickedEventArgs> handler = (_, args) =>
                 {
                     args.HideInfoWindow = true;
-                    if (capturedPin.BindingContext is FreeMapMarkerDto current) _viewModel.SelectMarker(current);
+                    if (_isActive && capturedPin.BindingContext is FreeMapMarkerDto current) _viewModel.SelectMarker(current);
                 };
                 pin.MarkerClicked += handler;
                 _pinHandlers[pin] = handler;
@@ -168,6 +199,7 @@ public partial class FreeMapPage : ContentPage
     private void FocusSelectedMarker()
     {
 #if !WINDOWS
+        using var update = _map.BeginUpdate();
         foreach (var pin in _map.Pins.OfType<RecommendationMapPin>().ToList())
         {
             var selected = pin.BindingContext is FreeMapMarkerDto current

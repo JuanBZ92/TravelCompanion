@@ -59,6 +59,9 @@ public static class MauiProgram
         // Configure the custom pin property after UseMauiMaps has registered the
         // native map handlers so later framework setup cannot replace the mapper.
         MapPinSelectionStyling.Configure();
+#if ANDROID
+        Platforms.Android.MapUpdateBatching.Configure();
+#endif
 #endif
 
 #if DEBUG
