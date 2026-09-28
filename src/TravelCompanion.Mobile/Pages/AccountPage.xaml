@@ -115,6 +115,8 @@
                     </VerticalStackLayout>
                 </Border>
                 <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
+                <Button Text="{Binding [DiagnosticsShare], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                        Clicked="OnDiagnosticsClicked" Style="{StaticResource AccountAction}" />
                 <Border Style="{StaticResource ErrorPanel}" IsVisible="{Binding HasError}"><Label Text="{Binding ErrorMessage}" /></Border>
                 <Button Text="{Binding [AccountSignOut], Source={x:Static services:LocalizationResourceManager.Instance}}" Clicked="OnLogoutClicked" Style="{StaticResource AccountAction}" />
                 <Button Text="{Binding [AccountDelete], Source={x:Static services:LocalizationResourceManager.Instance}}"

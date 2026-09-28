@@ -489,4 +489,9 @@ A tu manera.</value></data>
   <data name="AccountIntro" xml:space="preserve"><value>Tus viajes y preferencias, en un solo lugar.</value></data>
   <data name="AccountPreferences" xml:space="preserve"><value>Preferencias</value></data>
   <data name="AccountSignOut" xml:space="preserve"><value>Cerrar sesión</value></data>
+  <data name="DiagnosticsTitle" xml:space="preserve"><value>Diagnóstico de la app</value></data>
+  <data name="DiagnosticsShare" xml:space="preserve"><value>Compartir diagnóstico</value></data>
+  <data name="DiagnosticsCancel" xml:space="preserve"><value>Cancelar</value></data>
+  <data name="DiagnosticsConsent" xml:space="preserve"><value>Se compartirá un archivo con la versión de la app, modelo y sistema del dispositivo, pantallas abiertas y errores técnicos recientes. No incluye PIN, tokens, notas, fotos ni contenido del viaje. Los registros permanecen en este dispositivo hasta que elijas compartirlos.</value></data>
+  <data name="DiagnosticsFailed" xml:space="preserve"><value>No pudimos compartir el diagnóstico. Volvé a intentarlo.</value></data>
 </root>

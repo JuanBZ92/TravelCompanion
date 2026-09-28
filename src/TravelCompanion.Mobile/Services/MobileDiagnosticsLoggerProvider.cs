@@ -45,6 +45,14 @@ public sealed class MobileDiagnosticsLoggerProvider : ILoggerProvider
                 return;
             }
 
+            if (logLevel >= LogLevel.Warning)
+                ClientDiagnostics.Record("logged_error", new() { Level = logLevel.ToString(), EventId = eventId.Id }, exception);
+
+#if !DEBUG
+            // Release persistence is structured and never includes arbitrary formatted messages.
+            if (!MobileDiagnosticsSettings.IsEnabled) return;
+#endif
+
             var message = formatter(state, exception);
             if (string.IsNullOrWhiteSpace(message) && exception is null)
             {

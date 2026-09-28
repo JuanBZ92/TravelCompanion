@@ -2,6 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:viewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
+             xmlns:services="clr-namespace:TravelCompanion.Mobile.Services"
              x:Class="TravelCompanion.Mobile.Pages.LoginPage"
              x:DataType="viewModels:LoginViewModel"
              Title="{Binding PageTitle}" Shell.NavBarIsVisible="False"
@@ -55,6 +56,9 @@
                 <Button Text="{Binding LoginRecoverEmail}" Command="{Binding RecoverWithEmailCommand}" IsEnabled="{Binding IsNotBusy}"
                         BackgroundColor="Transparent" TextColor="#73654F" CornerRadius="12" MinimumHeightRequest="44" FontSize="13" />
                 <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" Color="#8C7A5C" />
+                <Button Text="{Binding [DiagnosticsShare], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                        Clicked="OnDiagnosticsClicked" BackgroundColor="Transparent" TextColor="#73654F"
+                        MinimumHeightRequest="44" FontSize="12" />
             </VerticalStackLayout>
         </VerticalStackLayout>
     </ScrollView>

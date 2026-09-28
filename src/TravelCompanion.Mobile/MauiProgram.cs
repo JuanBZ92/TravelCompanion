@@ -19,6 +19,7 @@ public static class MauiProgram
 
     public static MauiApp CreateMauiApp()
     {
+        ClientDiagnostics.Initialize();
         var builder = MauiApp.CreateBuilder();
         builder
             .UseMauiApp<App>()
@@ -64,20 +65,19 @@ public static class MauiProgram
 #endif
 #endif
 
+        builder.Logging.AddProvider(new MobileDiagnosticsLoggerProvider());
 #if DEBUG
         builder.Logging.SetMinimumLevel(LogLevel.Information);
         builder.Logging.AddDebug();
-        builder.Logging.AddProvider(new MobileDiagnosticsLoggerProvider());
 #else
         if (MobileDiagnosticsSettings.IsEnabled)
         {
             builder.Logging.SetMinimumLevel(LogLevel.Information);
-            builder.Logging.AddProvider(new MobileDiagnosticsLoggerProvider());
         }
 #endif
 
         var apiBaseUri = ApiEndpointResolver.Resolve();
-        builder.Services.AddSingleton(new HttpClient(new MobileRetryHandler(new HttpClientHandler()))
+        builder.Services.AddSingleton(new HttpClient(new DiagnosticHttpHandler(new MobileRetryHandler(new HttpClientHandler())))
         {
             BaseAddress = apiBaseUri,
             Timeout = TimeSpan.FromSeconds(20)

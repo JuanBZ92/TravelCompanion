@@ -4,6 +4,7 @@ namespace TravelCompanion.Mobile.Pages;
 
 public partial class LoginPage : ContentPage
 {
+    private async void OnDiagnosticsClicked(object? sender, EventArgs e) => await Services.ClientDiagnostics.ShareAsync(this);
     public LoginPage()
         : this(MauiProgram.Services.GetRequiredService<LoginViewModel>())
     {

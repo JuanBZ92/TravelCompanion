@@ -489,4 +489,9 @@ Your way.</value></data>
   <data name="AccountIntro" xml:space="preserve"><value>Your trips and preferences, all in one place.</value></data>
   <data name="AccountPreferences" xml:space="preserve"><value>Preferences</value></data>
   <data name="AccountSignOut" xml:space="preserve"><value>Sign out</value></data>
+  <data name="DiagnosticsTitle" xml:space="preserve"><value>App diagnostics</value></data>
+  <data name="DiagnosticsShare" xml:space="preserve"><value>Share diagnostics</value></data>
+  <data name="DiagnosticsCancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="DiagnosticsConsent" xml:space="preserve"><value>Share a file with the app version, device model and operating system, screens opened and recent technical errors. It excludes PINs, tokens, notes, photos and trip content. Logs stay on this device until you choose to share them.</value></data>
+  <data name="DiagnosticsFailed" xml:space="preserve"><value>We could not share diagnostics. Please try again.</value></data>
 </root>

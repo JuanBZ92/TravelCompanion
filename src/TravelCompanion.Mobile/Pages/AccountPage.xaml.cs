@@ -4,6 +4,7 @@ namespace TravelCompanion.Mobile.Pages;
 
 public partial class AccountPage : ContentPage
 {
+    private async void OnDiagnosticsClicked(object? sender, EventArgs e) => await Services.ClientDiagnostics.ShareAsync(this);
     private async void OnDocumentsClicked(object? sender, EventArgs e) => await Shell.Current.GoToAsync(nameof(DocsPage));
     private async void OnPassClicked(object? sender, EventArgs e) => await Services.PaywallNavigation.OpenAsync(Shared.Dtos.PaywallEntryPoint.Today);
     private async void OnLogoutClicked(object? sender, EventArgs e)
