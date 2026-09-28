@@ -53,7 +53,13 @@ public sealed class FeatureDemoAccountService(TravelCompanionDbContext db)
             foreach (var item in trip.Reservations)
             {
                 item.ReminderEnabled = item.Type == ReservationType.Flight || item.PlanningKind == ScheduleItemKind.ConfirmedReservation;
-                if (editable) item.Owner = ItineraryItemOwner.Traveler;
+                if (editable)
+                {
+                    item.Owner = ItineraryItemOwner.Traveler;
+                    // The editable demo starts without personal memories. Catalog copy is
+                    // available through Recommendation; seeded notes are not traveler input.
+                    item.Notes = string.Empty;
+                }
                 item.ConfirmationCode = "DEMO-" + item.ConfirmationCode;
             }
             foreach (var name in new[] { "hotel", "flight", "train", "guide" })

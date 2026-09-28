@@ -8,6 +8,28 @@ namespace TravelCompanion.Mobile.Tests;
 public sealed class JournalStoreTests
 {
     [Fact]
+    public async Task CorrectedLegacySourceRemovesOnlyUntouchedPreview()
+    {
+        var sessions = new AuthSessionService();
+        var store = new JournalStore(new(), sessions, new());
+        try
+        {
+            await sessions.SaveAsync(Session());
+            var scope = store.Scope();
+            var item = new ScheduleItemDto(Guid.NewGuid(), null, ReservationType.Event,
+                new(2026, 10, 1), new(12, 0), null, null, "Cafe", "Tokyo", "", "", "",
+                "Texto demo", null, null, null, null, null, null, Owner: ItineraryItemOwner.Traveler);
+            Assert.Single(await store.LoadAsync(scope, [item], false, default));
+            Assert.Empty(await store.LoadAsync(scope, [item with { Notes = "" }], false, default));
+            var preview = Assert.Single(await store.LoadAsync(scope, [item], false, default));
+            await store.SaveAsync(scope, preview, "Mi recuerdo personal");
+            var retained = Assert.Single(await store.LoadAsync(scope, [item with { Notes = "" }], false, default));
+            Assert.Equal("Mi recuerdo personal", retained.Text);
+        }
+        finally { sessions.Clear(); }
+    }
+
+    [Fact]
     public async Task FreeReadOnlyTripCanKeepNotesAndPhotosWithoutItineraryEditing()
     {
         var sessions = new AuthSessionService();

@@ -6,14 +6,19 @@ using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Mobile.ViewModels;
 
-public sealed record JournalRow(JournalMemory Memory, ImageSource? Cover, bool HasActivity)
+public sealed record JournalThumbnail(JournalMemory Memory, int Index, ImageSource? Source)
+{
+    public string Description => $"Abrir foto {Index + 1} de {Memory.Images.Length}";
+}
+
+public sealed record JournalRow(JournalMemory Memory, IReadOnlyList<JournalThumbnail> Photos, bool HasActivity)
 {
     public string Title => Memory.Note.Title;
     public string Notes => Memory.Text;
     public string Context => $"{Memory.Note.Date:d MMMM} · {Memory.Note.City}";
     public string Status => Memory.Status;
     public bool HasStatus => Status.Length > 0;
-    public bool HasCover => Cover is not null;
+    public bool HasPhotos => Photos.Count > 0;
     public string PhotoCount => Memory.Images.Length == 0 ? "" : $"{Memory.Images.Length} fotos";
 }
 
@@ -67,8 +72,15 @@ public sealed partial class JournalViewModel(MobileBootstrapStore bootstrapStore
         var rows = new List<JournalRow>();
         foreach (var memory in memories.Where(x => x.HasContent))
         {
-            byte[]? bytes = memory.CoverId is { } id ? await store.PhotoAsync(scope, id, true) : null;
-            rows.Add(new(memory, bytes is null ? null : ImageSource.FromStream(() => new MemoryStream(bytes)), Activities.Any(x => x.Id == memory.Note.ActivityId)));
+            var photos = new List<JournalThumbnail>();
+            for (var i = 0; i < memory.Images.Length; i++)
+            {
+                ct.ThrowIfCancellationRequested();
+                var bytes = await store.PhotoAsync(scope, memory.Images[i].Id, true);
+                photos.Add(new(memory, i, bytes is null ? ImageSource.FromFile("journal_photo.svg")
+                    : ImageSource.FromStream(() => new MemoryStream(bytes))));
+            }
+            rows.Add(new(memory, photos, Activities.Any(x => x.Id == memory.Note.ActivityId)));
         }
         if (!store.IsCurrent(scope)) return;
         Entries.Clear();
@@ -86,6 +98,8 @@ public sealed partial class JournalViewModel(MobileBootstrapStore bootstrapStore
         AddMemoryCommand.NotifyCanExecuteChanged();
     }
     [RelayCommand] private Task OpenAccountAsync() => Shell.Current.GoToAsync("//main/account");
+    [RelayCommand] private Task OpenPhotoAsync(JournalThumbnail? photo) => photo is null ? Task.CompletedTask :
+        Shell.Current.Navigation.PushModalAsync(new JournalPhotoPage(store.Scope(), photo.Memory, photo.Index));
     [RelayCommand] private Task OpenEntryAsync(JournalRow? row) => row is null ? Task.CompletedTask :
         Shell.Current.Navigation.PushModalAsync(new JournalMemoryPage(store.Scope(), row.Memory,
             Activities.FirstOrDefault(x => x.Id == row.Memory.Note.ActivityId)));

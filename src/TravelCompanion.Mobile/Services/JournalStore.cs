@@ -48,7 +48,14 @@ public sealed class JournalStore(OfflineCacheService cache, AuthSessionService s
         {
             Check(scope);
             var entries = await ReadAsync(scope, ct);
-            foreach (var legacy in JournalEntries.Build(items))
+            var currentItems = items.ToDictionary(x => x.Id);
+            // Discard only untouched legacy previews whose source was corrected. Never
+            // discard saved notes, offline edits, photos, or memories of deleted activities.
+            entries.RemoveAll(x => x.Note.Revision == 0 && x.Note.UpdatedAt == DateTimeOffset.MinValue
+                && x.Pending is null && x.Conflict is null && x.Images.Length == 0
+                && currentItems.TryGetValue(x.Note.ActivityId, out var source)
+                && JournalEntries.Build([source]).Count == 0);
+            foreach (var legacy in JournalEntries.Build(currentItems.Values))
                 if (entries.All(x => x.Note.ActivityId != legacy.Item.Id))
                     entries.Add(new(new(legacy.Item.Id, scope.TripId, legacy.Title, legacy.Item.City,
                         legacy.Item.Date, legacy.Notes, 0, DateTimeOffset.MinValue)));

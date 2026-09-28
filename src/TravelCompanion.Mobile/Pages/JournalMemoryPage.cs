@@ -89,19 +89,22 @@ public sealed class JournalMemoryPage : JournalScopedPage
         pickPhotosOnAppearing = startWithPhotos;
         BackgroundColor = JournalUi.Paper;
         editor = new Editor { Text = memory.Text, Placeholder = "¿Qué te gustaría recordar de este lugar?",
-            MaxLength = 2000, AutoSize = EditorAutoSizeOption.TextChanges, MinimumHeightRequest = 150,
+            MaxLength = 2000, AutoSize = EditorAutoSizeOption.TextChanges, MinimumHeightRequest = 110,
             FontSize = 17, TextColor = JournalUi.Ink, BackgroundColor = Colors.Transparent };
-        var header = new Grid { ColumnDefinitions = [new(GridLength.Star), new(GridLength.Auto)] };
+        var header = new Grid { Padding = new Thickness(24, 8), ColumnDefinitions = [new(GridLength.Star), new(GridLength.Auto), new(GridLength.Auto)] };
         header.Add(JournalUi.Text("TU RECUERDO", 11));
-        header.Add(JournalUi.Icon("action_close.svg", "Cerrar recuerdo", CloseAsync), 1);
+        header.Add(JournalUi.Icon("action_close.svg", "Cerrar recuerdo", CloseAsync), 2);
         var body = new VerticalStackLayout { Padding = 24, Spacing = 18, Children =
         {
-            header, JournalUi.Text(memory.Note.Title, 30, true),
-            JournalUi.Text($"{memory.Note.Date:d MMMM} · {memory.Note.City}", 13), editor, status, photos
+            JournalUi.Text(memory.Note.Title, 28, true),
+            JournalUi.Text($"{memory.Note.Date:d MMMM} · {memory.Note.City}", 13),
+            JournalUi.Text("MI NOTA", 11),
+            new Border { BackgroundColor = Color.FromArgb("#FFFCF8"), Stroke = Color.FromArgb("#E5DDD3"),
+                StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 16 },
+                Padding = 14, Content = editor }, photos
         } };
-        var actions = new HorizontalStackLayout { Spacing = 8 };
-        actions.Add(JournalUi.Icon("journal_photo.svg", "Agregar fotos", AddPhotosAsync));
-        if (item is not null) actions.Add(JournalUi.Icon("action_info.svg", "Ver actividad", async () =>
+        SemanticProperties.SetDescription(editor, "Nota personal del recuerdo");
+        if (item is not null) header.Add(JournalUi.Icon("action_info.svg", "Ver actividad", async () =>
         {
             if (await ConfirmLeaveAsync())
             {
@@ -109,14 +112,20 @@ public sealed class JournalMemoryPage : JournalScopedPage
                 if (Navigation.ModalStack.LastOrDefault() is JournalActivityPickerPage) await Navigation.PopModalAsync();
                 await Shell.Current.GoToAsync(nameof(ScheduleItemDetailPage), new Dictionary<string, object> { ["ScheduleItem"] = item });
             }
-        }));
-        body.Add(actions);
-        body.Add(JournalUi.Text("Tus fotos quedan en este dispositivo. Al cambiar de teléfono no se recuperan con la cuenta.", 12));
-        var save = new Button { Text = "Guardar recuerdo", CornerRadius = 22, MinimumHeightRequest = 52 };
+        }), 1);
+        var save = new Button { Text = "Guardar recuerdo", CornerRadius = 22, MinimumHeightRequest = 52,
+            BackgroundColor = JournalUi.Ink, TextColor = Colors.White };
         save.Clicked += async (_, _) => await SaveAsync();
-        var grid = new Grid { RowDefinitions = [new(GridLength.Star), new(GridLength.Auto)] };
-        grid.Add(new ScrollView { Content = body });
-        save.Margin = new Thickness(24, 12, 24, 24); grid.Add(save, 0, 1); Content = grid;
+        status.IsVisible = false;
+        status.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(Label.Text)) status.IsVisible = !string.IsNullOrWhiteSpace(status.Text);
+        };
+        var footer = new VerticalStackLayout { Padding = new Thickness(24, 12, 24, 20), Spacing = 8,
+            Children = { status, save } };
+        var grid = new Grid { RowDefinitions = [new(GridLength.Auto), new(GridLength.Star), new(GridLength.Auto)] };
+        grid.Add(header); grid.Add(new ScrollView { Content = body }, 0, 1);
+        grid.Add(footer, 0, 2); Content = grid;
     }
 
     protected override async void OnAppearing()
@@ -150,38 +159,38 @@ public sealed class JournalMemoryPage : JournalScopedPage
             };
             photos.Add(resolve);
         }
-        if (memory.Images.Length == 0) return;
-        var slides = new List<PhotoSlide>();
-        foreach (var photo in memory.Images)
+        var photoHeader = new Grid { ColumnDefinitions = [new(GridLength.Star), new(GridLength.Auto)] };
+        var photoTitle = JournalUi.Text($"FOTOS · {memory.Images.Length} / 10", 11);
+        photoTitle.VerticalOptions = LayoutOptions.Center;
+        photoHeader.Add(photoTitle);
+        photoHeader.Add(JournalUi.Icon("journal_add.svg", "Agregar fotos", AddPhotosAsync), 1);
+        photos.Add(photoHeader);
+        if (memory.Images.Length == 0)
+            photos.Add(JournalUi.Text("Sumá una foto para volver a este momento.", 14));
+        var gallery = new FlexLayout { Wrap = Microsoft.Maui.Layouts.FlexWrap.Wrap };
+        for (var i = 0; i < memory.Images.Length; i++)
         {
+            var index = i;
+            var photo = memory.Images[i];
             var bytes = await store.PhotoAsync(scope, photo.Id, true);
-            slides.Add(new(photo.Id, bytes is null ? null : ImageSource.FromStream(() => new MemoryStream(bytes))));
+            var tile = new VerticalStackLayout { WidthRequest = 88, Margin = new Thickness(0, 0, 10, 10), Spacing = 0 };
+            var open = JournalUi.Icon("journal_photo.svg", $"Abrir foto {i + 1}",
+                () => Navigation.PushModalAsync(new JournalPhotoPage(scope, memory, index)));
+            open.WidthRequest = 88; open.HeightRequest = 88; open.Padding = 0; open.Aspect = Aspect.AspectFill;
+            if (bytes is not null) open.Source = ImageSource.FromStream(() => new MemoryStream(bytes));
+            tile.Add(new Border { StrokeThickness = 0, BackgroundColor = Color.FromArgb("#E5DDD3"),
+                StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 12 }, Content = open });
+            var remove = JournalUi.Icon("action_delete.svg", $"Quitar foto {i + 1}", async () =>
+            {
+                if (!await DisplayAlertAsync("Quitar foto", "La foto original no se elimina de tu galería.", "Quitar", "Cancelar")) return;
+                await store.ChangePhotoAsync(scope, memory.Note.ActivityId, photo.Id, true);
+                await ReloadAsync();
+            });
+            remove.HorizontalOptions = LayoutOptions.Center;
+            tile.Add(remove); gallery.Children.Add(tile);
         }
-        var gallery = new CarouselView { ItemsSource = slides, HeightRequest = 260, Loop = false };
-        gallery.ItemTemplate = new DataTemplate(() =>
-        {
-            var image = new Image { Aspect = Aspect.AspectFit, HeightRequest = 240 };
-            image.SetBinding(Image.SourceProperty, nameof(PhotoSlide.Source));
-            return image;
-        });
         photos.Add(gallery);
-        var indicator = new IndicatorView { IndicatorColor = Color.FromArgb("#D5CBBE"), SelectedIndicatorColor = JournalUi.Ink };
-        gallery.IndicatorView = indicator; photos.Add(indicator);
-        if (slides.Any(x => x.Source is null)) photos.Add(JournalUi.Text("Una foto ya no está disponible. Podés quitarla y volver a agregarla.", 12));
-        var photoActions = new HorizontalStackLayout { HorizontalOptions = LayoutOptions.Center, Spacing = 20 };
-        photoActions.Add(JournalUi.Icon("journal_cover.svg", "Usar esta foto como portada", async () =>
-        {
-            var photo = slides[Math.Clamp(gallery.Position, 0, slides.Count - 1)];
-            await store.ChangePhotoAsync(scope, memory.Note.ActivityId, photo.Id, false);
-            status.Text = "Portada actualizada";
-        }));
-        photoActions.Add(JournalUi.Icon("action_delete.svg", "Quitar esta foto del Journal", async () =>
-        {
-            if (!await DisplayAlertAsync("Quitar foto", "La foto original no se elimina de tu galería.", "Quitar", "Cancelar")) return;
-            var photo = slides[Math.Clamp(gallery.Position, 0, slides.Count - 1)];
-            await store.ChangePhotoAsync(scope, memory.Note.ActivityId, photo.Id, true); await ReloadAsync();
-        }));
-        photos.Add(photoActions);
+        photos.Add(JournalUi.Text("Fotos guardadas en este dispositivo. No se recuperan al cambiar de teléfono.", 12));
     }
 
     private async Task AddPhotosAsync()
@@ -221,5 +230,4 @@ public sealed class JournalMemoryPage : JournalScopedPage
         finally { closing = false; }
     }
     protected override bool OnBackButtonPressed() { _ = CloseAsync(); return true; }
-    private sealed record PhotoSlide(Guid Id, ImageSource? Source);
 }
