@@ -124,6 +124,7 @@ public sealed partial class BuilderSetupViewModel(
                 var result = await bootstrapStore.RefreshResultAsync(token, cancellationToken: cancellationToken);
                 if (result.IsUnauthorized)
                 {
+                    await BuilderSetupNavigation.CloseAsync();
                     sessionService.Clear();
                     await Shell.Current.GoToAsync("//login");
                     return;
@@ -428,6 +429,7 @@ public sealed partial class BuilderSetupViewModel(
         }
         if (Shell.Current is AppShell shell) shell.ApplySessionTabs(sessionService);
         if (isNewTrip) await analytics.TrackAsync("trip_created", "setup", tripId: result.TripId, cancellationToken: ct);
+        await BuilderSetupNavigation.CloseAsync();
         var pending = pendingStore.Take();
         if (pending is not null)
         {
@@ -443,6 +445,7 @@ public sealed partial class BuilderSetupViewModel(
     private async Task CancelAsync()
     {
         pendingStore.Clear();
+        await BuilderSetupNavigation.CloseAsync();
         await Shell.Current.GoToAsync(IsEditing ? "//main/schedule" : "//main/map");
     }
 

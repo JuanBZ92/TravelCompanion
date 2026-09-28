@@ -87,7 +87,7 @@ public sealed partial class LoginViewModel(
                     : AppShell.GetAuthenticatedLandingRoute(sessionService);
             await Shell.Current.GoToAsync(route);
             if (createTrip && sessionService.RequiresTripSetup)
-                await Shell.Current.GoToAsync(nameof(TravelCompanion.Mobile.Pages.BuilderSetupPage));
+                await BuilderSetupNavigation.OpenAsync();
         });
     }
 

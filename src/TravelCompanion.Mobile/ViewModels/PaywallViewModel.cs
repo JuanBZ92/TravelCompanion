@@ -26,6 +26,8 @@ public sealed partial class PaywallViewModel(
     public bool HasPrice => !string.IsNullOrWhiteSpace(DisplayPrice);
     public string OfferLeadText => _offer?.Benefits.FirstOrDefault() ?? string.Empty;
     public bool NeedsTripSetup => sessions.CurrentTripId is null;
+    public bool IsGuest => sessions.IsFreeMapPreview;
+    [RelayCommand] private Task OpenAccessOptionsAsync() => Shell.Current.GoToAsync(nameof(AccountPage));
     public bool HasOffer => _offer is not null;
     public bool HasRetention => !string.IsNullOrWhiteSpace(RetentionText);
     public bool HasAccessDetails => _offer?.PassExpiresAtUtc is not null;
@@ -45,6 +47,7 @@ public sealed partial class PaywallViewModel(
 
     private void NotifyOffer()
     {
+        OnPropertyChanged(nameof(IsGuest));
         foreach (var property in new[] { nameof(HasOffer), nameof(NeedsTripSetup), nameof(OfferLeadText), nameof(PreviewText), nameof(RetentionText), nameof(AccessDetailsText), nameof(HasRetention), nameof(HasAccessDetails) })
             OnPropertyChanged(property);
     }
@@ -88,7 +91,7 @@ public sealed partial class PaywallViewModel(
     });
 
     [RelayCommand]
-    private Task ConfigureTripAsync() => Shell.Current.GoToAsync(nameof(BuilderSetupPage));
+    private Task ConfigureTripAsync() => BuilderSetupNavigation.OpenAsync();
 
     [RelayCommand]
     private Task BuyAsync() => LoadAsync(async ct =>

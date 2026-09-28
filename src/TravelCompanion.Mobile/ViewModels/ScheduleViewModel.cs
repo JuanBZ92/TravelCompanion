@@ -584,7 +584,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         if (!CanEditSelectedDay) { await RedeemPassAsync(); return; }
         if (_sessionService.RequiresTripSetup)
         {
-            await Shell.Current.GoToAsync(nameof(BuilderSetupPage));
+            await BuilderSetupNavigation.OpenAsync();
             return;
         }
         await Shell.Current.GoToAsync(nameof(ItineraryItemEditorPage), new Dictionary<string, object>
@@ -598,7 +598,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     private Task EditItineraryAsync()
     {
         return CanManageItinerary
-            ? Shell.Current.GoToAsync(nameof(BuilderSetupPage))
+            ? BuilderSetupNavigation.OpenAsync()
             : Task.CompletedTask;
     }
 

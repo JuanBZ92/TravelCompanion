@@ -70,6 +70,8 @@
                 <Button Text="{Binding [PaywallRestore], Source={x:Static services:LocalizationResourceManager.Instance}}"
                         Command="{Binding RestoreCommand}" IsEnabled="{Binding IsNotBusy}"
                         BackgroundColor="Transparent" TextColor="#756B5F" FontSize="12" Padding="4,8" MinimumHeightRequest="44" />
+                <Button Text="Opciones de acceso" Command="{Binding OpenAccessOptionsCommand}" IsVisible="{Binding IsGuest}"
+                        BackgroundColor="Transparent" TextColor="#756B5F" FontSize="12" MinimumHeightRequest="44" />
             </VerticalStackLayout>
         </ScrollView>
         <Border Grid.Row="1" IsVisible="{Binding HasOffer}" Padding="20,10" BackgroundColor="#FFFDF8" Stroke="#E5DCCF" StrokeThickness="1">

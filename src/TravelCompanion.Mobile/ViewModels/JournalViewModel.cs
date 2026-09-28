@@ -19,7 +19,7 @@ public sealed record JournalRow(JournalMemory Memory, IReadOnlyList<JournalThumb
     public string Status => Memory.Status;
     public bool HasStatus => Status.Length > 0;
     public bool HasPhotos => Photos.Count > 0;
-    public string PhotoCount => Memory.Images.Length == 0 ? "" : $"{Memory.Images.Length} fotos";
+    public string PhotoCount => Memory.Images.Length == 0 ? "" : Memory.Images.Length == 1 ? "1 foto" : $"{Memory.Images.Length} fotos";
 }
 
 public sealed class JournalDayGroup(string title, IEnumerable<JournalRow> rows) : ObservableCollection<JournalRow>(rows)
@@ -33,13 +33,24 @@ public sealed partial class JournalViewModel(MobileBootstrapStore bootstrapStore
     public ObservableCollection<JournalRow> Entries { get; } = [];
     public ObservableCollection<JournalDayGroup> Groups { get; } = [];
     public string TripTitle { get; private set; } = "Tu viaje, en recuerdos";
-    public string Summary => Entries.Count == 0 ? "Los lugares pasan. Tus recuerdos quedan." : $"{Entries.Count} recuerdos · {Entries.Sum(x => x.Memory.Images.Length)} fotos";
+    public bool ShowHeaderAdd => CanAddMemory && Entries.Count > 0;
+    public string Summary
+    {
+        get
+        {
+            if (Entries.Count == 0) return "Los lugares pasan. Tus recuerdos quedan.";
+            var photos = Entries.Sum(x => x.Memory.Images.Length);
+            return $"{Entries.Count} {(Entries.Count == 1 ? "recuerdo" : "recuerdos")} · {photos} {(photos == 1 ? "foto" : "fotos")}";
+        }
+    }
     public bool CanExport => DeviceInfo.Platform == DevicePlatform.Android && Entries.Count > 0;
     public bool HasTrip => sessions.HasSession && sessions.CurrentTripId.HasValue;
     public bool CanAddMemory => HasTrip && Activities.Count > 0;
     public bool NeedsTrip => !HasTrip;
     public string EmptyMessage => !HasTrip
-        ? "Abrí un viaje desde Cuenta para empezar tu Journal. Tus recuerdos también están disponibles en Free."
+        ? sessions.IsFreeMapPreview
+            ? "Creá tu viaje para empezar a guardar notas y fotos. Tu Journal también está disponible en Free."
+            : "Abrí un viaje desde Cuenta para empezar tu Journal. Tus recuerdos también están disponibles en Free."
         : Activities.Count == 0 ? "Cuando tu viaje tenga actividades, podrás agregarles notas y fotos desde acá."
         : "Elegí un lugar de tu viaje y sumá una nota o tus fotos favoritas.";
     public IReadOnlyList<ScheduleItemDto> Activities { get; private set; } = [];
@@ -94,10 +105,11 @@ public sealed partial class JournalViewModel(MobileBootstrapStore bootstrapStore
     {
         OnPropertyChanged(nameof(TripTitle)); OnPropertyChanged(nameof(Summary)); OnPropertyChanged(nameof(CanExport));
         OnPropertyChanged(nameof(HasTrip)); OnPropertyChanged(nameof(NeedsTrip));
-        OnPropertyChanged(nameof(CanAddMemory)); OnPropertyChanged(nameof(EmptyMessage));
+        OnPropertyChanged(nameof(CanAddMemory)); OnPropertyChanged(nameof(ShowHeaderAdd)); OnPropertyChanged(nameof(EmptyMessage));
         AddMemoryCommand.NotifyCanExecuteChanged();
     }
-    [RelayCommand] private Task OpenAccountAsync() => Shell.Current.GoToAsync("//main/account");
+    [RelayCommand] private Task OpenAccountAsync() => sessions.IsFreeMapPreview
+        ? BuilderSetupNavigation.OpenAsync() : Shell.Current.GoToAsync("//main/account");
     [RelayCommand] private Task OpenPhotoAsync(JournalThumbnail? photo) => photo is null ? Task.CompletedTask :
         Shell.Current.Navigation.PushModalAsync(new JournalPhotoPage(store.Scope(), photo.Memory, photo.Index));
     [RelayCommand] private Task OpenEntryAsync(JournalRow? row) => row is null ? Task.CompletedTask :

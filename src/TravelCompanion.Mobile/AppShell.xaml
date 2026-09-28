@@ -65,6 +65,8 @@
             Icon="tab_account.svg"
             ContentTemplate="{DataTemplate pages:AccountPage}"
             Route="account" />
+        <ShellContent x:Name="PassTab" Title="Pase Japón" Icon="tab_pass.svg"
+                      ContentTemplate="{DataTemplate pages:PaywallPage}" Route="pass" IsVisible="False" />
     </TabBar>
 
 </Shell>

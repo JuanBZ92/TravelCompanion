@@ -9,7 +9,7 @@
             <Label Text="TU DIARIO DE VIAJE" CharacterSpacing="3" FontSize="10" TextColor="{StaticResource InkSoft}" />
             <Grid ColumnDefinitions="*,48,48">
                 <Label Text="Journal" FontFamily="serif" FontSize="36" TextColor="{StaticResource Ink}" SemanticProperties.HeadingLevel="Level1" />
-                <ImageButton Grid.Column="1" Source="journal_add.svg" Command="{Binding AddMemoryCommand}" IsVisible="{Binding CanAddMemory}" Padding="12"
+                <ImageButton Grid.Column="1" Source="journal_add.svg" Command="{Binding AddMemoryCommand}" IsVisible="{Binding ShowHeaderAdd}" Padding="12"
                              BackgroundColor="Transparent" WidthRequest="48" HeightRequest="48" SemanticProperties.Description="Agregar recuerdo" />
                 <ImageButton Grid.Column="2" Source="journal_export.svg" Command="{Binding ExportCommand}" IsVisible="{Binding CanExport}" Padding="12"
                              BackgroundColor="Transparent" WidthRequest="48" HeightRequest="48" SemanticProperties.Description="Crear álbum PDF" />
@@ -26,12 +26,22 @@
                     </DataTemplate>
                 </CollectionView.GroupHeaderTemplate>
                 <CollectionView.EmptyView>
-                    <VerticalStackLayout Spacing="16" Padding="0,36">
-                        <Label Text="¿Qué querés recordar?" FontFamily="serif" FontSize="25" TextColor="{StaticResource Ink}" />
-                        <Label Text="{Binding EmptyMessage}" TextColor="{StaticResource InkSoft}" FontSize="15" />
-                        <Button Text="Mi primer recuerdo" Command="{Binding AddMemoryCommand}" IsVisible="{Binding CanAddMemory}" CornerRadius="20" />
-                        <Button Text="Mis viajes" Command="{Binding OpenAccountCommand}" IsVisible="{Binding NeedsTrip}" CornerRadius="20" />
-                    </VerticalStackLayout>
+                    <Border VerticalOptions="Start" Margin="0,16,0,24" Padding="24,28" BackgroundColor="#FFFCF8" Stroke="{StaticResource Line}" StrokeShape="RoundRectangle 24">
+                        <VerticalStackLayout Spacing="18">
+                            <Border WidthRequest="64" HeightRequest="64" HorizontalOptions="Start" BackgroundColor="#F0E7DA"
+                                StrokeThickness="0" StrokeShape="RoundRectangle 20">
+                                <Image Source="tab_journal.svg" WidthRequest="30" HeightRequest="30" HorizontalOptions="Center" VerticalOptions="Center"
+                                    AutomationProperties.IsInAccessibleTree="False" />
+                            </Border>
+                            <Label Text="Tu viaje merece&#10;un recuerdo" FontFamily="serif" FontSize="27" TextColor="{StaticResource Ink}"
+                                SemanticProperties.HeadingLevel="Level2" />
+                            <Label Text="{Binding EmptyMessage}" TextColor="{StaticResource InkSoft}" FontSize="14" LineHeight="1.2" />
+                            <Button Text="Crear mi primer recuerdo" Command="{Binding AddMemoryCommand}" IsVisible="{Binding CanAddMemory}"
+                                BackgroundColor="{StaticResource Ink}" TextColor="White" CornerRadius="22" MinimumHeightRequest="50" FontSize="14" />
+                            <Button Text="Elegir un viaje" Command="{Binding OpenAccountCommand}" IsVisible="{Binding NeedsTrip}"
+                                BackgroundColor="{StaticResource Ink}" TextColor="White" CornerRadius="22" MinimumHeightRequest="50" FontSize="14" />
+                        </VerticalStackLayout>
+                    </Border>
                 </CollectionView.EmptyView>
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="vm:JournalRow">

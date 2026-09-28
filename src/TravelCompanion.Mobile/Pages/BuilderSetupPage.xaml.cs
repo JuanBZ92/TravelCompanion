@@ -86,4 +86,10 @@ public partial class BuilderSetupPage : ContentPage
         _viewModel.CancelHotelSearches();
         base.OnDisappearing();
     }
+
+    protected override bool OnBackButtonPressed()
+    {
+        if (!_viewModel.IsBusy) _ = _viewModel.CancelCommand.ExecuteAsync(null);
+        return true;
+    }
 }

@@ -11,7 +11,7 @@
             <VerticalStackLayout Spacing="20">
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
                     <Label Text="YUKU · JAPAN" CharacterSpacing="4" FontSize="10" TextColor="#867B6D" VerticalOptions="Center" />
-                    <Label Text="日本" FontFamily="serif" FontSize="22" TextColor="#B3A38C" AutomationProperties.IsInAccessibleTree="False" />
+                    <Label Grid.Column="1" Text="日本" FontFamily="serif" FontSize="22" TextColor="#B3A38C" VerticalOptions="Center" AutomationProperties.IsInAccessibleTree="False" />
                 </Grid>
                 <BoxView WidthRequest="32" HeightRequest="2" BackgroundColor="#B3976D" HorizontalOptions="Start" />
                 <Label Text="{Binding LoginTitle}" FontSize="36" FontFamily="serif"

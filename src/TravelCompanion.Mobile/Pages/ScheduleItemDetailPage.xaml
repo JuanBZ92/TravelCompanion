@@ -125,16 +125,26 @@
                            TextColor="{StaticResource Accent}" />
                 </VerticalStackLayout>
 
-                <Button Text="Mi recuerdo en Journal" Command="{Binding OpenJournalCommand}" Style="{StaticResource GhostButton}" />
-                <Button Text="Abrir mapa"
-                        Command="{Binding OpenMapsCommand}"
-                        IsEnabled="{Binding HasAddress}"
-                        BackgroundColor="#3D3329"
-                        TextColor="#FFFFFF"
-                        MinimumHeightRequest="48"
-                        CornerRadius="0"
-                        FontSize="15"
-                        FontAttributes="Bold" />
+                <Grid ColumnDefinitions="*,*,*" ColumnSpacing="12" Margin="0,4,0,0">
+                    <VerticalStackLayout Spacing="4">
+                        <ImageButton Source="today_folded_map.svg" Command="{Binding OpenMapsCommand}" IsEnabled="{Binding HasAddress}"
+                            WidthRequest="52" HeightRequest="52" Padding="13" BackgroundColor="Transparent" HorizontalOptions="Center"
+                            SemanticProperties.Description="Abrir ubicación en el mapa" />
+                        <Label Text="Mapa" FontSize="12" TextColor="{StaticResource InkSoft}" HorizontalTextAlignment="Center" />
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Grid.Column="1" Spacing="4">
+                        <ImageButton Source="tab_journal.svg" Command="{Binding OpenJournalCommand}"
+                            WidthRequest="52" HeightRequest="52" Padding="13" BackgroundColor="Transparent" HorizontalOptions="Center"
+                            SemanticProperties.Description="Abrir mi recuerdo en Journal" />
+                        <Label Text="Journal" FontSize="12" TextColor="{StaticResource InkSoft}" HorizontalTextAlignment="Center" />
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Grid.Column="2" Spacing="4" IsVisible="{Binding CanLinkDocument}">
+                        <ImageButton Source="doc_add.svg" Command="{Binding LinkDocumentCommand}"
+                            WidthRequest="52" HeightRequest="52" Padding="13" BackgroundColor="Transparent" HorizontalOptions="Center"
+                            SemanticProperties.Description="Vincular o cambiar documento" />
+                        <Label Text="Documentos" FontSize="12" TextColor="{StaticResource InkSoft}" HorizontalTextAlignment="Center" />
+                    </VerticalStackLayout>
+                </Grid>
                 <Border Padding="14,12" BackgroundColor="#FFFCF8" Stroke="#DDD4C9"
                         StrokeThickness="1" IsVisible="{Binding HasLinkedDocument}">
                     <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
@@ -144,13 +154,11 @@
                             <Label Text="{Binding LinkedDocumentTitle}" FontSize="14" TextColor="#1A1714"
                                    MaxLines="1" LineBreakMode="TailTruncation" />
                         </VerticalStackLayout>
-                        <Button Grid.Column="1" Text="Ver documento" Command="{Binding OpenLinkedDocumentCommand}"
-                                Style="{StaticResource GhostButton}" FontSize="12" MinimumHeightRequest="40" />
+                        <ImageButton Grid.Column="1" Source="doc_open.svg" Command="{Binding OpenLinkedDocumentCommand}"
+                            BackgroundColor="Transparent" Padding="12" WidthRequest="48" HeightRequest="48"
+                            SemanticProperties.Description="Abrir documento vinculado" />
                     </Grid>
                 </Border>
-                <Button Text="Vincular documento" Command="{Binding LinkDocumentCommand}"
-                        IsVisible="{Binding CanLinkDocument}" Style="{StaticResource GhostButton}"
-                        FontSize="12" MinimumHeightRequest="42" />
             </VerticalStackLayout>
         </VerticalStackLayout>
     </ScrollView>

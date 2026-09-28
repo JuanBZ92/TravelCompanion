@@ -209,7 +209,7 @@ public sealed partial class FreeMapViewModel(
     private Task UseAnotherPinAsync() => EndPreviewSessionAsync();
 
     [RelayCommand]
-    private Task StartFreeBuilderAsync() => Shell.Current.GoToAsync(nameof(BuilderSetupPage));
+    private Task StartFreeBuilderAsync() => BuilderSetupNavigation.OpenAsync();
 
     [RelayCommand]
     private Task RedeemPassAsync() => PaywallNavigation.OpenAsync(TravelCompanion.Shared.Dtos.PaywallEntryPoint.Map);

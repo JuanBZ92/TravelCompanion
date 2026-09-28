@@ -90,7 +90,7 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
             {
                 // Let Shell finish selecting the tab before opening the setup route.
                 await Task.Yield();
-                await Shell.Current.GoToAsync(nameof(BuilderSetupPage));
+                await TravelCompanion.Mobile.Services.BuilderSetupNavigation.OpenAsync();
                 return;
             }
 

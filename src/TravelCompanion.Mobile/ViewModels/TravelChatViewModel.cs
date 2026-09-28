@@ -820,7 +820,7 @@ public sealed partial class TravelChatViewModel(
         if (sessionService.IsBuilder
             && string.Equals(reply.Trim(), "Configurar mi viaje", StringComparison.OrdinalIgnoreCase))
         {
-            await Shell.Current.GoToAsync(nameof(BuilderSetupPage));
+            await BuilderSetupNavigation.OpenAsync();
             return;
         }
 
@@ -906,7 +906,7 @@ public sealed partial class TravelChatViewModel(
             if (sessionService.RequiresTripSetup)
             {
                 pendingItineraryActionStore.Set(recommendation);
-                await Shell.Current.GoToAsync(nameof(BuilderSetupPage));
+                await BuilderSetupNavigation.OpenAsync();
                 return;
             }
 

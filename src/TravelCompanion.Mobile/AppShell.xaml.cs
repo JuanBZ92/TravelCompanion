@@ -94,7 +94,8 @@ public partial class AppShell : Shell
         ScheduleTab.IsVisible = usesMainTabs && (!sessionService.IsFreeMapPreview || sessionService.IsBuilder);
         JournalTab.IsVisible = usesMainTabs;
         AssistantTab.IsVisible = sessionService.IsBuilder;
-        AccountTab.IsVisible = sessionService.HasSession;
+        PassTab.IsVisible = usesMainTabs && sessionService.IsFreeMapPreview;
+        AccountTab.IsVisible = usesMainTabs && !sessionService.IsFreeMapPreview;
     }
 
     public static string GetAuthenticatedLandingRoute(AuthSessionService sessionService)
@@ -209,5 +210,6 @@ public partial class AppShell : Shell
             ? $"{resources["TabAssistant"]} ({_pendingMutationCount})"
             : resources["TabAssistant"];
         AccountTab.Title = resources["TabAccount"];
+        PassTab.Title = resources["PaywallPageTitle"];
     }
 }

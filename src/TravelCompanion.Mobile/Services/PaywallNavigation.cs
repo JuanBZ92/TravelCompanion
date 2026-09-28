@@ -8,6 +8,8 @@ public static class PaywallNavigation
     {
         if (limitReached)
             await MauiProgram.Services.GetRequiredService<ProductAnalyticsTracker>().TrackAsync("limit_reached", entryPoint.ToString());
-        await Shell.Current.GoToAsync(nameof(TravelCompanion.Mobile.Pages.PaywallPage), new ShellNavigationQueryParameters { ["EntryPoint"] = entryPoint.ToString() });
+        var route = MauiProgram.Services.GetRequiredService<AuthSessionService>().IsFreeMapPreview
+            ? "//main/pass" : nameof(TravelCompanion.Mobile.Pages.PaywallPage);
+        await Shell.Current.GoToAsync(route, new ShellNavigationQueryParameters { ["EntryPoint"] = entryPoint.ToString() });
     }
 }

@@ -304,7 +304,7 @@ public sealed partial class MapViewModel(
         if (sessionService.RequiresTripSetup)
         {
             pendingStore.Set(recommendation);
-            await Shell.Current.GoToAsync(nameof(BuilderSetupPage));
+            await BuilderSetupNavigation.OpenAsync();
             return;
         }
 
