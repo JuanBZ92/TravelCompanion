@@ -693,6 +693,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
             await _builderTripStore.ClearAsync();
             var userId = _sessionService.CurrentUserId;
             if (userId.HasValue) { await _documents.DeleteTripAsync(userId.Value, tripId.Value); await MauiProgram.Services.GetRequiredService<JournalStore>().DeleteTripAsync(userId.Value, tripId.Value); }
+            if (userId.HasValue) await MauiProgram.Services.GetRequiredService<ExpenseStore>().DeleteTripAsync(userId.Value, tripId.Value);
             if (contextVersion != _sessionService.ContextVersion) return;
             _sessionService.MarkTripDeleted();
             await _sessionLogoutService.ResetContentAsync(userId);

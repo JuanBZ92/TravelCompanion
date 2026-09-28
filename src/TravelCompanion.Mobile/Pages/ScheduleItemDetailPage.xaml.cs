@@ -12,6 +12,19 @@ namespace TravelCompanion.Mobile.Pages;
 
 public partial class ScheduleItemDetailPage : ContentPage
 {
+    private async void OnExpenseClicked(object? sender, EventArgs e)
+    {
+        if (_viewModel.ScheduleItem is not { } item) return;
+        try
+        {
+            var store = MauiProgram.Services.GetRequiredService<Services.ExpenseStore>(); var scope = store.Scope();
+            var book = await store.ReadAsync(scope);
+            await Navigation.PushModalAsync(new ExpenseEditorPage(scope, book, activity: new ExpenseActivityDto(item.Id, item.Title, item.Date,
+                item.Type == Shared.ReservationType.Lodging ? ExpenseCategory.Accommodation : item.Type == Shared.ReservationType.Flight ? ExpenseCategory.Flights : ExpenseCategory.Other)));
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception exception) { Services.ClientDiagnostics.Record("expense_open_failed", exception: exception); await DisplayAlertAsync("YUKU", "No pudimos abrir el gasto. Volvé a intentarlo.", "OK"); }
+    }
     private readonly ScheduleItemDetailViewModel _viewModel;
     private int _mapRequestVersion;
     private bool _isSubscribed;

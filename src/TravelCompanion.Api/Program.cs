@@ -148,6 +148,13 @@ builder.Services.AddScoped<TravelerAccessService>();
 builder.Services.AddScoped<BuilderTripService>();
 builder.Services.AddScoped<TravelerItineraryService>();
 builder.Services.AddScoped<JournalService>();
+builder.Services.AddScoped<ExpenseService>();
+builder.Services.AddMemoryCache();
+builder.Services.AddHttpClient<IExpenseRateService, ExpenseRateService>(client =>
+{
+    client.BaseAddress = new Uri("https://api.frankfurter.dev/");
+    client.Timeout = TimeSpan.FromSeconds(5);
+});
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<IGooglePlacesService, GooglePlacesService>();
 builder.Services.AddSingleton<IGoogleRoutesService, GoogleRoutesService>();

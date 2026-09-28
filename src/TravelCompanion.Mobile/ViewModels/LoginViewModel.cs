@@ -134,6 +134,7 @@ public sealed partial class LoginViewModel(
             new string(code.Where(char.IsDigit).ToArray()),
             cancellationToken) ?? throw new InvalidOperationException(Resource("AccountCodeInvalid"));
         await MauiProgram.Services.GetRequiredService<JournalStore>().TransferLinkedTripAsync(session);
+        await MauiProgram.Services.GetRequiredService<ExpenseStore>().TransferLinkedTripAsync(session);
 
         if (sessionService.HasSession)
             await logoutService.ResetContentAsync(sessionService.CurrentUserId);

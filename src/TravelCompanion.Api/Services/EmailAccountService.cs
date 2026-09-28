@@ -120,6 +120,8 @@ public sealed class EmailAccountService(
             foreach (var trip in sourceTrips) trip.AppUserId = target.Id;
             var sourceJournal = await dbContext.JournalNotes.Where(note => note.UserId == source.User.Id).ToListAsync(cancellationToken);
             foreach (var note in sourceJournal) note.UserId = target.Id;
+            foreach (var expense in await dbContext.TripExpenses.Where(x => x.UserId == source.User.Id).ToListAsync(cancellationToken)) expense.UserId = target.Id;
+            foreach (var expenseSettings in await dbContext.TripExpenseSettings.Where(x => x.UserId == source.User.Id).ToListAsync(cancellationToken)) expenseSettings.UserId = target.Id;
             var sourceGrants = await dbContext.BuilderAccessGrants.Where(grant => grant.AppUserId == source.User.Id).ToListAsync(cancellationToken);
             foreach (var grant in sourceGrants) grant.AppUserId = target.Id;
             var sourcePurchaseIntents = await dbContext.StorePurchaseIntents
@@ -324,6 +326,8 @@ public sealed class EmailAccountService(
         dbContext.Reservations.RemoveRange(await dbContext.Reservations.Where(item => tripIds.Contains(item.TripId)).ToListAsync(cancellationToken));
         dbContext.TravelDocuments.RemoveRange(await dbContext.TravelDocuments.Where(item => tripIds.Contains(item.TripId)).ToListAsync(cancellationToken));
         dbContext.JournalNotes.RemoveRange(await dbContext.JournalNotes.Where(item => item.UserId == user.Id).ToListAsync(cancellationToken));
+        dbContext.TripExpenses.RemoveRange(await dbContext.TripExpenses.Where(x => x.UserId == user.Id).ToListAsync(cancellationToken));
+        dbContext.TripExpenseSettings.RemoveRange(await dbContext.TripExpenseSettings.Where(x => x.UserId == user.Id).ToListAsync(cancellationToken));
         dbContext.ThematicRoutes.RemoveRange(await dbContext.ThematicRoutes.Where(item => item.AppUserId == user.Id).ToListAsync(cancellationToken));
         dbContext.ItineraryProposals.RemoveRange(await dbContext.ItineraryProposals.Where(item => item.AppUserId == user.Id).ToListAsync(cancellationToken));
         dbContext.ItineraryOperations.RemoveRange(await dbContext.ItineraryOperations.Where(item => item.AppUserId == user.Id).ToListAsync(cancellationToken));

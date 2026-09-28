@@ -8,6 +8,23 @@ namespace TravelCompanion.Mobile.Pages;
 
 public partial class SchedulePage : ContentPage, IQueryAttributable
 {
+    private async void OnExpensesSectionClicked(object? sender, EventArgs e) => await ShowExpensesAsync();
+    private void OnItinerarySectionClicked(object? sender, EventArgs e)
+    {
+        ExpensesPanelView.Deactivate(); ExpensesPanelView.IsVisible = false; ItineraryContent.IsVisible = true;
+        ItinerarySectionButton.TextColor = ExpenseUi.Ink; ExpensesSectionButton.TextColor = ExpenseUi.Muted;
+    }
+    private async Task ShowExpensesAsync()
+    {
+        ItineraryContent.IsVisible = false; ExpensesPanelView.IsVisible = true;
+        ItinerarySectionButton.TextColor = ExpenseUi.Muted; ExpensesSectionButton.TextColor = ExpenseUi.Ink;
+        await ExpensesPanelView.ActivateAsync();
+    }
+    protected override bool OnBackButtonPressed()
+    {
+        if (!ExpensesPanelView.IsVisible) return base.OnBackButtonPressed();
+        OnItinerarySectionClicked(this, EventArgs.Empty); return true;
+    }
     private async void OnDocumentsClicked(object? sender, EventArgs e) => await Shell.Current.GoToAsync(nameof(DocsPage));
     private readonly ScheduleViewModel _viewModel;
     private readonly ILogger<SchedulePage> _logger;
@@ -16,6 +33,7 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
     public void ApplyQueryAttributes(IDictionary<string, object> query)
     {
         if (query.TryGetValue("InitialDate", out var value) && value is DateOnly date) _initialDate = date;
+        if (query.TryGetValue("ShowExpenses", out var expenses) && expenses is true) Dispatcher.Dispatch(async () => await ShowExpensesAsync());
     }
 
     private IDispatcherTimer? _accessTimer;
@@ -38,6 +56,8 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
         InitializeComponent();
         stopwatch.Stop();
         BindingContext = viewModel;
+        ItinerarySectionButton.Text = ExpenseUi.T("Itinerario", "Itinerary");
+        ExpensesSectionButton.Text = ExpenseUi.T("Gastos", "Expenses");
 
         _logger.LogInformation(
             "Schedule page initialized in {ElapsedMs}ms. HasLoaded={HasLoaded}.",
@@ -48,6 +68,7 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        if (ExpensesPanelView.IsVisible) await ExpensesPanelView.ActivateAsync();
 
         if (_isHandlingAppearance)
         {
@@ -61,6 +82,7 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
 
     protected override void OnDisappearing()
     {
+        ExpensesPanelView.Deactivate();
         _viewModel.DismissDayImprovementSheetCommand.Execute(null);
         _viewModel.CancelLoading();
         _accessTimer?.Stop();

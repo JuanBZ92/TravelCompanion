@@ -113,6 +113,7 @@ public sealed partial class PaywallViewModel(
             var verified = await api.VerifyEmailCodeAsync(token, email, new string(code.Where(char.IsDigit).ToArray()), ct)
                 ?? throw new InvalidOperationException(Resource("AccountCodeInvalid"));
             await MauiProgram.Services.GetRequiredService<JournalStore>().TransferLinkedTripAsync(verified);
+            await MauiProgram.Services.GetRequiredService<ExpenseStore>().TransferLinkedTripAsync(verified);
             await logout.ResetContentAsync(sessions.CurrentUserId, preservePendingItineraryAction: true);
             await sessions.SaveAsync(verified); token = verified.Token;
         }
@@ -306,6 +307,7 @@ public sealed partial class PaywallViewModel(
             PaywallEntryPoint.Map => Shell.Current.GoToAsync("//main/map"),
             PaywallEntryPoint.Assistant => Shell.Current.GoToAsync("//main/assistant"),
             PaywallEntryPoint.Routes => Shell.Current.GoToAsync("//main/schedule"),
+            PaywallEntryPoint.Expenses => Shell.Current.GoToAsync("//main/schedule", new ShellNavigationQueryParameters { ["ShowExpenses"] = true }),
             _ => Shell.Current.GoToAsync("//main/schedule")
         });
     }

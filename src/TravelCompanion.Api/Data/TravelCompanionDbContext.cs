@@ -17,6 +17,8 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
     public DbSet<TripPlanDraft> TripPlanDrafts => Set<TripPlanDraft>();
     public DbSet<Reservation> Reservations => Set<Reservation>();
     public DbSet<JournalNote> JournalNotes => Set<JournalNote>();
+    public DbSet<TripExpense> TripExpenses => Set<TripExpense>();
+    public DbSet<TripExpenseSettings> TripExpenseSettings => Set<TripExpenseSettings>();
     public DbSet<TravelDocument> TravelDocuments => Set<TravelDocument>();
     public DbSet<AppUser> AppUsers => Set<AppUser>();
     public DbSet<UserEntitlement> UserEntitlements => Set<UserEntitlement>();
@@ -49,6 +51,28 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<TripExpense>(entity =>
+        {
+            entity.HasIndex(x => new { x.UserId, x.TripId });
+            entity.Property(x => x.Revision).IsConcurrencyToken();
+            entity.Property(x => x.Amount).HasPrecision(18, 2);
+            entity.Property(x => x.Rate).HasPrecision(28, 12);
+            entity.Property(x => x.Concept).HasMaxLength(160);
+            entity.Property(x => x.Currency).HasMaxLength(3);
+            entity.Property(x => x.BaseCurrency).HasMaxLength(3);
+            entity.HasOne<AppUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne<Trip>().WithMany().HasForeignKey(x => x.TripId).OnDelete(DeleteBehavior.Cascade);
+            // ActivityId is a snapshot reference: deleting an activity never deletes a payment.
+        });
+        modelBuilder.Entity<TripExpenseSettings>(entity =>
+        {
+            entity.HasKey(x => x.TripId);
+            entity.Property(x => x.Revision).IsConcurrencyToken();
+            entity.Property(x => x.Budget).HasPrecision(18, 2);
+            entity.Property(x => x.Currency).HasMaxLength(3);
+            entity.HasOne<AppUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne<Trip>().WithMany().HasForeignKey(x => x.TripId).OnDelete(DeleteBehavior.Cascade);
+        });
         modelBuilder.Entity<JournalNote>(entity =>
         {
             entity.HasIndex(x => new { x.UserId, x.TripId, x.ActivityId }).IsUnique();

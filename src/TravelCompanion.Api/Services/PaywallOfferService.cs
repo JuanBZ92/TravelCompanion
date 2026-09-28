@@ -37,6 +37,7 @@ public sealed class PaywallOfferService(
         var lead = entryPoint switch
         {
             PaywallEntryPoint.Assistant => isEnglish ? "Get help completing your next day" : "Recibe ayuda para completar tu próximo día",
+            PaywallEntryPoint.Expenses => isEnglish ? "See your spending by day and category, and export your expenses" : "Consultá tus gastos por día y categoría, y exportá tu registro",
             PaywallEntryPoint.Map => isEnglish ? "Discover places beyond the free area" : "Descubre lugares más allá de la zona gratuita",
             PaywallEntryPoint.Offline => isEnglish ? "Take your full itinerary with you, even without a connection" : "Lleva tu itinerario completo contigo, incluso sin conexión",
             _ => isEnglish ? "Plan every day of your trip" : "Planea todos los días de tu viaje"

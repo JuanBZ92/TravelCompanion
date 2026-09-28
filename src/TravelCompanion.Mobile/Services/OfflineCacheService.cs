@@ -174,15 +174,17 @@ public sealed class OfflineCacheService
         // language must not hide their index or create another copy of a file.
         var locale = key.StartsWith("offline-mutation-", StringComparison.Ordinal)
             || key.StartsWith("personal-journal-", StringComparison.Ordinal)
+            || key.StartsWith("personal-expenses-", StringComparison.Ordinal)
             || key.StartsWith("personal-documents-", StringComparison.Ordinal)
             || key.StartsWith("personal-document-file-", StringComparison.Ordinal)
             ? "neutral" : System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
-        return Path.Combine(key.StartsWith("personal-journal-", StringComparison.Ordinal) ? JournalRoot : CacheRoot,
+        return Path.Combine(key.StartsWith("personal-expenses-", StringComparison.Ordinal) ? ExpensesRoot : key.StartsWith("personal-journal-", StringComparison.Ordinal) ? JournalRoot : CacheRoot,
             locale, $"{safeKey}.json");
     }
 
     private static string CacheRoot => Path.Combine(FileSystem.AppDataDirectory, "offline-cache-catalog-v2");
     private static string JournalRoot => Path.Combine(FileSystem.AppDataDirectory, "personal-journal");
+    private static string ExpensesRoot => Path.Combine(FileSystem.AppDataDirectory, "personal-expenses");
 
     private static string SanitizeKey(string key)
     {
@@ -204,6 +206,8 @@ public sealed class OfflineCacheService
         }
         if (Directory.Exists(JournalRoot))
             paths.UnionWith(Directory.EnumerateFiles(JournalRoot, "*.json", SearchOption.AllDirectories));
+        if (Directory.Exists(ExpensesRoot))
+            paths.UnionWith(Directory.EnumerateFiles(ExpensesRoot, "*.json", SearchOption.AllDirectories));
 
         return paths.ToList();
     }

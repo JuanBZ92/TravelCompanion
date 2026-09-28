@@ -12,7 +12,13 @@
              Shell.NavBarIsVisible="False"
              BackgroundColor="{StaticResource Mist}">
 
-    <Grid RowDefinitions="*">
+    <Grid RowDefinitions="Auto,*">
+        <Grid ColumnDefinitions="*,*" Padding="24,4" ColumnSpacing="12">
+            <Button x:Name="ItinerarySectionButton" Text="Itinerario" Clicked="OnItinerarySectionClicked" BackgroundColor="Transparent" TextColor="#393226" MinimumHeightRequest="44" FontSize="13" />
+            <Button x:Name="ExpensesSectionButton" Grid.Column="1" Text="Gastos" Clicked="OnExpensesSectionClicked" BackgroundColor="Transparent" TextColor="#8E867D" MinimumHeightRequest="44" FontSize="13" />
+        </Grid>
+        <pages:ExpensesPanel x:Name="ExpensesPanelView" Grid.Row="1" IsVisible="False" />
+    <Grid x:Name="ItineraryContent" Grid.Row="1" RowDefinitions="*">
         <RefreshView IsRefreshing="{Binding IsRefreshing}"
                      Command="{Binding RefreshScheduleCommand}">
             <ScrollView VerticalScrollBarVisibility="Never">
@@ -730,5 +736,6 @@
                 </VerticalStackLayout>
             </Border>
         </Grid>
+    </Grid>
     </Grid>
 </ContentPage>

@@ -5,6 +5,13 @@ namespace TravelCompanion.Mobile.Services;
 // Controlled I/O for tests that execute the production FreeMapStore.
 public sealed class TravelCompanionApiClient
 {
+    public Func<Task<ExpensesDto>> FetchExpenses = () => throw new HttpRequestException();
+    public Func<Guid, SaveExpenseRequest, Task<SaveExpenseResult>> SaveExpense = (_, _) => throw new HttpRequestException();
+    public Func<SaveExpenseSettingsRequest, Task<ExpenseSettingsDto?>> SaveExpenseSettings = _ => throw new HttpRequestException();
+    public Task<ExpensesDto> GetExpensesAsync(string token, Guid trip, CancellationToken ct) => FetchExpenses();
+    public Task<SaveExpenseResult> SaveExpenseAsync(string token, Guid trip, Guid id, SaveExpenseRequest value, CancellationToken ct) => SaveExpense(id, value);
+    public Task<ExpenseSettingsDto?> SaveExpenseSettingsAsync(string token, Guid trip, SaveExpenseSettingsRequest value, CancellationToken ct) => SaveExpenseSettings(value);
+    public Task<ExpenseRateDto?> GetExpenseRateAsync(string token, Guid trip, string currency, string target, DateOnly date, CancellationToken ct) => Task.FromResult<ExpenseRateDto?>(null);
     public Func<Task<List<JournalNoteDto>>> FetchJournal = () => Task.FromResult(new List<JournalNoteDto>());
     public Func<SaveJournalNoteRequest, Task<JournalSaveResult>> SaveJournal = _ => throw new HttpRequestException();
     public Task<List<JournalNoteDto>> GetJournalAsync(string token, Guid trip, CancellationToken ct) => FetchJournal();

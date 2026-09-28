@@ -5,7 +5,7 @@ namespace TravelCompanion.Shared.Dtos;
 public enum StoreProvider { Apple, Google, AdminPin }
 public enum StoreEnvironment { Sandbox, Production }
 public enum PurchaseIntentState { Preparing, AwaitingConfirmation, Verifying, Pending, Active, Cancelled, Failed, Refunded }
-public enum PaywallEntryPoint { Map, Today, Assistant, Routes, ExplicitUpgrade, Offline }
+public enum PaywallEntryPoint { Map, Today, Assistant, Routes, ExplicitUpgrade, Offline, Expenses }
 public enum DayPlanningGoal { Balance, ReduceWalking, Reorganize }
 public enum ItineraryChangeKind { Add, Move, Replace, Remove }
 public enum RouteOrigin { Yuku, Personal }

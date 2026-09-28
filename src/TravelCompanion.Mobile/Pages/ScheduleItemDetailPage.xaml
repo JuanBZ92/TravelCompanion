@@ -125,7 +125,11 @@
                            TextColor="{StaticResource Accent}" />
                 </VerticalStackLayout>
 
-                <Grid ColumnDefinitions="*,*,*" ColumnSpacing="12" Margin="0,4,0,0">
+                <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="8" Margin="0,4,0,0">
+                    <VerticalStackLayout Grid.Column="3" Spacing="4">
+                        <ImageButton Source="expense_other.svg" Clicked="OnExpenseClicked" BackgroundColor="Transparent" WidthRequest="48" HeightRequest="48" Padding="12" SemanticProperties.Description="Agregar gasto" />
+                        <Label Text="Gasto" FontSize="12" TextColor="{StaticResource InkSoft}" HorizontalTextAlignment="Center" />
+                    </VerticalStackLayout>
                     <VerticalStackLayout Spacing="4">
                         <ImageButton Source="today_folded_map.svg" Command="{Binding OpenMapsCommand}" IsEnabled="{Binding HasAddress}"
                             WidthRequest="52" HeightRequest="52" Padding="13" BackgroundColor="Transparent" HorizontalOptions="Center"
