@@ -92,13 +92,26 @@ This feature does not change the real-purchase activation setting.
 | Future splitting | Stable expense IDs and separate expense entities; no premature participant/debt UI | Implemented as agreed |
 | Android Release | Compiles; physical Free/3333/3334 and accessibility checks still require a connected device | Device validation pending |
 | iOS Release | Requires a Mac/TestFlight and a physical device | Pending |
-| Gradual publication | Additive migration and API first, mobile second; production has not been updated | Pending deployment |
+| Publication | API deployed to Render; additive migration applied with a prior backup; APK 98 uploaded to Drive | Completed; physical-device validation remains pending |
 
 Audit fixes: manual rates no longer become cached automatic quotes for other
 expenses; editing displays the existing fixed quote; keeping a local conflict
 preserves its manual rate when the base currency is unchanged; breakdown responses
 carry their own currency so another device's currency change cannot mislabel totals.
 
-The isolated PostgreSQL instance was stopped after testing. Production and the
-existing local PostgreSQL service were not modified. No physical-device or
-production-publication step is represented as complete by automated tests.
+The isolated PostgreSQL instance was stopped after testing. The existing local
+PostgreSQL service was not modified. No physical-device validation is represented
+as complete by automated tests.
+
+## Release 98
+
+API commit `c8a0841` was deployed to Render. Production disables automatic startup
+migrations, so `20260928224254_AddTripExpenses` was applied separately, in a
+transaction, after a database backup. Initial endpoint checks caught the missing
+tables; after migration, expense and breakdown reads succeeded for demo accounts
+3333 and 3334. Both `/health` and `/health/ready` returned 200.
+
+The signed Android APK reports versionCode 98 and was uploaded as
+`YUKU-Japan-98-gastos.apk` to the existing TravelCompanion Drive folder.
+Android/iOS visual, accessibility and purchase-return checks remain pending;
+no Android device was detected during release.
