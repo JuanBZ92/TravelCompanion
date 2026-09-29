@@ -130,6 +130,16 @@ public sealed class DayConflictPage : ContentPage, IQueryAttributable
         var previous = Button("‹", () => Move(-1)); previous.MinimumWidthRequest = 48; previous.IsEnabled = index > 0; SemanticProperties.SetDescription(previous, T("Conflicto anterior", "Previous conflict")); controls.Add(previous, 1);
         var next = Button("›", () => Move(1)); next.MinimumWidthRequest = 48; next.IsEnabled = index + 1 < issues.Count; SemanticProperties.SetDescription(next, T("Conflicto siguiente", "Next conflict")); controls.Add(next, 2);
         body.Add(controls);
+        if (!cached)
+        {
+            body.Add(Text(T("Si estos horarios te sirven, confirmá el día. El aviso volverá si cambian los planes.", "If these times work for you, confirm the day. Changes to plans will show the warning again."), 12));
+            body.Add(Button(T("Confirmar día", "Confirm day"), async () =>
+            {
+                if (!Current || schedule is null || sessions.CurrentUserId is not { } user || tripId is not { } trip) return;
+                Preferences.Default.Set(DayReviewConfirmation.Key(user, trip, date), DayReviewConfirmation.Fingerprint(schedule.Items, date));
+                await ReturnAsync();
+            }, true));
+        }
         if (cached) body.Add(Button(T("Volver a comprobar", "Check again"), RefreshAsync));
     }
     private Task Move(int step) { index = Math.Clamp(index + step, 0, issues.Count - 1); issueKey = DayConflictCursor.Key(issues[index]); Render(); return Task.CompletedTask; }

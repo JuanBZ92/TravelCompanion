@@ -10,12 +10,14 @@
              x:DataType="viewModels:ScheduleViewModel"
              Title="Today"
              Shell.NavBarIsVisible="False"
+             SafeAreaEdges="All"
              BackgroundColor="{StaticResource Mist}">
 
     <Grid RowDefinitions="Auto,*">
-        <Grid ColumnDefinitions="*,*" Padding="24,4" ColumnSpacing="12">
+        <Grid ColumnDefinitions="*,*,48" Padding="24,4" ColumnSpacing="8">
             <Button x:Name="ItinerarySectionButton" Text="Itinerario" Clicked="OnItinerarySectionClicked" BackgroundColor="Transparent" TextColor="#393226" MinimumHeightRequest="44" FontSize="13" />
             <Button x:Name="ExpensesSectionButton" Grid.Column="1" Text="Gastos" Clicked="OnExpensesSectionClicked" BackgroundColor="Transparent" TextColor="#8E867D" MinimumHeightRequest="44" FontSize="13" />
+            <ImageButton Grid.Column="2" Source="itinerary_menu.svg" Clicked="OnItineraryMenuClicked" WidthRequest="48" HeightRequest="48" Padding="12" BackgroundColor="Transparent" SemanticProperties.Description="Opciones del viaje" />
         </Grid>
         <pages:ExpensesPanel x:Name="ExpensesPanelView" Grid.Row="1" IsVisible="False" />
     <Grid x:Name="ItineraryContent" Grid.Row="1" RowDefinitions="*">
@@ -61,11 +63,7 @@
                             </DataTemplate>
                         </CollectionView.ItemTemplate>
                     </CollectionView>
-                    <Grid ColumnDefinitions="*,48,48,48">
-                        <ImageButton Grid.Column="1" Source="tab_docs.svg" Clicked="OnDocumentsClicked" Style="{StaticResource ContextIconButton}" WidthRequest="48" HeightRequest="48" SemanticProperties.Description="Documentos del viaje" />
-                        <ImageButton Grid.Column="2" Source="itinerary_review.svg" Command="{Binding ReviewTripCommand}" IsVisible="{Binding HasItineraryActions}" Style="{StaticResource ContextIconButton}" WidthRequest="48" HeightRequest="48" SemanticProperties.Description="{Binding ReviewTripText}" />
-                        <ImageButton Grid.Column="3" Source="itinerary_menu.svg" Clicked="OnItineraryMenuClicked" IsVisible="{Binding HasItineraryActions}" Style="{StaticResource ContextIconButton}" WidthRequest="48" HeightRequest="48" SemanticProperties.Description="Opciones del itinerario" />
-                    </Grid>
+
                     <Label Text="{Binding PreviewMessage}" IsVisible="{Binding HasPreviewMessage}" FontSize="13" TextColor="#6A625B" />
 
                     <Border Padding="14,12" BackgroundColor="#FFFCF8" Stroke="#DDD4C9"

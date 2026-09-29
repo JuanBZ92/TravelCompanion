@@ -178,7 +178,8 @@ internal sealed class ExpenseActivityPicker : TripScopedPage
         {
             var label = ExpenseUi.Text("", 16); label.Margin = new Thickness(8, 12); label.SetBinding(Label.TextProperty, nameof(ExpenseActivityDto.Title)); return label;
         }) };
-        var ordered = items.OrderBy(x => Math.Abs(x.Date.DayNumber - date.DayNumber)).ThenBy(x => x.Title).ToArray();
+        var ordered = ExpenseActivitySelection.ForDate(items, date);
+        list.EmptyView = ExpenseUi.Text(ExpenseUi.T("No hay actividades para esta fecha.", "No activities for this date."));
         list.ItemsSource = ordered;
         search.TextChanged += (_, args) => list.ItemsSource = ordered.Where(x => x.Title.Contains(args.NewTextValue ?? "", StringComparison.CurrentCultureIgnoreCase)).ToArray();
         list.SelectionChanged += async (_, args) => { if (!closing && args.CurrentSelection.FirstOrDefault() is ExpenseActivityDto item) { closing = true; selected(item); await Navigation.PopModalAsync(); } };

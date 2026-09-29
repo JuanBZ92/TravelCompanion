@@ -68,6 +68,7 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        _viewModel.RefreshDayConfirmation();
         if (ExpensesPanelView.IsVisible) await ExpensesPanelView.ActivateAsync();
 
         if (_isHandlingAppearance)
@@ -166,13 +167,11 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
 
     private async void OnItineraryMenuClicked(object? sender, EventArgs e)
     {
-        if (!_viewModel.HasItineraryActions)
-        {
-            return;
-        }
-
         var actions = new List<string>
         {
+            "Documentos del viaje",
+            "Revisar este día",
+            "Revisar mi viaje",
             "Guardar para usar sin conexión",
             "Compartir itinerario"
         };
@@ -189,7 +188,13 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
             "Cancelar",
             null,
             actions.ToArray());
-        if (action == "Editar itinerario")
+        if (action == "Documentos del viaje")
+            await Shell.Current.GoToAsync(nameof(DocsPage));
+        else if (action == "Revisar este día")
+            await _viewModel.ReviewSelectedDayCommand.ExecuteAsync(null);
+        else if (action == "Revisar mi viaje")
+            await _viewModel.ReviewTripCommand.ExecuteAsync(null);
+        else if (action == "Editar itinerario")
         {
             await _viewModel.EditItineraryCommand.ExecuteAsync(null);
         }

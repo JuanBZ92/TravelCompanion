@@ -170,7 +170,11 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         }
     }
 
-    public bool ShowDayReview => !ShowTodayLoading && SelectedDayReview?.HasIssues == true;
+    public bool ShowDayReview => !ShowTodayLoading && SelectedDayReview?.HasIssues == true
+        && !IsDayConfirmed;
+    private bool IsDayConfirmed => _sessionService.CurrentUserId is { } user && _tripId is { } trip && _selectedDate is { } date
+        && Preferences.Default.Get(DayReviewConfirmation.Key(user, trip, date), "") == DayReviewConfirmation.Fingerprint(_allItems, date);
+    public void RefreshDayConfirmation() => OnPropertyChanged(nameof(ShowDayReview));
     public bool ShowImproveDay => _selectedDate.HasValue && _tripId.HasValue
         && _sessionService.ExperienceMode != ExperienceMode.CuratedPremium;
     public bool ShowAdaptDay => ShowImproveDay && _selectedDate is { } date
