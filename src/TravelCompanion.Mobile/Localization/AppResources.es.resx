@@ -155,7 +155,7 @@
   <data name="PaywallPageTitle" xml:space="preserve"><value>Pase Japón</value></data>
   <data name="PaywallEyebrow" xml:space="preserve"><value>TU VIAJE, COMPLETO</value></data>
   <data name="PaywallHeadline" xml:space="preserve"><value>Activa el Pase Japón</value></data>
-  <data name="PaywallBuy" xml:space="preserve"><value>Activar mi Pase Japón</value></data>
+  <data name="PaywallBuy" xml:space="preserve"><value>Comprar mi pase</value></data>
   <data name="PaywallRestore" xml:space="preserve"><value>Restaurar compra</value></data>
   <data name="PaywallSupportCode" xml:space="preserve"><value>Usar código de soporte</value></data>
   <data name="RoutesPageTitle" xml:space="preserve"><value>Rutas</value></data>
@@ -359,17 +359,17 @@
   <data name="AssistantSavingItem" xml:space="preserve"><value>Guardando…</value></data>
   <data name="PaywallHeroTitle" xml:space="preserve"><value>Tu Japón.
 A tu manera.</value></data>
-  <data name="PaywallHeroBody" xml:space="preserve"><value>Descubre más lugares, organiza todos tus días y encuentra ideas para cada momento.</value></data>
-  <data name="PaywallIncluded" xml:space="preserve"><value>TODO PARA TU VIAJE</value></data>
-  <data name="PaywallCatalogTitle" xml:space="preserve"><value>Todo el catálogo YUKU</value></data>
-  <data name="PaywallCatalogBody" xml:space="preserve"><value>Explora nuestros lugares seleccionados, también fuera del radio free.</value></data>
+  <data name="PaywallHeroBody" xml:space="preserve"><value>Menos tiempo organizando. Más tiempo viviendo Japón.</value></data>
+  <data name="PaywallIncluded" xml:space="preserve"><value>MÁS LIBERTAD PARA TU VIAJE</value></data>
+  <data name="PaywallCatalogTitle" xml:space="preserve"><value>Descubrí más Japón</value></data>
+  <data name="PaywallCatalogBody" xml:space="preserve"><value>Lugares seleccionados más allá de la zona gratuita del mapa.</value></data>
   <data name="PaywallPlannerTitle" xml:space="preserve"><value>Todos tus días, a tu manera</value></data>
-  <data name="PaywallPlannerBody" xml:space="preserve"><value>Organiza el viaje entero y sigue editándolo mientras tu pase esté activo.</value></data>
-  <data name="PaywallAssistantTitle" xml:space="preserve"><value>Ayuda para decidir qué hacer</value></data>
-  <data name="PaywallAssistantBody" xml:space="preserve"><value>Recibe recomendaciones para completar cada día de tu viaje.</value></data>
-  <data name="PaywallPaymentNote" xml:space="preserve"><value>Un pago · Un viaje · Sin renovación automática</value></data>
+  <data name="PaywallPlannerBody" xml:space="preserve"><value>Organizá el viaje completo y ajustá tus planes mientras el pase esté activo.</value></data>
+  <data name="PaywallAssistantTitle" xml:space="preserve"><value>Ideas para seguir explorando</value></data>
+  <data name="PaywallAssistantBody" xml:space="preserve"><value>Encontrá qué hacer y completá tus días con ayuda del Asistente.</value></data>
+  <data name="PaywallPaymentNote" xml:space="preserve"><value>Sin suscripción · Sin renovación automática</value></data>
   <data name="PaywallPricePending" xml:space="preserve"><value>Precio de tienda pendiente</value></data>
-  <data name="PaywallRetryOffer" xml:space="preserve"><value>Reintentar cargar oferta</value></data>
+  <data name="PaywallRetryOffer" xml:space="preserve"><value>Volver a intentar</value></data>
   <data name="PaywallYourTrip" xml:space="preserve"><value>EL VIAJE QUE YA EMPEZASTE</value></data>
   <data name="PaywallSetup" xml:space="preserve"><value>Crear mi viaje</value></data>
   <data name="CreateTrip" xml:space="preserve"><value>Crear mi viaje</value></data>
@@ -494,4 +494,12 @@ A tu manera.</value></data>
   <data name="DiagnosticsCancel" xml:space="preserve"><value>Cancelar</value></data>
   <data name="DiagnosticsConsent" xml:space="preserve"><value>Se compartirá un archivo con la versión de la app, modelo y sistema del dispositivo, pantallas abiertas y errores técnicos recientes. No incluye PIN, tokens, notas, fotos ni contenido del viaje. Los registros permanecen en este dispositivo hasta que elijas compartirlos.</value></data>
   <data name="DiagnosticsFailed" xml:space="preserve"><value>No pudimos compartir el diagnóstico. Volvé a intentarlo.</value></data>
+  <data name="PaywallContextTitle" xml:space="preserve"><value>PARA LO QUE QUERÉS HACER</value></data>
+  <data name="PaywallShowDetails" xml:space="preserve"><value>Qué incluye  +</value></data>
+  <data name="PaywallHideDetails" xml:space="preserve"><value>Ocultar detalles  −</value></data>
+  <data name="PaywallAccessOptions" xml:space="preserve"><value>Opciones de acceso</value></data>
+  <data name="PaywallLoading" xml:space="preserve"><value>Cargando información del pase</value></data>
+  <data name="PaywallSetupHint" xml:space="preserve"><value>Empezá creando tu viaje gratis. Elegí el pase después.</value></data>
+  <data name="PaywallSinglePayment" xml:space="preserve"><value>Un pago para tu viaje</value></data>
+  <data name="PaywallNewTrip" xml:space="preserve"><value>Tu viaje ya está creado. Dale forma a cada día con el pase.</value></data>
 </root>
