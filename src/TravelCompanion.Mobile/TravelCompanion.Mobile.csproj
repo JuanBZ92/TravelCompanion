@@ -44,8 +44,7 @@
 
 	<PropertyGroup Condition="'$(Configuration)' == 'Debug' and $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
 		<!-- Keep Android device launches reliable when starting without the debugger or after clean/rebuild cycles. -->
-		<EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk> 
-		.
+		<EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(TargetFramework)'=='net10.0-ios'">
