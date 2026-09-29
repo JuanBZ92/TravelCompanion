@@ -21,15 +21,11 @@ public sealed partial class PaywallViewModel(
     private string _displayPrice = string.Empty;
     private bool _canBuy;
     private string _stateText = string.Empty;
-    private bool _showPassDetails;
-    public bool ShowPassDetails { get => _showPassDetails; private set => SetProperty(ref _showPassDetails, value); }
     public ObservableCollection<string> Benefits { get; } = [];
     public string DisplayPrice { get => _displayPrice; private set { if (SetProperty(ref _displayPrice, value)) OnPropertyChanged(nameof(HasPrice)); } }
     public bool HasPrice => !string.IsNullOrWhiteSpace(DisplayPrice);
     public string OfferLeadText => _offer?.Benefits.FirstOrDefault() ?? string.Empty;
     public bool NeedsTripSetup => sessions.CurrentTripId is null;
-    public bool IsGuest => sessions.IsFreeMapPreview;
-    [RelayCommand] private Task OpenAccessOptionsAsync() => Shell.Current.GoToAsync(nameof(AccountPage));
     public bool HasOffer => _offer is not null;
     public bool HasContextualLead => HasOffer && _entryPoint != PaywallEntryPoint.ExplicitUpgrade;
     public bool HasRetention => !string.IsNullOrWhiteSpace(RetentionText);
@@ -51,7 +47,6 @@ public sealed partial class PaywallViewModel(
 
     private void NotifyOffer()
     {
-        OnPropertyChanged(nameof(IsGuest));
         OnPropertyChanged(nameof(ShowRetry));
         foreach (var property in new[] { nameof(HasOffer), nameof(NeedsTripSetup), nameof(HasContextualLead), nameof(OfferLeadText), nameof(PreviewText), nameof(RetentionText), nameof(AccessDetailsText), nameof(HasRetention), nameof(HasAccessDetails) })
             OnPropertyChanged(property);
@@ -62,9 +57,6 @@ public sealed partial class PaywallViewModel(
         if (Enum.TryParse<PaywallEntryPoint>(value, out var parsed)) _entryPoint = parsed;
         OnPropertyChanged(nameof(HasContextualLead));
     }
-
-    [RelayCommand]
-    private void TogglePassDetails() => ShowPassDetails = !ShowPassDetails;
 
     [RelayCommand]
     private Task LoadOfferAsync() => LoadAsync(async ct =>

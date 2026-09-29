@@ -359,14 +359,14 @@
   <data name="AssistantSavingItem" xml:space="preserve"><value>Guardando…</value></data>
   <data name="PaywallHeroTitle" xml:space="preserve"><value>Tu Japón.
 A tu manera.</value></data>
-  <data name="PaywallHeroBody" xml:space="preserve"><value>Menos tiempo organizando. Más tiempo viviendo Japón.</value></data>
-  <data name="PaywallIncluded" xml:space="preserve"><value>MÁS LIBERTAD PARA TU VIAJE</value></data>
-  <data name="PaywallCatalogTitle" xml:space="preserve"><value>Descubrí más Japón</value></data>
-  <data name="PaywallCatalogBody" xml:space="preserve"><value>Lugares seleccionados más allá de la zona gratuita del mapa.</value></data>
+  <data name="PaywallHeroBody" xml:space="preserve"><value>Recomendaciones elegidas una por una, personalmente. Descubrí lugares con criterio y armá tu propio Japón.</value></data>
+  <data name="PaywallIncluded" xml:space="preserve"><value>TU VIAJE, DE PRINCIPIO A FIN</value></data>
+  <data name="PaywallCatalogTitle" xml:space="preserve"><value>Curaduría personal, lugar por lugar</value></data>
+  <data name="PaywallCatalogBody" xml:space="preserve"><value>Cada recomendación de YUKU está seleccionada personalmente. Explorá más de nuestra selección de cafés, restaurantes y lugares para descubrir, más allá de la zona gratuita.</value></data>
   <data name="PaywallPlannerTitle" xml:space="preserve"><value>Todos tus días, a tu manera</value></data>
-  <data name="PaywallPlannerBody" xml:space="preserve"><value>Organizá el viaje completo y ajustá tus planes mientras el pase esté activo.</value></data>
+  <data name="PaywallPlannerBody" xml:space="preserve"><value>Pasá de los 3 días de Free a organizar todos los días del viaje. Ajustá tus planes mientras el pase esté activo.</value></data>
   <data name="PaywallAssistantTitle" xml:space="preserve"><value>Ideas para seguir explorando</value></data>
-  <data name="PaywallAssistantBody" xml:space="preserve"><value>Encontrá qué hacer y completá tus días con ayuda del Asistente.</value></data>
+  <data name="PaywallAssistantBody" xml:space="preserve"><value>Completá y adaptá tus días con ayuda del Asistente y recomendaciones del catálogo YUKU.</value></data>
   <data name="PaywallPaymentNote" xml:space="preserve"><value>Sin suscripción · Sin renovación automática</value></data>
   <data name="PaywallPricePending" xml:space="preserve"><value>Precio de tienda pendiente</value></data>
   <data name="PaywallRetryOffer" xml:space="preserve"><value>Volver a intentar</value></data>
@@ -495,11 +495,20 @@ A tu manera.</value></data>
   <data name="DiagnosticsConsent" xml:space="preserve"><value>Se compartirá un archivo con la versión de la app, modelo y sistema del dispositivo, pantallas abiertas y errores técnicos recientes. No incluye PIN, tokens, notas, fotos ni contenido del viaje. Los registros permanecen en este dispositivo hasta que elijas compartirlos.</value></data>
   <data name="DiagnosticsFailed" xml:space="preserve"><value>No pudimos compartir el diagnóstico. Volvé a intentarlo.</value></data>
   <data name="PaywallContextTitle" xml:space="preserve"><value>PARA LO QUE QUERÉS HACER</value></data>
-  <data name="PaywallShowDetails" xml:space="preserve"><value>Qué incluye  +</value></data>
-  <data name="PaywallHideDetails" xml:space="preserve"><value>Ocultar detalles  −</value></data>
-  <data name="PaywallAccessOptions" xml:space="preserve"><value>Opciones de acceso</value></data>
   <data name="PaywallLoading" xml:space="preserve"><value>Cargando información del pase</value></data>
   <data name="PaywallSetupHint" xml:space="preserve"><value>Empezá creando tu viaje gratis. Elegí el pase después.</value></data>
   <data name="PaywallSinglePayment" xml:space="preserve"><value>Un pago para tu viaje</value></data>
   <data name="PaywallNewTrip" xml:space="preserve"><value>Tu viaje ya está creado. Dale forma a cada día con el pase.</value></data>
+  <data name="PaywallScope" xml:space="preserve"><value>Free: organizá 3 días. Con el pase: tu viaje completo.</value></data>
+  <data name="PaywallExpensesTitle" xml:space="preserve"><value>Tus gastos, en perspectiva</value></data>
+  <data name="PaywallExpensesBody" xml:space="preserve"><value>Registrá lo que gastás durante el viaje. Con el pase, consultá el desglose por día y categoría y exportá tu registro en CSV.</value></data>
+  <data name="PaywallOfflineTitle" xml:space="preserve"><value>Tu itinerario, también sin conexión</value></data>
+  <data name="PaywallOfflineBody" xml:space="preserve"><value>Prepará el itinerario completo para consultarlo cuando no tengas internet.</value></data>
+  <data name="PaywallDocumentsTitle" xml:space="preserve"><value>Tickets y reservas a mano</value></data>
+  <data name="PaywallDocumentsBody" xml:space="preserve"><value>Guardá tus documentos en este dispositivo y vinculalos con tus actividades para encontrarlos cuando los necesites.</value></data>
+  <data name="PaywallJournalTitle" xml:space="preserve"><value>Journal: tu viaje hecho recuerdos</value></data>
+  <data name="PaywallJournalBody" xml:space="preserve"><value>Sumá notas personales y fotos a los lugares de tu itinerario. Volvé a tus recuerdos y seguí escribiendo tu historia. Las fotos quedan en este dispositivo.</value></data>
+  <data name="PaywallShareTitle" xml:space="preserve"><value>Compartí lo que vas a vivir</value></data>
+  <data name="PaywallShareBody" xml:space="preserve"><value>Compartí el resumen de tu itinerario, con sus días, lugares y horarios, desde las apps de tu teléfono.</value></data>
+  <data name="PaywallBack" xml:space="preserve"><value>Volver</value></data>
 </root>

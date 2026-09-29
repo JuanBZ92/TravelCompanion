@@ -24,6 +24,7 @@ public partial class PaywallPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        PassBack.IsVisible = Navigation.NavigationStack.Count > 1;
         _isVisible = true;
         _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
         await _viewModel.LoadOfferCommand.ExecuteAsync(null);
@@ -36,6 +37,13 @@ public partial class PaywallPage : ContentPage
         _isVisible = false;
         _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
         base.OnDisappearing();
+    }
+
+    private async void OnBackClicked(object? sender, EventArgs e)
+    {
+        if (!_isVisible || Navigation.NavigationStack.Count <= 1) return;
+        try { await Shell.Current.GoToAsync(".."); }
+        catch (Exception ex) { ClientDiagnostics.Record("paywall_back_failed", exception: ex); }
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)

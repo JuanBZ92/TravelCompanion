@@ -5,7 +5,7 @@
              xmlns:services="clr-namespace:TravelCompanion.Mobile.Services"
              x:Class="TravelCompanion.Mobile.Pages.PaywallPage"
              x:DataType="viewModels:PaywallViewModel"
-             BackgroundColor="{StaticResource Mist}" SafeAreaEdges="All"
+             BackgroundColor="{StaticResource Mist}" SafeAreaEdges="All" Shell.NavBarIsVisible="False"
              Title="{Binding [PaywallPageTitle], Source={x:Static services:LocalizationResourceManager.Instance}}">
     <ContentPage.Resources>
         <Style x:Key="BenefitTitle" TargetType="Label">
@@ -26,8 +26,12 @@
             <Setter Property="MinimumHeightRequest" Value="48" />
         </Style>
     </ContentPage.Resources>
-    <Grid RowDefinitions="*,Auto">
-        <ScrollView x:Name="PassScroll" AutomationId="PassBenefitsScroll">
+    <Grid RowDefinitions="Auto,*,Auto">
+        <ImageButton x:Name="PassBack" IsVisible="False" Source="today_arrow_dark.svg" Rotation="180"
+                     HorizontalOptions="Start" WidthRequest="48" HeightRequest="48" Padding="13" Margin="12,0"
+                     BackgroundColor="Transparent" Clicked="OnBackClicked"
+                     SemanticProperties.Description="{Binding [PaywallBack], Source={x:Static services:LocalizationResourceManager.Instance}}" />
+        <ScrollView Grid.Row="1" x:Name="PassScroll" AutomationId="PassBenefitsScroll">
             <VerticalStackLayout Padding="20,8,20,16" Spacing="24">
                 <Border Padding="22,20" StrokeThickness="0" StrokeShape="RoundRectangle 24">
                     <Border.Background>
@@ -50,6 +54,8 @@
                                  BackgroundColor="#C6A779" AutomationProperties.IsInAccessibleTree="False" />
                         <Label Text="{Binding [PaywallHeroBody], Source={x:Static services:LocalizationResourceManager.Instance}}"
                                FontSize="14" TextColor="#E6DDCF" LineHeight="1.15" />
+                        <Label Text="{Binding [PaywallScope], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                               FontSize="12" TextColor="#DDC39A" LineHeight="1.12" />
                     </VerticalStackLayout>
                 </Border>
 
@@ -99,6 +105,46 @@
                             <Label Style="{StaticResource BenefitBody}" Text="{Binding [PaywallAssistantBody], Source={x:Static services:LocalizationResourceManager.Instance}}" />
                         </VerticalStackLayout>
                     </Grid>
+                    <Grid ColumnDefinitions="40,*" ColumnSpacing="12">
+                        <Image Source="expense_chart.svg" WidthRequest="26" HeightRequest="26" VerticalOptions="Start"
+                               Margin="0,2,0,0" AutomationProperties.IsInAccessibleTree="False" />
+                        <VerticalStackLayout Grid.Column="1" Spacing="4">
+                            <Label Style="{StaticResource BenefitTitle}" Text="{Binding [PaywallExpensesTitle], Source={x:Static services:LocalizationResourceManager.Instance}}" />
+                            <Label Style="{StaticResource BenefitBody}" Text="{Binding [PaywallExpensesBody], Source={x:Static services:LocalizationResourceManager.Instance}}" />
+                        </VerticalStackLayout>
+                    </Grid>
+                    <Grid ColumnDefinitions="40,*" ColumnSpacing="12">
+                        <Image Source="doc_download.svg" WidthRequest="26" HeightRequest="26" VerticalOptions="Start"
+                               Margin="0,2,0,0" AutomationProperties.IsInAccessibleTree="False" />
+                        <VerticalStackLayout Grid.Column="1" Spacing="4">
+                            <Label Style="{StaticResource BenefitTitle}" Text="{Binding [PaywallOfflineTitle], Source={x:Static services:LocalizationResourceManager.Instance}}" />
+                            <Label Style="{StaticResource BenefitBody}" Text="{Binding [PaywallOfflineBody], Source={x:Static services:LocalizationResourceManager.Instance}}" />
+                        </VerticalStackLayout>
+                    </Grid>
+                    <Grid ColumnDefinitions="40,*" ColumnSpacing="12">
+                        <Image Source="tab_docs.svg" WidthRequest="26" HeightRequest="26" VerticalOptions="Start"
+                               Margin="0,2,0,0" AutomationProperties.IsInAccessibleTree="False" />
+                        <VerticalStackLayout Grid.Column="1" Spacing="4">
+                            <Label Style="{StaticResource BenefitTitle}" Text="{Binding [PaywallDocumentsTitle], Source={x:Static services:LocalizationResourceManager.Instance}}" />
+                            <Label Style="{StaticResource BenefitBody}" Text="{Binding [PaywallDocumentsBody], Source={x:Static services:LocalizationResourceManager.Instance}}" />
+                        </VerticalStackLayout>
+                    </Grid>
+                    <Grid ColumnDefinitions="40,*" ColumnSpacing="12">
+                        <Image Source="tab_journal.svg" WidthRequest="26" HeightRequest="26" VerticalOptions="Start"
+                               Margin="0,2,0,0" AutomationProperties.IsInAccessibleTree="False" />
+                        <VerticalStackLayout Grid.Column="1" Spacing="4">
+                            <Label Style="{StaticResource BenefitTitle}" Text="{Binding [PaywallJournalTitle], Source={x:Static services:LocalizationResourceManager.Instance}}" />
+                            <Label Style="{StaticResource BenefitBody}" Text="{Binding [PaywallJournalBody], Source={x:Static services:LocalizationResourceManager.Instance}}" />
+                        </VerticalStackLayout>
+                    </Grid>
+                    <Grid ColumnDefinitions="40,*" ColumnSpacing="12">
+                        <Image Source="journal_export.svg" WidthRequest="26" HeightRequest="26" VerticalOptions="Start"
+                               Margin="0,2,0,0" AutomationProperties.IsInAccessibleTree="False" />
+                        <VerticalStackLayout Grid.Column="1" Spacing="4">
+                            <Label Style="{StaticResource BenefitTitle}" Text="{Binding [PaywallShareTitle], Source={x:Static services:LocalizationResourceManager.Instance}}" />
+                            <Label Style="{StaticResource BenefitBody}" Text="{Binding [PaywallShareBody], Source={x:Static services:LocalizationResourceManager.Instance}}" />
+                        </VerticalStackLayout>
+                    </Grid>
                 </VerticalStackLayout>
 
                 <Border IsVisible="{Binding HasOffer}" Padding="16,8,16,16" Stroke="#E3D9CC"
@@ -111,17 +157,7 @@
                                Style="{StaticResource BenefitBody}" />
                         <Label Text="{Binding RetentionText}" IsVisible="{Binding HasRetention}"
                                Style="{StaticResource BenefitBody}" />
-                        <Button Text="{Binding [PaywallShowDetails], Source={x:Static services:LocalizationResourceManager.Instance}}"
-                                Command="{Binding TogglePassDetailsCommand}" Style="{StaticResource QuietAction}"
-                                AutomationId="PassDetailsToggle">
-                            <Button.Triggers>
-                                <DataTrigger TargetType="Button" Binding="{Binding ShowPassDetails}" Value="True">
-                                    <Setter Property="Text" Value="{Binding [PaywallHideDetails], Source={x:Static services:LocalizationResourceManager.Instance}}" />
-                                </DataTrigger>
-                            </Button.Triggers>
-                        </Button>
-                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Benefits}" Spacing="12"
-                                             IsVisible="{Binding ShowPassDetails}">
+                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Benefits}" Spacing="12">
                             <BindableLayout.ItemTemplate>
                                 <DataTemplate x:DataType="x:String">
                                     <Grid ColumnDefinitions="18,*" ColumnSpacing="10">
@@ -139,15 +175,13 @@
                     <Button Text="{Binding [PaywallRestore], Source={x:Static services:LocalizationResourceManager.Instance}}"
                             Command="{Binding RestoreCommand}" IsEnabled="{Binding IsNotBusy}" Style="{StaticResource QuietAction}"
                             AutomationId="PassRestore" />
-                    <Button Text="{Binding [PaywallAccessOptions], Source={x:Static services:LocalizationResourceManager.Instance}}"
-                            Command="{Binding OpenAccessOptionsCommand}" IsVisible="{Binding IsGuest}"
-                            IsEnabled="{Binding IsNotBusy}" Style="{StaticResource QuietAction}" />
+
                 </VerticalStackLayout>
             </VerticalStackLayout>
         </ScrollView>
 
         <!-- One primary action stays in reach without covering scroll content or the tab bar. -->
-        <Border Grid.Row="1" Padding="20,14,20,12" BackgroundColor="#FFFCF7" StrokeThickness="0">
+        <Border Grid.Row="2" Padding="20,14,20,12" BackgroundColor="#FFFCF7" StrokeThickness="0">
             <VerticalStackLayout Spacing="10">
                 <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}"
                                    Color="#80623C" HeightRequest="22"
