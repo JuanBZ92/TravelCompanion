@@ -4,6 +4,9 @@ namespace TravelCompanion.Mobile.ViewModels;
 
 public abstract partial class ViewModelBase : ObservableObject
 {
+    private static string ConnectionError => System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "es"
+        ? "No pudimos actualizar la información. Comprobá tu conexión y volvé a intentar."
+        : "We couldn't refresh the information. Check your connection and try again.";
     private bool _isBusy;
     private bool _isRefreshing;
     private bool _hasLoaded;
@@ -110,9 +113,13 @@ public abstract partial class ViewModelBase : ObservableObject
             await loadAction();
             HasLoaded = true;
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (_loadCancellationTokenSource?.IsCancellationRequested == true)
         {
             // Expected when operation is cancelled - don't show error
+        }
+        catch (Exception ex) when (ex is HttpRequestException or IOException or OperationCanceledException)
+        {
+            if (_loadCancellationTokenSource?.IsCancellationRequested != true) ErrorMessage = ConnectionError;
         }
         catch (Exception ex)
         {
@@ -147,9 +154,13 @@ public abstract partial class ViewModelBase : ObservableObject
             await loadAction(cancellationToken);
             HasLoaded = true;
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             // Expected when operation is cancelled - don't show error
+        }
+        catch (Exception ex) when (ex is HttpRequestException or IOException or OperationCanceledException)
+        {
+            if (!cancellationToken.IsCancellationRequested) ErrorMessage = ConnectionError;
         }
         catch (Exception ex)
         {

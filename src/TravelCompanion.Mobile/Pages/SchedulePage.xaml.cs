@@ -54,6 +54,9 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
         _viewModel = viewModel;
         _logger = logger;
         InitializeComponent();
+#if ANDROID
+        Platforms.Android.TopInsetCorrection.Observe(ScheduleRoot, ScheduleHeader);
+#endif
         stopwatch.Stop();
         BindingContext = viewModel;
         ItinerarySectionButton.Text = ExpenseUi.T("Itinerario", "Itinerary");

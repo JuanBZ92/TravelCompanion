@@ -4,6 +4,8 @@ namespace TravelCompanion.Mobile.Services;
 
 public sealed class MobileRetryHandler(HttpMessageHandler innerHandler) : DelegatingHandler(innerHandler)
 {
+    // Injectable wait keeps retry/cancellation tests deterministic and fast.
+    internal Func<TimeSpan, CancellationToken, Task> DelayAsync { get; init; } = Task.Delay;
     protected override async Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request,
         CancellationToken cancellationToken)
@@ -18,33 +20,33 @@ public sealed class MobileRetryHandler(HttpMessageHandler innerHandler) : Delega
         }
 
         var snapshot = await RequestSnapshot.CreateAsync(request, cancellationToken).ConfigureAwait(false);
-        HttpResponseMessage? lastResponse = null;
-        for (var attempt = 0; attempt < 2; attempt++)
+        for (var attempt = 0; ; attempt++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            var delay = TimeSpan.FromSeconds(2 * Math.Pow(2, attempt));
             try
             {
                 using var retryRequest = snapshot.CreateRequest();
                 var response = await base.SendAsync(retryRequest, cancellationToken).ConfigureAwait(false);
-                if (!IsTransient(response.StatusCode) || attempt == 1)
+                if (!IsTransient(response.StatusCode) || attempt == 3)
                 {
                     return response;
                 }
 
-                lastResponse = response;
-                var delay = response.Headers.RetryAfter?.Delta is { } retryAfter
-                    ? TimeSpan.FromMilliseconds(Math.Min(retryAfter.TotalMilliseconds, 2000))
-                    : TimeSpan.FromMilliseconds(250);
-                await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
-                lastResponse.Dispose();
-                lastResponse = null;
+                var retryAfter = response.Headers.RetryAfter?.Delta
+                    ?? (response.Headers.RetryAfter?.Date - DateTimeOffset.UtcNow);
+                // Never retry sooner than the server asks. Long waits stay a manual retry.
+                if (retryAfter > TimeSpan.FromSeconds(8)) return response;
+                if (retryAfter > delay) delay = retryAfter.Value;
+                response.Dispose();
             }
-            catch (HttpRequestException) when (attempt == 0)
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested && attempt < 3
+                && (ex is HttpRequestException { StatusCode: null } or IOException or OperationCanceledException))
             {
-                await Task.Delay(TimeSpan.FromMilliseconds(250), cancellationToken).ConfigureAwait(false);
+                // Native transports can report "Canceled" without caller cancellation.
             }
+            await DelayAsync(delay, cancellationToken).ConfigureAwait(false);
         }
-
-        return lastResponse ?? throw new HttpRequestException("The request failed after retrying.");
     }
 
     private static bool IsTransient(HttpStatusCode statusCode) =>

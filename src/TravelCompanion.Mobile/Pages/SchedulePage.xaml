@@ -13,8 +13,8 @@
              SafeAreaEdges="All"
              BackgroundColor="{StaticResource Mist}">
 
-    <Grid RowDefinitions="Auto,*">
-        <Grid ColumnDefinitions="*,*,48" Padding="24,4" ColumnSpacing="8">
+    <Grid x:Name="ScheduleRoot" RowDefinitions="Auto,*">
+        <Grid x:Name="ScheduleHeader" ColumnDefinitions="*,*,48" Padding="24,4" ColumnSpacing="8">
             <Button x:Name="ItinerarySectionButton" Text="Itinerario" Clicked="OnItinerarySectionClicked" BackgroundColor="Transparent" TextColor="#393226" MinimumHeightRequest="44" FontSize="13" />
             <Button x:Name="ExpensesSectionButton" Grid.Column="1" Text="Gastos" Clicked="OnExpensesSectionClicked" BackgroundColor="Transparent" TextColor="#8E867D" MinimumHeightRequest="44" FontSize="13" />
             <ImageButton Grid.Column="2" Source="itinerary_menu.svg" Clicked="OnItineraryMenuClicked" WidthRequest="48" HeightRequest="48" Padding="12" BackgroundColor="Transparent" SemanticProperties.Description="Opciones del viaje" />

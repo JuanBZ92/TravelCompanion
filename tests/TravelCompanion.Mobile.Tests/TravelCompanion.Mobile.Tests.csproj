@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <Using Include="Xunit" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\Services\MobileRetryHandler.cs" Link="MobileRetryHandler.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\ExpenseStore.cs" Link="ExpenseStore.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\DiagnosticJournal.cs" Link="DiagnosticJournal.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\JournalEntries.cs" Link="JournalEntries.cs" />
