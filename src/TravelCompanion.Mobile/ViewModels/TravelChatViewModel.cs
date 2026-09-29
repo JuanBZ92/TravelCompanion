@@ -73,6 +73,7 @@ public sealed partial class TravelChatViewModel(
     public ObservableCollection<TravelChatGuidedOptionViewModel> SecondaryMenuOptions { get; } =
         new(CreateSecondaryMenuOptions());
     public bool CanEditItinerary => sessionService.CanEditItinerary;
+    public bool CanPlanItinerary => sessionService.IsBuilder;
     public string AssistantEyebrow => Resource("AssistantEyebrow");
     public string AssistantTitle => Resource("AssistantTitle");
     public string EmptyStateTitle => Resource("AssistantEmptyTitle");
@@ -157,6 +158,7 @@ public sealed partial class TravelChatViewModel(
 
     public async Task LoadContextAsync()
     {
+        OnPropertyChanged(nameof(CanPlanItinerary));
         EnsureLocalizationSubscription();
         ApplyCachedPreferencesForCurrentUser();
         if (_hasLoadedContext)

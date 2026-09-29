@@ -1443,7 +1443,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
                 section.Recommendations
                     .Select(recommendation => new TodayLocationViewModel(
                         recommendation,
-                        FindTravelerAssignedItem(
+                        FindAssignedItem(
                             today.Date,
                             section.PeriodKey,
                             recommendation.Recommendation.Id),
@@ -1517,18 +1517,11 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
             .ToList();
     }
 
-    private ScheduleItemDto? FindTravelerAssignedItem(
+    private ScheduleItemDto? FindAssignedItem(
         DateOnly date,
         string periodKey,
         Guid recommendationId) =>
-        _allItems.FirstOrDefault(item =>
-            item.Date == date
-            && item.RecommendationId == recommendationId
-            && string.Equals(
-                item.EffectivePeriodKey,
-                periodKey,
-                StringComparison.OrdinalIgnoreCase)
-            && item.IsTravelerOwned);
+        ScheduleActivityLookup.FindAssignedItem(_allItems, date, periodKey, recommendationId);
 
     private static string PeriodKey(string label) => label switch
     {

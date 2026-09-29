@@ -62,6 +62,7 @@
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\LocalizationResourceManager.cs" Link="LocalizationResourceManager.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\ViewModels\TravelChatCardViewModel.cs" Link="TravelChatCardViewModel.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\ViewModels\TravelChatMessageViewModel.cs" Link="TravelChatMessageViewModel.cs" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\Services\ScheduleActivityLookup.cs" Link="ScheduleActivityLookup.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\ViewModels\ScheduleTodaySectionViewModel.cs" Link="ScheduleTodaySectionViewModel.cs" />
   </ItemGroup>
 

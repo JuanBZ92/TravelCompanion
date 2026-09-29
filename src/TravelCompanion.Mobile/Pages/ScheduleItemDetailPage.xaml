@@ -112,14 +112,22 @@
                     <Label Text="NOTAS YUKU" CharacterSpacing="3" FontSize="11" FontAttributes="Bold" TextColor="{StaticResource Muted}" />
                     <Label Text="{Binding CuratedNotes}" FontSize="15" LineHeight="1.3" TextColor="{StaticResource Accent}" />
                 </VerticalStackLayout>
-                <VerticalStackLayout Spacing="8"
-                                     IsVisible="{Binding HasNotes}">
-                    <Label Text="NOTAS PERSONALES"
-                           CharacterSpacing="3"
-                           FontSize="11"
-                           FontAttributes="Bold"
-                           TextColor="{StaticResource Muted}" />
-                    <Label Text="{Binding NotesText}"
+                <VerticalStackLayout Spacing="8">
+                    <Grid ColumnDefinitions="*,48">
+                        <Label Text="NOTAS PERSONALES" CharacterSpacing="3" FontSize="11"
+                               FontAttributes="Bold" TextColor="{StaticResource Muted}" VerticalOptions="Center" />
+                        <ImageButton Grid.Column="1" Source="action_edit.svg" Command="{Binding OpenJournalCommand}"
+                                     WidthRequest="48" HeightRequest="48" Padding="12" BackgroundColor="Transparent"
+                                     SemanticProperties.Description="Agregar o editar mi nota personal" />
+                    </Grid>
+                    <Label Text="Agregá una nota o un recuerdo de este lugar." FontSize="14" TextColor="{StaticResource InkSoft}">
+                        <Label.Triggers>
+                            <DataTrigger TargetType="Label" Binding="{Binding HasNotes}" Value="True">
+                                <Setter Property="IsVisible" Value="False" />
+                            </DataTrigger>
+                        </Label.Triggers>
+                    </Label>
+                    <Label Text="{Binding NotesText}" IsVisible="{Binding HasNotes}"
                            FontSize="15"
                            LineHeight="1.3"
                            TextColor="{StaticResource Accent}" />

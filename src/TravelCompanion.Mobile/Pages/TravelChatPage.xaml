@@ -341,6 +341,7 @@
                                                                      IsEnabled="{Binding CanFindAlternative}" Style="{StaticResource AssistantIconAction}"
                                                                      SemanticProperties.Description="{Binding AnotherOptionLabel}" ToolTipProperties.Text="{Binding AnotherOptionLabel}" />
                                                         <ImageButton Source="{Binding SaveIcon}" Clicked="OnSaveItineraryItemClicked"
+                                     IsVisible="{Binding BindingContext.CanPlanItinerary, Source={x:Reference PageRoot}}"
                                                                      IsEnabled="{Binding CanSave}" Style="{StaticResource AssistantIconAction}" BackgroundColor="{StaticResource Accent}"
                                                                      SemanticProperties.Description="{Binding SaveButtonText}" ToolTipProperties.Text="{Binding SaveButtonText}" />
                                                     </HorizontalStackLayout>
@@ -466,12 +467,12 @@
                     </Grid>
                 </Border>
                 <VerticalStackLayout Spacing="10" Margin="0,12,0,0">
-                    <Button Text="{Binding AssistantCompleteDay}" Command="{Binding OpenCompleteDayCommand}"
+                    <Button Text="{Binding AssistantCompleteDay}" Command="{Binding OpenCompleteDayCommand}" IsVisible="{Binding CanPlanItinerary}"
                             IsEnabled="{Binding IsNotBusy}"
                             BackgroundColor="{StaticResource Accent}" TextColor="{StaticResource Paper}"
                             CornerRadius="14" FontSize="17" FontFamily="OpenSansSemibold"
                             MinimumHeightRequest="62" />
-                    <Label Text="{Binding AssistantCompleteDayHelp}"
+                    <Label Text="{Binding AssistantCompleteDayHelp}" IsVisible="{Binding CanPlanItinerary}"
                            FontSize="12" TextColor="{StaticResource Muted}" />
                     <Button Text="{Binding AssistantFindPlace}" Command="{Binding OpenQuickSearchCommand}"
                             IsEnabled="{Binding IsNotBusy}"
@@ -638,6 +639,7 @@
                                                  IsEnabled="{Binding Suggestion.CanFindAlternative}" Style="{StaticResource AssistantIconAction}"
                                                  SemanticProperties.Description="{Binding Suggestion.AnotherOptionLabel}" ToolTipProperties.Text="{Binding Suggestion.AnotherOptionLabel}" />
                                     <ImageButton Source="{Binding Suggestion.SaveIcon}" Clicked="OnSaveProposalClicked"
+                                     IsVisible="{Binding BindingContext.CanPlanItinerary, Source={x:Reference PageRoot}}"
                                                  IsEnabled="{Binding Suggestion.CanSave}" Style="{StaticResource AssistantIconAction}"
                                                  BackgroundColor="{StaticResource Accent}"
                                                  SemanticProperties.Description="{Binding Suggestion.SaveButtonText}" ToolTipProperties.Text="{Binding Suggestion.SaveButtonText}" />
@@ -701,6 +703,11 @@
                 </ScrollView>
                 <VerticalStackLayout Grid.Row="2" Spacing="8">
                     <Grid ColumnDefinitions="*,*" IsVisible="{Binding CanChoosePeriod}">
+                        <Grid.Triggers>
+                            <DataTrigger TargetType="Grid" Binding="{Binding BindingContext.CanPlanItinerary, Source={x:Reference PageRoot}}" Value="False">
+                                <Setter Property="IsVisible" Value="False" />
+                            </DataTrigger>
+                        </Grid.Triggers>
                         <Label Text="{Binding PeriodLabel}" VerticalOptions="Center" FontSize="13" TextColor="{StaticResource InkSoft}" />
                         <Picker Grid.Column="1" Title="{Binding PeriodLabel}" ItemsSource="{Binding PeriodOptions}"
                                 SelectedIndex="{Binding SelectedPeriodIndex, Mode=TwoWay}" />
@@ -717,6 +724,7 @@
                                      IsVisible="{Binding ShowPreferenceAdjustment}" Style="{StaticResource AssistantIconAction}"
                                      SemanticProperties.Description="{Binding AdjustLabel}" ToolTipProperties.Text="{Binding AdjustLabel}" />
                         <ImageButton Source="{Binding SaveIcon}" Clicked="OnSaveDetailClicked"
+                                     IsVisible="{Binding BindingContext.CanPlanItinerary, Source={x:Reference PageRoot}}"
                                      IsEnabled="{Binding CanSave}" Style="{StaticResource AssistantIconAction}" BackgroundColor="{StaticResource Accent}"
                                      SemanticProperties.Description="{Binding SaveButtonText}" ToolTipProperties.Text="{Binding SaveButtonText}" />
                     </HorizontalStackLayout>

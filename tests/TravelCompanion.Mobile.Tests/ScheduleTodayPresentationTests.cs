@@ -1,4 +1,5 @@
 using TravelCompanion.Mobile.ViewModels;
+using TravelCompanion.Mobile.Services;
 using TravelCompanion.Shared;
 using TravelCompanion.Shared.Dtos;
 
@@ -6,6 +7,27 @@ namespace TravelCompanion.Mobile.Tests;
 
 public sealed class ScheduleTodayPresentationTests
 {
+    [Theory]
+    [InlineData(ItineraryItemOwner.Yuku)]
+    [InlineData(ItineraryItemOwner.Traveler)]
+    public void Assigned_activity_keeps_its_detail_and_journal_target_regardless_of_owner(ItineraryItemOwner owner)
+    {
+        var recommendation = CreateRecommendation("Cafe", "cafe");
+        var date = new DateOnly(2026, 10, 1);
+        var item = new ScheduleItemDto(Guid.NewGuid(), recommendation.Id, ReservationType.Event,
+            date, new TimeOnly(9, 0), null, null, "Cafe", "Tokyo", "Cafe", "Address", "", "Editorial",
+            null, null, null, null, null, null, ScheduleItemKind.Recommendation, owner) { PeriodKey = "morning" };
+        var found = ScheduleActivityLookup.FindAssignedItem([item], date, "morning", recommendation.Id);
+        Assert.Same(item, found);
+        var activity = new TodayLocationViewModel(recommendation, 4m, true, found);
+        Assert.Same(item, activity.AssignedItem);
+        Assert.Equal(owner == ItineraryItemOwner.Traveler, activity.CanEdit);
+        Assert.Equal(owner == ItineraryItemOwner.Traveler, activity.CanRemove);
+        Assert.Null(ScheduleActivityLookup.FindAssignedItem([item], date.AddDays(1), "morning", recommendation.Id));
+        Assert.Null(ScheduleActivityLookup.FindAssignedItem([item], date, "night", recommendation.Id));
+        Assert.Null(ScheduleActivityLookup.FindAssignedItem([item], date, "morning", Guid.NewGuid()));
+    }
+
     [Theory]
     [InlineData("Guardado desde Travel Assistant.", true)]
     [InlineData("  Guardado desde Travel Assistant.  ", true)]

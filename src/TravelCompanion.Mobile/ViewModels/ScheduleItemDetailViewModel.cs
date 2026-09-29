@@ -136,7 +136,7 @@ public sealed partial class ScheduleItemDetailViewModel(
         if (query.TryGetValue("ScheduleItem", out var value) && value is ScheduleItemDto item)
         {
             ScheduleItem = item;
-            CuratedNotes = string.Empty;
+            CuratedNotes = item.IsTravelerOwned ? item.CuratedNotes ?? string.Empty : item.Notes;
             _ = LoadCuratedNotesAsync(item);
             _ = RefreshLinkedDocumentAsync();
         }
@@ -223,6 +223,7 @@ public sealed partial class ScheduleItemDetailViewModel(
 
     private async Task LoadCuratedNotesAsync(ScheduleItemDto item)
     {
+        if (!string.IsNullOrWhiteSpace(CuratedNotes)) return;
         if (item.RecommendationId is not { } recommendationId) return;
         var context = sessionService.ContextVersion;
         bool IsCurrent() => ReferenceEquals(ScheduleItem, item) && sessionService.HasSession

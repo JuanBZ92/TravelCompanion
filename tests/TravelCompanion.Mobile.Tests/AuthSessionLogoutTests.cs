@@ -52,6 +52,32 @@ public sealed class AuthSessionLogoutTests
         finally { session.Clear(); }
     }
 
+    [Theory]
+    [InlineData(ExperienceMode.CuratedPremium, TravelCompanion.Shared.SessionAccessMode.Trip, true)]
+    [InlineData(ExperienceMode.CuratedPremium, TravelCompanion.Shared.SessionAccessMode.FreeMapPreview, false)]
+    [InlineData(ExperienceMode.SelfServiceBuilder, TravelCompanion.Shared.SessionAccessMode.Builder, true)]
+    [InlineData(ExperienceMode.SelfServiceBuilder, TravelCompanion.Shared.SessionAccessMode.BuilderReadOnly, false)]
+    public async Task Assistant_access_is_independent_from_curated_edit_permission(ExperienceMode mode,
+        TravelCompanion.Shared.SessionAccessMode access, bool expected)
+    {
+        var session = new AuthSessionService();
+        try
+        {
+            await session.SaveAsync(Session() with
+            {
+                ExperienceMode = mode, AccessMode = access,
+                Capabilities = new(access == TravelCompanion.Shared.SessionAccessMode.Builder, true, true, false, false)
+            });
+            Assert.Equal(expected, session.CanUseAssistant);
+            if (mode == ExperienceMode.CuratedPremium) Assert.False(session.CanEditItinerary);
+            Preferences.Default.Set("auth_access_expires_at_utc", DateTimeOffset.UtcNow.AddMinutes(-1).ToString("O"));
+            Assert.False(session.CanUseAssistant);
+            session.Clear();
+            Assert.False(session.CanUseAssistant);
+        }
+        finally { session.Clear(); }
+    }
+
     [Fact]
     public async Task Logout_disables_biometrics_and_token_before_cleanup_even_after_restart()
     {

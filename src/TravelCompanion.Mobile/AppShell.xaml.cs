@@ -95,7 +95,7 @@ public partial class AppShell : Shell
         }
         ScheduleTab.IsVisible = usesMainTabs && (!sessionService.IsFreeMapPreview || sessionService.IsBuilder);
         JournalTab.IsVisible = usesMainTabs;
-        AssistantTab.IsVisible = sessionService.IsBuilder;
+        AssistantTab.IsVisible = sessionService.IsBuilder || sessionService.CanUseAssistant;
         PassTab.IsVisible = usesMainTabs && sessionService.IsFreeMapPreview;
         AccountTab.IsVisible = usesMainTabs && !sessionService.IsFreeMapPreview;
     }
@@ -117,7 +117,7 @@ public partial class AppShell : Shell
         base.OnNavigating(args);
         var target = args.Target.Location.OriginalString.Split('?')[0].TrimEnd('/');
         if (target.EndsWith("/assistant", StringComparison.OrdinalIgnoreCase)
-            && !MauiProgram.Services.GetRequiredService<AuthSessionService>().CanEditItinerary
+            && !MauiProgram.Services.GetRequiredService<AuthSessionService>().CanUseAssistant
             && args.CanCancel)
         {
             args.Cancel();

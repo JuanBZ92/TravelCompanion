@@ -55,6 +55,8 @@ public sealed class AuthSessionService
         }
     }
     public bool IsBuilder => ExperienceMode == TravelCompanion.Shared.Dtos.ExperienceMode.SelfServiceBuilder;
+    public bool CanUseAssistant => HasSession && HasKnownValidAccess && AccessMode != SessionAccessMode.BuilderReadOnly
+        && (CanEditItinerary || ExperienceMode == TravelCompanion.Shared.Dtos.ExperienceMode.CuratedPremium && !IsFreeMapPreview);
     public bool IsTrial => IsFreeMapPreview && Preferences.Default.ContainsKey(TrialStateKey);
     public FreeAccessPolicy FreePolicy => (FreeAccessPolicy)Preferences.Default.Get("auth_free_policy", 0);
     public int DayImprovementsRemaining => Preferences.Default.Get("auth_day_improvements_remaining", 0);
