@@ -44,12 +44,13 @@
 
 	<PropertyGroup Condition="'$(Configuration)' == 'Debug' and $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
 		<!-- Keep Android device launches reliable when starting without the debugger or after clean/rebuild cycles. -->
-		<EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
+		<EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk> 
+		.
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(TargetFramework)'=='net10.0-ios'">
-	  <!-- Increment for each App Store Connect upload; build 64 has already been used. -->
-	  <ApplicationVersion>65</ApplicationVersion>
+	  <!-- Increment for each App Store Connect upload. -->
+	  <ApplicationVersion>66</ApplicationVersion>
 	  <ProvisioningType>manual</ProvisioningType>
 	  <CodesignKey>Apple Distribution: Juan Zardini (AG5JMK42KA)</CodesignKey>
 	  <CodesignProvision>TravelCompanionProfile</CodesignProvision>
@@ -125,12 +126,9 @@
 		</NativeReference>
 	</ItemGroup>
 
-	<Target Name="ValidateStoreKitBridge" BeforeTargets="PrepareForBuild"
-		Condition="'$(TargetFramework)' == 'net10.0-ios' and '$(DesignTimeBuild)' != 'true'">
-		<Error Condition="!$([MSBuild]::IsOSPlatform('osx')) and '$(StoreKitBridgeFramework)' == ''"
-			Text="Falta StoreKitBridge.xcframework. En el Mac ejecutá bash scripts/build-ios-storekit.sh y extraé el ZIP generado en artifacts/storekit de este repositorio Windows. Luego volvé a publicar. Ver docs/ios-storekit-build.md." />
-		<Error Condition="'$(StoreKitBridgeFramework)' != '' and !Exists('$(StoreKitBridgeFramework)')"
-			Text="No existe StoreKitBridgeFramework: $(StoreKitBridgeFramework)." />
+	<Target Name="ValidateStoreKitBridge" BeforeTargets="PrepareForBuild" Condition="'$(TargetFramework)' == 'net10.0-ios' and '$(DesignTimeBuild)' != 'true'">
+		<Error Condition="!$([MSBuild]::IsOSPlatform('osx')) and '$(StoreKitBridgeFramework)' == ''" Text="Falta StoreKitBridge.xcframework. En el Mac ejecutá bash scripts/build-ios-storekit.sh y extraé el ZIP generado en artifacts/storekit de este repositorio Windows. Luego volvé a publicar. Ver docs/ios-storekit-build.md." />
+		<Error Condition="'$(StoreKitBridgeFramework)' != '' and !Exists('$(StoreKitBridgeFramework)')" Text="No existe StoreKitBridgeFramework: $(StoreKitBridgeFramework)." />
 	</Target>
 
 	<ItemGroup>

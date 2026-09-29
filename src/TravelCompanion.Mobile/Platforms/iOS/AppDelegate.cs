@@ -5,11 +5,19 @@ namespace TravelCompanion.Mobile;
 [Register("AppDelegate")]
 public class AppDelegate : MauiUIApplicationDelegate
 {
-	protected override MauiApp CreateMauiApp() => MauiProgram.CreateMauiApp();
+    private NSObject? memoryWarningObserver;
 
-    public override void ReceiveMemoryWarning(UIKit.UIApplication application)
+    protected override MauiApp CreateMauiApp()
     {
-        Services.ClientDiagnostics.Record("ios_memory_warning");
-        base.ReceiveMemoryWarning(application);
+        var app = MauiProgram.CreateMauiApp();
+        memoryWarningObserver ??= UIKit.UIApplication.Notifications.ObserveDidReceiveMemoryWarning(
+            (_, _) => TravelCompanion.Mobile.Services.ClientDiagnostics.Record("ios_memory_warning"));
+        return app;
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing) { memoryWarningObserver?.Dispose(); memoryWarningObserver = null; }
+        base.Dispose(disposing);
     }
 }

@@ -7,8 +7,12 @@ namespace TravelCompanion.Mobile.Services;
 
 public sealed partial class NativeStorePurchaseService
 {
-    private static readonly NativeCallback Callback = CompleteNativeCall;
-    private static readonly IntPtr CallbackPointer = Marshal.GetFunctionPointerForDelegate(Callback);
+    // Do not create a reverse P/Invoke trampoline while DI builds the app window.
+    private static class CallbackRegistration
+    {
+        internal static readonly NativeCallback Callback = CompleteNativeCall;
+        internal static readonly IntPtr Pointer = Marshal.GetFunctionPointerForDelegate(Callback);
+    }
 
     public partial StoreProvider Provider => StoreProvider.Apple;
 
@@ -60,7 +64,7 @@ public sealed partial class NativeStorePurchaseService
         var handle = GCHandle.Alloc(completion);
         try
         {
-            nativeCall(GCHandle.ToIntPtr(handle), CallbackPointer);
+            nativeCall(GCHandle.ToIntPtr(handle), CallbackRegistration.Pointer);
         }
         catch
         {
@@ -70,6 +74,7 @@ public sealed partial class NativeStorePurchaseService
         return await completion.Task.WaitAsync(cancellationToken);
     }
 
+    [ObjCRuntime.MonoPInvokeCallback(typeof(NativeCallback))]
     private static void CompleteNativeCall(IntPtr context, IntPtr json)
     {
         var handle = GCHandle.FromIntPtr(context);

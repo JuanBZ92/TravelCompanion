@@ -6,7 +6,10 @@ public partial class App : Application
 	{
 		TravelCompanion.Mobile.Services.LocalizationResourceManager.Instance.Initialize();
         try { TravelCompanion.Mobile.Services.TripDocumentStore.ClearPreviewsAsync().GetAwaiter().GetResult(); }
-        catch (IOException) { /* A viewer can still hold a temporary file after an app restart. */ }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            Services.ClientDiagnostics.Record("preview_cleanup_failed", exception: exception);
+        }
         InitializeComponent();
 		UserAppTheme = AppTheme.Light;
 	}
@@ -28,9 +31,21 @@ public partial class App : Application
 		window.Activated += async (_, _) =>
 		{
             Services.ClientDiagnostics.Record("window_activated");
-			syncCoordinator.TriggerSynchronize();
-			await purchaseRecovery.RecoverAsync();
-			reminders.Refresh();
+            try
+            {
+			    syncCoordinator.TriggerSynchronize();
+			    await purchaseRecovery.RecoverAsync();
+			    reminders.Refresh();
+            }
+            catch (OperationCanceledException exception)
+            {
+                // A network timeout or lifecycle cancellation must not escape async void.
+                Services.ClientDiagnostics.Record("activation_canceled", exception: exception);
+            }
+            catch (Exception exception)
+            {
+                Services.ClientDiagnostics.Record("activation_failed", exception: exception);
+            }
 		};
 		return window;
 	}
