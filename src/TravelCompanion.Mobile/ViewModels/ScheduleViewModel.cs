@@ -714,29 +714,9 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     }
 
     [RelayCommand]
-    private Task OpenReviewIssueAsync(DayReviewIssueViewModel? issue)
-    {
-        if (issue is null || !issue.CanOpenPlan)
-        {
-            return Task.CompletedTask;
-        }
-
-        var candidates = issue.ItemIds
-            .Select(id => _allItems.FirstOrDefault(candidate => candidate.Id == id))
-            .Where(candidate => candidate is not null)
-            .Cast<ScheduleItemDto>()
-            .ToList();
-        var item = candidates.LastOrDefault(candidate => candidate.IsTravelerOwned && CanManageItinerary)
-            ?? candidates.LastOrDefault();
-        if (item is null)
-        {
-            return Task.CompletedTask;
-        }
-
-        return item.IsTravelerOwned && CanManageItinerary
-            ? Shell.Current.GoToAsync(nameof(ItineraryItemEditorPage), new Dictionary<string, object> { ["ScheduleItem"] = item })
-            : Shell.Current.GoToAsync(nameof(ScheduleItemDetailPage), new Dictionary<string, object> { ["ScheduleItem"] = item });
-    }
+    private Task ReviewSelectedDayAsync() => _selectedDate is { } date
+        ? Shell.Current.GoToAsync(nameof(DayConflictPage), new ShellNavigationQueryParameters { ["ReviewDate"] = date })
+        : Task.CompletedTask;
 
     [RelayCommand]
     private async Task ImproveDayAsync()

@@ -25,69 +25,48 @@
                 <VerticalStackLayout Padding="24,12,24,28"
                                      Spacing="16">
 
-                    <Grid RowDefinitions="Auto,Auto,Auto,Auto"
-                          RowSpacing="10">
-                        <Grid ColumnDefinitions="*,48,44,44">
-                            <Label Text="{Binding DayEyebrow}"
-                                   CharacterSpacing="3"
-                                   FontSize="11"
-                                   FontAttributes="Bold"
-                                   VerticalTextAlignment="Center"
-                                   TextColor="#8E867D" />
-                            <ImageButton Grid.Column="1" Source="tab_docs.svg" Clicked="OnDocumentsClicked" BackgroundColor="Transparent" Padding="12" WidthRequest="48" HeightRequest="48" SemanticProperties.Description="Documentos del viaje" />
-                            <ImageButton Grid.Column="2" Source="itinerary_review.svg"
-                                         Command="{Binding ReviewTripCommand}" IsVisible="{Binding HasItineraryActions}"
-                                         BackgroundColor="Transparent" Padding="10" WidthRequest="44" HeightRequest="44"
-                                         SemanticProperties.Description="{Binding ReviewTripText}" />
-                            <ImageButton Grid.Column="3"
-                                         Source="itinerary_menu.svg"
-                                         BackgroundColor="Transparent"
-                                         Padding="8"
-                                         WidthRequest="44"
-                                         HeightRequest="44"
-                                         IsVisible="{Binding HasItineraryActions}"
-                                         Clicked="OnItineraryMenuClicked"
-                                         SemanticProperties.Description="Opciones del itinerario" />
-                        </Grid>
-
-                        <Grid Grid.Row="1"
-                              ColumnDefinitions="*,Auto"
-                              ColumnSpacing="12">
-                            <Label Text="{Binding SelectedCity}"
-                                   FontFamily="serif"
-                                   FontSize="40"
-                                   SemanticProperties.HeadingLevel="Level1"
-                                   TextColor="#1A1714"
-                                   LineBreakMode="TailTruncation"
-                                   MaxLines="1" />
-                            <Label Grid.Column="1"
-                                   Text="{Binding AmbientGlyph}"
-                                   FontSize="52"
-                                   TextColor="#1A17140D"
-                                   TranslationY="-14" />
-                        </Grid>
-
-                        <HorizontalStackLayout Grid.Row="2" Spacing="8">
-                        <Image Source="tab_trip.svg" HeightRequest="20" WidthRequest="20" Opacity="0.55" />
-                        <Label
-                               Text="{Binding SelectedDateLabel}"
-                               FontSize="17"
-                               TextColor="#6E675F" />
-                        </HorizontalStackLayout>
-
-                        <Grid Grid.Row="3"
-                              ColumnDefinitions="2,*"
-                              ColumnSpacing="14"
-                              IsVisible="{Binding HasPreviewMessage}">
-                            <BoxView WidthRequest="2"
-                                     BackgroundColor="#C85F55" />
-                            <Label Grid.Column="1"
-                                   Text="{Binding PreviewMessage}"
-                                   FontSize="15"
-                                   LineHeight="1.35"
-                                   TextColor="#6A625B" />
-                        </Grid>
+                    <CollectionView ItemsSource="{Binding DayFilters}"
+                                    SelectionMode="None"
+                                    HeightRequest="68"
+                                    HorizontalScrollBarVisibility="Never">
+                        <CollectionView.ItemsLayout>
+                            <LinearItemsLayout Orientation="Horizontal"
+                                               ItemSpacing="10" />
+                        </CollectionView.ItemsLayout>
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="viewModels:ScheduleDayFilterViewModel">
+                                <Border WidthRequest="68"
+                                        HeightRequest="64"
+                                        Padding="10,9"
+                                        BackgroundColor="{Binding BackgroundColor}"
+                                        Stroke="{Binding BorderColor}"
+                                        StrokeThickness="1">
+                                    <Border.StrokeShape>
+                                        <RoundRectangle CornerRadius="10" />
+                                    </Border.StrokeShape>
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnDayFilterTapped" />
+                                    </Border.GestureRecognizers>
+                                    <VerticalStackLayout Spacing="4">
+                                        <Label Text="{Binding DateLabel}"
+                                               FontSize="14"
+                                               TextColor="{Binding SecondaryTextColor}" />
+                                        <Label Text="{Binding City}"
+                                               FontSize="12"
+                                               TextColor="{Binding SecondaryTextColor}"
+                                               LineBreakMode="TailTruncation"
+                                               MaxLines="1" />
+                                    </VerticalStackLayout>
+                                </Border>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                    <Grid ColumnDefinitions="*,48,48,48">
+                        <ImageButton Grid.Column="1" Source="tab_docs.svg" Clicked="OnDocumentsClicked" Style="{StaticResource ContextIconButton}" WidthRequest="48" HeightRequest="48" SemanticProperties.Description="Documentos del viaje" />
+                        <ImageButton Grid.Column="2" Source="itinerary_review.svg" Command="{Binding ReviewTripCommand}" IsVisible="{Binding HasItineraryActions}" Style="{StaticResource ContextIconButton}" WidthRequest="48" HeightRequest="48" SemanticProperties.Description="{Binding ReviewTripText}" />
+                        <ImageButton Grid.Column="3" Source="itinerary_menu.svg" Clicked="OnItineraryMenuClicked" IsVisible="{Binding HasItineraryActions}" Style="{StaticResource ContextIconButton}" WidthRequest="48" HeightRequest="48" SemanticProperties.Description="Opciones del itinerario" />
                     </Grid>
+                    <Label Text="{Binding PreviewMessage}" IsVisible="{Binding HasPreviewMessage}" FontSize="13" TextColor="#6A625B" />
 
                     <Border Padding="14,12" BackgroundColor="#FFFCF8" Stroke="#DDD4C9"
                             StrokeThickness="1" IsVisible="{Binding HasFocusItem}">
@@ -143,49 +122,7 @@
                         </Grid>
                     </Border>
 
-                    <CollectionView ItemsSource="{Binding DayFilters}"
-                                    SelectionMode="None"
-                                    HeightRequest="88"
-                                    HorizontalScrollBarVisibility="Never">
-                        <CollectionView.ItemsLayout>
-                            <LinearItemsLayout Orientation="Horizontal"
-                                               ItemSpacing="10" />
-                        </CollectionView.ItemsLayout>
-                        <CollectionView.ItemTemplate>
-                            <DataTemplate x:DataType="viewModels:ScheduleDayFilterViewModel">
-                                <Border WidthRequest="68"
-                                        HeightRequest="84"
-                                        Padding="10,9"
-                                        BackgroundColor="{Binding BackgroundColor}"
-                                        Stroke="{Binding BorderColor}"
-                                        StrokeThickness="1">
-                                    <Border.StrokeShape>
-                                        <RoundRectangle CornerRadius="10" />
-                                    </Border.StrokeShape>
-                                    <Border.GestureRecognizers>
-                                        <TapGestureRecognizer Tapped="OnDayFilterTapped" />
-                                    </Border.GestureRecognizers>
-                                    <VerticalStackLayout Spacing="4">
-                                        <Label Text="{Binding DayLabel}"
-                                               CharacterSpacing="2"
-                                               FontSize="10"
-                                               FontAttributes="Bold"
-                                               TextColor="{Binding PrimaryTextColor}"
-                                               LineBreakMode="TailTruncation"
-                                               MaxLines="1" />
-                                        <Label Text="{Binding DateLabel}"
-                                               FontSize="14"
-                                               TextColor="{Binding SecondaryTextColor}" />
-                                        <Label Text="{Binding City}"
-                                               FontSize="12"
-                                               TextColor="{Binding SecondaryTextColor}"
-                                               LineBreakMode="TailTruncation"
-                                               MaxLines="1" />
-                                    </VerticalStackLayout>
-                                </Border>
-                            </DataTemplate>
-                        </CollectionView.ItemTemplate>
-                    </CollectionView>
+
 
                     <Border IsVisible="{Binding IsSelectedDayLocked}" Style="{StaticResource NoticePanel}">
                         <Label Text="{Binding LockedDayMessage}" TextColor="#5F4B25" />
@@ -241,95 +178,15 @@
                         </Grid>
                     </Grid>
 
-                    <Border Padding="18,16"
-                            BackgroundColor="{Binding SelectedDayReview.BackgroundColor}"
-                            Stroke="{Binding SelectedDayReview.AccentColor}"
-                            StrokeThickness="1"
-                            IsVisible="{Binding ShowDayReview}">
-                        <Grid RowDefinitions="Auto,Auto"
-                              ColumnDefinitions="34,*"
-                              ColumnSpacing="12"
-                              RowSpacing="14">
-                            <Border WidthRequest="30"
-                                    HeightRequest="30"
-                                    Padding="0"
-                                    BackgroundColor="{Binding SelectedDayReview.AccentColor}"
-                                    StrokeThickness="0"
-                                    HorizontalOptions="Start"
-                                    VerticalOptions="Start">
-                                <Border.StrokeShape>
-                                    <RoundRectangle CornerRadius="15" />
-                                </Border.StrokeShape>
-                                <Label Text="{Binding SelectedDayReview.StatusGlyph}"
-                                       TextColor="White"
-                                       FontSize="16"
-                                       FontAttributes="Bold"
-                                       HorizontalTextAlignment="Center"
-                                       VerticalTextAlignment="Center" />
-                            </Border>
-
-                            <VerticalStackLayout Grid.Column="1" Spacing="5">
-                                <Label Text="{Binding SelectedDayReview.Eyebrow}"
-                                       CharacterSpacing="3"
-                                       FontSize="10"
-                                       FontAttributes="Bold"
-                                       TextColor="{Binding SelectedDayReview.AccentColor}" />
-                                <Label Text="{Binding SelectedDayReview.Title}"
-                                       FontFamily="serif"
-                                       FontSize="21"
-                                       TextColor="#1A1714" />
-                                <Label Text="{Binding SelectedDayReview.Summary}"
-                                       FontSize="13"
-                                       LineHeight="1.3"
-                                       TextColor="#6A625B" />
-
+                    <Border Padding="14,12" BackgroundColor="{Binding SelectedDayReview.BackgroundColor}" Stroke="{Binding SelectedDayReview.AccentColor}" StrokeShape="RoundRectangle 14" IsVisible="{Binding ShowDayReview}">
+                        <Border.GestureRecognizers><TapGestureRecognizer Command="{Binding ReviewSelectedDayCommand}" /></Border.GestureRecognizers>
+                        <Grid ColumnDefinitions="28,*,48" ColumnSpacing="10">
+                            <Label Text="!" FontSize="24" TextColor="{Binding SelectedDayReview.AccentColor}" VerticalOptions="Center" />
+                            <VerticalStackLayout Grid.Column="1" Spacing="4" VerticalOptions="Center">
+                                <Label Text="{Binding SelectedDayReview.Title}" FontFamily="serif" FontSize="20" TextColor="#1A1714" />
+                                <Label Text="{Binding SelectedDayReview.Summary}" FontSize="12" TextColor="#6A625B" />
                             </VerticalStackLayout>
-
-                            <VerticalStackLayout Grid.Row="1"
-                                                 Grid.ColumnSpan="2"
-                                                 Spacing="10"
-                                                 IsVisible="{Binding SelectedDayReview.HasIssues}"
-                                                 BindableLayout.ItemsSource="{Binding SelectedDayReview.Issues}">
-                                <BindableLayout.ItemTemplate>
-                                    <DataTemplate x:DataType="viewModels:DayReviewIssueViewModel">
-                                        <Border Padding="12"
-                                                BackgroundColor="#FFFCF8"
-                                                Stroke="#1A17141A"
-                                                StrokeThickness="1">
-                                            <Grid RowDefinitions="Auto,Auto,Auto"
-                                                  ColumnDefinitions="4,*"
-                                                  ColumnSpacing="10"
-                                                  RowSpacing="5">
-                                                <BoxView Grid.RowSpan="3"
-                                                         WidthRequest="4"
-                                                         BackgroundColor="{Binding SeverityColor}" />
-                                                <Label Grid.Column="1"
-                                                       Text="{Binding Title}"
-                                                       FontSize="14"
-                                                       FontAttributes="Bold"
-                                                       TextColor="#1A1714" />
-                                                <Label Grid.Row="1"
-                                                       Grid.Column="1"
-                                                       Text="{Binding Message}"
-                                                       FontSize="12"
-                                                       LineHeight="1.25"
-                                                       TextColor="#6A625B" />
-                                                <Button Grid.Row="2"
-                                                        Grid.Column="1"
-                                                        Text="{Binding ActionLabel}"
-                                                        Command="{Binding ViewModel.OpenReviewIssueCommand, Source={x:Reference PageRoot}, x:DataType={x:Type pages:SchedulePage}}"
-                                                        CommandParameter="{Binding .}"
-                                                        IsVisible="{Binding CanOpenPlan}"
-                                                        HorizontalOptions="Start"
-                                                        Style="{StaticResource GhostButton}"
-                                                        FontSize="11"
-                                                        Padding="10,6"
-                                                        MinimumHeightRequest="40" />
-                                            </Grid>
-                                        </Border>
-                                    </DataTemplate>
-                                </BindableLayout.ItemTemplate>
-                            </VerticalStackLayout>
+                            <ImageButton Grid.Column="2" Source="today_arrow_dark.svg" Command="{Binding ReviewSelectedDayCommand}" WidthRequest="48" HeightRequest="48" Padding="12" BackgroundColor="Transparent" SemanticProperties.Description="Revisar conflictos" />
                         </Grid>
                     </Border>
 

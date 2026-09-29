@@ -45,10 +45,10 @@ public sealed class ExpenseEditorPage : TripScopedPage
             manual.Text = original.Rate?.ToString(System.Globalization.CultureInfo.CurrentCulture);
         var heading = new Grid { ColumnDefinitions = [new(GridLength.Star), new(GridLength.Auto)] };
         heading.Add(Text(original is null ? T("Agregar gasto", "Add expense") : T("Editar gasto", "Edit expense"), 28, true));
-        heading.Add(Button("✕", () => saving ? Task.CompletedTask : CloseAsync()), 1);
+        heading.Add(IconButton("action_close.svg", T("Cerrar", "Close"), () => saving ? Task.CompletedTask : CloseAsync()), 1);
         var amountRow = new Grid { ColumnDefinitions = [new(GridLength.Star), new(new GridLength(100))], ColumnSpacing = 12 };
         amountRow.Add(amount); amountRow.Add(currency, 1);
-        SemanticProperties.SetDescription(amount, T("Importe del gasto", "Expense amount"));
+        amount.Placeholder = T("Importe", "Amount");
         var categories = new Grid { ColumnSpacing = 6, RowSpacing = 6 };
         for (var i = 0; i < 4; i++) categories.ColumnDefinitions.Add(new(GridLength.Star));
         for (var i = 0; i < 2; i++) categories.RowDefinitions.Add(new(GridLength.Auto));
@@ -57,7 +57,7 @@ public sealed class ExpenseEditorPage : TripScopedPage
         for (var i = 0; i < choices.Length; i++)
         {
             var choice = choices[i];
-            var button = Button(Category(choice), () => { category = choice; SelectCategory(); return Task.CompletedTask; });
+            var button = Button(choice == ExpenseCategory.Drinks ? T("Bebidas", "Drinks") : Category(choice), () => { category = choice; SelectCategory(); return Task.CompletedTask; });
             button.FontSize = 11; button.ImageSource = Icon(choice); button.ContentLayout = new Microsoft.Maui.Controls.Button.ButtonContentLayout(Microsoft.Maui.Controls.Button.ButtonContentLayout.ImagePosition.Top, 6);
             button.Padding = 3;
             var tile = Card(button); tile.Padding = 0; categoryViews.Add((choice, tile)); categories.Add(tile, i % 4, i / 4);
@@ -66,17 +66,26 @@ public sealed class ExpenseEditorPage : TripScopedPage
         var optional = new VerticalStackLayout { Spacing = 10, IsVisible = false };
         optional.Add(Text(T("Cambio manual (opcional)", "Manual exchange rate (optional)"))); optional.Add(manual);
         optional.Add(Text(T("Unidades de tu moneda por 1 unidad del gasto. Se conserva al guardar.", "Units of your currency per 1 expense currency unit. Saved with the expense."), 12));
-        var body = new VerticalStackLayout { Spacing = 16, Children = { amountRow, categories, concept, date,
-            Button(T("Vincular actividad", "Link activity"), ChooseActivityAsync), activityLabel,
-            Button(T("Más opciones", "More options"), () => { optional.IsVisible = !optional.IsVisible; return Task.CompletedTask; }), optional, quote } };
+        var activityRow = new Grid { ColumnDefinitions = [new(GridLength.Star), new(GridLength.Auto)], ColumnSpacing = 8 };
+        activityLabel.VerticalOptions = LayoutOptions.Center;
+        activityRow.Add(activityLabel);
+        activityRow.Add(IconButton("expense_link.svg", T("Vincular actividad", "Link activity"), ChooseActivityAsync), 1);
+        var detailsRow = new Grid { ColumnDefinitions = [new(GridLength.Star), new(GridLength.Auto)], ColumnSpacing = 8 };
+        detailsRow.Add(date);
+        detailsRow.Add(IconButton("today_adjust.svg", T("Cambio manual", "Manual exchange rate"), () => { optional.IsVisible = !optional.IsVisible; return Task.CompletedTask; }), 1);
+        quote.FontSize = 12; quote.LineBreakMode = LineBreakMode.WordWrap;
+        var body = new VerticalStackLayout { Spacing = 12, Children = { amountRow, categories, concept, detailsRow,
+            activityRow, optional, quote } };
         if (original?.Rate is { } rate) quote.Text = $"1 {original.Currency} ≈ {rate} {original.BaseCurrency} · {original.RateDate:d} · {original.RateSource}";
         UpdateActivity();
         currency.SelectedIndexChanged += async (_, _) => { manual.Text = ""; await RefreshRateAsync(); };
         date.DateSelected += async (_, _) => await RefreshRateAsync();
-        var footer = new VerticalStackLayout { Spacing = 4 };
-        footer.Add(Button(T("Guardar gasto", "Save expense"), SaveAsync, true));
-        if (original is not null) footer.Add(Button(T("Eliminar gasto", "Delete expense"), DeleteAsync));
-        var layout = new Grid { Padding = 24, RowDefinitions = [new(GridLength.Auto), new(GridLength.Star), new(GridLength.Auto)], RowSpacing = 16 };
+        var footer = new Grid { ColumnDefinitions = [new(GridLength.Star), new(GridLength.Auto)] };
+        var save = IconButton("expense_check.svg", T("Guardar gasto", "Save expense"), SaveAsync);
+        save.BackgroundColor = Ink; save.CornerRadius = 24; save.WidthRequest = 56; save.HeightRequest = 56; save.Padding = 16;
+        footer.Add(save, 1);
+        if (original is not null) footer.Add(IconButton("action_delete.svg", T("Eliminar gasto", "Delete expense"), DeleteAsync));
+        var layout = new Grid { Padding = new Thickness(24, 16), RowDefinitions = [new(GridLength.Auto), new(GridLength.Star), new(GridLength.Auto)], RowSpacing = 12 };
         layout.Add(heading); layout.Add(new ScrollView { Content = body }, 0, 1); layout.Add(footer, 0, 2); Content = layout;
     }
     protected override void OnAppearing() { base.OnAppearing(); Dispatcher.Dispatch(() => amount.Focus()); _ = RefreshRateAsync(); }

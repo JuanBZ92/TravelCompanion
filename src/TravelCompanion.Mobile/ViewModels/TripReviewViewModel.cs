@@ -58,7 +58,7 @@ public sealed class TripReviewDayViewModel
             _ => hasFixedTimes ? "No conflicts detected" : "No fixed times to check"
         } : hasFixedTimes ? review.Title : "Sin horarios fijos que comprobar";
         Summary = english ? $"{review.Issues.Count} points to review" : review.Summary;
-        Issues = review.Issues.Select(issue => new TripReviewIssueViewModel(issue, schedule, sessions)).ToList();
+        Issues = review.Issues.Select(issue => new TripReviewIssueViewModel(issue, schedule, sessions, review.Date)).ToList();
         ViewDayCommand = new AsyncRelayCommand(() => Shell.Current.GoToAsync("//main/schedule",
             new ShellNavigationQueryParameters { ["InitialDate"] = review.Date }));
         ImproveCommand = new AsyncRelayCommand(async () =>
@@ -85,7 +85,7 @@ public sealed class TripReviewDayViewModel
 
 public sealed class TripReviewIssueViewModel
 {
-    public TripReviewIssueViewModel(DayReviewIssueDto issue, TripScheduleDto schedule, AuthSessionService sessions)
+    public TripReviewIssueViewModel(DayReviewIssueDto issue, TripScheduleDto schedule, AuthSessionService sessions, DateOnly reviewDate)
     {
         var english = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName != "es";
         Message = english ? issue.Kind switch
@@ -100,15 +100,11 @@ public sealed class TripReviewIssueViewModel
         OpenCommand = new AsyncRelayCommand(async () =>
         {
             if (!CanOpen || sessions.CurrentTripId != schedule.TripId) return;
-            var labels = candidates.Select((item, i) => $"{i + 1}. {item.Title} · {item.StartsAt:HH:mm}").ToArray();
-            var selected = await Shell.Current.DisplayActionSheetAsync(OpenText, LocalizationResourceManager.Instance["CommonCancel"], null, labels);
-            var index = Array.IndexOf(labels, selected);
-            if (index < 0 || sessions.CurrentTripId != schedule.TripId) return;
-            var item = candidates[index];
-            var canEdit = item.IsTravelerOwned && sessions.CanEditItinerary
-                && (!sessions.IsTrial || FreePlanningPolicy.CanPlanDate(schedule.StartsOn, item.Date));
-            await Shell.Current.GoToAsync(canEdit ? nameof(ItineraryItemEditorPage) : nameof(ScheduleItemDetailPage),
-                new ShellNavigationQueryParameters { ["ScheduleItem"] = item });
+            await Shell.Current.GoToAsync(nameof(DayConflictPage), new ShellNavigationQueryParameters
+            {
+                ["ReviewDate"] = reviewDate,
+                ["IssueKey"] = DayConflictCursor.Key(issue)
+            });
         });
     }
     public string Message { get; }

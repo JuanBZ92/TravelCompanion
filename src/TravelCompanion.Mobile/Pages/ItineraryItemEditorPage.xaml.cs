@@ -19,6 +19,7 @@ public partial class ItineraryItemEditorPage : ContentPage, IQueryAttributable
 
     public void ApplyQueryAttributes(IDictionary<string, object> query)
     {
+        _viewModel.ReturnToDayReview = query.TryGetValue("ReturnToDayReview", out var returnValue) && returnValue is true;
         if (query.TryGetValue("Recommendation", out var value) && value is RecommendationDto recommendation)
         {
             var initialDate = query.TryGetValue("Date", out var dateValue) && dateValue is DateOnly date

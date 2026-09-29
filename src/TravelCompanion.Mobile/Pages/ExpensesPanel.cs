@@ -114,10 +114,16 @@ public sealed class ExpensesPanel : ContentView
         summary.Clear();
         var header = new Grid { ColumnDefinitions = [new(GridLength.Star), new(GridLength.Auto)] };
         header.Add(Text(T("Gastos", "Expenses"), 34, true));
-        var add = Button("+", () => OpenAsync(null)); SemanticProperties.SetDescription(add, T("Agregar gasto", "Add expense")); header.Add(add, 1); summary.Add(header);
+        header.Add(IconButton("itinerary_add.svg", T("Agregar gasto", "Add expense"), () => OpenAsync(null)), 1); summary.Add(header);
         var total = ExpensePolicy.Total(entries.Select(x => x.Value).Where(x => x.BaseCurrency == current.Settings.Currency));
         var pendingCount = entries.Count(x => !x.Value.Deleted && (x.Value.Rate is null || x.Value.BaseCurrency != current.Settings.Currency));
-        summary.Add(Text((pendingCount > 0 ? "≈ " : "") + Money(total, current.Settings.Currency), 32, true));
+        var totals = new Grid { ColumnDefinitions = [new(GridLength.Star), new(GridLength.Auto)], ColumnSpacing = 8 };
+        var amount = new VerticalStackLayout { Spacing = 4 };
+        amount.Add(Text(T("TOTAL DEL VIAJE", "TRIP TOTAL"), 11));
+        amount.Add(Text((pendingCount > 0 ? "≈ " : "") + Money(total, current.Settings.Currency), 28, true));
+        totals.Add(amount);
+        totals.Add(IconButton("today_adjust.svg", T("Moneda y presupuesto", "Currency and budget"), BudgetAsync), 1);
+        summary.Add(Card(totals));
         if (pendingCount > 0) summary.Add(Text(T($"Total parcial · {pendingCount} sin conversión", $"Partial total · {pendingCount} awaiting conversion"), 12));
         if (current.Settings.Budget is { } budget)
         {
@@ -125,17 +131,19 @@ public sealed class ExpensesPanel : ContentView
             summary.Add(Text(total <= budget ? T($"Quedan {Money(budget - total, current.Settings.Currency)}", $"Remaining: {Money(budget - total, current.Settings.Currency)}")
                 : T($"Superaste el presupuesto en {Money(total - budget, current.Settings.Currency)}", $"Over budget by {Money(total - budget, current.Settings.Currency)}"), 13));
         }
-        summary.Add(Button(T("Moneda y presupuesto", "Currency and budget"), BudgetAsync));
-        var actions = new Grid { ColumnDefinitions = [new(GridLength.Star), new(GridLength.Star)] };
-        actions.Add(Button(T("Ver desglose", "Breakdown"), () => PremiumAsync("breakdown")));
-        actions.Add(Button(T("Exportar CSV", "Export CSV"), () => PremiumAsync("export")), 1); summary.Add(actions);
+        if (entries.Length > 0)
+        {
+            var actions = new HorizontalStackLayout { HorizontalOptions = LayoutOptions.End, Spacing = 8 };
+            actions.Add(IconButton("expense_chart.svg", T("Ver desglose", "Breakdown"), () => PremiumAsync("breakdown")));
+            actions.Add(IconButton("doc_download.svg", T("Exportar CSV", "Export CSV"), () => PremiumAsync("export"))); summary.Add(actions);
+        }
         if (book.SettingsConflict) summary.Add(Button(T("Revisar cambios del presupuesto", "Review budget conflict"), ResolveBudgetAsync));
         if (entries.Length == 0)
         {
-            var empty = new VerticalStackLayout { Spacing = 12 };
-            empty.Add(Text(T("Tu viaje, también en números", "Your trip, in numbers"), 25, true));
-            empty.Add(Text(T("Guardá tus gastos y descubrí cuánto llevás invertido en el viaje.", "Record expenses and see how much you have spent.")));
-            empty.Add(Button(T("Agregar primer gasto", "Add first expense"), () => OpenAsync(null), true)); summary.Add(Card(empty));
+            var empty = new VerticalStackLayout { Spacing = 10, Padding = new Thickness(4, 18) };
+            empty.Add(Text(T("Cada gasto, en su lugar", "Every expense, in one place"), 23, true));
+            empty.Add(Text(T("Tocá + para registrar tu primer gasto y seguir el presupuesto de tu viaje.", "Tap + to add your first expense and track your trip budget.")));
+            summary.Add(empty);
         }
         DateOnly? previous = null;
         list.ItemsSource = entries.Select(x =>

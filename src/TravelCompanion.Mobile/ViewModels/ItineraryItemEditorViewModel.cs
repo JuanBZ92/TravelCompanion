@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.Input;
 using TravelCompanion.Mobile.Services;
+using TravelCompanion.Mobile.Pages;
 using TravelCompanion.Shared;
 using TravelCompanion.Shared.Dtos;
 
@@ -111,6 +112,7 @@ public sealed partial class ItineraryItemEditorViewModel(
     public ObservableCollection<PlaceSuggestionDto> PlaceSuggestions { get; } = [];
     public bool ShowTitleInput => _recommendation is null && !_selectedCatalogId.HasValue && string.IsNullOrWhiteSpace(_selectedGooglePlaceId);
     public string EditorTitle => _existingItem is null ? "Agregar al itinerario" : "Editar evento";
+    public bool ReturnToDayReview { get; set; }
     public string SaveButtonText => _existingItem is null ? "Agregar" : "Guardar cambios";
     public string HeaderTitle => ShowTitleInput ? _existingItem?.Title ?? "Nuevo plan" : _recommendation?.Title ?? LocationName;
     public string Subtitle => _existingItem is not null ? "Modificá los datos que quieras cambiar."
@@ -606,6 +608,11 @@ public sealed partial class ItineraryItemEditorViewModel(
         if (result.Item is not null) await bootstrapStore.UpsertScheduleItemAsync(result.Item, result.Revision, ct);
         await syncStateStore.AcknowledgeItineraryVersionAsync(result.Revision, ct);
         mapViewModel.ResetSelection();
+        if (ReturnToDayReview && Shell.Current.Navigation.NavigationStack.Reverse().Skip(1).FirstOrDefault() is DayConflictPage)
+        {
+            await Shell.Current.GoToAsync("..");
+            return;
+        }
         await Shell.Current.Navigation.PopToRootAsync(animated: false);
         await Shell.Current.GoToAsync("//main/schedule");
 
@@ -619,6 +626,11 @@ public sealed partial class ItineraryItemEditorViewModel(
     private async Task CancelAsync()
     {
         CancelPlaceSearch();
+        if (ReturnToDayReview && Shell.Current.Navigation.NavigationStack.Reverse().Skip(1).FirstOrDefault() is DayConflictPage)
+        {
+            await Shell.Current.GoToAsync("..");
+            return;
+        }
         await Shell.Current.Navigation.PopToRootAsync(animated: false);
     }
 

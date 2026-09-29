@@ -35,7 +35,7 @@ public sealed partial class ScheduleDayFilterViewModel : ObservableObject
     }
     public bool IsLocked { get; }
     public string DayLabel => $"{(IsLocked ? "🔒 " : "")}D{TripDayNumber}";
-    public string DateLabel => $"{Date.Day}/{Date.Month}";
+    public string DateLabel => $"{(IsLocked ? "🔒 " : "")}{Date.Day}/{Date.Month}";
 
     public bool IsSelected
     {

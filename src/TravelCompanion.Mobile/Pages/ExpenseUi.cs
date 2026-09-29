@@ -23,6 +23,15 @@ internal static class ExpenseUi
     { Text = text, FontSize = size, FontFamily = title ? "serif" : null, TextColor = title ? Ink : Muted };
     public static Border Card(View content) => new() { Content = content, BackgroundColor = Color.FromArgb("#FFFDF9"),
         Stroke = Color.FromArgb("#E6DFD6"), StrokeShape = new RoundRectangle { CornerRadius = 18 }, Padding = 16 };
+    public static Button IconButton(string source, string description, Func<Task> action)
+    {
+        var button = Button("", action);
+        button.ImageSource = source;
+        button.WidthRequest = 48; button.HeightRequest = 48; button.Padding = 12;
+        SemanticProperties.SetDescription(button, description);
+        ToolTipProperties.SetText(button, description);
+        return button;
+    }
     public static Button Button(string text, Func<Task> action, bool primary = false)
     {
         var button = new Button { Text = text, BackgroundColor = primary ? Ink : Colors.Transparent,
