@@ -27,7 +27,7 @@ public sealed class DayConflictPage : ContentPage, IQueryAttributable
     {
         contextVersion = sessions.ContextVersion; tripId = sessions.CurrentTripId;
         Title = T("Revisar este día", "Review this day"); BackgroundColor = Paper; SafeAreaEdges = SafeAreaEdges.All;
-        Shell.SetBackButtonBehavior(this, new BackButtonBehavior { Command = new Command(async () => await ReturnAsync()) });
+        Shell.SetBackButtonBehavior(this, new BackButtonBehavior { Command = new Command(async () => await BackAsync()) });
         Content = new ScrollView { Content = body };
     }
     public void ApplyQueryAttributes(IDictionary<string, object> query)
@@ -143,7 +143,10 @@ public sealed class DayConflictPage : ContentPage, IQueryAttributable
         if (cached) body.Add(Button(T("Volver a comprobar", "Check again"), RefreshAsync));
     }
     private Task Move(int step) { index = Math.Clamp(index + step, 0, issues.Count - 1); issueKey = DayConflictCursor.Key(issues[index]); Render(); return Task.CompletedTask; }
-    protected override bool OnBackButtonPressed() { _ = ReturnAsync(); return true; }
+    protected override bool OnBackButtonPressed() { _ = BackAsync(); return true; }
+    private Task BackAsync() => Navigation.NavigationStack.Count > 1
+        && Navigation.NavigationStack[^2] is ImproveDayPage
+            ? Shell.Current.GoToAsync("..") : ReturnAsync();
     private async Task ReturnAsync()
     {
         if (!Current || navigating) return;

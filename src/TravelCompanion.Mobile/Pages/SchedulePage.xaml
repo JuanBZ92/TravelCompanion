@@ -551,46 +551,7 @@
                    TextColor="#8A8078" />
         </VerticalStackLayout>
 
-        <Grid IsVisible="{Binding ShowDayImprovementSheet}">
-            <Grid BackgroundColor="Transparent">
-                <Grid.GestureRecognizers>
-                    <TapGestureRecognizer Command="{Binding DismissDayImprovementSheetCommand}" />
-                </Grid.GestureRecognizers>
-            </Grid>
-            <Border VerticalOptions="End"
-                    BackgroundColor="#F7F2EB"
-                    StrokeThickness="0"
-                    StrokeShape="RoundRectangle 24,24,0,0"
-                    Padding="24,22,24,28">
-                <VerticalStackLayout Spacing="14">
-                    <Label Text="Mejorar el día"
-                           FontFamily="serif"
-                           FontSize="25"
-                           TextColor="#1A1714"
-                           SemanticProperties.HeadingLevel="Level2" />
-                    <Label Text="Elegí cómo querés preparar esta fecha."
-                           FontSize="13"
-                           TextColor="#746A60" />
-                    <Button Text="Completar el día"
-                            Command="{Binding SelectCompleteDayCommand}"
-                            BackgroundColor="#3D3329"
-                            TextColor="White"
-                            CornerRadius="16"
-                            MinimumHeightRequest="48" />
-                    <Button Text="Personalizar mi día"
-                            Command="{Binding SelectPersonalizeDayCommand}"
-                            BackgroundColor="#E9DDCF"
-                            TextColor="#3D3329"
-                            CornerRadius="16"
-                            MinimumHeightRequest="48" />
-                    <Button Text="Cancelar"
-                            Command="{Binding DismissDayImprovementSheetCommand}"
-                            BackgroundColor="Transparent"
-                            TextColor="#746A60"
-                            MinimumHeightRequest="40" />
-                </VerticalStackLayout>
-            </Border>
-        </Grid>
+
     </Grid>
     </Grid>
 </ContentPage>

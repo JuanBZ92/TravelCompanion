@@ -47,6 +47,7 @@ public partial class AppShell : Shell
         Routing.RegisterRoute(nameof(PaywallPage), typeof(PaywallPage));
         Routing.RegisterRoute(nameof(TripReviewPage), typeof(TripReviewPage));
         Routing.RegisterRoute(nameof(DayConflictPage), typeof(DayConflictPage));
+        Routing.RegisterRoute(nameof(ImproveDayPage), typeof(ImproveDayPage));
         Routing.RegisterRoute(nameof(DayPersonalizationPage), typeof(DayPersonalizationPage));
 
         var sessionService = MauiProgram.Services.GetRequiredService<AuthSessionService>();

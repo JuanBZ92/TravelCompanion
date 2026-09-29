@@ -27,13 +27,6 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     private readonly TripDocumentStore _documents;
     private readonly ReservationDocumentLinkStore _documentLinks;
     private readonly PendingItineraryActionStore _pendingActions;
-    private DayPersonalizationOptionsDto? _dayPersonalizationOptions;
-    private bool _showDayImprovementSheet;
-    public bool ShowDayImprovementSheet
-    {
-        get => _showDayImprovementSheet;
-        private set => SetProperty(ref _showDayImprovementSheet, value);
-    }
     private string _offlineStatus = string.Empty;
     public string OfflineStatus { get => _offlineStatus; private set => SetProperty(ref _offlineStatus, value); }
     public string OfflineScope => LocalizationResourceManager.Instance["OfflineScope"];
@@ -390,8 +383,6 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
 
     public void ResetForNewSession()
     {
-        ShowDayImprovementSheet = false;
-        _dayPersonalizationOptions = null;
         CancelSelectedDayLoading();
         _routeCache.Clear();
         _citiesByDate.Clear();
@@ -737,40 +728,15 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
                 catch (HttpRequestException) { }
                 catch (TaskCanceledException) { }
             }
-            if (options?.Enabled == true)
+            if (_selectedDate is not { } date) return;
+            var parameters = new ShellNavigationQueryParameters
             {
-                _dayPersonalizationOptions = options;
-                ShowDayImprovementSheet = true;
-                return;
-            }
-            await SelectCompleteDayAsync();
+                ["Date"] = date, ["City"] = SelectedCity
+            };
+            if (options is not null) parameters["Options"] = options;
+            await Shell.Current.GoToAsync(nameof(ImproveDayPage), parameters);
         }
         catch (Exception) { ErrorMessage = LocalizationResourceManager.Instance["PlanningTryAgain"]; }
-    }
-
-    [RelayCommand]
-    private void DismissDayImprovementSheet() => ShowDayImprovementSheet = false;
-
-    [RelayCommand]
-    private async Task SelectCompleteDayAsync()
-    {
-        ShowDayImprovementSheet = false;
-        if (_selectedDate is not { } date) return;
-        await Shell.Current.GoToAsync("//main/assistant", new ShellNavigationQueryParameters
-        {
-            ["ReviewDate"] = date, ["ReviewCity"] = SelectedCity
-        });
-    }
-
-    [RelayCommand]
-    private async Task SelectPersonalizeDayAsync()
-    {
-        ShowDayImprovementSheet = false;
-        if (_selectedDate is not { } date || _dayPersonalizationOptions is not { Enabled: true } options) return;
-        await Shell.Current.GoToAsync(nameof(DayPersonalizationPage), new ShellNavigationQueryParameters
-        {
-            ["Date"] = date, ["City"] = SelectedCity, ["Options"] = options
-        });
     }
 
     [RelayCommand]
