@@ -1,0 +1,72 @@
+name: Wake Render API
+
+on:
+  schedule:
+    # 07:55 Europe/Madrid: select the appropriate UTC slot below for DST.
+    - cron: '55 5 * * *'
+    - cron: '55 6 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/render-wake.yml']
+
+permissions: {}
+
+concurrency:
+  group: render-api-wake
+  cancel-in-progress: false
+
+jobs:
+  wake:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    env:
+      EVENT_NAME: ${{ github.event_name }}
+      SCHEDULE: ${{ github.event.schedule }}
+    steps:
+      - name: Wake and verify API (maximum five minutes)
+        shell: python
+        run: |
+          import json
+          import os
+          import time
+          import urllib.error
+          import urllib.request
+          from datetime import datetime
+          from zoneinfo import ZoneInfo
+
+          now = datetime.now(ZoneInfo('Europe/Madrid'))
+          if os.environ.get('EVENT_NAME') == 'schedule':
+              slot = '55 5 * * *' if now.utcoffset().total_seconds() == 7200 else '55 6 * * *'
+              if os.environ.get('SCHEDULE') != slot or not (7 <= now.hour < 23):
+                  print('Skipping other DST slot or execution delayed outside daytime.')
+                  raise SystemExit(0)
+
+          url = 'https://travelcompanion-api-57dw.onrender.com/health'
+          headers = {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/140.0.0.0 Safari/537.36',
+              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+              'Cache-Control': 'no-cache',
+          }
+          deadline = time.monotonic() + 300
+          attempt = 0
+          while time.monotonic() < deadline:
+              attempt += 1
+              try:
+                  request = urllib.request.Request(url, headers=headers)
+                  with urllib.request.urlopen(request, timeout=min(30, deadline - time.monotonic())) as response:
+                      payload = json.loads(response.read(4096))
+                      if response.status == 200 and payload.get('status') == 'ok' and payload.get('service') == 'TravelCompanion.Api':
+                          print(f'API ready on attempt {attempt}.')
+                          raise SystemExit(0)
+                      print(f'Attempt {attempt}: response is not the expected health payload.')
+              except urllib.error.HTTPError as error:
+                  print(f'Attempt {attempt}: HTTP {error.code}, routing={error.headers.get("x-render-routing", "unknown")}')
+                  if error.code not in (408, 429, 500, 502, 503, 504):
+                      raise SystemExit('Non-transient HTTP error; stopping.')
+              except (urllib.error.URLError, TimeoutError, ValueError) as error:
+                  print(f'Attempt {attempt}: {type(error).__name__}')
+              remaining = deadline - time.monotonic()
+              if remaining > 0:
+                  time.sleep(min((5, 15, 30, 60)[min(attempt - 1, 3)], remaining))
+          raise SystemExit('API did not become ready within five minutes. Check Render logs.')
