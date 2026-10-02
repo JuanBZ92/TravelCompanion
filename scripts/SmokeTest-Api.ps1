@@ -100,8 +100,9 @@ $BaseUrl = $BaseUrl.TrimEnd("/")
 Write-Host "Smoke testing Travel Companion API: $BaseUrl" -ForegroundColor Cyan
 
 Invoke-SmokeRequest -Name "health" -Path "/health" | Out-Null
+Invoke-SmokeRequest -Name "readiness" -Path "/health/ready" | Out-Null
 Invoke-SmokeRequest -Name "destinations" -Path "/api/destinations?page=1&pageSize=1" | Out-Null
-Invoke-SmokeRequest -Name "recommendations" -Path "/api/recommendations?page=1&pageSize=1" | Out-Null
+Invoke-SmokeRequest -Name "recommendations require authentication" -Path "/api/recommendations?page=1&pageSize=1" -ExpectedStatus @(401) | Out-Null
 Invoke-SmokeRequest -Name "packages" -Path "/api/packages?page=1&pageSize=1" | Out-Null
 
 if ([string]::IsNullOrWhiteSpace($Token) -and
@@ -119,6 +120,7 @@ if ([string]::IsNullOrWhiteSpace($Token) -and
 
 if (-not [string]::IsNullOrWhiteSpace($Token)) {
     $headers = Get-AuthHeaders -BearerToken $Token
+    Invoke-SmokeRequest -Name "authenticated recommendations" -Path "/api/recommendations?page=1&pageSize=1" -Headers $headers | Out-Null
     $destinationQuery = if ([string]::IsNullOrWhiteSpace($DestinationSlug)) {
         ""
     }
