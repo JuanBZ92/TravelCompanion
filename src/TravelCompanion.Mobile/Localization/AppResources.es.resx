@@ -557,7 +557,6 @@ A tu manera.</value></data>
   <data name="EditorialReviewed" xml:space="preserve"><value>Revisión editorial: {0:d}. Consulta la fuente antes de reservar; no es información en tiempo real.</value></data>
   <data name="EditorialPending" xml:space="preserve"><value>Revisión editorial pendiente. Confirma los datos actuales con la fuente antes de reservar.</value></data>
   <data name="EditorialStale" xml:space="preserve"><value>Revisión editorial: {0:d}. Pendiente de actualizar; confirma los datos con la fuente.</value></data>
-  <data name="EditorialSource" xml:space="preserve"><value>Consultar fuente (requiere conexión)</value></data>
   <data name="PreparationResources" xml:space="preserve"><value>Recursos descargados: {0} de {1}. Los enlaces externos necesitan internet.</value></data>
   <data name="JournalHeading" xml:space="preserve"><value>Mi diario</value></data>
   <data name="JournalMemoryLabel" xml:space="preserve"><value>RECUERDO</value></data>
@@ -594,7 +593,7 @@ A tu manera.</value></data>
   <data name="JournalYourText" xml:space="preserve"><value>Tu recuerdo · hasta 2.000 caracteres</value></data>
   <data name="JournalStorageNotice" xml:space="preserve"><value>Las notas confirmadas se sincronizan con tu cuenta. Las fotos y los borradores se guardan solo en este dispositivo y no se recuperan al reinstalar.</value></data>
   <data name="JournalDiscardDraft" xml:space="preserve"><value>Descartar borrador</value></data>
-  <data name="JournalSave" xml:space="preserve"><value>Guardar recuerdo</value></data>
+  <data name="JournalSave" xml:space="preserve"><value>Guardar</value></data>
   <data name="JournalDraftFailed" xml:space="preserve"><value>No se pudo guardar. El contenido sigue aquí; vuelve a intentarlo antes de cerrar.</value></data>
   <data name="JournalSaving" xml:space="preserve"><value>Guardando…</value></data>
   <data name="JournalDraftSaved" xml:space="preserve"><value>Borrador guardado en este dispositivo</value></data>
@@ -610,6 +609,7 @@ A tu manera.</value></data>
   <data name="JournalKeepMine" xml:space="preserve"><value>Conservar mi versión</value></data>
   <data name="JournalUseRemote" xml:space="preserve"><value>Usar la versión guardada</value></data>
   <data name="JournalDiscardQuestion" xml:space="preserve"><value>¿Descartar estos cambios del borrador? El recuerdo confirmado se conserva.</value></data>
+  <data name="JournalDiscardNewQuestion" xml:space="preserve"><value>¿Descartar este borrador? No se guardará como recuerdo.</value></data>
   <data name="JournalDiscard" xml:space="preserve"><value>Descartar</value></data>
   <data name="JournalOpenPhotos" xml:space="preserve"><value>Abrir todas las fotos</value></data>
   <data name="JournalEdit" xml:space="preserve"><value>Editar recuerdo</value></data>
@@ -654,9 +654,9 @@ A tu manera.</value></data>
   <data name="JournalReadAction" xml:space="preserve"><value>Leer recuerdo</value></data>
   <data name="JournalCharacterCount" xml:space="preserve"><value>{0} / 2.000 caracteres</value></data>
   <data name="JournalSyncUnavailable" xml:space="preserve"><value>No se pudo sincronizar. Tus recuerdos siguen guardados en este dispositivo.</value></data>
-  <data name="JournalFindDayActivity" xml:space="preserve"><value>Elegir actividad del día</value></data>
+  <data name="JournalFindDayActivity" xml:space="preserve"><value>Buscar actividad</value></data>
   <data name="JournalActivitiesOnDate" xml:space="preserve"><value>Actividades del {0}</value></data>
   <data name="JournalNoMatchingActivities" xml:space="preserve"><value>No hay actividades que coincidan. Puedes volver y escribir un recuerdo libre.</value></data>
-  <data name="JournalActivityDraftNotice" xml:space="preserve"><value>Opcional · Su nombre se usará como lugar de este recuerdo.</value></data>
+  <data name="JournalActivityDraftNotice" xml:space="preserve"><value>¿Hiciste una actividad ese día? Búscala abajo para usarla como lugar.</value></data>
   <data name="JournalActivitySelected" xml:space="preserve"><value>Actividad añadida como lugar. Puedes seguir escribiendo aquí.</value></data>
 </root>

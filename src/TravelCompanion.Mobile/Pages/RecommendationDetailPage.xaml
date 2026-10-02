@@ -90,7 +90,6 @@
                 </VerticalStackLayout>
 
                 <Label Text="{Binding EditorialStatus}" FontSize="14" TextColor="#4D4741" />
-                <Button Text="{Binding EditorialSourceText}" Command="{Binding OpenEditorialSourceCommand}" IsVisible="{Binding HasEditorialSource}" IsEnabled="{Binding IsUnlocked}" />
                 <Button Text="View on Map"
                         Command="{Binding OpenMapsCommand}"
                         IsEnabled="{Binding IsUnlocked}"

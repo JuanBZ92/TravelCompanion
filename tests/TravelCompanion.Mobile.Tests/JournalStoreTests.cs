@@ -37,6 +37,30 @@ public sealed class JournalStoreTests
     }
 
     [Fact]
+    public async Task FailedRemoteSyncReportsFailureAndKeepsPendingLocalMemory()
+    {
+        var sessions = new AuthSessionService(); var api = new TravelCompanionApiClient();
+        var store = new JournalStore(new(), sessions, api);
+        try
+        {
+            await sessions.SaveAsync(Session()); var scope = store.Scope();
+            await store.SaveAsync(scope, JournalMemory.NewFree(scope.TripId, new(2026, 10, 2)), "Local");
+            api.FetchJournalFree = () => throw new HttpRequestException("Server unavailable");
+            var failures = 0;
+            var memory = Assert.Single(await store.LoadAsync(scope, [], true, default, () => failures++));
+            Assert.Equal(1, failures);
+            Assert.Equal("Local", memory.Text);
+            Assert.NotNull(memory.FreePending);
+            api.FetchJournalFree = () => throw new TaskCanceledException();
+            failures = 0;
+            memory = Assert.Single(await store.LoadAsync(scope, [], true, default, () => failures++));
+            Assert.Equal(1, failures);
+            Assert.NotNull(memory.FreePending);
+        }
+        finally { sessions.Clear(); }
+    }
+
+    [Fact]
     public async Task ChosenActivityCanBeStoredAsPlaceWithoutCreatingLinkedNote()
     {
         var sessions = new AuthSessionService(); var store = new JournalStore(new(), sessions, new());

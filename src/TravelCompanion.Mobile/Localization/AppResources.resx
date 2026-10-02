@@ -557,7 +557,6 @@ Your way.</value></data>
   <data name="EditorialReviewed" xml:space="preserve"><value>Editorial review: {0:d}. Check the source before booking; this is not live information.</value></data>
   <data name="EditorialPending" xml:space="preserve"><value>Editorial review pending. Confirm current details with the source before booking.</value></data>
   <data name="EditorialStale" xml:space="preserve"><value>Editorial review: {0:d}. An update is due; confirm details with the source.</value></data>
-  <data name="EditorialSource" xml:space="preserve"><value>Consult source (internet required)</value></data>
   <data name="PreparationResources" xml:space="preserve"><value>Downloaded resources: {0} of {1}. External links need internet.</value></data>
   <data name="JournalHeading" xml:space="preserve"><value>My journal</value></data>
   <data name="JournalMemoryLabel" xml:space="preserve"><value>MEMORY</value></data>
@@ -594,7 +593,7 @@ Your way.</value></data>
   <data name="JournalYourText" xml:space="preserve"><value>Your memory · up to 2,000 characters</value></data>
   <data name="JournalStorageNotice" xml:space="preserve"><value>Confirmed notes sync with your account. Photos and drafts stay only on this device and cannot be recovered after reinstalling.</value></data>
   <data name="JournalDiscardDraft" xml:space="preserve"><value>Discard draft</value></data>
-  <data name="JournalSave" xml:space="preserve"><value>Save memory</value></data>
+  <data name="JournalSave" xml:space="preserve"><value>Save</value></data>
   <data name="JournalDraftFailed" xml:space="preserve"><value>Could not save. Your content is still here; try again before closing.</value></data>
   <data name="JournalSaving" xml:space="preserve"><value>Saving…</value></data>
   <data name="JournalDraftSaved" xml:space="preserve"><value>Draft saved on this device</value></data>
@@ -610,6 +609,7 @@ Your way.</value></data>
   <data name="JournalKeepMine" xml:space="preserve"><value>Keep my version</value></data>
   <data name="JournalUseRemote" xml:space="preserve"><value>Use saved version</value></data>
   <data name="JournalDiscardQuestion" xml:space="preserve"><value>Discard these draft changes? The confirmed memory will be kept.</value></data>
+  <data name="JournalDiscardNewQuestion" xml:space="preserve"><value>Discard this draft? It will not be saved as a memory.</value></data>
   <data name="JournalDiscard" xml:space="preserve"><value>Discard</value></data>
   <data name="JournalOpenPhotos" xml:space="preserve"><value>Open all photos</value></data>
   <data name="JournalEdit" xml:space="preserve"><value>Edit memory</value></data>
@@ -654,9 +654,9 @@ Your way.</value></data>
   <data name="JournalReadAction" xml:space="preserve"><value>Read memory</value></data>
   <data name="JournalCharacterCount" xml:space="preserve"><value>{0} / 2,000 characters</value></data>
   <data name="JournalSyncUnavailable" xml:space="preserve"><value>Sync is unavailable. Your memories are still saved on this device.</value></data>
-  <data name="JournalFindDayActivity" xml:space="preserve"><value>Choose a day's activity</value></data>
+  <data name="JournalFindDayActivity" xml:space="preserve"><value>Find activity</value></data>
   <data name="JournalActivitiesOnDate" xml:space="preserve"><value>Activities on {0}</value></data>
   <data name="JournalNoMatchingActivities" xml:space="preserve"><value>No matching activities. You can go back and write a free memory.</value></data>
-  <data name="JournalActivityDraftNotice" xml:space="preserve"><value>Optional · Its name will be used as this memory's place.</value></data>
+  <data name="JournalActivityDraftNotice" xml:space="preserve"><value>Did you do an activity that day? Find it below to use it as the place.</value></data>
   <data name="JournalActivitySelected" xml:space="preserve"><value>Activity added as the place. Keep writing here.</value></data>
 </root>

@@ -31,6 +31,18 @@ internal static class JournalUi
             finally { button.IsEnabled = true; } };
         return button;
     }
+    public static VerticalStackLayout Tool(string source, string key, Func<Task> action, bool primary = false)
+    {
+        var label = JournalText.Get(key);
+        var icon = Icon(source, label, action);
+        icon.WidthRequest = 52;
+        icon.HeightRequest = 52;
+        icon.CornerRadius = 14;
+        if (primary) icon.BackgroundColor = Ink;
+        return new VerticalStackLayout { Spacing = 3, HorizontalOptions = LayoutOptions.Center,
+            MinimumWidthRequest = 72, Children = { icon, new Label { Text = label, FontSize = 11,
+                MaxLines = 2, HorizontalTextAlignment = TextAlignment.Center, TextColor = primary ? Ink : Muted } } };
+    }
 }
 
 public sealed class JournalActivityPickerPage : JournalScopedPage
@@ -107,34 +119,44 @@ public sealed class JournalMemoryPage : JournalScopedPage
             Date = memory.Date.ToDateTime(TimeOnly.MinValue), Format = "d MMMM yyyy", IsEnabled = memory.IsFree, MinimumHeightRequest = 48, TextColor = JournalUi.Ink };
         editor = new Editor { Text = draft?.Text ?? memory.Text, Placeholder = JournalText.Get("JournalPrompt"), MaxLength = 2000,
             AutoSize = EditorAutoSizeOption.TextChanges, MinimumHeightRequest = 200, FontSize = 18, TextColor = JournalUi.Ink, BackgroundColor = Colors.Transparent };
-        SemanticProperties.SetDescription(title, JournalText.Get("JournalTitleOptional"));
-        SemanticProperties.SetDescription(place, JournalText.Get("JournalPlaceOptional"));
+#if ANDROID
+        // The native underline cuts across the paper cards on Android.
+        foreach (var field in new Microsoft.Maui.Controls.View[] { title, place, editor })
+            field.HandlerChanged += (_, _) => {
+                if (field.Handler?.PlatformView is Android.Widget.EditText native)
+                    native.BackgroundTintList = Android.Content.Res.ColorStateList.ValueOf(Android.Graphics.Color.Transparent);
+            };
+#endif
         SemanticProperties.SetDescription(date, JournalText.Get("JournalDate"));
-        SemanticProperties.SetDescription(editor, JournalText.Get("JournalYourText"));
-        var header = new Grid { Padding = new Thickness(22, 8), ColumnDefinitions = [new(GridLength.Star), new(GridLength.Auto)] };
-        header.Add(JournalUi.Text(JournalText.Get("JournalWrite"), 22, true));
-        header.Add(JournalUi.Icon("action_close.svg", JournalText.Get("JournalClose"), CloseAsync), 1);
-        var body = new VerticalStackLayout { Padding = 22, Spacing = 16, Children = { date, title, place } };
+        var header = new Grid { Padding = new Thickness(22, 8), ColumnDefinitions = [new(GridLength.Star), new(GridLength.Auto), new(GridLength.Auto)] };
+        var heading = JournalUi.Text(JournalText.Get("JournalWrite"), 22, true);
+        heading.VerticalOptions = LayoutOptions.Center;
+        header.Add(heading);
+        header.Add(JournalUi.Icon("action_delete.svg", JournalText.Get("JournalDiscardDraft"), DiscardAsync), 1);
+        header.Add(JournalUi.Icon("action_close.svg", JournalText.Get("JournalClose"), CloseAsync), 2);
+        var body = new VerticalStackLayout { Padding = new Thickness(22, 18, 22, 28), Spacing = 18 };
+        var dateField = new VerticalStackLayout { Spacing = 4, Children = { JournalUi.Text(JournalText.Get("JournalDate"), 12), date } };
+        body.Add(dateField);
         if (memory.IsFree)
         {
-            var findActivity = JournalUi.Action("JournalFindDayActivity", FindDayActivityAsync);
-            findActivity.BackgroundColor = Color.FromArgb("#F1E8DA");
-            findActivity.BorderColor = Color.FromArgb("#D8C6AC");
-            findActivity.BorderWidth = 1;
-            findActivity.TextColor = JournalUi.Ink;
-            findActivity.FontAttributes = FontAttributes.Bold;
-            body.Add(new Border { BackgroundColor = Color.FromArgb("#FFFCF8"),
-                Stroke = Color.FromArgb("#E5DDD3"), StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = new CornerRadius(10) },
-                Padding = 12, Content = new VerticalStackLayout { Spacing = 4, Children = {
-                    findActivity, JournalUi.Text(JournalText.Get("JournalActivityDraftNotice"), 13) } } });
+            body.Add(new Border { BackgroundColor = Color.FromArgb("#FFFCF8"), Stroke = Color.FromArgb("#E5DDD3"),
+                StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = new CornerRadius(12) },
+                Padding = new Thickness(14, 6), Content = new VerticalStackLayout { Spacing = 2, Children = { title, place } } });
+            body.Add(JournalUi.Text(JournalText.Get("JournalActivityDraftNotice"), 12));
         }
         if (!memory.IsFree) body.Add(JournalUi.Text(JournalText.Title(memory), 28, true));
-        body.Add(new Border { BackgroundColor = Color.FromArgb("#FFFCF8"), Stroke = Color.FromArgb("#E5DDD3"), Padding = 16, Content = editor });
+        body.Add(new Border { BackgroundColor = Color.FromArgb("#FFFCF8"), Stroke = Color.FromArgb("#E5DDD3"),
+            StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = new CornerRadius(12) },
+            Padding = new Thickness(18, 12), Content = editor });
         body.Add(counter); body.Add(photos);
         body.Add(JournalUi.Text(JournalText.Get("JournalStorageNotice"), 12));
-        body.Add(JournalUi.Action("JournalDiscardDraft", DiscardAsync));
-        var footer = new VerticalStackLayout { Padding = new Thickness(22, 8, 22, 16), Spacing = 6,
-            Children = { status, JournalUi.Action("JournalSave", SaveAsync, true) } };
+        var tools = new HorizontalStackLayout { Spacing = 22, HorizontalOptions = LayoutOptions.Center };
+        tools.Add(JournalUi.Tool("journal_photo.svg", "JournalAddPhotos", AddPhotosAsync));
+        if (memory.IsFree) tools.Add(JournalUi.Tool("journal_search.svg", "JournalFindDayActivity", FindDayActivityAsync));
+        tools.Add(JournalUi.Tool("action_saved.svg", "JournalSave", SaveAsync, true));
+        var footer = new VerticalStackLayout { Padding = new Thickness(22, 8, 22, 16), Spacing = 8,
+            Children = { status, tools } };
+        footer.BackgroundColor = Color.FromArgb("#FFFCF8");
         var grid = new Grid { RowDefinitions = [new(GridLength.Auto), new(GridLength.Star), new(GridLength.Auto)] };
         grid.Add(header); grid.Add(new ScrollView { Content = body }, 0, 1); grid.Add(footer, 0, 2); Content = grid;
         editor.TextChanged += (_, _) => Changed(); title.TextChanged += (_, _) => Changed(); place.TextChanged += (_, _) => Changed();
@@ -240,7 +262,6 @@ public sealed class JournalMemoryPage : JournalScopedPage
         photos.Clear();
         if (memory.HasConflict) photos.Add(JournalUi.Action("JournalCompare", ResolveAsync));
         photos.Add(JournalUi.Text(JournalText.Format("JournalPhotosLimit", memory.Images.Length), 12));
-        photos.Add(JournalUi.Action("JournalAddPhotos", AddPhotosAsync));
         var gallery = new FlexLayout { Wrap = Microsoft.Maui.Layouts.FlexWrap.Wrap };
         for (var i = 0; i < memory.Images.Length; i++) {
             var index = i; var photo = memory.Images[i]; var bytes = await store.PhotoAsync(scope, photo.Id, true);
@@ -317,7 +338,9 @@ public sealed class JournalMemoryPage : JournalScopedPage
     }
     private async Task DiscardAsync()
     {
-        if (busy || !await DisplayAlertAsync(JournalText.Get("JournalDiscardDraft"), JournalText.Get("JournalDiscardQuestion"), JournalText.Get("JournalDiscard"), JournalText.Get("JournalCancel"))) return;
+        if (busy || !await DisplayAlertAsync(JournalText.Get("JournalDiscardDraft"),
+            JournalText.Get(memory.IsDraft ? "JournalDiscardNewQuestion" : "JournalDiscardQuestion"),
+            JournalText.Get("JournalDiscard"), JournalText.Get("JournalCancel"))) return;
         debounce?.Cancel(); await autosave; await store.DiscardDraftAsync(scope, memory); dirty = false; closing = true; await Navigation.PopModalAsync();
     }
     private async Task CloseAsync()

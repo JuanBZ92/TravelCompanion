@@ -58,7 +58,8 @@ public sealed partial class JournalStore(OfflineCacheService cache, AuthSessionS
             await LoadAsync(scope, [], true, ct);
     }
 
-    public async Task<List<JournalMemory>> LoadAsync(JournalScope scope, IEnumerable<ScheduleItemDto> items, bool sync, CancellationToken ct)
+    public async Task<List<JournalMemory>> LoadAsync(JournalScope scope, IEnumerable<ScheduleItemDto> items, bool sync,
+        CancellationToken ct, Action? onSyncFailure = null)
     {
         await gate.WaitAsync(ct);
         try
@@ -108,12 +109,12 @@ public sealed partial class JournalStore(OfflineCacheService cache, AuthSessionS
                         }
                         await SyncFreeAsync(scope, entries, token, timeout.Token);
                     }
-                    catch (HttpRequestException) { /* Keep both the local draft and its mutation ID for retry. */ }
-                    catch (IOException) { /* A dropped response must not discard confirmed local content. */ }
+                    catch (HttpRequestException) { onSyncFailure?.Invoke(); /* Keep the local mutation for retry. */ }
+                    catch (IOException) { onSyncFailure?.Invoke(); /* A dropped response must not discard confirmed local content. */ }
 #if ANDROID
-                    catch (Java.IO.IOException) { /* Android's HTTP handler can expose the native exception directly. */ }
+                    catch (Java.IO.IOException) { onSyncFailure?.Invoke(); /* Android's HTTP handler can expose the native exception directly. */ }
 #endif
-                    catch (TaskCanceledException) when (!ct.IsCancellationRequested) { }
+                    catch (TaskCanceledException) when (!ct.IsCancellationRequested) { onSyncFailure?.Invoke(); }
                 }
             }
             Check(scope);

@@ -57,7 +57,6 @@ public sealed partial class ScheduleItemDetailViewModel(
     }
     public bool HasCuratedNotes => !string.IsNullOrWhiteSpace(CuratedNotes);
     private RecommendationDto? editorialRecommendation;
-    private long editorialContext;
     public bool HasEditorialReview => ScheduleItem?.RecommendationId is not null;
     public string EditorialStatus
     {
@@ -70,24 +69,12 @@ public sealed partial class ScheduleItemDetailViewModel(
                     ? "EditorialStale" : "EditorialReviewed"], reviewed.Value);
         }
     }
-    public bool HasEditorialSource => Uri.TryCreate(editorialRecommendation?.SourceUrl, UriKind.Absolute, out var uri)
-        && uri.Scheme == Uri.UriSchemeHttps;
-    public string EditorialSourceText => LocalizationResourceManager.Instance["EditorialSource"];
     private void SetEditorialRecommendation(RecommendationDto? recommendation)
     {
         editorialRecommendation = recommendation;
-        editorialContext = sessionService.ContextVersion;
         OnPropertyChanged(nameof(HasEditorialReview));
         OnPropertyChanged(nameof(EditorialStatus));
-        OnPropertyChanged(nameof(HasEditorialSource));
     }
-    [RelayCommand]
-    private Task OpenEditorialSourceAsync() => LoadAsync(async ct =>
-    {
-        if (HasEditorialSource && sessionService.HasSession && editorialContext == sessionService.ContextVersion)
-            await Launcher.Default.OpenAsync(editorialRecommendation!.SourceUrl!);
-    });
-
     public ScheduleItemDto? ScheduleItem
     {
         get => _scheduleItem;

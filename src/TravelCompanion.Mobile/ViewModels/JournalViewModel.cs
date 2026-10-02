@@ -79,10 +79,10 @@ public sealed partial class JournalViewModel(MobileBootstrapStore bootstrapStore
         });
         if (localScope is not { } loadedScope || cancellationToken.IsCancellationRequested
             || Connectivity.Current.NetworkAccess != NetworkAccess.Internet) return;
-        var refresh = SyncRemoteAsync(loadedScope, needsSchedule, cancellationToken);
+        var refresh = SyncRemoteAsync(loadedScope, needsSchedule, waitForSync, cancellationToken);
         if (waitForSync) await refresh;
     }
-    private async Task SyncRemoteAsync(JournalScope scope, bool needsSchedule, CancellationToken ct)
+    private async Task SyncRemoteAsync(JournalScope scope, bool needsSchedule, bool userRequested, CancellationToken ct)
     {
         try
         {
@@ -98,10 +98,16 @@ public sealed partial class JournalViewModel(MobileBootstrapStore bootstrapStore
                     if (fresh?.TripId == scope.TripId) { Activities = fresh.Items; TripTitle = fresh.DestinationName; }
                 }
             }
-            await ApplyAsync(scope, await store.LoadAsync(scope, Activities, true, timeout.Token), timeout.Token);
+            // The store applies its own HTTP deadline. Keep its local writes and
+            // rendering on the page token so a slow response cannot cancel them.
+            var syncFailed = false;
+            var memories = await store.LoadAsync(scope, Activities, true, ct, () => syncFailed = true);
+            await ApplyAsync(scope, memories, ct);
+            if (store.IsCurrent(scope)) ErrorMessage = userRequested && syncFailed
+                ? JournalText.Get("JournalSyncUnavailable") : null;
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
-        catch (Exception) { if (store.IsCurrent(scope)) ErrorMessage = JournalText.Get("JournalSyncUnavailable"); }
+        catch (Exception) { if (userRequested && store.IsCurrent(scope)) ErrorMessage = JournalText.Get("JournalSyncUnavailable"); }
     }
     private async Task ApplyAsync(JournalScope scope, IReadOnlyList<JournalMemory> memories, CancellationToken ct)
     {

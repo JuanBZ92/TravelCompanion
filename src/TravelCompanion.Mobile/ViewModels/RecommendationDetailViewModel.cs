@@ -27,7 +27,6 @@ public sealed partial class RecommendationDetailViewModel(
                 OnPropertyChanged(nameof(HasRecommendationTags));
                 OnPropertyChanged(nameof(CostLevelText));
                 OnPropertyChanged(nameof(EditorialStatus));
-                OnPropertyChanged(nameof(HasEditorialSource));
             }
         }
     }
@@ -75,15 +74,6 @@ public sealed partial class RecommendationDetailViewModel(
                     ? "EditorialStale" : "EditorialReviewed"], reviewed.Value);
         }
     }
-    public bool HasEditorialSource => Uri.TryCreate(Recommendation?.SourceUrl, UriKind.Absolute, out var uri)
-        && uri.Scheme == Uri.UriSchemeHttps;
-    public string EditorialSourceText => LocalizationResourceManager.Instance["EditorialSource"];
-    [RelayCommand]
-    private Task OpenEditorialSourceAsync() => LoadAsync(async ct =>
-    {
-        if (IsUnlocked && HasEditorialSource) await Launcher.Default.OpenAsync(Recommendation!.SourceUrl!);
-    });
-
     public bool IsUnlocked
     {
         get => _isUnlocked;

@@ -7,15 +7,25 @@
   <VerticalStackLayout Spacing="4">
    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
     <Label Text="{Binding Heading}" FontFamily="serif" FontSize="31" TextColor="#302920" SemanticProperties.HeadingLevel="Level1" VerticalOptions="Center"/>
-    <Button Grid.Column="1" Text="···" Command="{Binding MenuCommand}" SemanticProperties.Description="{Binding MenuAction}" MinimumHeightRequest="48" MinimumWidthRequest="48" BackgroundColor="#F0E8DE" TextColor="#765831" CornerRadius="24" FontSize="24"/>
+    <Button Grid.Column="1" Text="···" Command="{Binding MenuCommand}" SemanticProperties.Description="{Binding MenuAction}" MinimumHeightRequest="48" MinimumWidthRequest="48" BackgroundColor="Transparent" TextColor="#765831" FontSize="24"/>
    </Grid>
    <HorizontalStackLayout Spacing="8">
     <Label Text="{Binding TripTitle}" FontSize="15" TextColor="#765831" FontAttributes="Bold"/>
     <Label Text="·" FontSize="15" TextColor="#A89B8A"/>
     <Label Text="{Binding Summary}" FontSize="14" TextColor="#71675D" LineBreakMode="TailTruncation"/>
    </HorizontalStackLayout>
-   <Button Text="{Binding WriteAction}" Command="{Binding AddMemoryCommand}" IsVisible="{Binding HasTrip}" Margin="0,12,0,4" MinimumHeightRequest="52" BackgroundColor="#302920" TextColor="#FFFCF8" CornerRadius="12" FontAttributes="Bold"/>
-   <Button Text="{Binding DraftAction}" Command="{Binding ContinueDraftCommand}" IsVisible="{Binding HasDrafts}" MinimumHeightRequest="48" BackgroundColor="#F0E8DE" TextColor="#765831" CornerRadius="12"/>
+   <Grid IsVisible="{Binding HasTrip}" Margin="0,12,0,4" ColumnDefinitions="52,*" ColumnSpacing="12">
+    <ImageButton Source="journal_add.svg" Command="{Binding AddMemoryCommand}" SemanticProperties.Description="{Binding WriteAction}" WidthRequest="52" HeightRequest="52" Padding="14" BackgroundColor="#F0E8DE" CornerRadius="14"/>
+    <Label Grid.Column="1" Text="{Binding WriteAction}" FontFamily="serif" FontSize="20" TextColor="#302920" VerticalOptions="Center">
+     <Label.GestureRecognizers><TapGestureRecognizer Command="{Binding AddMemoryCommand}"/></Label.GestureRecognizers>
+    </Label>
+   </Grid>
+   <Grid IsVisible="{Binding HasDrafts}" ColumnDefinitions="48,*" ColumnSpacing="12">
+    <ImageButton Source="action_edit.svg" Command="{Binding ContinueDraftCommand}" SemanticProperties.Description="{Binding DraftAction}" WidthRequest="48" HeightRequest="48" Padding="12" BackgroundColor="Transparent"/>
+    <Label Grid.Column="1" Text="{Binding DraftAction}" FontSize="14" TextColor="#765831" VerticalOptions="Center">
+     <Label.GestureRecognizers><TapGestureRecognizer Command="{Binding ContinueDraftCommand}"/></Label.GestureRecognizers>
+    </Label>
+   </Grid>
   </VerticalStackLayout>
   <Label Grid.Row="1" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" TextColor="#765831"/>
   <RefreshView Grid.Row="2" Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsRefreshing}">
