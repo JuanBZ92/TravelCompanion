@@ -1,5 +1,7 @@
 # Production Readiness Plan
 
+> Historical baseline. For the current implementation, free pilot, release gates and outstanding device/provider checks, use [Japan launch](japan-launch.md). The old observations below are not a current list of missing capabilities.
+
 Last baseline review: 2026-09-17
 
 ## Launch hardening implemented

@@ -28,6 +28,10 @@ public sealed class FreePreviewSessionGuardMiddleware(RequestDelegate next)
 
     private static bool IsAllowedFreePreviewPath(HttpRequest request)
     {
+        var parts = request.Path.Value?.Split('/', StringSplitOptions.RemoveEmptyEntries) ?? [];
+        if (parts.Length is 5 or 6 && parts[0] == "api" && parts[1] == "mobile" && parts[2] == "trips"
+            && Guid.TryParse(parts[3], out _) && parts[4] == "preparation"
+            && (HttpMethods.IsGet(request.Method) || HttpMethods.IsPut(request.Method))) return true;
         if (HttpMethods.IsPost(request.Method)
             && string.Equals(request.Path.Value, "/api/auth/logout", StringComparison.OrdinalIgnoreCase))
         {

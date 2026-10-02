@@ -511,4 +511,24 @@ A tu manera.</value></data>
   <data name="PaywallShareTitle" xml:space="preserve"><value>Compartí lo que vas a vivir</value></data>
   <data name="PaywallShareBody" xml:space="preserve"><value>Compartí el resumen de tu itinerario, con sus días, lugares y horarios, desde las apps de tu teléfono.</value></data>
   <data name="PaywallBack" xml:space="preserve"><value>Volver</value></data>
+  <data name="PreparationTitle" xml:space="preserve"><value>Preparar mi viaje a Japón</value></data>
+  <data name="PreparationIntro" xml:space="preserve"><value>Revisa estos puntos y confírmalos tú. Marcarlos no reserva ni verifica servicios. Conéctate para guardar cambios.</value></data>
+  <data name="PreparationSummary" xml:space="preserve"><value>{0} días con actividades · {1} puntos por revisar · {2} documentos en este dispositivo</value></data>
+  <data name="PreparationNoSchedule" xml:space="preserve"><value>Abre primero tu itinerario para cargar su estado.</value></data>
+  <data name="PreparationCached" xml:space="preserve"><value>Resumen del último itinerario guardado en este dispositivo. Revisa las descargas antes de salir.</value></data>
+  <data name="PreparationRefresh" xml:space="preserve"><value>Actualizar pendientes</value></data>
+  <data name="PreparationDocuments" xml:space="preserve"><value>Abrir documentos del viaje</value></data>
+  <data name="PreparationDownload" xml:space="preserve"><value>Preparar para usar sin conexión</value></data>
+  <data name="PreparationConflict" xml:space="preserve"><value>Este punto cambió en otro dispositivo. Cargamos su estado actual; revísalo antes de intentarlo de nuevo.</value></data>
+  <data name="PreparationDone" xml:space="preserve"><value>Confirmado por mí · desmarcar</value></data>
+  <data name="PreparationConfirm" xml:space="preserve"><value>Lo he comprobado</value></data>
+  <data name="Preparation_transport" xml:space="preserve"><value>Transporte y llegada al aeropuerto</value></data>
+  <data name="Preparation_accommodation" xml:space="preserve"><value>Reservas de alojamiento</value></data>
+  <data name="Preparation_reservations" xml:space="preserve"><value>Entradas y actividades que requieren reserva</value></data>
+  <data name="Preparation_travel-documents" xml:space="preserve"><value>Documentos y requisitos de entrada</value></data>
+  <data name="EditorialReviewed" xml:space="preserve"><value>Revisión editorial: {0:d}. Consulta la fuente antes de reservar; no es información en tiempo real.</value></data>
+  <data name="EditorialPending" xml:space="preserve"><value>Revisión editorial pendiente. Confirma los datos actuales con la fuente antes de reservar.</value></data>
+  <data name="EditorialStale" xml:space="preserve"><value>Revisión editorial: {0:d}. Pendiente de actualizar; confirma los datos con la fuente.</value></data>
+  <data name="EditorialSource" xml:space="preserve"><value>Consultar fuente (requiere conexión)</value></data>
+  <data name="PreparationResources" xml:space="preserve"><value>Recursos descargados: {0} de {1}. Los enlaces externos necesitan internet.</value></data>
 </root>

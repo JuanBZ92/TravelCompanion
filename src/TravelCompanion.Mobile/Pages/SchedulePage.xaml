@@ -26,6 +26,9 @@
             <ScrollView VerticalScrollBarVisibility="Never">
                 <VerticalStackLayout Padding="24,12,24,28"
                                      Spacing="16">
+                    <Button Text="{Binding [PreparationTitle], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                            Command="{Binding PrepareTripCommand}" MinimumHeightRequest="48"
+                            BackgroundColor="#FAF6F0" TextColor="#393226" FontSize="14" />
 
                     <CollectionView ItemsSource="{Binding DayFilters}"
                                     SelectionMode="None"
@@ -37,7 +40,7 @@
                         </CollectionView.ItemsLayout>
                         <CollectionView.ItemTemplate>
                             <DataTemplate x:DataType="viewModels:ScheduleDayFilterViewModel">
-                                <Border WidthRequest="68"
+                                <Border WidthRequest="96"
                                         HeightRequest="64"
                                         Padding="10,9"
                                         BackgroundColor="{Binding BackgroundColor}"

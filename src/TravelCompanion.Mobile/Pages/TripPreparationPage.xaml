@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<pages:TripScopedPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:pages="clr-namespace:TravelCompanion.Mobile.Pages"
+    xmlns:vm="clr-namespace:TravelCompanion.Mobile.ViewModels"
+    xmlns:services="clr-namespace:TravelCompanion.Mobile.Services"
+    x:Class="TravelCompanion.Mobile.Pages.TripPreparationPage"
+    x:DataType="vm:TripPreparationViewModel" Title="{Binding Title}"
+    SafeAreaEdges="All" BackgroundColor="{StaticResource Mist}" Shell.NavBarIsVisible="False">
+    <Grid RowDefinitions="Auto,*">
+        <Button Text="‹" Clicked="OnBackClicked" HorizontalOptions="Start" Margin="12,0" WidthRequest="48" HeightRequest="48" Padding="0"
+                BackgroundColor="Transparent" TextColor="{StaticResource Ink}" FontSize="28"
+                SemanticProperties.Description="{Binding [PaywallBack], Source={x:Static services:LocalizationResourceManager.Instance}}" />
+    <ScrollView Grid.Row="1">
+        <VerticalStackLayout Padding="24" Spacing="16">
+            <Label Text="{Binding Title}" FontSize="30" SemanticProperties.HeadingLevel="Level1" />
+            <Label Text="{Binding Introduction}" FontSize="15" />
+            <Label Text="{Binding Summary}" FontSize="15" />
+            <Label Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+            <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
+            <Button Text="{Binding [PreparationRefresh], Source={x:Static services:LocalizationResourceManager.Instance}}" Command="{Binding LoadPreparationCommand}" />
+            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Items}" IsEnabled="{Binding CanSave}" Spacing="12">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="vm:PreparationRow">
+                        <Border Padding="16" BackgroundColor="#FFFDF9" Stroke="#E6DFD6" StrokeShape="RoundRectangle 12">
+                            <VerticalStackLayout Spacing="8">
+                                <Label Text="{Binding Label}" FontSize="18" SemanticProperties.HeadingLevel="Level2" />
+                                <Button Text="{Binding Action}" Command="{Binding Command}" CommandParameter="{Binding .}" MinimumHeightRequest="48" />
+                            </VerticalStackLayout>
+                        </Border>
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </VerticalStackLayout>
+            <Button Text="{Binding [ReviewTrip], Source={x:Static services:LocalizationResourceManager.Instance}}" Command="{Binding ReviewCommand}" />
+            <Button Text="{Binding [PreparationDocuments], Source={x:Static services:LocalizationResourceManager.Instance}}" Command="{Binding DocumentsCommand}" />
+            <Button Text="{Binding [PreparationDownload], Source={x:Static services:LocalizationResourceManager.Instance}}" Command="{Binding PrepareOfflineCommand}" />
+            <Label Text="{Binding OfflineScope}" FontSize="13" />
+        </VerticalStackLayout>
+    </ScrollView>
+    </Grid>
+</pages:TripScopedPage>

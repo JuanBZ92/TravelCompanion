@@ -86,14 +86,22 @@ stages:
     - script: dotnet restore tests/TravelCompanion.Mobile.Tests/TravelCompanion.Mobile.Tests.csproj
       displayName: Restore mobile tests
 
-    - script: dotnet test tests/TravelCompanion.Shared.Tests/TravelCompanion.Shared.Tests.csproj --configuration $(buildConfiguration) --no-restore
+    - script: dotnet test tests/TravelCompanion.Shared.Tests/TravelCompanion.Shared.Tests.csproj --configuration $(buildConfiguration) --no-restore --verbosity minimal --logger "trx;LogFileName=shared-tests.trx"
       displayName: Test shared rules
 
-    - script: dotnet test tests/TravelCompanion.Api.Tests/TravelCompanion.Api.Tests.csproj --configuration $(buildConfiguration) --no-restore
+    - script: dotnet test tests/TravelCompanion.Api.Tests/TravelCompanion.Api.Tests.csproj --configuration $(buildConfiguration) --no-restore --verbosity minimal --logger "trx;LogFileName=api-tests.trx"
       displayName: Test API/admin rules
 
-    - script: dotnet test tests/TravelCompanion.Mobile.Tests/TravelCompanion.Mobile.Tests.csproj --configuration $(buildConfiguration) --no-restore
+    - script: dotnet test tests/TravelCompanion.Mobile.Tests/TravelCompanion.Mobile.Tests.csproj --configuration $(buildConfiguration) --no-restore --verbosity minimal --logger "trx;LogFileName=mobile-tests.trx"
       displayName: Test mobile assistant presentation
+
+    - task: PublishTestResults@2
+      displayName: Publish application test results
+      condition: succeededOrFailed()
+      inputs:
+        testResultsFormat: VSTest
+        testResultsFiles: '**/*-tests.trx'
+        failTaskOnFailedTests: true
 
 - stage: RelationalAndMobile
   displayName: Validate PostgreSQL and mobile builds
@@ -141,7 +149,15 @@ stages:
         exit 1
       displayName: Require PostgreSQL service
 
-    - script: dotnet test tests/TravelCompanion.Api.Tests/TravelCompanion.Api.Tests.csproj --configuration $(buildConfiguration) --no-restore --filter "FullyQualifiedName~Postgres" --logger "trx;LogFileName=postgres-tests.trx"
+    - pwsh: |
+        # Use the service's tools so pg_dump matches the server version.
+        $containers = $env:AGENT_CONTAINERMAPPING | ConvertFrom-Json
+        $env:TRAVELCOMPANION_TEST_POSTGRES_CONTAINER = $containers.postgres.id
+        if ([string]::IsNullOrWhiteSpace($env:TRAVELCOMPANION_TEST_POSTGRES_CONTAINER)) {
+          throw 'PostgreSQL service container mapping is missing.'
+        }
+        dotnet test tests/TravelCompanion.Api.Tests/TravelCompanion.Api.Tests.csproj --configuration $(buildConfiguration) --no-restore --verbosity minimal --filter "FullyQualifiedName~Postgres" --logger "trx;LogFileName=postgres-tests.trx"
+        exit $LASTEXITCODE
       displayName: Test PostgreSQL migrations and concurrency
       env:
         TRAVELCOMPANION_TEST_POSTGRES: Host=localhost;Port=5432;Database=travel_companion_ci;Username=postgres;Pooling=false
@@ -236,6 +252,48 @@ stages:
     - script: terraform validate
       displayName: Validate Terraform configuration
       workingDirectory: $(terraformWorkingDirectory)
+
+- stage: ReleaseCandidate
+  displayName: Package validated release candidate
+  dependsOn:
+  - Build
+  - RelationalAndMobile
+  - TerraformValidate
+  condition: succeeded()
+  jobs:
+  - job: Package
+    displayName: Package API and explicit migrations
+    pool:
+      vmImage: $(vmImageName)
+    timeoutInMinutes: 20
+    steps:
+    - checkout: self
+      clean: true
+      fetchDepth: 1
+    - task: UseDotNet@2
+      displayName: Install .NET SDK
+      inputs:
+        packageType: sdk
+        version: $(dotnetSdkVersion)
+    - script: dotnet publish src/TravelCompanion.Api/TravelCompanion.Api.csproj --configuration $(buildConfiguration) --output "$(Build.ArtifactStagingDirectory)/release/api" --verbosity minimal
+      displayName: Publish validated API
+    - script: dotnet tool restore
+      displayName: Restore pinned migration tools
+    - script: dotnet tool run dotnet-ef migrations script --idempotent --project src/TravelCompanion.Api --configuration $(buildConfiguration) --no-build --output "$(Build.ArtifactStagingDirectory)/release/migrations.sql"
+      displayName: Generate explicit migration script
+    - script: dotnet tool run dotnet-ef migrations has-pending-model-changes --project src/TravelCompanion.Api --configuration $(buildConfiguration) --no-build
+      displayName: Require migration coverage for model changes
+    - pwsh: |
+        $releasePath = Join-Path $env:BUILD_ARTIFACTSTAGINGDIRECTORY 'release'
+        @{ commit = $env:BUILD_SOURCEVERSION; buildId = $env:BUILD_BUILDID; branch = $env:BUILD_SOURCEBRANCH } |
+          ConvertTo-Json | Set-Content (Join-Path $releasePath 'manifest.json')
+      displayName: Record exact source revision
+    - task: PublishPipelineArtifact@1
+      displayName: Publish release candidate after all required gates
+      inputs:
+        targetPath: $(Build.ArtifactStagingDirectory)/release
+        artifact: validated-release
+        publishLocation: pipeline
 
 - ${{ if eq(parameters.runTerraformPlan, true) }}:
   - stage: TerraformPlan

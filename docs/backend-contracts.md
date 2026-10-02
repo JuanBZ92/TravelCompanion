@@ -1,5 +1,15 @@
 # Backend Contracts
 
+## Trip preparation and editorial review (October 2026)
+
+- `GET /api/mobile/trips/{tripId}/preparation` returns four `{ key, completed, revision }` items. Supported keys: `transport`, `accommodation`, `reservations`, `travel-documents`. Missing stored items are pending at revision zero.
+- `PUT /api/mobile/trips/{tripId}/preparation/{key}` accepts `{ completed, expectedRevision }`. Returns the saved item, 409 with the current item on a stale revision, 400 for unsupported keys/negative revisions and 401 for an unauthorized trip. Repeating the current desired state is a no-op. Changes never create bookings or modify itinerary permissions.
+- Both routes require the active session's owned, published trip and a non-deleted user, including Free sessions. Data follows the trip when the account is linked. Account deletion removes checklist rows; trip deletion cascades. Mobile caches read-only state offline and requires a connection for changes.
+- `RecommendationDto` adds optional `editorialReviewedOn` (ISO date) and `sourceUrl`. Older clients can ignore them. No date means unreviewed; dates older than 90 days trigger an editorial refresh notice, not a live-availability assertion. Only administrators assign dates after verifying an HTTPS source.
+- `POST /api/mobile/pass/redeem` now applies `PinLogin` rate limiting (429 with existing retry guidance) and returns 409 for a concurrently claimed/changed grant. Successful responses remain unchanged.
+- Email code delivery returns 503 for upstream network failures/timeouts. Failed challenges are invalidated so subsequent requests can retry delivery, subject to the existing rate limits.
+- New consent-controlled analytics events: `trip_preparation_viewed` and `trip_preparation_updated`; no checklist contents or document names are included.
+
 ## Free policy compatibility (September 2026)
 
 - `PinLoginRequestDto.SupportsPersistentFree` is optional and defaults to `false`. The new mobile client sends `true`; old clients and existing accounts keep the timed policy.

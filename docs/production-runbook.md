@@ -1,5 +1,9 @@
 # Production Runbook
 
+## Japan launch changes
+
+See [Japan launch](japan-launch.md) before enabling sales: additive preparation/key migration, certificate backup and rotation, HTTPS email, free pilot boundaries, release gates and Android/iOS acceptance checks. A database backup alone does not recover encrypted purchase evidence without the corresponding external certificate and historical key ring.
+
 This runbook is the initial operational guide for Travel Companion. Keep it short, explicit, and updated whenever deployment behavior changes.
 
 ## Environments

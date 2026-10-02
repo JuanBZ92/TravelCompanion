@@ -108,6 +108,10 @@
                            TextColor="{StaticResource Accent}" />
                 </VerticalStackLayout>
 
+                <VerticalStackLayout Spacing="8" IsVisible="{Binding HasEditorialReview}">
+                    <Label Text="{Binding EditorialStatus}" FontSize="13" TextColor="{StaticResource Muted}" />
+                    <Button Text="{Binding EditorialSourceText}" IsVisible="{Binding HasEditorialSource}" Command="{Binding OpenEditorialSourceCommand}" MinimumHeightRequest="48" />
+                </VerticalStackLayout>
                 <VerticalStackLayout Spacing="8" IsVisible="{Binding HasCuratedNotes}">
                     <Label Text="NOTAS YUKU" CharacterSpacing="3" FontSize="11" FontAttributes="Bold" TextColor="{StaticResource Muted}" />
                     <Label Text="{Binding CuratedNotes}" FontSize="15" LineHeight="1.3" TextColor="{StaticResource Accent}" />

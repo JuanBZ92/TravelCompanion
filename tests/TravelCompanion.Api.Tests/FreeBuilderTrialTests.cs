@@ -18,7 +18,7 @@ using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Api.Tests;
 
-public sealed class FreeBuilderTrialTests
+public sealed partial class FreeBuilderTrialTests
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -335,7 +335,8 @@ public sealed class FreeBuilderTrialTests
         return (await response.Content.ReadFromJsonAsync<AuthSessionDto>(JsonOptions))!;
     }
 
-    private sealed class TrialApiFactory : WebApplicationFactory<Program>
+    private sealed class TrialApiFactory(string? postgresConnection = null, IPasswordHasher<BuilderAccessGrant>? hasher = null,
+        ITransactionalEmailSender? emailSender = null) : WebApplicationFactory<Program>
     {
         private readonly string databaseName = $"free-builder-trial-{Guid.NewGuid():N}";
 
@@ -346,7 +347,13 @@ public sealed class FreeBuilderTrialTests
             {
                 services.RemoveAll<DbContextOptions<TravelCompanionDbContext>>();
                 services.RemoveAll<IDbContextOptionsConfiguration<TravelCompanionDbContext>>();
-                services.AddDbContext<TravelCompanionDbContext>(options => options.UseInMemoryDatabase(databaseName));
+                services.AddDbContext<TravelCompanionDbContext>(options =>
+                {
+                    if (postgresConnection is null) options.UseInMemoryDatabase(databaseName);
+                    else options.UseNpgsql(postgresConnection, pg => pg.EnableRetryOnFailure());
+                });
+                if (hasher is not null) services.AddSingleton(hasher);
+                if (emailSender is not null) services.AddSingleton(emailSender);
             });
         }
 

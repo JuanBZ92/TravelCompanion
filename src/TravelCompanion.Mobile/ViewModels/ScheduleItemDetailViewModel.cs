@@ -56,6 +56,37 @@ public sealed partial class ScheduleItemDetailViewModel(
         }
     }
     public bool HasCuratedNotes => !string.IsNullOrWhiteSpace(CuratedNotes);
+    private RecommendationDto? editorialRecommendation;
+    private long editorialContext;
+    public bool HasEditorialReview => ScheduleItem?.RecommendationId is not null;
+    public string EditorialStatus
+    {
+        get
+        {
+            var reviewed = editorialRecommendation?.EditorialReviewedOn;
+            var text = LocalizationResourceManager.Instance;
+            return reviewed is null ? text["EditorialPending"] : string.Format(text[
+                EditorialReviewPolicy.NeedsReview(reviewed, DateOnly.FromDateTime(DateTime.UtcNow))
+                    ? "EditorialStale" : "EditorialReviewed"], reviewed.Value);
+        }
+    }
+    public bool HasEditorialSource => Uri.TryCreate(editorialRecommendation?.SourceUrl, UriKind.Absolute, out var uri)
+        && uri.Scheme == Uri.UriSchemeHttps;
+    public string EditorialSourceText => LocalizationResourceManager.Instance["EditorialSource"];
+    private void SetEditorialRecommendation(RecommendationDto? recommendation)
+    {
+        editorialRecommendation = recommendation;
+        editorialContext = sessionService.ContextVersion;
+        OnPropertyChanged(nameof(HasEditorialReview));
+        OnPropertyChanged(nameof(EditorialStatus));
+        OnPropertyChanged(nameof(HasEditorialSource));
+    }
+    [RelayCommand]
+    private Task OpenEditorialSourceAsync() => LoadAsync(async ct =>
+    {
+        if (HasEditorialSource && sessionService.HasSession && editorialContext == sessionService.ContextVersion)
+            await Launcher.Default.OpenAsync(editorialRecommendation!.SourceUrl!);
+    });
 
     public ScheduleItemDto? ScheduleItem
     {
@@ -65,6 +96,7 @@ public sealed partial class ScheduleItemDetailViewModel(
             if (SetProperty(ref _scheduleItem, value))
             {
                 personalNote = null;
+                SetEditorialRecommendation(null);
                 _documentLink = null;
                 OnPropertyChanged(nameof(HasLinkedDocument));
                 OnPropertyChanged(nameof(LinkedDocumentTitle));
@@ -223,7 +255,6 @@ public sealed partial class ScheduleItemDetailViewModel(
 
     private async Task LoadCuratedNotesAsync(ScheduleItemDto item)
     {
-        if (!string.IsNullOrWhiteSpace(CuratedNotes)) return;
         if (item.RecommendationId is not { } recommendationId) return;
         var context = sessionService.ContextVersion;
         bool IsCurrent() => ReferenceEquals(ScheduleItem, item) && sessionService.HasSession
@@ -232,11 +263,18 @@ public sealed partial class ScheduleItemDetailViewModel(
         {
             var cached = await bootstrapStore.GetCachedAsync();
             if (!IsCurrent()) return;
-            CuratedNotes = cached?.Value.Recommendations.FirstOrDefault(recommendation => recommendation.Id == recommendationId)?.DisplayDescription ?? string.Empty;
+            var cachedRecommendation = cached?.Value.Recommendations.FirstOrDefault(recommendation => recommendation.Id == recommendationId);
+            SetEditorialRecommendation(cachedRecommendation);
+            if (string.IsNullOrWhiteSpace(CuratedNotes)) CuratedNotes = cachedRecommendation?.DisplayDescription ?? string.Empty;
+            if (Connectivity.Current.NetworkAccess != NetworkAccess.Internet) return;
             var token = await sessionService.GetTokenAsync();
             if (string.IsNullOrWhiteSpace(token) || !IsCurrent()) return;
             var recommendation = await apiClient.GetMobileRecommendationDetailAsync(token, recommendationId);
-            if (IsCurrent() && recommendation is not null) CuratedNotes = recommendation.DisplayDescription;
+            if (IsCurrent() && recommendation is not null)
+            {
+                SetEditorialRecommendation(recommendation);
+                if (string.IsNullOrWhiteSpace(CuratedNotes)) CuratedNotes = recommendation.DisplayDescription;
+            }
         }
         catch (Exception)
         {

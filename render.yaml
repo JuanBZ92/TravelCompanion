@@ -6,7 +6,7 @@ services:
     region: frankfurt
     repo: https://github.com/JuanBZ92/TravelCompanion
     branch: main
-    autoDeployTrigger: commit
+    autoDeployTrigger: off
     dockerfilePath: ./Dockerfile
     dockerContext: .
     healthCheckPath: /health

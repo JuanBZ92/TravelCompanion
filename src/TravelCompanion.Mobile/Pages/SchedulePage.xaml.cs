@@ -180,6 +180,8 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
         var remindersLabel = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "en"
             ? "Reservation reminders" : "Recordatorios de reservas";
         actions.Add(remindersLabel);
+        var preparationLabel = TravelCompanion.Mobile.Services.LocalizationResourceManager.Instance["PreparationTitle"];
+        actions.Insert(0, preparationLabel);
         if (_viewModel.CanManageItinerary)
         {
             actions.Insert(0, "Editar itinerario");
@@ -190,7 +192,9 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
             "Cancelar",
             null,
             actions.ToArray());
-        if (action == "Documentos del viaje")
+        if (action == preparationLabel)
+            await Shell.Current.GoToAsync(nameof(TripPreparationPage));
+        else if (action == "Documentos del viaje")
             await Shell.Current.GoToAsync(nameof(DocsPage));
         else if (action == "Revisar este día")
             await _viewModel.ReviewSelectedDayCommand.ExecuteAsync(null);

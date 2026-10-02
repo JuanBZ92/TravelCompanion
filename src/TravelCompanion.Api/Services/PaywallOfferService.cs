@@ -40,7 +40,7 @@ public sealed class PaywallOfferService(
             PaywallEntryPoint.Expenses => isEnglish ? "See your spending by day and category, and export your expenses" : "Consultá tus gastos por día y categoría, y exportá tu registro",
             PaywallEntryPoint.Map => isEnglish ? "Discover places beyond the free area" : "Descubre lugares más allá de la zona gratuita",
             PaywallEntryPoint.Offline => isEnglish ? "Take your full itinerary with you, even without a connection" : "Lleva tu itinerario completo contigo, incluso sin conexión",
-            _ => isEnglish ? "Plan every day of your trip" : "Planea todos los días de tu viaje"
+            _ => isEnglish ? "Prepare every day of your Japan trip with confidence" : "Prepara cada día de tu viaje a Japón con confianza"
         };
         var benefits = isEnglish
             ? new[] { lead, "Keep editing throughout your pass", $"{dailyLimit} Assistant requests per day", "Prepare your full itinerary for offline use", "Keep your tickets and PDFs on this device" }

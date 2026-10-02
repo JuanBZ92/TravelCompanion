@@ -33,6 +33,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     public string ReviewTripText => LocalizationResourceManager.Instance["ReviewTrip"];
     public bool ShowOfflineStatus => !_sessionService.IsFreeMapPreview && _tripId.HasValue;
     [RelayCommand] private Task ReviewTripAsync() => Shell.Current.GoToAsync(nameof(TripReviewPage));
+    [RelayCommand] private Task PrepareTripAsync() => Shell.Current.GoToAsync(nameof(TripPreparationPage));
     public Task SelectInitialDateAsync(DateOnly date) => SelectDayAsync(DayFilters.FirstOrDefault(item => item.Date == date));
     public async Task UpdateOfflineStatusAsync()
     {

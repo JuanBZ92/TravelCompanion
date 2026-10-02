@@ -14,6 +14,9 @@ public sealed class AccountController(EmailAccountService service) : ControllerB
     public async Task<ActionResult<EmailCodeRequestedDto>> RequestCode(RequestEmailCodeDto request, CancellationToken cancellationToken)
     {
         try { return Ok(await service.RequestCodeAsync(HttpContext, request, cancellationToken)); }
+        catch (HttpRequestException) { return StatusCode(503, new { message = "Email delivery is temporarily unavailable. Please try again." }); }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        { return StatusCode(503, new { message = "Email delivery timed out. Please try again." }); }
         catch (UnauthorizedAccessException) { return Unauthorized(); }
         catch (InvalidOperationException exception) { return BadRequest(new { message = exception.Message }); }
     }

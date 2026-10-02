@@ -17,6 +17,13 @@ using TravelCompanion.Api.Options;
 using TravelCompanion.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+if (args.Contains("--check-launch", StringComparer.OrdinalIgnoreCase))
+{
+    Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(
+        LaunchConfigurationReport.Create(builder.Configuration, builder.Environment.EnvironmentName),
+        new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+    return;
+}
 var migrationOnly = args.Contains("--migrate", StringComparer.OrdinalIgnoreCase);
 builder.Services.Configure<RequestLocalizationOptions>(options =>
 {
@@ -132,10 +139,7 @@ builder.Services
         options.ExpireTimeSpan = TimeSpan.FromHours(8);
         options.SlidingExpiration = false;
     });
-var dataProtection = builder.Services.AddDataProtection().SetApplicationName("TravelCompanion.Api");
-var dataProtectionKeysPath = builder.Configuration["DataProtection:KeysPath"];
-if (!string.IsNullOrWhiteSpace(dataProtectionKeysPath))
-    dataProtection.PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysPath));
+builder.Services.AddLaunchInfrastructure(builder.Configuration);
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
@@ -162,7 +166,6 @@ builder.Services.AddHttpClient("GoogleRoutes").RemoveAllLoggers();
 builder.Services.AddScoped<FreePreviewAccountService>();
 builder.Services.AddScoped<FreeTrialAccessService>();
 builder.Services.AddScoped<FreeMapPreviewService>();
-builder.Services.AddScoped<ITransactionalEmailSender, SmtpTransactionalEmailSender>();
 builder.Services.AddScoped<EmailAccountService>();
 builder.Services.AddScoped<ProductAnalyticsService>();
 builder.Services.AddSingleton<CommerceOperationsTelemetry>();
@@ -254,9 +257,12 @@ app.MapGet("/health/ready", async (TravelCompanionDbContext dbContext, Cancellat
 {
     try
     {
-        return await dbContext.Database.CanConnectAsync(cancellationToken)
-            ? Results.Ok(new { status = "ready", database = "ok" })
-            : Results.Json(new { status = "not-ready", database = "unavailable" }, statusCode: StatusCodes.Status503ServiceUnavailable);
+        if (!await dbContext.Database.CanConnectAsync(cancellationToken))
+            return Results.Json(new { status = "not-ready", database = "unavailable" }, statusCode: StatusCodes.Status503ServiceUnavailable);
+        if (dbContext.Database.IsRelational()
+            && (await dbContext.Database.GetPendingMigrationsAsync(cancellationToken)).Any())
+            return Results.Json(new { status = "not-ready", database = "migration-required" }, statusCode: StatusCodes.Status503ServiceUnavailable);
+        return Results.Ok(new { status = "ready", database = "ok" });
     }
     catch
     {

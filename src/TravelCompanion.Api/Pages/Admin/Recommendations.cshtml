@@ -155,6 +155,10 @@
             </div>
         </div>
         <div style="margin-top: 12px;">
+            <label asp-for="Input.EditorialReviewedOn">Fecha de revisión editorial</label>
+            <input asp-for="Input.EditorialReviewedOn" type="date" />
+            <span asp-validation-for="Input.EditorialReviewedOn"></span>
+            <p class="muted">Completar solo después de revisar la fuente. No confirma disponibilidad en tiempo real. Se recomienda revisar cada 90 días.</p>
             <label asp-for="Input.CurationNotes">Notas de curaduria <span class="muted">(opcional)</span></label>
             <textarea asp-for="Input.CurationNotes"></textarea>
             <span asp-validation-for="Input.CurationNotes"></span>

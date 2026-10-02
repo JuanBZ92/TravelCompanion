@@ -26,6 +26,8 @@ public sealed partial class RecommendationDetailViewModel(
                 OnPropertyChanged(nameof(RecommendationTags));
                 OnPropertyChanged(nameof(HasRecommendationTags));
                 OnPropertyChanged(nameof(CostLevelText));
+                OnPropertyChanged(nameof(EditorialStatus));
+                OnPropertyChanged(nameof(HasEditorialSource));
             }
         }
     }
@@ -62,6 +64,25 @@ public sealed partial class RecommendationDetailViewModel(
             ? Recommendation.Tags
             : [Recommendation.Category.ToLowerInvariant()];
     public bool HasRecommendationTags => RecommendationTags.Count > 0;
+    public string EditorialStatus
+    {
+        get
+        {
+            var reviewed = Recommendation?.EditorialReviewedOn;
+            var text = LocalizationResourceManager.Instance;
+            return reviewed is null ? text["EditorialPending"] : string.Format(text[
+                EditorialReviewPolicy.NeedsReview(reviewed, DateOnly.FromDateTime(DateTime.UtcNow))
+                    ? "EditorialStale" : "EditorialReviewed"], reviewed.Value);
+        }
+    }
+    public bool HasEditorialSource => Uri.TryCreate(Recommendation?.SourceUrl, UriKind.Absolute, out var uri)
+        && uri.Scheme == Uri.UriSchemeHttps;
+    public string EditorialSourceText => LocalizationResourceManager.Instance["EditorialSource"];
+    [RelayCommand]
+    private Task OpenEditorialSourceAsync() => LoadAsync(async ct =>
+    {
+        if (IsUnlocked && HasEditorialSource) await Launcher.Default.OpenAsync(Recommendation!.SourceUrl!);
+    });
 
     public bool IsUnlocked
     {

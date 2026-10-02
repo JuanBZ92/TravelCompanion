@@ -47,7 +47,5 @@ public sealed class ProductFeatureOptions
     public const string SectionName = "ProductFeatures";
     public bool AnalyticsEnabled { get; set; } = true;
     public bool PaywallEnabled { get; set; } = true;
-    public bool ProposalsEnabled { get; set; } = true;
-    public bool RoutesEnabled { get; set; } = true;
     public bool PersonalizedDayEnabled { get; set; }
 }

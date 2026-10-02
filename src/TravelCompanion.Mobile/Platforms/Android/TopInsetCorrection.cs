@@ -51,7 +51,7 @@ internal sealed class TopInsetCorrection
         if (native is null || !native.IsAttachedToWindow || native.Height == 0) return;
         var insets = ViewCompat.GetRootWindowInsets(native);
         if (insets is null) return;
-        var top = insets.GetInsets(WindowInsetsCompat.Type.StatusBars() | WindowInsetsCompat.Type.DisplayCutout()).Top;
+        var top = insets.GetInsets(WindowInsetsCompat.Type.StatusBars() | WindowInsetsCompat.Type.DisplayCutout())?.Top ?? 0;
         if (anchor.Handler?.PlatformView is not global::Android.Views.View header || header.Height == 0) return;
         header.GetLocationInWindow(position);
         var density = native.Resources?.DisplayMetrics?.Density ?? 1f;

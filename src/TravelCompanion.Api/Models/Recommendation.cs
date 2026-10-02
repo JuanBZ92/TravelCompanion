@@ -4,6 +4,7 @@ namespace TravelCompanion.Api.Models;
 
 public sealed class Recommendation
 {
+    public DateOnly? EditorialReviewedOn { get; set; }
     public Guid Id { get; set; }
     public string? ExternalId { get; set; }
     public string? ProviderPlaceId { get; set; }

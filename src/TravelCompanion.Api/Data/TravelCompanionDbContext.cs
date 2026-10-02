@@ -1,12 +1,15 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using TravelCompanion.Api.Models;
 using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Api.Data;
 
 public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbContext> options)
-    : DbContext(options)
+    : DbContext(options), IDataProtectionKeyContext
 {
+    public DbSet<DataProtectionKey> DataProtectionKeys { get; set; } = null!;
+    public DbSet<TripPreparationItem> TripPreparationItems => Set<TripPreparationItem>();
     public DbSet<Destination> Destinations => Set<Destination>();
     public DbSet<TravelPackage> TravelPackages => Set<TravelPackage>();
     public DbSet<Recommendation> Recommendations => Set<Recommendation>();
@@ -51,6 +54,13 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<TripPreparationItem>(entity =>
+        {
+            entity.HasKey(x => new { x.TripId, x.Key });
+            entity.Property(x => x.Key).HasMaxLength(40);
+            entity.Property(x => x.Revision).IsConcurrencyToken();
+            entity.HasOne(x => x.Trip).WithMany().HasForeignKey(x => x.TripId).OnDelete(DeleteBehavior.Cascade);
+        });
         modelBuilder.Entity<TripExpense>(entity =>
         {
             entity.HasIndex(x => new { x.UserId, x.TripId });
@@ -341,6 +351,9 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
 
         modelBuilder.Entity<BuilderAccessGrant>(entity =>
         {
+            entity.Property(grant => grant.TripId).IsConcurrencyToken();
+            entity.Property(grant => grant.Status).IsConcurrencyToken();
+            entity.Property(grant => grant.RevokedAtUtc).IsConcurrencyToken();
             entity.HasIndex(grant => new { grant.Status, grant.ExpiresAtUtc });
             entity.HasIndex(grant => new { grant.AppUserId, grant.IsTrial });
             entity.HasIndex(grant => grant.TripId).IsUnique();

@@ -1,0 +1,57 @@
+# Isolated, disposable pilot. Never apply this to the existing production database.
+# Free PostgreSQL expires after 30 days; export before expiry or upgrade.
+services:
+  - type: web
+    name: travelcompanion-free-pilot
+    runtime: docker
+    plan: free
+    region: frankfurt
+    autoDeployTrigger: off
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health/ready
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ASPNETCORE_FORWARDEDHEADERS_ENABLED
+        value: "true"
+      - key: Database__ApplyMigrationsOnStartup
+        value: "false"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: travelcompanion-free-pilot-db
+          property: connectionString
+      - key: OpenAI__Enabled
+        value: "false"
+      - key: GooglePlaces__Enabled
+        value: "false"
+      - key: GoogleRoutes__Enabled
+        value: "false"
+      - key: StorePurchases__NewPurchasesEnabled
+        value: "false"
+      - key: TransactionalEmail__Provider
+        value: Resend
+      - key: TransactionalEmail__ApiKey
+        sync: false
+      - key: TransactionalEmail__From
+        sync: false
+      - key: DataProtection__UseDatabase
+        value: "true"
+      - key: DataProtection__CertificateBase64
+        sync: false
+      - key: DataProtection__CertificatePassword
+        sync: false
+      - key: EmailVerification__HashSecret
+        generateValue: true
+      - key: FreePreview__MarkerObfuscationKey
+        generateValue: true
+      - key: AdminAuth__Username
+        sync: false
+      - key: AdminAuth__Password
+        sync: false
+databases:
+  - name: travelcompanion-free-pilot-db
+    plan: free
+    region: frankfurt
+    postgresMajorVersion: "16"
+    ipAllowList: []

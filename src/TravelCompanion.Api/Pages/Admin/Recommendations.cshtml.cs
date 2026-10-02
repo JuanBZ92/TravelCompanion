@@ -123,6 +123,11 @@ public sealed class RecommendationsModel(
             ModelState.AddModelError($"{nameof(Input)}.{nameof(Input.Rating)}", "El rating debe estar entre 0 y 5.");
         }
 
+        if (Input.EditorialReviewedOn > DateOnly.FromDateTime(DateTime.UtcNow))
+            ModelState.AddModelError("Input.EditorialReviewedOn", "La revisión no puede estar en el futuro.");
+        if (Input.EditorialReviewedOn.HasValue && (string.IsNullOrWhiteSpace(Input.SourceUrl)
+            || !Uri.TryCreate(Input.SourceUrl, UriKind.Absolute, out var source) || source.Scheme != Uri.UriSchemeHttps))
+            ModelState.AddModelError("Input.SourceUrl", "Añade una fuente HTTPS para registrar la revisión editorial.");
         var selectedPackageIds = Input.AccessLevel == ContentAccessLevel.Paid
             ? Input.PackageIds.Distinct().ToList()
             : [];
@@ -329,6 +334,7 @@ public sealed class RecommendationsModel(
 
     public sealed class RecommendationInput
     {
+        public DateOnly? EditorialReviewedOn { get; set; }
         public string? ProviderPlaceId { get; set; }
         public string? DescriptionEn { get; set; }
         public string? ExtraDescription { get; set; }
@@ -397,6 +403,7 @@ public sealed class RecommendationsModel(
                 OpeningHours = recommendation.OpeningHours,
                 SourceName = recommendation.SourceName,
                 SourceUrl = recommendation.SourceUrl,
+                EditorialReviewedOn = recommendation.EditorialReviewedOn,
                 CurationNotes = recommendation.CurationNotes,
                 AccessLevel = recommendation.AccessLevel,
                 PackageIds = recommendation.Packages.Select(package => package.Id).ToList()
@@ -435,6 +442,7 @@ public sealed class RecommendationsModel(
             recommendation.OpeningHours = string.IsNullOrWhiteSpace(OpeningHours) ? null : OpeningHours.Trim();
             recommendation.SourceName = NormalizeOptional(SourceName);
             recommendation.SourceUrl = NormalizeOptional(SourceUrl);
+            recommendation.EditorialReviewedOn = EditorialReviewedOn;
             recommendation.CurationNotes = NormalizeOptional(CurationNotes);
             recommendation.AccessLevel = AccessLevel;
         }

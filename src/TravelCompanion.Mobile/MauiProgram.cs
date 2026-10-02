@@ -94,6 +94,8 @@ public static class MauiProgram
         builder.Services.AddSingleton<OfflineTripPreparationService>();
         builder.Services.AddTransient<TripReviewViewModel>();
         builder.Services.AddTransient<TripReviewPage>();
+        builder.Services.AddTransient<TripPreparationViewModel>();
+        builder.Services.AddTransient<TripPreparationPage>();
         builder.Services.AddSingleton<FreeMapStore>();
         builder.Services.AddSingleton<MobileBootstrapStore>();
         builder.Services.AddSingleton<MobileDiscoverStore>();

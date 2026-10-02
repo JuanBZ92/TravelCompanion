@@ -66,7 +66,17 @@ public sealed class EmailAccountService(
         dbContext.EmailVerificationChallenges.Add(challenge);
         await dbContext.SaveChangesAsync(cancellationToken);
         if (transaction is not null) await transaction.CommitAsync(cancellationToken);
-        await emailSender.SendVerificationCodeAsync(email, code, request.Locale ?? "es", cancellationToken);
+        try
+        {
+            await emailSender.SendVerificationCodeAsync(email, code, request.Locale ?? "es", cancellationToken);
+        }
+        catch
+        {
+            // A failed send must not make the next request report that a code was delivered.
+            challenge.ConsumedAtUtc = DateTimeOffset.UtcNow;
+            await dbContext.SaveChangesAsync(CancellationToken.None);
+            throw;
+        }
         return new(challenge.ExpiresAtUtc, challenge.ResendAvailableAtUtc);
     }
 
@@ -326,6 +336,8 @@ public sealed class EmailAccountService(
         dbContext.Reservations.RemoveRange(await dbContext.Reservations.Where(item => tripIds.Contains(item.TripId)).ToListAsync(cancellationToken));
         dbContext.TravelDocuments.RemoveRange(await dbContext.TravelDocuments.Where(item => tripIds.Contains(item.TripId)).ToListAsync(cancellationToken));
         dbContext.JournalNotes.RemoveRange(await dbContext.JournalNotes.Where(item => item.UserId == user.Id).ToListAsync(cancellationToken));
+        dbContext.TripPreparationItems.RemoveRange(await dbContext.TripPreparationItems
+            .Where(item => item.Trip.AppUserId == user.Id).ToListAsync(cancellationToken));
         dbContext.TripExpenses.RemoveRange(await dbContext.TripExpenses.Where(x => x.UserId == user.Id).ToListAsync(cancellationToken));
         dbContext.TripExpenseSettings.RemoveRange(await dbContext.TripExpenseSettings.Where(x => x.UserId == user.Id).ToListAsync(cancellationToken));
         dbContext.ThematicRoutes.RemoveRange(await dbContext.ThematicRoutes.Where(item => item.AppUserId == user.Id).ToListAsync(cancellationToken));

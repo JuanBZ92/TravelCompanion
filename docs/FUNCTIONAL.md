@@ -1,5 +1,9 @@
 # Travel Companion - Documentacion funcional
 
+## Estado vigente del lanzamiento — octubre de 2026
+
+Consultar [Japón bien preparado](japan-launch.md) para la pantalla de preparación, revisión editorial, alcance del pase y validación pendiente. El cliente ya dispone de compras nativas y recuperación, pero las ventas reales siguen desactivadas por defecto. El alta sin PIN y las políticas Free vigentes se describen en el plan incremental. Las referencias posteriores al login exclusivamente por contraseña o a ausencia de checkout son antecedentes del MVP, no limitaciones del producto actual.
+
 ## Actualización de conversión y valor del pase — septiembre de 2026
 
 El [plan incremental de valor y conversión](launch-value-cycle.md) describe el comportamiento implementado, su activación y límites. Incluye creación sin PIN, Free persistente para nuevas cuentas compatibles (desactivado por defecto), paywall contextual, revisión de todos los días, preparación offline y documentos personales locales para Builder de pago. Ante descripciones históricas de pruebas temporales, rutas o almacenamiento, prevalece ese alcance.

@@ -16,6 +16,8 @@ public static class RecommendationPresentation
             item.OpeningHours, item.AccessLevel, item.Packages.Select(p => p.Id).ToList(), distanceKm)
         {
             ProviderPlaceId = item.ProviderPlaceId,
+            EditorialReviewedOn = item.EditorialReviewedOn,
+            SourceUrl = item.SourceUrl,
             ExtraDescription = Text(item.ExtraDescription, item.ExtraDescriptionEn),
             RefinedType = Text(item.RefinedType, item.RefinedTypeEn),
             ReservationInstructions = Text(item.ReservationInstructions, item.ReservationInstructionsEn),

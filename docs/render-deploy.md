@@ -1,5 +1,7 @@
 # Render deploy
 
+Current launch instructions: [Japan launch](japan-launch.md). `render.yaml` retains its existing paid database; `render.free.yaml` is a separate disposable pilot. Both disable automatic deploys. Publish only the exact commit that passed all CI stages; the older commit-triggered instructions below are historical.
+
 This repo can deploy the ASP.NET Core API to Render as a Docker web service with a managed Render Postgres database.
 
 ## First deploy
@@ -13,7 +15,7 @@ This repo can deploy the ASP.NET Core API to Render as a Docker web service with
    ```
 3. Open the Blueprint flow:
    `https://dashboard.render.com/blueprint/new?repo=https://github.com/JuanBZ92/TravelCompanion`
-4. Select branch `main` if Render asks. The production service automatically deploys commits from `main`.
+4. Select the release branch if Render asks. Automatic deploys are disabled; select the commit that passed all CI stages.
 5. Fill the secret values requested by the Blueprint:
    - `AdminAuth__Username`
    - `AdminAuth__Password`

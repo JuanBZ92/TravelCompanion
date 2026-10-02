@@ -21,6 +21,8 @@ public sealed record RecommendationDto(
     decimal? DistanceKm)
 {
     public string Provider { get; init; } = "YUKU";
+    public DateOnly? EditorialReviewedOn { get; init; }
+    public string? SourceUrl { get; init; }
     public string? ProviderPlaceId { get; init; }
     public string? Attribution { get; init; }
     public string? ExtraDescription { get; init; }

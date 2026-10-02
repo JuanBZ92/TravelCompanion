@@ -17,6 +17,7 @@ public sealed class ProductAnalyticsService(TravelCompanionDbContext dbContext, 
     };
     private static readonly HashSet<string> ClientEvents = new(StringComparer.Ordinal)
     {
+        "trip_preparation_viewed", "trip_preparation_updated",
         "paywall_shown", "paywall_cta_selected", "email_verification_started",
         "day_review_viewed", "proposal_previewed", "route_viewed", "trip_created",
         "limit_reached", "paid_trip_opened", "offline_download_completed", "offline_download_failed",

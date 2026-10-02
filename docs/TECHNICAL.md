@@ -1,5 +1,9 @@
 # Travel Companion - Documentacion tecnica
 
+## Estado vigente del lanzamiento — octubre de 2026
+
+El [runbook de lanzamiento](japan-launch.md) documenta email HTTPS, claves Data Protection en PostgreSQL, configuración sin secretos, perfil gratuito separado y migración aditiva de preparación/revisión editorial. Las migraciones de producción se ejecutan mediante `--migrate`; no se aplican durante el arranque normal. API, Shared, lógica móvil, PostgreSQL, Android e iOS ya tienen etapas de validación en Azure Pipelines. Las listas históricas de migraciones y comandos siguientes no sustituyen el estado del código.
+
 Este documento describe como esta construido el proyecto y debe mantenerse actualizado cada vez que se agregue codigo que cambie arquitectura, dependencias, endpoints, persistencia, autenticacion, configuracion local o flujos de desarrollo.
 
 ## Stack
@@ -98,7 +102,7 @@ http://localhost:5289
 
 ## Base de datos
 
-La API usa `TravelCompanionDbContext` con PostgreSQL y aplica migraciones automaticamente al iniciar mediante `MigrateAsync`.
+La API usa `TravelCompanionDbContext` con PostgreSQL. En producción las migraciones se aplican con el proceso explícito `--migrate`; `Database:ApplyMigrationsOnStartup` permanece desactivado.
 
 Entidades principales:
 

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using TravelCompanion.Api.Data;
 using TravelCompanion.Api.Models;
@@ -28,10 +29,14 @@ public sealed class TravelPassController(
     }
 
     [HttpPost("redeem")]
+    [EnableRateLimiting("PinLogin")]
     public async Task<ActionResult<AuthSessionDto>> Redeem(
         RedeemTravelPassRequest request,
         CancellationToken cancellationToken)
     {
+        if (DbExecutionStrategy.ShouldExecute(dbContext))
+            return await DbExecutionStrategy.ExecuteAsync(dbContext,
+                () => Redeem(request, cancellationToken), cancellationToken);
         var session = await sessionService.GetSessionContextAsync(HttpContext, cancellationToken);
         if (session is null)
         {
@@ -42,6 +47,8 @@ public sealed class TravelPassController(
             return Conflict(new { message = "Este acceso ya tiene un pase activo." });
         }
 
+        await using var transaction = dbContext.Database.IsRelational()
+            ? await dbContext.Database.BeginTransactionAsync(cancellationToken) : null;
         var trialGrant = await freeTrialAccessService.GetGrantAsync(session.User.Id, cancellationToken);
         if (freeTrialAccessService.ToStatus(trialGrant).State == TrialAccessState.Expired)
         {
@@ -57,6 +64,7 @@ public sealed class TravelPassController(
         var paidGrants = await dbContext.BuilderAccessGrants
             .Include(grant => grant.Destination)
             .Where(grant => !grant.IsTrial
+                && grant.DestinationId == trialGrant.DestinationId
                 && grant.Status == BuilderAccessStatus.Active
                 && grant.RevokedAtUtc == null
                 && grant.TripId == null
@@ -85,7 +93,14 @@ public sealed class TravelPassController(
             trip.EndsOn.AddDays(8).ToDateTime(TimeOnly.MinValue),
             TimeSpan.Zero);
         paidGrant.ExpiresAtUtc = new[] { tripAccessEnd, now.AddYears(1) }.Min();
-        await dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Conflict(new { message = "El pase cambió o ya fue canjeado. Actualiza tu acceso e inténtalo de nuevo." });
+        }
         logger.LogInformation(
             "Travel pass activated from free trial. UserId={UserId}; TripId={TripId}; OrderReference={OrderReference}; ExpiresAtUtc={ExpiresAtUtc}.",
             session.User.Id,
@@ -101,6 +116,7 @@ public sealed class TravelPassController(
             SessionAccessMode.Builder,
             paidGrant.ExpiresAtUtc - now);
         var capabilities = TravelerAccessService.CreateCapabilities(ExperienceMode.SelfServiceBuilder, false);
+        if (transaction is not null) await transaction.CommitAsync(cancellationToken);
         return Ok(new AuthSessionDto(
             session.User.Id,
             session.User.Email,
