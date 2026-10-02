@@ -68,14 +68,17 @@ public sealed partial class JournalStore(OfflineCacheService cache, AuthSessionS
             var currentItems = items.ToDictionary(x => x.Id);
             // Discard only untouched legacy previews whose source was corrected. Never
             // discard saved notes, offline edits, photos, or memories of deleted activities.
-            entries.RemoveAll(x => !x.IsFree && !x.IsDraft && x.Note.Revision == 0 && x.Note.UpdatedAt == DateTimeOffset.MinValue
+            var changed = entries.RemoveAll(x => !x.IsFree && !x.IsDraft && x.Note.Revision == 0 && x.Note.UpdatedAt == DateTimeOffset.MinValue
                 && x.Pending is null && x.Conflict is null && x.Images.Length == 0
                 && currentItems.TryGetValue(x.Note.ActivityId, out var source)
-                && JournalEntries.Build([source]).Count == 0);
+                && JournalEntries.Build([source]).Count == 0) > 0;
             foreach (var legacy in JournalEntries.Build(currentItems.Values))
                 if (entries.All(x => x.IsFree || x.Note.ActivityId != legacy.Item.Id))
+                {
                     entries.Add(new(new(legacy.Item.Id, scope.TripId, legacy.Title, legacy.Item.City,
                         legacy.Item.Date, legacy.Notes, 0, DateTimeOffset.MinValue)));
+                    changed = true;
+                }
             if (sync)
             {
                 var token = await sessions.GetTokenAsync();
@@ -114,7 +117,7 @@ public sealed partial class JournalStore(OfflineCacheService cache, AuthSessionS
                 }
             }
             Check(scope);
-            await WriteAsync(scope, entries, ct);
+            if (sync || changed) await WriteAsync(scope, entries, ct);
             return entries.Where(x => !x.Deleted).OrderBy(x => x.Date).ThenBy(x => x.Title).ThenBy(x => x.Key).ToList();
         }
         finally { gate.Release(); }

@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using TravelCompanion.Mobile.Pages;
 using TravelCompanion.Mobile.Services;
@@ -6,8 +7,11 @@ using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Mobile.ViewModels;
 
-public sealed record JournalThumbnail(JournalMemory Memory, int Index, ImageSource? Source)
+public sealed partial class JournalThumbnail(JournalMemory memory, int index) : ObservableObject
 {
+    public JournalMemory Memory { get; } = memory;
+    public int Index { get; } = index;
+    [ObservableProperty] private ImageSource source = ImageSource.FromFile("journal_photo.svg");
     public string Description => JournalText.Format("JournalPhotoNumber", Index + 1, Memory.Images.Length);
 }
 public sealed record JournalRow(JournalMemory Memory, IReadOnlyList<JournalThumbnail> Photos, bool HasActivity)
@@ -56,42 +60,58 @@ public sealed partial class JournalViewModel(MobileBootstrapStore bootstrapStore
     public IReadOnlyList<JournalMemory> Memories { get; private set; } = [];
     public IReadOnlyList<JournalDraft> Drafts { get; private set; } = [];
     public Task LoadAsync() => LoadJournalAsync();
-    [RelayCommand] private Task RefreshAsync() => LoadJournalAsync();
-    private Task LoadJournalAsync() => base.LoadAsync(async ct =>
+    [RelayCommand] private Task RefreshAsync() => LoadJournalAsync(waitForSync: true);
+    private async Task LoadJournalAsync(bool waitForSync = false)
     {
-        if (!HasTrip) { Clear(); return; }
-        var scope = store.Scope();
-        var cached = await bootstrapStore.GetCachedAsync(cancellationToken: ct);
-        if (!store.IsCurrent(scope)) return;
-        var schedule = cached?.Value.Schedule;
-        Activities = schedule?.TripId == scope.TripId ? schedule.Items : [];
-        TripTitle = schedule?.DestinationName ?? JournalText.Get("JournalMyTrip");
-        await ApplyAsync(scope, await store.LoadAsync(scope, Activities, false, ct), ct);
-        if (Connectivity.Current.NetworkAccess == NetworkAccess.Internet)
+        JournalScope? localScope = null;
+        var cancellationToken = CancellationToken.None;
+        var needsSchedule = false;
+        await base.LoadAsync(async ct =>
         {
-            try
+            if (!HasTrip) { Clear(); return; }
+            var scope = store.Scope();
+            var cached = await bootstrapStore.GetCachedAsync(cancellationToken: ct);
+            if (!store.IsCurrent(scope)) return;
+            var schedule = cached?.Value.Schedule;
+            Activities = schedule?.TripId == scope.TripId ? schedule.Items : [];
+            TripTitle = schedule?.DestinationName ?? JournalText.Get("JournalMyTrip");
+            await ApplyAsync(scope, await store.LoadAsync(scope, Activities, false, ct), ct);
+            localScope = scope;
+            cancellationToken = ct;
+            needsSchedule = schedule is null;
+        });
+        if (localScope is not { } loadedScope || cancellationToken.IsCancellationRequested
+            || Connectivity.Current.NetworkAccess != NetworkAccess.Internet) return;
+        var refresh = SyncRemoteAsync(loadedScope, needsSchedule, cancellationToken);
+        if (waitForSync) await refresh;
+    }
+    private async Task SyncRemoteAsync(JournalScope scope, bool needsSchedule, CancellationToken ct)
+    {
+        try
+        {
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeout.CancelAfter(TimeSpan.FromSeconds(12));
+            if (needsSchedule)
             {
-                // Local writing is already available. Load activity choices when the catalog cache is absent.
-                if (schedule is null)
+                var token = await sessions.GetTokenAsync();
+                if (!string.IsNullOrEmpty(token))
                 {
-                    var token = await sessions.GetTokenAsync();
-                    if (!string.IsNullOrEmpty(token))
-                    {
-                        var fresh = (await bootstrapStore.RefreshAsync(token, cancellationToken: ct))?.Schedule;
-                        if (!store.IsCurrent(scope)) return;
-                        if (fresh?.TripId == scope.TripId) { Activities = fresh.Items; TripTitle = fresh.DestinationName; }
-                    }
+                    var fresh = (await bootstrapStore.RefreshAsync(token, cancellationToken: timeout.Token))?.Schedule;
+                    if (!store.IsCurrent(scope) || ct.IsCancellationRequested) return;
+                    if (fresh?.TripId == scope.TripId) { Activities = fresh.Items; TripTitle = fresh.DestinationName; }
                 }
-                await ApplyAsync(scope, await store.LoadAsync(scope, Activities, true, ct), ct);
             }
-            catch (OperationCanceledException) { throw; }
-            catch (Exception) { ErrorMessage = JournalText.Get("JournalSyncUnavailable"); }
+            await ApplyAsync(scope, await store.LoadAsync(scope, Activities, true, timeout.Token), timeout.Token);
         }
-    });
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
+        catch (Exception) { if (store.IsCurrent(scope)) ErrorMessage = JournalText.Get("JournalSyncUnavailable"); }
+    }
     private async Task ApplyAsync(JournalScope scope, IReadOnlyList<JournalMemory> memories, CancellationToken ct)
     {
         var drafts = await store.DraftsAsync(scope, ct);
         var rows = new List<JournalRow>();
+        var activityIds = Activities.Select(x => x.Id).ToHashSet();
+        var thumbnails = new List<(JournalThumbnail Thumbnail, Guid PhotoId)>();
         foreach (var memory in memories.Where(x => !x.IsDraft && !x.Deleted && x.HasContent))
         {
             var photos = new List<JournalThumbnail>();
@@ -99,18 +119,36 @@ public sealed partial class JournalViewModel(MobileBootstrapStore bootstrapStore
             foreach (var i in indices)
             {
                 ct.ThrowIfCancellationRequested();
-                var bytes = await store.PhotoAsync(scope, memory.Images[i].Id, true);
-                photos.Add(new(memory, i, bytes is null ? ImageSource.FromFile("journal_photo.svg")
-                    : ImageSource.FromStream(() => new MemoryStream(bytes))));
+                var photo = new JournalThumbnail(memory, i);
+                photos.Add(photo);
+                thumbnails.Add((photo, memory.Images[i].Id));
             }
-            rows.Add(new(memory, photos, !memory.IsFree && Activities.Any(x => x.Id == memory.Id)));
+            rows.Add(new(memory, photos, !memory.IsFree && activityIds.Contains(memory.Id)));
         }
+        ct.ThrowIfCancellationRequested();
         if (!store.IsCurrent(scope)) return;
         Memories = memories; Drafts = drafts;
         Entries.Clear(); foreach (var row in rows) Entries.Add(row);
         Groups.Clear();
         foreach (var group in rows.GroupBy(x => x.Memory.Date).OrderBy(x => x.Key)) Groups.Add(new(group.Key, group));
         NotifyContentChanged();
+        _ = LoadThumbnailsAsync(scope, thumbnails, ct);
+    }
+    private async Task LoadThumbnailsAsync(JournalScope scope,
+        IEnumerable<(JournalThumbnail Thumbnail, Guid PhotoId)> thumbnails, CancellationToken ct)
+    {
+        try
+        {
+            foreach (var (thumbnail, id) in thumbnails)
+            {
+                ct.ThrowIfCancellationRequested();
+                var bytes = await store.PhotoAsync(scope, id, true);
+                if (bytes is { Length: > 0 } && store.IsCurrent(scope))
+                    thumbnail.Source = ImageSource.FromStream(() => new MemoryStream(bytes));
+            }
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception) { /* Missing or damaged local photos leave the placeholder visible. */ }
     }
     private void NotifyContentChanged()
     {
@@ -123,11 +161,19 @@ public sealed partial class JournalViewModel(MobileBootstrapStore bootstrapStore
         ? BuilderSetupNavigation.OpenAsync() : Shell.Current.GoToAsync("//main/account");
     [RelayCommand] private Task OpenPhotoAsync(JournalThumbnail? photo) => photo is null ? Task.CompletedTask :
         Shell.Current.Navigation.PushModalAsync(new JournalPhotoPage(store.Scope(), photo.Memory, photo.Index));
-    [RelayCommand] private Task OpenEntryAsync(JournalRow? row) => row is null ? Task.CompletedTask :
-        Shell.Current.Navigation.PushModalAsync(new JournalReadingPage(store.Scope(), row.Memory,
+    [RelayCommand] private Task OpenEntryAsync(JournalRow? row)
+    {
+        if (row is null) return Task.CompletedTask;
+        CancelLoading();
+        return Shell.Current.Navigation.PushModalAsync(new JournalReadingPage(store.Scope(), row.Memory,
             row.Memory.IsFree ? null : Activities.FirstOrDefault(x => x.Id == row.Memory.Id)));
-    [RelayCommand(CanExecute = nameof(CanAddMemory))] private Task AddMemoryAsync() =>
-        Shell.Current.Navigation.PushModalAsync(new JournalMemoryPage(store.Scope(), JournalMemory.NewFree(sessions.CurrentTripId!.Value, DateOnly.FromDateTime(DateTime.Today)), null));
+    }
+    [RelayCommand(CanExecute = nameof(CanAddMemory))] private Task AddMemoryAsync()
+    {
+        CancelLoading();
+        return Shell.Current.Navigation.PushModalAsync(new JournalMemoryPage(store.Scope(),
+            JournalMemory.NewFree(sessions.CurrentTripId!.Value, DateOnly.FromDateTime(DateTime.Today)), null));
+    }
     [RelayCommand] private async Task ContinueDraftAsync()
     {
         if (Drafts.Count == 0) return;
@@ -140,6 +186,7 @@ public sealed partial class JournalViewModel(MobileBootstrapStore bootstrapStore
             var index = Array.IndexOf(labels, choice); if (index < 0) return; draft = Drafts[index];
         }
         if (!store.IsCurrent(scope)) return;
+        CancelLoading();
         await Shell.Current.Navigation.PushModalAsync(new JournalMemoryPage(scope, draft.Memory, null, draft: draft));
     }
     [RelayCommand] private async Task MenuAsync()

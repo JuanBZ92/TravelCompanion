@@ -652,8 +652,9 @@ Your way.</value></data>
   <data name="JournalReadAction" xml:space="preserve"><value>Read memory</value></data>
   <data name="JournalCharacterCount" xml:space="preserve"><value>{0} / 2,000 characters</value></data>
   <data name="JournalSyncUnavailable" xml:space="preserve"><value>Sync is unavailable. Your memories are still saved on this device.</value></data>
-  <data name="JournalFindDayActivity" xml:space="preserve"><value>Find an activity for this day (optional)</value></data>
+  <data name="JournalFindDayActivity" xml:space="preserve"><value>Choose a day's activity</value></data>
   <data name="JournalActivitiesOnDate" xml:space="preserve"><value>Activities on {0}</value></data>
   <data name="JournalNoMatchingActivities" xml:space="preserve"><value>No matching activities. You can go back and write a free memory.</value></data>
-  <data name="JournalActivityDraftNotice" xml:space="preserve"><value>Choosing an activity opens its memory. Anything written here is kept separately as a draft.</value></data>
+  <data name="JournalActivityDraftNotice" xml:space="preserve"><value>Optional · Its name will be used as this memory's place.</value></data>
+  <data name="JournalActivitySelected" xml:space="preserve"><value>Activity added as the place. Keep writing here.</value></data>
 </root>

@@ -30,7 +30,8 @@ public sealed partial class JournalStore
             drafts.RemoveAll(x => x.Memory.Key == memory.Key);
             drafts.Add(new(memory, text, DateTimeOffset.UtcNow));
             await cache.SaveAsync(Prefix(scope) + "drafts", drafts, ct);
-            await DeleteUnreferencedPhotosAsync(scope, previousPhotos, await ReadAsync(scope, ct), ct);
+            if (previousPhotos.Length > 0)
+                await DeleteUnreferencedPhotosAsync(scope, previousPhotos, await ReadAsync(scope, ct), ct);
         }
         finally { gate.Release(); }
     }

@@ -36,7 +36,7 @@ internal static class JournalUi
 public sealed class JournalActivityPickerPage : JournalScopedPage
 {
     public JournalActivityPickerPage(IReadOnlyList<ScheduleItemDto> activities, IReadOnlyList<JournalMemory> memories,
-        DateOnly? selectedDate = null)
+        DateOnly? selectedDate = null, Func<ScheduleItemDto, Task>? onSelected = null)
     {
         BackgroundColor = JournalUi.Paper; SafeAreaEdges = SafeAreaEdges.All;
         var store = MauiProgram.Services.GetRequiredService<JournalStore>(); var scope = store.Scope();
@@ -56,6 +56,12 @@ public sealed class JournalActivityPickerPage : JournalScopedPage
             list.SelectedItem = null; if (!store.IsCurrent(scope)) return;
             opening = true;
             try {
+                if (onSelected is not null)
+                {
+                    await onSelected(item);
+                    if (store.IsCurrent(scope)) await Navigation.PopModalAsync();
+                    return;
+                }
                 var memory = memories.FirstOrDefault(x => !x.IsFree && x.Id == item.Id)
                     ?? new JournalMemory(new(item.Id, scope.TripId, item.Title, item.City, item.Date, "", 0, DateTimeOffset.UtcNow), IsDraft: true);
                 await Navigation.PushModalAsync(new JournalMemoryPage(scope, memory, item));
@@ -85,6 +91,8 @@ public sealed class JournalMemoryPage : JournalScopedPage
     private readonly Label counter = JournalUi.Text("", 12);
     private CancellationTokenSource? debounce;
     private Task autosave = Task.CompletedTask;
+    private readonly SemaphoreSlim persistGate = new(1, 1);
+    private long editVersion;
     private bool busy, closing, initialized, dirty, suppress;
     private bool pickPhotos;
     private Window? observedWindow;
@@ -109,8 +117,16 @@ public sealed class JournalMemoryPage : JournalScopedPage
         var body = new VerticalStackLayout { Padding = 22, Spacing = 16, Children = { date, title, place } };
         if (memory.IsFree)
         {
-            body.Add(JournalUi.Action("JournalFindDayActivity", FindDayActivityAsync));
-            body.Add(JournalUi.Text(JournalText.Get("JournalActivityDraftNotice"), 12));
+            var findActivity = JournalUi.Action("JournalFindDayActivity", FindDayActivityAsync);
+            findActivity.BackgroundColor = Color.FromArgb("#F1E8DA");
+            findActivity.BorderColor = Color.FromArgb("#D8C6AC");
+            findActivity.BorderWidth = 1;
+            findActivity.TextColor = JournalUi.Ink;
+            findActivity.FontAttributes = FontAttributes.Bold;
+            body.Add(new Border { BackgroundColor = Color.FromArgb("#FFFCF8"),
+                Stroke = Color.FromArgb("#E5DDD3"), StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = new CornerRadius(10) },
+                Padding = 12, Content = new VerticalStackLayout { Spacing = 4, Children = {
+                    findActivity, JournalUi.Text(JournalText.Get("JournalActivityDraftNotice"), 13) } } });
         }
         if (!memory.IsFree) body.Add(JournalUi.Text(JournalText.Title(memory), 28, true));
         body.Add(new Border { BackgroundColor = Color.FromArgb("#FFFCF8"), Stroke = Color.FromArgb("#E5DDD3"), Padding = 16, Content = editor });
@@ -138,15 +154,20 @@ public sealed class JournalMemoryPage : JournalScopedPage
             if (!store.IsCurrent(scope)) return;
             var activities = cached?.Value.Schedule is { } schedule && schedule.TripId == scope.TripId
                 ? schedule.Items : [];
-            var memories = await store.LoadAsync(scope, activities, false, default);
             if (!store.IsCurrent(scope)) return;
-            await Navigation.PushModalAsync(new JournalActivityPickerPage(activities, memories, selectedDate));
+            await Navigation.PushModalAsync(new JournalActivityPickerPage(activities, [], selectedDate, item =>
+            {
+                if (!store.IsCurrent(scope)) return Task.CompletedTask;
+                place.Text = item.Title;
+                status.Text = JournalText.Get("JournalActivitySelected");
+                return Task.CompletedTask;
+            }));
         }
         finally { busy = false; date.IsEnabled = memory.IsFree; }
     }
     private void Changed()
     {
-        UpdateCounter(); if (suppress) return; dirty = true;
+        UpdateCounter(); if (suppress) return; dirty = true; editVersion++;
         debounce?.Cancel(); debounce = new(); autosave = AutoSaveAsync(debounce.Token);
     }
     private JournalMemory Snapshot()
@@ -166,11 +187,20 @@ public sealed class JournalMemoryPage : JournalScopedPage
     private async Task PersistAsync(CancellationToken ct = default)
     {
         if (!dirty || !store.IsCurrent(scope)) return;
-        status.Text = JournalText.Get("JournalSaving");
-        var snapshot = Snapshot(); var text = editor.Text ?? "";
-        await store.SaveDraftAsync(scope, snapshot, text, ct);
-        ct.ThrowIfCancellationRequested();
-        status.Text = JournalText.Get("JournalDraftSaved");
+        await persistGate.WaitAsync(ct);
+        try
+        {
+            if (!dirty || !store.IsCurrent(scope)) return;
+            status.Text = JournalText.Get("JournalSaving");
+            var version = editVersion; var snapshot = Snapshot(); var text = editor.Text ?? "";
+            await store.SaveDraftAsync(scope, snapshot, text, ct);
+            if (version == editVersion)
+            {
+                dirty = false;
+                status.Text = JournalText.Get("JournalDraftSaved");
+            }
+        }
+        finally { persistGate.Release(); }
     }
     protected override async void OnAppearing()
     {
@@ -183,7 +213,7 @@ public sealed class JournalMemoryPage : JournalScopedPage
                 var draft = initialDraft ?? (await store.DraftsAsync(scope)).FirstOrDefault(x => x.Memory.Key == memory.Key);
                 if (draft is not null) {
                     suppress = true; memory = draft.Memory; editor.Text = draft.Text; title.Text = memory.Title; place.Text = memory.City;
-                    date.Date = memory.Date.ToDateTime(TimeOnly.MinValue); suppress = false; dirty = true; status.Text = JournalText.Get("JournalDraftSaved");
+                    date.Date = memory.Date.ToDateTime(TimeOnly.MinValue); suppress = false; status.Text = JournalText.Get("JournalDraftSaved");
                 } else status.Text = memory.Status;
             }
             await RenderPhotosAsync();
@@ -247,6 +277,7 @@ public sealed class JournalMemoryPage : JournalScopedPage
     private async Task SaveAsync()
     {
         if (busy) return; busy = true;
+        editor.IsEnabled = false; title.IsEnabled = false; place.IsEnabled = false; date.IsEnabled = false;
         var committed = false;
         try {
             debounce?.Cancel(); await autosave;
@@ -256,13 +287,16 @@ public sealed class JournalMemoryPage : JournalScopedPage
             await store.SaveAsync(scope, Snapshot(), editor.Text ?? "");
             committed = true;
             await store.DiscardDraftAsync(scope, memory); dirty = false;
-            var entries = await store.LoadAsync(scope, [], Connectivity.Current.NetworkAccess == NetworkAccess.Internet, default);
-            memory = entries.FirstOrDefault(x => x.Key == memory.Key) ?? memory;
-            status.Text = memory.Status.Length > 0 ? memory.Status : JournalText.Get("JournalSaved");
-            await RenderPhotosAsync();
+            memory = Snapshot() with { IsDraft = false };
+            status.Text = JournalText.Get("JournalPending");
         } catch (OperationCanceledException) { }
         catch (Exception) { status.Text = JournalText.Get(committed ? "JournalPending" : "JournalDraftFailed"); }
-        finally { busy = false; }
+        finally
+        {
+            editor.IsEnabled = true; title.IsEnabled = memory.IsFree;
+            place.IsEnabled = memory.IsFree; date.IsEnabled = memory.IsFree;
+            busy = false;
+        }
     }
     private async Task ResolveAsync()
     {

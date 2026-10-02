@@ -4,9 +4,11 @@
 
 Journal permite escribir recuerdos libres con un viaje activo, sin actividades y sin pase. El botón principal abre el editor con la fecha de hoy; se pueden elegir fechas anteriores o posteriores al itinerario. Título y lugar son opcionales. El texto admite 2.000 caracteres y cada recuerdo hasta diez fotos. Una entrada necesita texto o al menos una foto para confirmarse.
 
-Desde el editor libre, «Buscar una actividad de este día (opcional)» permite buscar por título o ciudad dentro de la fecha seleccionada. Usa el itinerario guardado en el dispositivo y funciona sin conexión. Elegir una actividad abre su recuerdo existente o un editor nuevo vinculado a esa actividad; el borrador libre se conserva por separado. Cerrar el buscador vuelve al editor sin cambiar su contenido. Si no hay coincidencias, se puede continuar escribiendo libremente.
+Desde el editor libre, «Elegir actividad del día» permite buscar por título o ciudad dentro de la fecha seleccionada. Usa el itinerario guardado en el dispositivo y funciona sin conexión. Elegir una actividad copia su nombre al campo Lugar y vuelve al mismo editor, sin modificar el texto ni las fotos. Se puede seguir escribiendo o cambiar el lugar a mano. Cerrar el buscador no cambia el recuerdo. Si no hay coincidencias, se puede continuar escribiendo libremente. El menú general del diario conserva por separado el flujo de recuerdos vinculados a una actividad.
 
 El editor conserva un borrador cifrado después de 650 ms sin cambios y al cerrar. «Continuar borrador» recupera texto, fecha, lugar, fotos y portada. «Guardar recuerdo» confirma localmente y solicita sincronización. El menú del diario conserva «Elegir una actividad» y la creación del álbum PDF. Los borradores no forman parte del álbum.
+
+La lista muestra primero el contenido local y luego carga las miniaturas y consulta la API en segundo plano, con un límite de 12 segundos para esa consulta. Guardar confirma el recuerdo localmente y muestra el estado pendiente sin esperar la red; la sincronización se reintenta al volver al diario. Los borradores sin cambios no vuelven a cifrarse y las lecturas locales no reescriben el índice si no cambió.
 
 Las notas confirmadas se sincronizan; fotos y borradores permanecen únicamente en el dispositivo. El aviso se muestra en edición y lectura. No hay subida de fotos ni copia recuperable después de reinstalar. Cancelar el selector no añade fotos. La selección se procesa antes de modificar el borrador.
 

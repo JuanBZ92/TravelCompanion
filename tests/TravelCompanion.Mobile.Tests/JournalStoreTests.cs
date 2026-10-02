@@ -8,6 +8,43 @@ namespace TravelCompanion.Mobile.Tests;
 public sealed class JournalStoreTests
 {
     [Fact]
+    public async Task OpeningLocalJournalDoesNotRewriteUnchangedEncryptedIndex()
+    {
+        var sessions = new AuthSessionService(); var disk = new OfflineCacheService();
+        var store = new JournalStore(disk, sessions, new());
+        try
+        {
+            await sessions.SaveAsync(Session()); var scope = store.Scope();
+            await store.SaveAsync(scope, JournalMemory.NewFree(scope.TripId, new(2026, 10, 2)), "Texto");
+            var writes = disk.Writes;
+            Assert.Single(await store.LoadAsync(scope, [], false, default));
+            Assert.Single(await store.LoadAsync(scope, [], false, default));
+            Assert.Equal(writes, disk.Writes);
+        }
+        finally { sessions.Clear(); }
+    }
+
+    [Fact]
+    public async Task ChosenActivityCanBeStoredAsPlaceWithoutCreatingLinkedNote()
+    {
+        var sessions = new AuthSessionService(); var store = new JournalStore(new(), sessions, new());
+        try
+        {
+            await sessions.SaveAsync(Session()); var scope = store.Scope();
+            var memory = JournalMemory.NewFree(scope.TripId, new(2026, 10, 2));
+            memory = memory with { FreeEntry = memory.FreeEntry! with { Place = "Museo de arte" } };
+            await store.SaveDraftAsync(scope, memory, "Una tarde especial");
+            await store.SaveAsync(scope, memory, "Una tarde especial");
+            var saved = Assert.Single(await store.LoadAsync(scope, [], false, default));
+            Assert.True(saved.IsFree);
+            Assert.Equal("Museo de arte", saved.City);
+            Assert.Equal("Una tarde especial", saved.Text);
+            Assert.Equal(Guid.Empty, saved.Note.ActivityId);
+        }
+        finally { sessions.Clear(); }
+    }
+
+    [Fact]
     public async Task DeletionConflictRemainsVisibleUntilUserResolvesIt()
     {
         var sessions = new AuthSessionService(); var api = new TravelCompanionApiClient(); var store = new JournalStore(new(), sessions, api);
