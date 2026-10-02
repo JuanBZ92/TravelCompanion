@@ -132,7 +132,6 @@
                     <Button Text=""
                             Command="{Binding ImproveDayCommand}"
                             IsVisible="{Binding ShowImproveDay}"
-                            IsEnabled="{Binding IsNotBusy}"
                             SemanticProperties.Description="{Binding ImproveDayLabel}"
                             HorizontalOptions="Fill"
                             BackgroundColor="{StaticResource Gold}"

@@ -62,6 +62,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     private Guid? _tripId;
     private int? _builderRevision;
     private DateOnly? _selectedDate;
+    private bool _improveDayNavigating;
     private string _selectedCity = "Tu viaje";
     private string? _previewMessage;
     private string? _stayTitle;
@@ -717,27 +718,20 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     [RelayCommand]
     private async Task ImproveDayAsync()
     {
-        if (!ShowImproveDay || IsBusy) return;
+        if (!ShowImproveDay || _improveDayNavigating) return;
+        _improveDayNavigating = true;
         try
         {
             if (!CanEditSelectedDay) { await RedeemPassAsync(); return; }
-            var token = await _sessionService.GetTokenAsync();
-            DayPersonalizationOptionsDto? options = null;
-            if (!string.IsNullOrWhiteSpace(token))
-            {
-                try { options = await _apiClient.GetDayPersonalizationOptionsAsync(token); }
-                catch (HttpRequestException) { }
-                catch (TaskCanceledException) { }
-            }
             if (_selectedDate is not { } date) return;
             var parameters = new ShellNavigationQueryParameters
             {
                 ["Date"] = date, ["City"] = SelectedCity
             };
-            if (options is not null) parameters["Options"] = options;
             await Shell.Current.GoToAsync(nameof(ImproveDayPage), parameters);
         }
         catch (Exception) { ErrorMessage = LocalizationResourceManager.Instance["PlanningTryAgain"]; }
+        finally { _improveDayNavigating = false; }
     }
 
     [RelayCommand]

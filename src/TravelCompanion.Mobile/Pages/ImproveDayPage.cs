@@ -1,4 +1,5 @@
 using TravelCompanion.Shared.Dtos;
+using TravelCompanion.Mobile.Services;
 
 namespace TravelCompanion.Mobile.Pages;
 
@@ -8,7 +9,11 @@ public sealed class ImproveDayPage : ContentPage, IQueryAttributable
     private string? city;
     private DayPersonalizationOptionsDto? options;
     private bool navigating;
+    private CancellationTokenSource? optionsCancellation;
+    private readonly AuthSessionService sessions = MauiProgram.Services.GetRequiredService<AuthSessionService>();
+    private readonly TravelCompanionApiClient api = MauiProgram.Services.GetRequiredService<TravelCompanionApiClient>();
     private readonly Label context = new() { FontSize = 14, TextColor = ExpenseUi.Muted };
+    private readonly Label optionsStatus = new() { FontSize = 13, TextColor = ExpenseUi.Muted, IsVisible = false };
     private readonly VerticalStackLayout choices = new() { Spacing = 14 };
 
     public ImproveDayPage()
@@ -27,6 +32,7 @@ public sealed class ImproveDayPage : ContentPage, IQueryAttributable
                     new Label { Text = Title, FontFamily = "serif", FontSize = 32, TextColor = ExpenseUi.Ink },
                     context,
                     new Label { Text = ExpenseUi.T("Elegí cómo querés preparar tu día.", "Choose how to prepare your day."), FontSize = 15, TextColor = ExpenseUi.Muted },
+                    optionsStatus,
                     choices
                 }
             }
@@ -39,6 +45,53 @@ public sealed class ImproveDayPage : ContentPage, IQueryAttributable
         city = query.TryGetValue("City", out var selectedCity) ? selectedCity as string : null;
         options = query.TryGetValue("Options", out var selectedOptions) ? selectedOptions as DayPersonalizationOptionsDto : null;
         context.Text = date.ToString("d MMMM") + (string.IsNullOrWhiteSpace(city) ? "" : $" · {city}");
+        RenderChoices();
+    }
+
+    protected override async void OnAppearing()
+    {
+        base.OnAppearing();
+        if (options is not null || optionsCancellation is not null || !sessions.HasSession) return;
+        var version = sessions.ContextVersion;
+        var tripId = sessions.CurrentTripId;
+        var selectedDate = date;
+        var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+        optionsCancellation = cancellation;
+        optionsStatus.Text = ExpenseUi.T("Comprobando opciones de personalización…", "Checking personalization options…");
+        optionsStatus.IsVisible = true;
+        try
+        {
+            var token = await sessions.GetTokenAsync().WaitAsync(cancellation.Token);
+            if (string.IsNullOrWhiteSpace(token)) return;
+            var loaded = await api.GetDayPersonalizationOptionsAsync(token, cancellation.Token);
+            if (cancellation.IsCancellationRequested || sessions.ContextVersion != version
+                || sessions.CurrentTripId != tripId || date != selectedDate) return;
+            options = loaded;
+            RenderChoices();
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception) { /* Personalization is optional; the other actions remain available. */ }
+        finally
+        {
+            if (ReferenceEquals(optionsCancellation, cancellation))
+            {
+                optionsCancellation = null;
+                optionsStatus.IsVisible = false;
+            }
+            cancellation.Dispose();
+        }
+    }
+
+    protected override void OnDisappearing()
+    {
+        optionsCancellation?.Cancel();
+        optionsCancellation = null;
+        optionsStatus.IsVisible = false;
+        base.OnDisappearing();
+    }
+
+    private void RenderChoices()
+    {
         choices.Clear();
         Add(ExpenseUi.T("Completar el día", "Complete the day"), ExpenseUi.T("Ideas para los espacios libres, sin mover tus planes.", "Ideas for free time, keeping your plans."), async () =>
             await Shell.Current.GoToAsync("//main/assistant", new ShellNavigationQueryParameters { ["ReviewDate"] = date, ["ReviewCity"] = city ?? string.Empty }), true);
