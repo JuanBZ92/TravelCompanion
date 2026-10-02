@@ -7,48 +7,143 @@ public sealed class JournalReadingPage(JournalScope scope, JournalMemory origina
 {
     private readonly JournalStore store = MauiProgram.Services.GetRequiredService<JournalStore>();
     private JournalMemory memory = original;
+
     protected override async void OnAppearing()
     {
-        base.OnAppearing(); BackgroundColor = JournalUi.Paper; SafeAreaEdges = SafeAreaEdges.All;
-        try {
+        base.OnAppearing();
+        BackgroundColor = JournalUi.Paper;
+        SafeAreaEdges = SafeAreaEdges.All;
+        try
+        {
             var memories = await store.LoadAsync(scope, [], false, default);
             var current = memories.FirstOrDefault(x => x.Key == memory.Key);
-            if (current is null && memory.IsFree && !memory.IsDraft) { await Navigation.PopModalAsync(); return; }
+            if (current is null && memory.IsFree && !memory.IsDraft)
+            {
+                await Navigation.PopModalAsync();
+                return;
+            }
             memory = current ?? memory;
-            var body = new VerticalStackLayout { Padding = 24, Spacing = 20 };
-            var header = new Grid { ColumnDefinitions = [new(GridLength.Star), new(GridLength.Auto)] };
-            header.Add(JournalUi.Text(memory.Date.ToString("d MMMM yyyy"), 13));
-            header.Add(JournalUi.Icon("action_close.svg", JournalText.Get("JournalClose"), () => Navigation.PopModalAsync()), 1);
-            body.Add(header); body.Add(JournalUi.Text(JournalText.Title(memory), 32, true));
-            if (!string.IsNullOrWhiteSpace(memory.City)) body.Add(JournalUi.Text(memory.City, 15));
-            if (memory.Images.Length > 0) {
+            if (!store.IsCurrent(scope)) return;
+
+            var header = new Grid { Padding = new Thickness(22, 8, 18, 8),
+                ColumnDefinitions = [new(GridLength.Star), new(GridLength.Auto)] };
+            var heading = new VerticalStackLayout { Spacing = 2 };
+            var eyebrow = JournalUi.Text(JournalText.Get("JournalMemoryLabel"), 12);
+            eyebrow.TextColor = Color.FromArgb("#765831");
+            heading.Add(eyebrow);
+            heading.Add(JournalUi.Text(memory.Date.ToString("d MMMM yyyy"), 14));
+            header.Add(heading);
+            header.Add(JournalUi.Icon("action_close.svg", JournalText.Get("JournalClose"),
+                () => Navigation.PopModalAsync()), 1);
+
+            var body = new VerticalStackLayout { Padding = new Thickness(22, 10, 22, 28), Spacing = 18 };
+            var title = JournalUi.Text(JournalText.DisplayTitle(memory), 31, true);
+            SemanticProperties.SetHeadingLevel(title, SemanticHeadingLevel.Level1);
+            body.Add(title);
+            if (!string.IsNullOrWhiteSpace(memory.Title) && !string.IsNullOrWhiteSpace(memory.City)
+                && !string.Equals(memory.Title.Trim(), memory.City.Trim(), StringComparison.CurrentCultureIgnoreCase))
+            {
+                var place = JournalUi.Text(memory.City, 15);
+                place.TextColor = Color.FromArgb("#765831");
+                body.Add(new Border { BackgroundColor = Color.FromArgb("#F0E8DE"),
+                    StrokeThickness = 0, StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = new CornerRadius(12) },
+                    Padding = new Thickness(12, 7), HorizontalOptions = LayoutOptions.Start, Content = place });
+            }
+
+            if (memory.Images.Length > 0)
+            {
                 var index = Math.Max(0, Array.FindIndex(memory.Images, x => x.Id == memory.CoverId));
                 var bytes = await store.PhotoAsync(scope, memory.Images[index].Id, true);
+                if (!store.IsCurrent(scope)) return;
                 var cover = JournalUi.Icon("journal_photo.svg", JournalText.Get("JournalOpenPhotos"),
                     () => Navigation.PushModalAsync(new JournalPhotoPage(scope, memory, index)));
-                cover.WidthRequest = -1; cover.HeightRequest = 280; cover.Padding = 0; cover.Aspect = Aspect.AspectFill;
+                cover.WidthRequest = -1; cover.HeightRequest = 240; cover.Padding = 0; cover.Aspect = Aspect.AspectFill;
                 if (bytes is not null) cover.Source = ImageSource.FromStream(() => new MemoryStream(bytes));
-                body.Add(cover); body.Add(JournalUi.Text(JournalText.Format("JournalPhotoCount", memory.Images.Length), 12));
+                body.Add(new Border { Stroke = Color.FromArgb("#E5DDD3"),
+                    StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = new CornerRadius(12) },
+                    Padding = 0, Content = cover });
+                body.Add(JournalUi.Text(JournalText.Format("JournalPhotoCount", memory.Images.Length), 12));
             }
-            if (!string.IsNullOrWhiteSpace(memory.Text)) body.Add(JournalUi.Text(memory.Text, 18));
-            if (memory.Status.Length > 0) body.Add(JournalUi.Text(memory.Status, 13));
-            body.Add(JournalUi.Action("JournalEdit", () => Navigation.PushModalAsync(new JournalMemoryPage(scope, memory, item))));
-            body.Add(JournalUi.Action("JournalAddPhotos", () => Navigation.PushModalAsync(new JournalMemoryPage(scope, memory, item, true))));
-            if (item is not null) body.Add(JournalUi.Action("JournalActivity", async () => {
-                if (!store.IsCurrent(scope)) return;
-                await Navigation.PopModalAsync();
-                await Shell.Current.GoToAsync(nameof(ScheduleItemDetailPage), new Dictionary<string, object> { ["ScheduleItem"] = item });
-            }));
-            if (memory.IsFree) body.Add(JournalUi.Action("JournalDelete", async () => {
-                if (!await DisplayAlertAsync(JournalText.Get("JournalDelete"), JournalText.Get("JournalDeleteQuestion"), JournalText.Get("JournalRemove"), JournalText.Get("JournalCancel"))) return;
-                await store.DeleteFreeLocalAsync(scope, memory);
-                await store.DiscardDraftAsync(scope, memory);
-                await store.LoadAsync(scope, [], Connectivity.Current.NetworkAccess == NetworkAccess.Internet, default);
-                await Navigation.PopModalAsync();
-            }));
-            body.Add(JournalUi.Text(JournalText.Get("JournalStorageNotice"), 12));
-            if (store.IsCurrent(scope)) Content = new ScrollView { Content = body };
-        } catch (OperationCanceledException) { }
+
+            if (!string.IsNullOrWhiteSpace(memory.Text))
+            {
+                var prose = JournalUi.Text(memory.Text, 18);
+                prose.TextColor = JournalUi.Ink;
+                prose.LineHeight = 1.45;
+                var paper = new Grid { ColumnDefinitions = [new(new GridLength(3)), new(GridLength.Star)],
+                    ColumnSpacing = 17 };
+                paper.Add(new BoxView { Color = Color.FromArgb("#D6C5AE"), WidthRequest = 3 });
+                paper.Add(prose, 1);
+                body.Add(new Border { BackgroundColor = Color.FromArgb("#FFFCF8"),
+                    Stroke = Color.FromArgb("#E5DDD3"),
+                    StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = new CornerRadius(12) },
+                    Padding = 20, Content = paper });
+            }
+            if (memory.Status.Length > 0)
+            {
+                var status = JournalUi.Text(memory.Status, 13);
+                status.TextColor = Color.FromArgb("#765831");
+                body.Add(status);
+            }
+            var notice = JournalUi.Text(JournalText.Get("JournalStorageNotice"), 12);
+            notice.LineHeight = 1.3;
+            body.Add(notice);
+
+            var edit = JournalUi.Action("JournalEdit",
+                () => Navigation.PushModalAsync(new JournalMemoryPage(scope, memory, item)), true);
+            edit.CornerRadius = 12;
+            edit.FontAttributes = FontAttributes.Bold;
+            var more = JournalUi.Action("JournalMore", MenuAsync);
+            more.Text = "···";
+            more.FontSize = 24;
+            more.BackgroundColor = Color.FromArgb("#F0E8DE");
+            more.TextColor = Color.FromArgb("#765831");
+            more.CornerRadius = 12;
+            more.MinimumWidthRequest = 56;
+            SemanticProperties.SetDescription(more, JournalText.Get("JournalMore"));
+            var actions = new Grid { Padding = new Thickness(22, 10, 22, 16),
+                ColumnDefinitions = [new(GridLength.Star), new(GridLength.Auto)],
+                ColumnSpacing = 10 };
+            actions.Add(edit); actions.Add(more, 1);
+
+            var layout = new Grid { RowDefinitions = [new(GridLength.Auto),
+                new(GridLength.Star), new(GridLength.Auto)] };
+            layout.Add(header);
+            layout.Add(new ScrollView { Content = body }, 0, 1);
+            layout.Add(actions, 0, 2);
+            Content = layout;
+        }
+        catch (OperationCanceledException) { }
         catch (Exception) { Content = JournalUi.Text(JournalText.Get("JournalFailure")); }
+    }
+
+    private async Task MenuAsync()
+    {
+        if (!store.IsCurrent(scope)) return;
+        var photos = JournalText.Get("JournalAddPhotos");
+        var activity = JournalText.Get("JournalActivity");
+        var delete = JournalText.Get("JournalDelete");
+        var options = new List<string> { photos };
+        if (item is not null) options.Add(activity);
+        if (memory.IsFree) options.Add(delete);
+        var choice = await DisplayActionSheetAsync(JournalText.Get("JournalMore"),
+            JournalText.Get("JournalCancel"), null, options.ToArray());
+        if (!store.IsCurrent(scope)) return;
+        if (choice == photos)
+            await Navigation.PushModalAsync(new JournalMemoryPage(scope, memory, item, true));
+        else if (choice == activity && item is not null)
+        {
+            await Navigation.PopModalAsync();
+            await Shell.Current.GoToAsync(nameof(ScheduleItemDetailPage),
+                new Dictionary<string, object> { ["ScheduleItem"] = item });
+        }
+        else if (choice == delete && memory.IsFree)
+        {
+            if (!await DisplayAlertAsync(delete, JournalText.Get("JournalDeleteQuestion"),
+                JournalText.Get("JournalRemove"), JournalText.Get("JournalCancel"))) return;
+            await store.DeleteFreeLocalAsync(scope, memory);
+            await store.DiscardDraftAsync(scope, memory);
+            await Navigation.PopModalAsync();
+        }
     }
 }

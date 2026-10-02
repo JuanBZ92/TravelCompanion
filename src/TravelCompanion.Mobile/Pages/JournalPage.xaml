@@ -3,33 +3,25 @@
  xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml" xmlns:vm="clr-namespace:TravelCompanion.Mobile.ViewModels"
  x:Class="TravelCompanion.Mobile.Pages.JournalPage" x:DataType="vm:JournalViewModel" x:Name="JournalRoot"
  Title="{Binding Heading}" Shell.NavBarIsVisible="False" SafeAreaEdges="All" BackgroundColor="#F8F3ED">
- <Grid Padding="22,12,22,0" RowDefinitions="Auto,Auto,*" RowSpacing="8">
-  <VerticalStackLayout Spacing="5">
-   <Grid ColumnDefinitions="*,Auto">
-    <Label Text="{Binding Heading}" FontFamily="serif" FontSize="32" TextColor="#302920" SemanticProperties.HeadingLevel="Level1"/>
-    <Button Grid.Column="1" Text="···" Command="{Binding MenuCommand}" SemanticProperties.Description="{Binding MenuAction}" MinimumHeightRequest="48" MinimumWidthRequest="48" BackgroundColor="Transparent" TextColor="#302920" FontSize="24"/>
+ <Grid Padding="20,8,20,0" RowDefinitions="Auto,Auto,*" RowSpacing="8">
+  <VerticalStackLayout Spacing="4">
+   <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+    <Label Text="{Binding Heading}" FontFamily="serif" FontSize="31" TextColor="#302920" SemanticProperties.HeadingLevel="Level1" VerticalOptions="Center"/>
+    <Button Grid.Column="1" Text="···" Command="{Binding MenuCommand}" SemanticProperties.Description="{Binding MenuAction}" MinimumHeightRequest="48" MinimumWidthRequest="48" BackgroundColor="#F0E8DE" TextColor="#765831" CornerRadius="24" FontSize="24"/>
    </Grid>
-   <Label Text="{Binding TripTitle}" FontSize="16" TextColor="#71675D"/>
-   <Label Text="{Binding Summary}" FontSize="13" TextColor="#71675D"/>
-   <Button Text="{Binding WriteAction}" Command="{Binding AddMemoryCommand}" IsVisible="{Binding HasTrip}" Margin="0,10,0,0" MinimumHeightRequest="52" BackgroundColor="#302920" TextColor="#FFFCF8" CornerRadius="8"/>
-   <Button Text="{Binding DraftAction}" Command="{Binding ContinueDraftCommand}" IsVisible="{Binding HasDrafts}" MinimumHeightRequest="48" BackgroundColor="Transparent" TextColor="#765831"/>
+   <HorizontalStackLayout Spacing="8">
+    <Label Text="{Binding TripTitle}" FontSize="15" TextColor="#765831" FontAttributes="Bold"/>
+    <Label Text="·" FontSize="15" TextColor="#A89B8A"/>
+    <Label Text="{Binding Summary}" FontSize="14" TextColor="#71675D" LineBreakMode="TailTruncation"/>
+   </HorizontalStackLayout>
+   <Button Text="{Binding WriteAction}" Command="{Binding AddMemoryCommand}" IsVisible="{Binding HasTrip}" Margin="0,12,0,4" MinimumHeightRequest="52" BackgroundColor="#302920" TextColor="#FFFCF8" CornerRadius="12" FontAttributes="Bold"/>
+   <Button Text="{Binding DraftAction}" Command="{Binding ContinueDraftCommand}" IsVisible="{Binding HasDrafts}" MinimumHeightRequest="48" BackgroundColor="#F0E8DE" TextColor="#765831" CornerRadius="12"/>
   </VerticalStackLayout>
-  <Label Grid.Row="1" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" TextColor="#71675D"/>
+  <Label Grid.Row="1" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" TextColor="#765831"/>
   <RefreshView Grid.Row="2" Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsRefreshing}">
-   <CollectionView ItemsSource="{Binding Groups}" IsGrouped="True" SelectionMode="None">
-    <CollectionView.GroupHeaderTemplate>
-     <DataTemplate x:DataType="vm:JournalDayGroup">
-      <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" Padding="0,24,0,12">
-       <Label Text="{Binding Day}" FontFamily="serif" FontSize="38" TextColor="#765831" VerticalOptions="Center"/>
-       <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="3">
-        <Label Text="{Binding Month}" FontSize="14" TextColor="#302920" SemanticProperties.HeadingLevel="Level2"/>
-        <Label Text="{Binding Cities}" FontSize="12" TextColor="#71675D"/>
-       </VerticalStackLayout>
-      </Grid>
-     </DataTemplate>
-    </CollectionView.GroupHeaderTemplate>
+   <CollectionView ItemsSource="{Binding Entries}" SelectionMode="None">
     <CollectionView.EmptyView>
-     <Border Margin="0,24" Padding="26,32" BackgroundColor="#FFFCF8" Stroke="#E5DDD3" StrokeShape="RoundRectangle 4">
+     <Border Margin="0,24" Padding="26,32" BackgroundColor="#FFFCF8" Stroke="#E5DDD3" StrokeShape="RoundRectangle 14">
       <VerticalStackLayout Spacing="20">
        <Image Source="tab_journal.svg" WidthRequest="40" HeightRequest="40" HorizontalOptions="Start" AutomationProperties.IsInAccessibleTree="False"/>
        <Label Text="{Binding EmptyTitle}" FontFamily="serif" FontSize="28" TextColor="#302920" SemanticProperties.HeadingLevel="Level2"/>
@@ -41,24 +33,25 @@
     </CollectionView.EmptyView>
     <CollectionView.ItemTemplate>
      <DataTemplate x:DataType="vm:JournalRow">
-      <Border Margin="0,0,0,16" Padding="18" BackgroundColor="#FFFCF8" Stroke="#E5DDD3" StrokeShape="RoundRectangle 4">
+      <Border Margin="0,0,0,10" Padding="14" BackgroundColor="#FFFCF8" Stroke="#E5DDD3" StrokeShape="RoundRectangle 12">
        <Border.GestureRecognizers><TapGestureRecognizer Command="{Binding BindingContext.OpenEntryCommand, Source={x:Reference JournalRoot}}" CommandParameter="{Binding .}"/></Border.GestureRecognizers>
-       <VerticalStackLayout Spacing="12">
-        <Label Text="{Binding Place}" IsVisible="{Binding HasPlace}" FontSize="12" TextColor="#765831"/>
-        <Label Text="{Binding Title}" FontFamily="serif" FontSize="26" TextColor="#302920" SemanticProperties.HeadingLevel="Level2"/>
-        <Image Source="{Binding Cover.Source}" IsVisible="{Binding HasPhotos}" Aspect="AspectFill" HeightRequest="210" AutomationProperties.IsInAccessibleTree="False"/>
-        <Label Text="{Binding Notes}" IsVisible="{Binding HasNotes}" FontSize="16" TextColor="#51483E" LineHeight="1.35" MaxLines="5" LineBreakMode="TailTruncation"/>
-        <HorizontalStackLayout Spacing="8" BindableLayout.ItemsSource="{Binding ExtraPhotos}">
-         <BindableLayout.ItemTemplate>
-          <DataTemplate x:DataType="vm:JournalThumbnail">
-           <ImageButton Source="{Binding Source}" WidthRequest="72" HeightRequest="72" Aspect="AspectFill" Padding="0" SemanticProperties.Description="{Binding Description}" Command="{Binding BindingContext.OpenPhotoCommand, Source={x:Reference JournalRoot}}" CommandParameter="{Binding .}"/>
-          </DataTemplate>
-         </BindableLayout.ItemTemplate>
-        </HorizontalStackLayout>
-        <Label Text="{Binding PhotoCount}" IsVisible="{Binding HasPhotos}" FontSize="12" TextColor="#71675D"/>
-        <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}" FontSize="12" TextColor="#765831"/>
-        <Button Text="{Binding ReadAction}" SemanticProperties.Description="{Binding OpenDescription}" MinimumHeightRequest="48" BackgroundColor="Transparent" TextColor="#765831" Command="{Binding BindingContext.OpenEntryCommand, Source={x:Reference JournalRoot}}" CommandParameter="{Binding .}"/>
-       </VerticalStackLayout>
+       <Grid ColumnDefinitions="48,*,Auto" ColumnSpacing="12" MinimumHeightRequest="92">
+        <VerticalStackLayout Spacing="0" VerticalOptions="Start">
+         <Label Text="{Binding Day}" FontFamily="serif" FontSize="27" TextColor="#765831" HorizontalTextAlignment="Center"/>
+         <Label Text="{Binding Month}" FontSize="11" TextColor="#71675D" HorizontalTextAlignment="Center"/>
+         <Label Text="{Binding Year}" FontSize="10" TextColor="#978A79" HorizontalTextAlignment="Center"/>
+        </VerticalStackLayout>
+        <BoxView Grid.Column="0" WidthRequest="1" HorizontalOptions="End" Color="#E5DDD3"/>
+        <VerticalStackLayout Grid.Column="1" Spacing="4" VerticalOptions="Center">
+         <Label Text="{Binding Title}" FontFamily="serif" FontSize="20" TextColor="#302920" MaxLines="2" LineBreakMode="TailTruncation" SemanticProperties.HeadingLevel="Level2"/>
+         <Label Text="{Binding Place}" IsVisible="{Binding HasPlace}" FontSize="12" TextColor="#765831" MaxLines="1" LineBreakMode="TailTruncation"/>
+         <Label Text="{Binding Notes}" IsVisible="{Binding HasNotes}" FontSize="13" TextColor="#71675D" MaxLines="2" LineBreakMode="TailTruncation"/>
+         <Label Text="{Binding PhotoCount}" IsVisible="{Binding HasPhotos}" FontSize="11" TextColor="#765831"/>
+         <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}" FontSize="11" TextColor="#9A693F"/>
+        </VerticalStackLayout>
+        <Image Grid.Column="2" Source="{Binding Cover.Source}" IsVisible="{Binding HasPhotos}" Aspect="AspectFill" WidthRequest="78" HeightRequest="78" VerticalOptions="Center" AutomationProperties.IsInAccessibleTree="False"/>
+        <Button Grid.Column="2" Text="›" IsVisible="{Binding HasNoPhotos}" SemanticProperties.Description="{Binding OpenDescription}" Command="{Binding BindingContext.OpenEntryCommand, Source={x:Reference JournalRoot}}" CommandParameter="{Binding .}" MinimumWidthRequest="48" MinimumHeightRequest="48" BackgroundColor="Transparent" TextColor="#765831" FontSize="30"/>
+       </Grid>
       </Border>
      </DataTemplate>
     </CollectionView.ItemTemplate>

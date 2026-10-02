@@ -560,6 +560,8 @@ A tu manera.</value></data>
   <data name="EditorialSource" xml:space="preserve"><value>Consultar fuente (requiere conexión)</value></data>
   <data name="PreparationResources" xml:space="preserve"><value>Recursos descargados: {0} de {1}. Los enlaces externos necesitan internet.</value></data>
   <data name="JournalHeading" xml:space="preserve"><value>Mi diario</value></data>
+  <data name="JournalMemoryLabel" xml:space="preserve"><value>RECUERDO</value></data>
+  <data name="JournalMore" xml:space="preserve"><value>Más opciones del recuerdo</value></data>
   <data name="JournalWrite" xml:space="preserve"><value>Escribir un recuerdo</value></data>
   <data name="JournalOptions" xml:space="preserve"><value>Opciones del diario</value></data>
   <data name="JournalContinueDraft" xml:space="preserve"><value>Continuar borrador ({0})</value></data>

@@ -16,31 +16,28 @@ public sealed partial class JournalThumbnail(JournalMemory memory, int index) : 
 }
 public sealed record JournalRow(JournalMemory Memory, IReadOnlyList<JournalThumbnail> Photos, bool HasActivity)
 {
-    public string Title => JournalText.Title(Memory);
+    public string Title => JournalText.DisplayTitle(Memory);
+    public string Day => Memory.Date.ToString("dd");
+    public string Month => Memory.Date.ToString("MMM").ToUpper(System.Globalization.CultureInfo.CurrentUICulture);
+    public string Year => Memory.Date.ToString("yyyy");
     public string Notes => Memory.Text;
     public bool HasNotes => !string.IsNullOrWhiteSpace(Notes);
     public string Place => Memory.City;
-    public bool HasPlace => !string.IsNullOrWhiteSpace(Place);
+    public bool HasPlace => !string.IsNullOrWhiteSpace(Memory.Title)
+        && !string.IsNullOrWhiteSpace(Place)
+        && !string.Equals(Memory.Title.Trim(), Place.Trim(), StringComparison.CurrentCultureIgnoreCase);
     public string Status => Memory.Status;
     public bool HasStatus => Status.Length > 0;
     public bool HasPhotos => Photos.Count > 0;
+    public bool HasNoPhotos => !HasPhotos;
     public JournalThumbnail? Cover => Photos.FirstOrDefault();
-    public IReadOnlyList<JournalThumbnail> ExtraPhotos => Photos.Skip(1).ToArray();
     public string PhotoCount => JournalText.Photos(Memory.Images.Length);
-    public string ReadAction => JournalText.Get("JournalReadAction");
     public string OpenDescription => JournalText.Format("JournalRead", Title);
-}
-public sealed class JournalDayGroup(DateOnly date, IEnumerable<JournalRow> rows) : ObservableCollection<JournalRow>(rows)
-{
-    public string Day => date.ToString("dd");
-    public string Month => date.ToString("MMMM yyyy");
-    public string Cities => string.Join(" · ", this.Select(x => x.Place).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct());
 }
 public sealed partial class JournalViewModel(MobileBootstrapStore bootstrapStore, AuthSessionService sessions,
     JournalStore store) : ViewModelBase, ISessionStateResettable
 {
     public ObservableCollection<JournalRow> Entries { get; } = [];
-    public ObservableCollection<JournalDayGroup> Groups { get; } = [];
     public string TripTitle { get; private set; } = "";
     public string Heading => JournalText.Get("JournalHeading");
     public string WriteAction => JournalText.Get("JournalWrite");
@@ -129,8 +126,6 @@ public sealed partial class JournalViewModel(MobileBootstrapStore bootstrapStore
         if (!store.IsCurrent(scope)) return;
         Memories = memories; Drafts = drafts;
         Entries.Clear(); foreach (var row in rows) Entries.Add(row);
-        Groups.Clear();
-        foreach (var group in rows.GroupBy(x => x.Memory.Date).OrderBy(x => x.Key)) Groups.Add(new(group.Key, group));
         NotifyContentChanged();
         _ = LoadThumbnailsAsync(scope, thumbnails, ct);
     }
@@ -201,6 +196,6 @@ public sealed partial class JournalViewModel(MobileBootstrapStore bootstrapStore
         if (choice == activity) await Shell.Current.Navigation.PushModalAsync(new JournalActivityPickerPage(Activities, Memories));
         if (choice == export) await Shell.Current.Navigation.PushModalAsync(new JournalExportPage(scope, TripTitle, Memories.Where(x => !x.IsDraft && !x.Deleted && x.HasContent).ToArray()));
     }
-    private void Clear() { Entries.Clear(); Groups.Clear(); Activities = []; Memories = []; Drafts = []; TripTitle = ""; NotifyContentChanged(); }
+    private void Clear() { Entries.Clear(); Activities = []; Memories = []; Drafts = []; TripTitle = ""; NotifyContentChanged(); }
     public void ResetForNewSession() { ResetLoadState(); Clear(); }
 }

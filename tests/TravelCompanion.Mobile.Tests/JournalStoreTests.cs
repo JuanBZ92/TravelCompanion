@@ -8,6 +8,18 @@ namespace TravelCompanion.Mobile.Tests;
 public sealed class JournalStoreTests
 {
     [Fact]
+    public void DisplayTitleUsesTitleThenPlaceWithoutInventingActivityIdentity()
+    {
+        var free = JournalMemory.NewFree(Guid.NewGuid(), new(2026, 10, 2));
+        var withPlace = free with { FreeEntry = free.FreeEntry! with { Place = "Rikugien Gardens" } };
+        Assert.Equal("Rikugien Gardens", JournalText.DisplayTitle(withPlace));
+        var withTitle = withPlace with { FreeEntry = withPlace.FreeEntry! with { Title = "Tarde entre jardines" } };
+        Assert.Equal("Tarde entre jardines", JournalText.DisplayTitle(withTitle));
+        Assert.True(withTitle.IsFree);
+        Assert.Equal(Guid.Empty, withTitle.Note.ActivityId);
+    }
+
+    [Fact]
     public async Task OpeningLocalJournalDoesNotRewriteUnchangedEncryptedIndex()
     {
         var sessions = new AuthSessionService(); var disk = new OfflineCacheService();

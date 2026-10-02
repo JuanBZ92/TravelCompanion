@@ -560,6 +560,8 @@ Your way.</value></data>
   <data name="EditorialSource" xml:space="preserve"><value>Consult source (internet required)</value></data>
   <data name="PreparationResources" xml:space="preserve"><value>Downloaded resources: {0} of {1}. External links need internet.</value></data>
   <data name="JournalHeading" xml:space="preserve"><value>My journal</value></data>
+  <data name="JournalMemoryLabel" xml:space="preserve"><value>MEMORY</value></data>
+  <data name="JournalMore" xml:space="preserve"><value>More memory options</value></data>
   <data name="JournalWrite" xml:space="preserve"><value>Write a memory</value></data>
   <data name="JournalOptions" xml:space="preserve"><value>Journal options</value></data>
   <data name="JournalContinueDraft" xml:space="preserve"><value>Continue draft ({0})</value></data>
