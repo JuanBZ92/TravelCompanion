@@ -35,17 +35,21 @@ internal static class JournalUi
 
 public sealed class JournalActivityPickerPage : JournalScopedPage
 {
-    public JournalActivityPickerPage(IReadOnlyList<ScheduleItemDto> activities, IReadOnlyList<JournalMemory> memories)
+    public JournalActivityPickerPage(IReadOnlyList<ScheduleItemDto> activities, IReadOnlyList<JournalMemory> memories,
+        DateOnly? selectedDate = null)
     {
-        BackgroundColor = JournalUi.Paper;
+        BackgroundColor = JournalUi.Paper; SafeAreaEdges = SafeAreaEdges.All;
         var store = MauiProgram.Services.GetRequiredService<JournalStore>(); var scope = store.Scope();
-        var search = new SearchBar { Placeholder = JournalText.Get("JournalSearchActivity") };
-        var list = new CollectionView { SelectionMode = SelectionMode.Single, ItemsSource = activities.OrderBy(x => x.Date).ThenBy(x => x.StartsAt).ToArray() };
+        var search = new SearchBar { Placeholder = JournalText.Get("JournalSearchActivity"), MinimumHeightRequest = 48 };
+        SemanticProperties.SetDescription(search, JournalText.Get("JournalSearchActivity"));
+        var list = new CollectionView { SelectionMode = SelectionMode.Single,
+            ItemsSource = ScheduleActivityLookup.SearchJournalActivities(activities, selectedDate),
+            EmptyView = JournalUi.Text(JournalText.Get("JournalNoMatchingActivities")) };
         list.ItemTemplate = new DataTemplate(() => {
             var title = JournalUi.Text("", 19, true); title.SetBinding(Label.TextProperty, "Title");
             var date = JournalUi.Text("", 12); date.SetBinding(Label.TextProperty, new Binding("Date", stringFormat: "{0:d MMMM}"));
             return new VerticalStackLayout { Padding = new Thickness(0, 12), Spacing = 6, MinimumHeightRequest = 48, Children = { date, title } }; });
-        search.TextChanged += (_, e) => list.ItemsSource = activities.Where(x => $"{x.Title} {x.City}".Contains(e.NewTextValue ?? "", StringComparison.CurrentCultureIgnoreCase)).OrderBy(x => x.Date).ToArray();
+        search.TextChanged += (_, e) => list.ItemsSource = ScheduleActivityLookup.SearchJournalActivities(activities, selectedDate, e.NewTextValue);
         var opening = false;
         list.SelectionChanged += async (_, e) => {
             if (opening || e.CurrentSelection.FirstOrDefault() is not ScheduleItemDto item) return;
@@ -58,7 +62,9 @@ public sealed class JournalActivityPickerPage : JournalScopedPage
             } finally { opening = false; }
         };
         var header = new Grid { ColumnDefinitions = [new(GridLength.Star), new(GridLength.Auto)] };
-        header.Add(JournalUi.Text(JournalText.Get("JournalChooseActivity"), 26, true));
+        header.Add(JournalUi.Text(selectedDate is { } day
+            ? JournalText.Format("JournalActivitiesOnDate", day.ToString("d MMMM yyyy"))
+            : JournalText.Get("JournalChooseActivity"), 26, true));
         header.Add(JournalUi.Icon("action_close.svg", JournalText.Get("JournalClose"), () => Navigation.PopModalAsync()), 1);
         var grid = new Grid { Padding = 24, RowSpacing = 16, RowDefinitions = [new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Star)] };
         grid.Add(header); grid.Add(search, 0, 1); grid.Add(list, 0, 2); Content = grid;
@@ -101,6 +107,11 @@ public sealed class JournalMemoryPage : JournalScopedPage
         header.Add(JournalUi.Text(JournalText.Get("JournalWrite"), 22, true));
         header.Add(JournalUi.Icon("action_close.svg", JournalText.Get("JournalClose"), CloseAsync), 1);
         var body = new VerticalStackLayout { Padding = 22, Spacing = 16, Children = { date, title, place } };
+        if (memory.IsFree)
+        {
+            body.Add(JournalUi.Action("JournalFindDayActivity", FindDayActivityAsync));
+            body.Add(JournalUi.Text(JournalText.Get("JournalActivityDraftNotice"), 12));
+        }
         if (!memory.IsFree) body.Add(JournalUi.Text(JournalText.Title(memory), 28, true));
         body.Add(new Border { BackgroundColor = Color.FromArgb("#FFFCF8"), Stroke = Color.FromArgb("#E5DDD3"), Padding = 16, Content = editor });
         body.Add(counter); body.Add(photos);
@@ -114,6 +125,25 @@ public sealed class JournalMemoryPage : JournalScopedPage
         date.DateSelected += (_, _) => Changed(); UpdateCounter();
     }
     private void UpdateCounter() => counter.Text = JournalText.Format("JournalCharacterCount", editor.Text?.Length ?? 0);
+    private async Task FindDayActivityAsync()
+    {
+        if (busy || !store.IsCurrent(scope)) return;
+        busy = true; date.IsEnabled = false;
+        try
+        {
+            debounce?.Cancel(); await autosave; await PersistAsync();
+            var selectedDate = DateOnly.FromDateTime(date.Date ?? DateTime.Today);
+            var bootstrap = MauiProgram.Services.GetRequiredService<MobileBootstrapStore>();
+            var cached = await bootstrap.GetCachedAsync();
+            if (!store.IsCurrent(scope)) return;
+            var activities = cached?.Value.Schedule is { } schedule && schedule.TripId == scope.TripId
+                ? schedule.Items : [];
+            var memories = await store.LoadAsync(scope, activities, false, default);
+            if (!store.IsCurrent(scope)) return;
+            await Navigation.PushModalAsync(new JournalActivityPickerPage(activities, memories, selectedDate));
+        }
+        finally { busy = false; date.IsEnabled = memory.IsFree; }
+    }
     private void Changed()
     {
         UpdateCounter(); if (suppress) return; dirty = true;

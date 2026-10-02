@@ -4,6 +4,8 @@
 
 Journal permite escribir recuerdos libres con un viaje activo, sin actividades y sin pase. El botón principal abre el editor con la fecha de hoy; se pueden elegir fechas anteriores o posteriores al itinerario. Título y lugar son opcionales. El texto admite 2.000 caracteres y cada recuerdo hasta diez fotos. Una entrada necesita texto o al menos una foto para confirmarse.
 
+Desde el editor libre, «Buscar una actividad de este día (opcional)» permite buscar por título o ciudad dentro de la fecha seleccionada. Usa el itinerario guardado en el dispositivo y funciona sin conexión. Elegir una actividad abre su recuerdo existente o un editor nuevo vinculado a esa actividad; el borrador libre se conserva por separado. Cerrar el buscador vuelve al editor sin cambiar su contenido. Si no hay coincidencias, se puede continuar escribiendo libremente.
+
 El editor conserva un borrador cifrado después de 650 ms sin cambios y al cerrar. «Continuar borrador» recupera texto, fecha, lugar, fotos y portada. «Guardar recuerdo» confirma localmente y solicita sincronización. El menú del diario conserva «Elegir una actividad» y la creación del álbum PDF. Los borradores no forman parte del álbum.
 
 Las notas confirmadas se sincronizan; fotos y borradores permanecen únicamente en el dispositivo. El aviso se muestra en edición y lectura. No hay subida de fotos ni copia recuperable después de reinstalar. Cancelar el selector no añade fotos. La selección se procesa antes de modificar el borrador.

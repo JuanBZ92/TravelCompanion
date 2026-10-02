@@ -652,4 +652,8 @@ A tu manera.</value></data>
   <data name="JournalReadAction" xml:space="preserve"><value>Leer recuerdo</value></data>
   <data name="JournalCharacterCount" xml:space="preserve"><value>{0} / 2.000 caracteres</value></data>
   <data name="JournalSyncUnavailable" xml:space="preserve"><value>No se pudo sincronizar. Tus recuerdos siguen guardados en este dispositivo.</value></data>
+  <data name="JournalFindDayActivity" xml:space="preserve"><value>Buscar una actividad de este día (opcional)</value></data>
+  <data name="JournalActivitiesOnDate" xml:space="preserve"><value>Actividades del {0}</value></data>
+  <data name="JournalNoMatchingActivities" xml:space="preserve"><value>No hay actividades que coincidan. Puedes volver y escribir un recuerdo libre.</value></data>
+  <data name="JournalActivityDraftNotice" xml:space="preserve"><value>Elegir una actividad abre su recuerdo. Lo que hayas escrito aquí se conserva por separado como borrador.</value></data>
 </root>
