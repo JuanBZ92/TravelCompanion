@@ -73,6 +73,7 @@ public sealed class SlowDbCommandLoggingInterceptor(
 
     private void LogFailedDependency(DbCommand command, CommandErrorEventData eventData)
     {
+        DatabaseOperation.Command(eventData.Duration);
         logger.LogError(
             eventData.Exception,
             "Database dependency failed after {ElapsedMs}ms. CommandType={CommandType}. Sql={SqlSnippet}",
@@ -83,6 +84,7 @@ public sealed class SlowDbCommandLoggingInterceptor(
 
     private void LogSlowDependency(DbCommand command, CommandExecutedEventData eventData)
     {
+        DatabaseOperation.Command(eventData.Duration);
         var elapsedMs = eventData.Duration.TotalMilliseconds;
         if (elapsedMs < _slowDependencyThresholdMs)
         {

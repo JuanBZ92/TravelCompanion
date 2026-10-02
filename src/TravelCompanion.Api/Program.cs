@@ -215,7 +215,7 @@ builder.Services.AddDbContext<TravelCompanionDbContext>((serviceProvider, option
         ResolvePostgresConnectionString(builder.Configuration),
         npgsqlOptions => npgsqlOptions.EnableRetryOnFailure());
     var interceptor = serviceProvider.GetRequiredService<SlowDbCommandLoggingInterceptor>();
-    options.AddInterceptors(interceptor);
+    options.AddInterceptors(interceptor, new DatabaseConnectionInterceptor());
 });
 
 var app = builder.Build();

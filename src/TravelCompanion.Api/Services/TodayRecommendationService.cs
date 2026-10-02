@@ -43,6 +43,7 @@ public sealed class TodayRecommendationService(
         GeoPointDto? currentLocation,
         CancellationToken cancellationToken)
     {
+        using var operation = DatabaseOperation.Begin("today", logger);
         var trip = await LoadTripAsync(user.Id, sessionTripId, cancellationToken);
         if (trip?.Destination is null)
         {
@@ -67,7 +68,16 @@ public sealed class TodayRecommendationService(
             .AsNoTracking()
             .UnlockedFor(trip.DestinationId, entitlements)
             .Select(recommendation => new RecommendationWithPackageIds(
-                recommendation,
+                new Recommendation
+                {
+                    Id = recommendation.Id, DestinationId = recommendation.DestinationId,
+                    Title = recommendation.Title, Category = recommendation.Category,
+                    Neighborhood = recommendation.Neighborhood, Description = recommendation.Description,
+                    Tags = recommendation.Tags, PriceLevel = recommendation.PriceLevel,
+                    Latitude = recommendation.Latitude, Longitude = recommendation.Longitude,
+                    SuggestedDurationMinutes = recommendation.SuggestedDurationMinutes,
+                    Rating = recommendation.Rating, AccessLevel = recommendation.AccessLevel
+                },
                 recommendation.Packages.Select(package => package.Id).ToList()))
             .ToListAsync(cancellationToken);
         if (freeTrialAccessService is not null
@@ -81,11 +91,14 @@ public sealed class TodayRecommendationService(
                 .ToHashSet();
             unlockedRows = unlockedRows.Where(row => allowed.Contains(row.Recommendation.Id)).ToList();
         }
-        var assignedCatalogRows = tripRecommendationIds.Count == 0
+        var loadedIds = unlockedRows.Select(row => row.Recommendation.Id).ToHashSet();
+        var missingAssignedIds = tripRecommendationIds.Where(id => !loadedIds.Contains(id)).ToArray();
+        operation.Rows = unlockedRows.Count;
+        var assignedCatalogRows = missingAssignedIds.Length == 0
             ? []
             : await dbContext.Recommendations
                 .AsNoTracking()
-                .Where(recommendation => tripRecommendationIds.Contains(recommendation.Id))
+                .Where(recommendation => missingAssignedIds.Contains(recommendation.Id))
                 .Select(recommendation => new RecommendationWithPackageIds(
                     recommendation,
                     recommendation.Packages.Select(package => package.Id).ToList()))
@@ -263,6 +276,26 @@ public sealed class TodayRecommendationService(
                     recommendationsForSection));
             }
         }
+
+        var displayedIds = sections.SelectMany(section => section.Recommendations)
+            .Select(item => item.Recommendation.Id).Distinct().ToArray();
+        var details = assignedCatalogRows.ToDictionary(row => row.Recommendation.Id, row => row.Recommendation);
+        foreach (var reservation in trip.Reservations)
+            if (reservation.Recommendation is { } existing) details.TryAdd(existing.Id, existing);
+        var missingDetails = displayedIds.Where(id => !details.ContainsKey(id)).ToArray();
+        if (missingDetails.Length > 0)
+            foreach (var item in await dbContext.Recommendations.AsNoTracking()
+                .Where(item => missingDetails.Contains(item.Id)).ToListAsync(cancellationToken))
+                details.Add(item.Id, item);
+        sections = sections.Select(section => section with
+        {
+            Recommendations = section.Recommendations.Where(item => details.ContainsKey(item.Recommendation.Id))
+                .Select(item => item with
+                {
+                    Recommendation = ToRecommendationDto(details[item.Recommendation.Id],
+                        packageIdsByRecommendation.GetValueOrDefault(item.Recommendation.Id) ?? [], item.DistanceKm)
+                }).ToList()
+        }).ToList();
 
         if (assignmentsAdded > 0)
         {
@@ -561,6 +594,7 @@ public sealed class TodayRecommendationService(
     {
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var query = dbContext.Trips
+            .AsNoTracking()
             .AsSplitQuery()
             .Include(trip => trip.Destination)
             .Include(trip => trip.Reservations).ThenInclude(reservation => reservation.Recommendation)

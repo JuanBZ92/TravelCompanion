@@ -33,7 +33,8 @@ public sealed record TravelRecommendationPlanningResult(
 public sealed class TravelRecommendationPlanningService(
     TravelCompanionDbContext dbContext,
     IRecommendationRanker ranker,
-    FreeTrialAccessService? freeTrialAccessService = null) : ITravelRecommendationPlanningService
+    FreeTrialAccessService? freeTrialAccessService = null,
+    ILogger<TravelRecommendationPlanningService>? logger = null) : ITravelRecommendationPlanningService
 {
     public async Task<TravelRecommendationPlanningResult> RankAsync(
         AppUser user,
@@ -47,11 +48,13 @@ public sealed class TravelRecommendationPlanningService(
         ISet<string> excludedRecommendationIds,
         CancellationToken cancellationToken)
     {
+        using var operation = DatabaseOperation.Begin("planning", logger);
         var unlockedRecommendations = await LoadUnlockedRecommendationsAsync(
             user,
             destinationIds,
             city,
             cancellationToken).ConfigureAwait(false);
+        operation.Rows = unlockedRecommendations.Count;
         if (unlockedRecommendations.Count == 0)
         {
             return new TravelRecommendationPlanningResult(0, 0, 0, 0, []);
@@ -180,38 +183,40 @@ public sealed class TravelRecommendationPlanningService(
         string city,
         CancellationToken cancellationToken)
     {
-        var recommendations = await dbContext.Recommendations
-            .AsNoTracking()
-            .Include(recommendation => recommendation.Packages)
-            .Where(recommendation => destinationIds.Contains(recommendation.DestinationId))
-            .OrderBy(recommendation => recommendation.Title)
-            .ToListAsync(cancellationToken);
-
         var entitlements = ToEntitlementsDto(user);
-        var unlocked = recommendations
-            .Where(recommendation => ContentAccessPolicy.IsRecommendationUnlocked(
-                entitlements,
-                recommendation.AccessLevel,
-                recommendation.DestinationId,
-                recommendation.Packages.Select(package => package.Id).ToList()))
-            .ToList();
-        var trialGrant = freeTrialAccessService is null
-            ? null
-            : await freeTrialAccessService.GetGrantAsync(user.Id, cancellationToken);
-        if (trialGrant is not null)
+        var subscriptions = entitlements.Entitlements?
+            .Where(item => item.AccessLevel == ContentAccessLevel.Subscription)
+            .Select(item => item.DestinationId).ToArray() ?? [];
+        var packages = entitlements.PackageIds?.ToArray() ?? [];
+        // Matches ContentAccessPolicy, including Paid rows without a package.
+        var query = dbContext.Recommendations.AsNoTracking()
+            .Where(item => destinationIds.Contains(item.DestinationId)
+                && item.AccessLevel != ContentAccessLevel.AdminOnly
+                && (item.Packages.Any()
+                    ? subscriptions.Contains(item.DestinationId) || item.Packages.Any(package => packages.Contains(package.Id))
+                    : item.AccessLevel == ContentAccessLevel.Free
+                        || (item.AccessLevel == ContentAccessLevel.Subscription && subscriptions.Contains(item.DestinationId))));
+        var candidates = await query.OrderBy(item => item.Title).ThenBy(item => item.Id).Select(item => new Recommendation
         {
-            unlocked = (await freeTrialAccessService!.FilterToFreeRadiusAsync(
-                unlocked,
-                trialGrant.DestinationId,
-                cancellationToken)).ToList();
-        }
-        var cityMatches = unlocked
-            .Where(recommendation =>
-                recommendation.Neighborhood.Contains(city, StringComparison.OrdinalIgnoreCase)
-                || recommendation.Description.Contains(city, StringComparison.OrdinalIgnoreCase))
-            .ToList();
-
-        return cityMatches.Count > 0 ? cityMatches : unlocked;
+            Id = item.Id, DestinationId = item.DestinationId, Title = item.Title,
+            Category = item.Category, Neighborhood = item.Neighborhood, Description = item.Description,
+            AccessLevel = item.AccessLevel, Latitude = item.Latitude, Longitude = item.Longitude
+        }).ToListAsync(cancellationToken);
+        var trialGrant = freeTrialAccessService is null
+            ? null : await freeTrialAccessService.GetGrantAsync(user.Id, cancellationToken);
+        if (trialGrant is not null)
+            candidates = (await freeTrialAccessService!.FilterToFreeRadiusAsync(
+                candidates, trialGrant.DestinationId, cancellationToken)).ToList();
+        var cityMatches = candidates.Where(item =>
+            item.Neighborhood.Contains(city, StringComparison.OrdinalIgnoreCase)
+            || item.Description.Contains(city, StringComparison.OrdinalIgnoreCase)).ToList();
+        var selected = cityMatches.Count > 0 ? cityMatches : candidates;
+        if (selected.Count == 0) return [];
+        var ids = selected.Select(item => item.Id).ToArray();
+        var details = await dbContext.Recommendations.AsNoTracking().Include(item => item.Packages)
+            .Where(item => ids.Contains(item.Id)).ToDictionaryAsync(item => item.Id, cancellationToken);
+        // Preserve candidate ordering, including ties, across the detail query.
+        return selected.Where(item => details.ContainsKey(item.Id)).Select(item => details[item.Id]).ToList();
     }
 
     private static UserEntitlementsDto ToEntitlementsDto(AppUser user)

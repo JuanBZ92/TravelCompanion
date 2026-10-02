@@ -109,6 +109,7 @@ public sealed class MobileController(
         [FromQuery] string? destinationSlug = null,
         CancellationToken cancellationToken = default)
     {
+        using var operation = DatabaseOperation.Begin("discover", logger);
         var totalStopwatch = Stopwatch.StartNew();
 
         var userStopwatch = Stopwatch.StartNew();
@@ -135,6 +136,7 @@ public sealed class MobileController(
         var isFreePreview = IsRestrictedCatalog(await sessionService.GetSessionAccessModeAsync(HttpContext, cancellationToken));
         var recommendations = await GetUnlockedRecommendationsAsync(destination.Id, entitlements, isFreePreview, cancellationToken);
         recommendationsStopwatch.Stop();
+        operation.Rows = recommendations.Count;
         totalStopwatch.Stop();
 
         Response.Headers["Server-Timing"] = FormatServerTiming(
@@ -220,6 +222,7 @@ public sealed class MobileController(
         [FromQuery] string? destinationSlug = null,
         CancellationToken cancellationToken = default)
     {
+        using var operation = DatabaseOperation.Begin("bootstrap", logger);
         var totalStopwatch = Stopwatch.StartNew();
 
         var userStopwatch = Stopwatch.StartNew();
@@ -252,6 +255,7 @@ public sealed class MobileController(
         var isFreePreview = IsRestrictedCatalog(await sessionService.GetSessionAccessModeAsync(HttpContext, cancellationToken));
         var unlockedRecommendations = await GetUnlockedRecommendationsAsync(destination.Id, entitlements, isFreePreview, cancellationToken);
         recommendationsStopwatch.Stop();
+        operation.Rows = unlockedRecommendations.Count;
 
         var packagesStopwatch = Stopwatch.StartNew();
         var packages = await dbContext.TravelPackages

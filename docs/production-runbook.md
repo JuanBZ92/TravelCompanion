@@ -1,5 +1,9 @@
 # Production Runbook
 
+## PostgreSQL query performance
+
+See [query performance](query-performance.md) for the local benchmark, additive partial-index migration, lock timeouts, operation telemetry and rollback procedure. The report records migration verification; confirm the deployed commit and smoke checks for each publication.
+
 ## Japan launch changes
 
 See [Japan launch](japan-launch.md) before enabling sales: additive preparation/key migration, certificate backup and rotation, HTTPS email, free pilot boundaries, release gates and Android/iOS acceptance checks. A database backup alone does not recover encrypted purchase evidence without the corresponding external certificate and historical key ring.

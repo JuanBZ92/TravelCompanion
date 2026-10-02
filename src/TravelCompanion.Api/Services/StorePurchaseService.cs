@@ -47,7 +47,8 @@ public sealed class StorePurchaseService(
     IDataProtectionProvider dataProtectionProvider,
     ProductAnalyticsService analytics,
     IOptions<StorePurchaseOptions> options,
-    AppleSignedDataVerifier? appleSignedDataVerifier = null)
+    AppleSignedDataVerifier? appleSignedDataVerifier = null,
+    ILogger<StorePurchaseService>? logger = null)
 {
     private readonly IDataProtector evidenceProtector = dataProtectionProvider.CreateProtector("TravelCompanion.StorePurchaseEvidence.v1");
     public async Task<PurchaseIntentDto> GetIntentAsync(HttpContext httpContext, Guid intentId, CancellationToken cancellationToken)
@@ -226,9 +227,11 @@ public sealed class StorePurchaseService(
             await DbExecutionStrategy.ExecuteAsync(dbContext, () => ReconcileAsync(cancellationToken), cancellationToken);
             return;
         }
+        using var operation = DatabaseOperation.Begin("purchases.reconcile", logger);
         var pending = await dbContext.StorePurchaseIntents.Include(item => item.Trip)
             .Where(item => item.State == PurchaseIntentState.Pending && item.ProtectedEvidence != null)
             .OrderBy(item => item.LastAttemptAtUtc).Take(25).ToListAsync(cancellationToken);
+        operation.Rows = pending.Count;
         foreach (var intent in pending)
         {
             try
@@ -295,6 +298,7 @@ public sealed class StorePurchaseService(
         var unfinalized = await dbContext.StorePurchaseTransactions
             .Where(item => !item.AcknowledgedOrConsumed && item.ProtectedProviderToken != null)
             .OrderBy(item => item.VerifiedAtUtc).Take(25).ToListAsync(cancellationToken);
+        operation.Rows += unfinalized.Count;
         foreach (var transaction in unfinalized)
             await TryFinalizeAsync(transaction, cancellationToken);
     }

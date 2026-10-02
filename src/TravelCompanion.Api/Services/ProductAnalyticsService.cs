@@ -8,7 +8,7 @@ using TravelCompanion.Shared;
 
 namespace TravelCompanion.Api.Services;
 
-public sealed class ProductAnalyticsService(TravelCompanionDbContext dbContext, IOptions<ProductFeatureOptions>? features = null)
+public sealed class ProductAnalyticsService(TravelCompanionDbContext dbContext, IOptions<ProductFeatureOptions>? features = null, ILogger<ProductAnalyticsService>? logger = null)
 {
     private static readonly HashSet<string> BusinessEvents = new(StringComparer.Ordinal)
     {
@@ -29,6 +29,7 @@ public sealed class ProductAnalyticsService(TravelCompanionDbContext dbContext, 
     public async Task<int> IngestAsync(HttpContext httpContext, ProductAnalyticsBatchDto batch,
         UserSessionService sessions, CancellationToken cancellationToken)
     {
+        using var operation = DatabaseOperation.Begin("analytics.ingest", logger);
         var session = await sessions.GetSessionContextAsync(httpContext, cancellationToken)
             ?? throw new UnauthorizedAccessException();
         if (session.User.IsDemo || session.User.IsInternal) return 0;
@@ -46,8 +47,24 @@ public sealed class ProductAnalyticsService(TravelCompanionDbContext dbContext, 
         var existingSet = existing.ToHashSet();
         var isAnonymous = session.User.Email.StartsWith(FreePreviewAccountService.AccountEmailPrefix, StringComparison.OrdinalIgnoreCase)
             || session.User.Email == FreePreviewAccountService.AccountEmail;
-        var ownedTripIds = await dbContext.Trips.AsNoTracking().Where(item => item.AppUserId == session.User.Id)
+        var requestedTripIds = events.Where(item => item.TripId.HasValue).Select(item => item.TripId!.Value).Distinct().ToArray();
+        var ownedTripIds = await dbContext.Trips.AsNoTracking()
+            .Where(item => item.AppUserId == session.User.Id && requestedTripIds.Contains(item.Id))
             .Select(item => item.Id).ToListAsync(cancellationToken);
+        var resolvedTripIds = events.Select(item => item.TripId.HasValue && ownedTripIds.Contains(item.TripId.Value)
+            ? item.TripId : session.TripId).Distinct().ToArray();
+        var includesAccount = resolvedTripIds.Contains(null);
+        var grantRows = await dbContext.BuilderAccessGrants.AsNoTracking()
+            .Where(item => item.AppUserId == session.User.Id && (includesAccount || resolvedTripIds.Contains(item.TripId)))
+            .OrderByDescending(item => item.CreatedAtUtc)
+            .Select(item => new { item.TripId, item.IsTrial, item.TrialEditingStartedAtUtc, item.FreePolicy })
+            .ToListAsync(cancellationToken);
+        string? FreePolicy(Guid? tripId)
+        {
+            var grant = grantRows.FirstOrDefault(item => tripId == null || item.TripId == tripId);
+            return grant is not null && (grant.IsTrial || grant.TrialEditingStartedAtUtc.HasValue
+                || grant.FreePolicy == FreeAccessPolicy.PersistentFree) ? grant.FreePolicy.ToString() : null;
+        }
         foreach (var item in events.Where(item => !existingSet.Contains(item.EventId)))
         {
             var tripId = item.TripId.HasValue && ownedTripIds.Contains(item.TripId.Value) ? item.TripId : session.TripId;
@@ -60,11 +77,12 @@ public sealed class ProductAnalyticsService(TravelCompanionDbContext dbContext, 
                 Name = item.Name, OccurredAtUtc = item.OccurredAtUtc,
                 ReceivedAtUtc = DateTimeOffset.UtcNow, Source = item.Source, AppVersion = item.AppVersion,
                 Platform = item.Platform, PaywallVariant = item.PaywallVariant,
-                FreePolicyVariant = await ResolveFreePolicyAsync(session.User.Id, tripId, cancellationToken),
+                FreePolicyVariant = FreePolicy(tripId),
                 AccessState = session.AccessMode.ToString(), BehaviorConsent = true,
                 IsBusinessEvent = false, SchemaVersion = item.SchemaVersion
             });
         }
+        operation.Rows = events.Count(item => !existingSet.Contains(item.EventId));
         return await dbContext.SaveChangesAsync(cancellationToken);
     }
 

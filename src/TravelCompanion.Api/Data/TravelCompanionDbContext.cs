@@ -527,6 +527,8 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
 
         modelBuilder.Entity<StorePurchaseIntent>(entity =>
         {
+            entity.HasIndex(item => item.LastAttemptAtUtc).HasDatabaseName("IX_PurchaseIntents_PendingAttempt")
+                .HasFilter("\"State\" = 'Pending' AND \"ProtectedEvidence\" IS NOT NULL");
             entity.HasIndex(item => new { item.AppUserId, item.TripId, item.State });
             entity.HasIndex(item => item.OpaqueAccountId).IsUnique();
             entity.Property(item => item.Provider).HasConversion<string>().HasMaxLength(24);
@@ -547,6 +549,8 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
 
         modelBuilder.Entity<StorePurchaseTransaction>(entity =>
         {
+            entity.HasIndex(item => item.VerifiedAtUtc).HasDatabaseName("IX_PurchaseTransactions_Unconfirmed")
+                .HasFilter("NOT \"AcknowledgedOrConsumed\" AND \"ProtectedProviderToken\" IS NOT NULL");
             entity.HasIndex(item => new { item.Provider, item.Environment, item.ProviderTransactionId }).IsUnique();
             entity.Property(item => item.Provider).HasConversion<string>().HasMaxLength(24);
             entity.Property(item => item.Environment).HasConversion<string>().HasMaxLength(24);
@@ -584,6 +588,8 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
 
         modelBuilder.Entity<ProductAnalyticsEvent>(entity =>
         {
+            entity.HasIndex(item => new { item.OccurredAtUtc, item.Id }).HasDatabaseName("IX_AnalyticsEvents_BehaviorRetention")
+                .HasFilter("NOT \"IsBusinessEvent\"");
             entity.HasIndex(item => item.EventId).IsUnique();
             entity.HasIndex(item => new { item.Name, item.OccurredAtUtc });
             entity.HasIndex(item => new { item.AppUserId, item.OccurredAtUtc });
