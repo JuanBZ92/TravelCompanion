@@ -1,6 +1,7 @@
 public sealed class FileResult
 {
-    public Task<Stream> OpenReadAsync() => Task.FromResult<Stream>(new MemoryStream([1, 2, 3]));
+    public Func<Task<Stream>>? Read { get; init; }
+    public Task<Stream> OpenReadAsync() => Read?.Invoke() ?? Task.FromResult<Stream>(new MemoryStream([1, 2, 3]));
 }
 
 namespace TravelCompanion.Mobile.Services

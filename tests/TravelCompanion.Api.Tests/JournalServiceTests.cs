@@ -11,6 +11,46 @@ namespace TravelCompanion.Api.Tests;
 public sealed class JournalServiceTests
 {
     [Fact]
+    public async Task FreeEntriesAreIndependentIdempotentAndCannotResurrect()
+    {
+        await using var fixture = await Fixture.CreateAsync(SessionAccessMode.FreeMapPreview);
+        var id = Guid.NewGuid();
+        var request = new SaveJournalFreeEntryRequest("", "", new(2026, 9, 1), "Preparación", 0, Guid.NewGuid());
+        var first = await fixture.Service.SaveFreeAsync(fixture.Context, fixture.Trip.Id, id, request, default);
+        Assert.True(first.Saved);
+        Assert.Equal(first, await fixture.Service.SaveFreeAsync(fixture.Context, fixture.Trip.Id, id, request, default));
+        var other = await fixture.Service.SaveFreeAsync(fixture.Context, fixture.Trip.Id, Guid.NewGuid(), request with { MutationId = Guid.NewGuid() }, default);
+        Assert.True(other.Saved);
+        Assert.Equal(0, fixture.Trip.PlanRevision);
+        Assert.Equal("Texto editorial", fixture.Activity.Notes);
+        var stale = await fixture.Service.SaveFreeAsync(fixture.Context, fixture.Trip.Id, id, request with { MutationId = Guid.NewGuid() }, default);
+        Assert.False(stale.Saved);
+        var deletion = new DeleteJournalFreeEntryRequest(1, Guid.NewGuid());
+        var deleted = await fixture.Service.DeleteFreeAsync(fixture.Context, fixture.Trip.Id, id, deletion, default);
+        Assert.True(deleted.Entry.Deleted);
+        Assert.Equal(deleted, await fixture.Service.DeleteFreeAsync(fixture.Context, fixture.Trip.Id, id, deletion, default));
+        Assert.False((await fixture.Service.SaveFreeAsync(fixture.Context, fixture.Trip.Id, id,
+            request with { ExpectedRevision = 2, MutationId = Guid.NewGuid() }, default)).Saved);
+        Assert.Contains(await fixture.Service.ListFreeAsync(fixture.Context, fixture.Trip.Id, default), x => x.Id == id && x.Deleted);
+    }
+
+    [Fact]
+    public async Task FreeEntriesEnforceOwnerLimitsAndAccountCleanup()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var request = new SaveJournalFreeEntryRequest("", "", new(2026, 10, 1), "", 0, Guid.NewGuid());
+        await fixture.Service.SaveFreeAsync(fixture.Context, fixture.Trip.Id, Guid.NewGuid(), request, default);
+        await Assert.ThrowsAsync<ArgumentException>(() => fixture.Service.SaveFreeAsync(fixture.Context, fixture.Trip.Id,
+            Guid.NewGuid(), request with { Notes = new string('x', 2001) }, default));
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => fixture.Service.ListFreeAsync(fixture.Context, Guid.NewGuid(), default));
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => fixture.Service.DeleteFreeAsync(fixture.Context, Guid.NewGuid(),
+            Guid.NewGuid(), new(0, Guid.NewGuid()), default));
+        var account = new EmailAccountService(fixture.Db, new UserSessionService(fixture.Db), new NoEmail(),
+            Microsoft.Extensions.Options.Options.Create(new TravelCompanion.Api.Options.EmailVerificationOptions()));
+        await account.DeleteAccountAsync(fixture.Context, default);
+        Assert.Empty(await fixture.Db.JournalFreeEntries.ToListAsync());
+    }
+    [Fact]
     public async Task AccountDeletionErasesNotesEvenThoughAccountIsSoftDeleted()
     {
         await using var fixture = await Fixture.CreateAsync();
@@ -46,6 +86,35 @@ public sealed class JournalServiceTests
     private sealed class NoEmail : ITransactionalEmailSender
     {
         public Task SendVerificationCodeAsync(string email, string code, string locale, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+    private sealed class CapturedEmail : ITransactionalEmailSender
+    {
+        public string Code = "";
+        public Task SendVerificationCodeAsync(string email, string code, string locale, CancellationToken cancellationToken)
+        { Code = code; return Task.CompletedTask; }
+    }
+    [Fact]
+    public async Task AnonymousLinkMovesFreeMemoriesAndTombstonesToVerifiedOwner()
+    {
+        await using var fixture = await Fixture.CreateAsync(SessionAccessMode.FreeMapPreview);
+        var source = await fixture.Db.AppUsers.SingleAsync();
+        source.Email = "free-preview+journal@travelcompanion.system";
+        var target = new AppUser { Id = Guid.NewGuid(), Email = "verified@example.com", DisplayName = "Verified" };
+        fixture.Db.AppUsers.Add(target); await fixture.Db.SaveChangesAsync();
+        var id = Guid.NewGuid();
+        await fixture.Service.SaveFreeAsync(fixture.Context, fixture.Trip.Id, id, new("", "", new(2026, 10, 1), "Local", 0, Guid.NewGuid()), default);
+        await fixture.Service.DeleteFreeAsync(fixture.Context, fixture.Trip.Id, Guid.NewGuid(), new(0, Guid.NewGuid()), default);
+        var sender = new CapturedEmail();
+        var account = new EmailAccountService(fixture.Db, new UserSessionService(fixture.Db), sender,
+            Microsoft.Extensions.Options.Options.Create(new TravelCompanion.Api.Options.EmailVerificationOptions { HashSecret = "journal-test-secret-only" }));
+        await account.RequestCodeAsync(fixture.Context, new(target.Email, "es"), default);
+        var linked = await account.VerifyCodeAsync(fixture.Context, new(target.Email, sender.Code), default);
+        Assert.Equal(target.Id, linked.UserId);
+        Assert.Equal(source.Id, linked.LinkedFromUserId);
+        Assert.Equal(target.Id, fixture.Trip.AppUserId);
+        var entries = await fixture.Db.JournalFreeEntries.ToListAsync();
+        Assert.Equal(2, entries.Count); Assert.All(entries, x => Assert.Equal(target.Id, x.UserId));
+        Assert.Single(entries, x => x.Deleted);
     }
     [Fact]
     public async Task CuratedReservationCanHavePersonalNoteWithoutChangingReservation()

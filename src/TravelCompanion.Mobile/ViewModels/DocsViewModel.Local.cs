@@ -6,17 +6,16 @@ namespace TravelCompanion.Mobile.ViewModels;
 
 public sealed partial class DocsViewModel
 {
-    public ObservableCollection<LocalDocumentItemViewModel> LocalDocuments { get; } = [];
+    public ObservableCollection<LocalDocumentGroupViewModel> LocalDocumentGroups { get; } = [];
     public string CopyCodeText => Text("CopyConfirmationCode");
-    public bool ShowLocalNotice => sessionService.IsFreeMapPreview;
+    public bool ShowLocalNotice => sessionService.CurrentTripId.HasValue;
     public bool CanAttachDocument => documentStore.CanAttach;
-    public string LocalDocumentsTitle => Text("LocalDocuments");
     public string LocalDocumentsNotice => Text("LocalDocumentsNotice");
     public string AddDocumentText => Text("AddDocument");
-    public string AttachDocumentText => Text("AttachDocument");
     public string DocumentLimitText => Text("DocumentLimit");
 
     private static string Text(string key) => LocalizationResourceManager.Instance[key];
+    private static string CategoryName(LocalDocumentCategory category) => Text("DocumentCategory_" + category);
 
     private async Task RefreshLocalDocumentsAsync(CancellationToken ct)
     {
@@ -25,9 +24,36 @@ public sealed partial class DocsViewModel
         if (!user.HasValue || !trip.HasValue) return;
         var documents = await documentStore.ListAsync(ct);
         if (user != sessionService.CurrentUserId || trip != sessionService.CurrentTripId) return;
-        LocalDocuments.Clear();
-        foreach (var document in documents.Where(item => item.SourceUrl is null))
-            LocalDocuments.Add(new LocalDocumentItemViewModel(document, documentStore, () => RefreshLocalDocumentsAsync(ct)));
+        LocalDocumentGroups.Clear();
+        var personal = documents.Where(item => item.SourceUrl is null).ToList();
+        foreach (var category in Enum.GetValues<LocalDocumentCategory>())
+        {
+            var rows = personal.Where(item => (item.Category ?? LocalDocumentCategory.Other) == category)
+                .Select(item => new LocalDocumentItemViewModel(item, documentStore,
+                    () => RefreshLocalDocumentsAsync(default), SelectCategoryAsync)).ToList();
+            if (rows.Count > 0) LocalDocumentGroups.Add(new(CategoryName(category), rows));
+        }
+    }
+
+    private async Task<LocalDocumentCategory?> SelectCategoryAsync(LocalDocumentCategory? current = null)
+    {
+        var categories = Enum.GetValues<LocalDocumentCategory>();
+        var labels = categories.Select(CategoryName).ToArray();
+        var selected = await Shell.Current.DisplayActionSheetAsync(
+            Text("ChooseDocumentCategory"), Text("CommonCancel"), null, labels);
+        var index = Array.IndexOf(labels, selected);
+        return index < 0 ? null : categories[index];
+    }
+
+    private async Task AttachToCategoryAsync(LocalDocumentCategory category, CancellationToken ct)
+    {
+        var key = TripPreparationCategoryCatalog.PreparationKey(category);
+        var saved = await attachmentService.PickAndAttachAsync(category, key,
+            string.Format(Text("AttachDocumentToCategory"), CategoryName(category)), ct);
+        if (saved is null) return;
+        await RefreshLocalDocumentsAsync(ct);
+        StatusMessage = string.Format(Text("DocumentSavedInCategory"), CategoryName(category));
+        SemanticScreenReader.Default.Announce(StatusMessage);
     }
 
     private async Task RefreshDocumentAvailabilityAsync(CancellationToken ct)
@@ -39,36 +65,22 @@ public sealed partial class DocsViewModel
     private Task AttachDocumentAsync() => base.LoadAsync(async ct =>
     {
         if (!CanAttachDocument) return;
-        var scope = (sessionService.CurrentUserId, sessionService.CurrentTripId);
-        var file = await FilePicker.Default.PickAsync(new PickOptions
-        {
-            PickerTitle = Text("AttachDocument"),
-            FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
-            {
-                [DevicePlatform.Android] = ["application/pdf", "image/jpeg", "image/png"],
-                [DevicePlatform.iOS] = ["com.adobe.pdf", "public.jpeg", "public.png"],
-                [DevicePlatform.MacCatalyst] = ["com.adobe.pdf", "public.jpeg", "public.png"],
-                [DevicePlatform.WinUI] = [".pdf", ".jpg", ".jpeg", ".png"]
-            })
-        });
-        if (file is null || scope != (sessionService.CurrentUserId, sessionService.CurrentTripId)) return;
-        try
-        {
-            await using var stream = await file.OpenReadAsync();
-            await documentStore.AttachAsync(stream, file.FileName, ct);
-            await RefreshLocalDocumentsAsync(ct);
-        }
-        catch (Exception exception) when (exception is IOException or InvalidDataException)
-        { ErrorMessage = Text("DocumentError") + " " + Text("DocumentLimit"); }
+        var category = await SelectCategoryAsync();
+        if (!category.HasValue) return;
+        try { await AttachToCategoryAsync(category.Value, ct); }
+        catch (IOException) { ErrorMessage = Text("DocumentError") + " " + Text("DocumentLimit"); }
     });
 }
 
+public sealed record LocalDocumentGroupViewModel(string Name, IReadOnlyList<LocalDocumentItemViewModel> Documents);
+
 public sealed class LocalDocumentItemViewModel
 {
-    public LocalDocumentItemViewModel(LocalTripDocument document, TripDocumentStore store, Func<Task> refresh)
+    public LocalDocumentItemViewModel(LocalTripDocument document, TripDocumentStore store, Func<Task> refresh,
+        Func<LocalDocumentCategory?, Task<LocalDocumentCategory?>> chooseCategory)
     {
         Title = document.Title;
-        Details = $"{document.Extension.TrimStart('.').ToUpperInvariant()} · {document.Size / 1024d:N0} KB";
+        Details = $"{CategoryName(document.Category ?? LocalDocumentCategory.Other)} · {document.Extension.TrimStart('.').ToUpperInvariant()} · {document.Size / 1024d:N0} KB";
         OpenCommand = new AsyncRelayCommand(() => ExecuteAsync(() => store.OpenAsync(document.Id)));
         RenameCommand = new AsyncRelayCommand(() => ExecuteAsync(async () =>
         {
@@ -77,16 +89,25 @@ public sealed class LocalDocumentItemViewModel
             if (string.IsNullOrWhiteSpace(name)) return;
             await store.RenameAsync(document.Id, name); await refresh();
         }));
-        MoreCommand = new AsyncRelayCommand(() => ExecuteAsync(async () =>
+        MoveCommand = new AsyncRelayCommand(() => ExecuteAsync(async () =>
         {
-            var choice = await Shell.Current.DisplayActionSheetAsync(document.Title, Text("CommonCancel"), null, RenameText, DeleteText);
-            if (choice == RenameText) await RenameCommand.ExecuteAsync(null);
-            else if (choice == DeleteText) await DeleteCommand!.ExecuteAsync(null);
+            var category = await chooseCategory(document.Category ?? LocalDocumentCategory.Other);
+            if (!category.HasValue || category == document.Category) return;
+            await store.SetCategoryAsync(document.Id, category.Value); await refresh();
         }));
         DeleteCommand = new AsyncRelayCommand(() => ExecuteAsync(async () =>
         {
-            if (!await Shell.Current.DisplayAlertAsync(Text("DeleteLocalCopy"), document.Title, Text("DeleteLocalCopy"), Text("CommonCancel"))) return;
+            if (!await Shell.Current.DisplayAlertAsync(Text("DeleteLocalCopy"), document.Title,
+                Text("DeleteLocalCopy"), Text("CommonCancel"))) return;
             await store.DeleteAsync(document.Id); await refresh();
+        }));
+        MoreCommand = new AsyncRelayCommand(() => ExecuteAsync(async () =>
+        {
+            var choice = await Shell.Current.DisplayActionSheetAsync(document.Title, Text("CommonCancel"), null,
+                RenameText, MoveText, DeleteText);
+            if (choice == RenameText) await RenameCommand.ExecuteAsync(null);
+            else if (choice == MoveText) await MoveCommand.ExecuteAsync(null);
+            else if (choice == DeleteText) await DeleteCommand.ExecuteAsync(null);
         }));
     }
     public string Title { get; }
@@ -95,11 +116,14 @@ public sealed class LocalDocumentItemViewModel
     public string MoreDescription => string.Format(Text("DocumentActionsNamed"), Title);
     public IAsyncRelayCommand MoreCommand { get; }
     public string RenameText => Text("RenameDocument");
+    public string MoveText => Text("MoveDocumentCategory");
     public string DeleteText => Text("DeleteLocalCopy");
     public IAsyncRelayCommand OpenCommand { get; }
     public IAsyncRelayCommand RenameCommand { get; }
+    public IAsyncRelayCommand MoveCommand { get; }
     public IAsyncRelayCommand DeleteCommand { get; }
     private static string Text(string key) => LocalizationResourceManager.Instance[key];
+    private static string CategoryName(LocalDocumentCategory category) => Text("DocumentCategory_" + category);
     private static async Task ExecuteAsync(Func<Task> action)
     {
         try { await action(); }

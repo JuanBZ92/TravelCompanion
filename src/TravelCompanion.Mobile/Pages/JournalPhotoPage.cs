@@ -23,15 +23,15 @@ public sealed class JournalPhotoPage : JournalScopedPage
         this.memory = memory;
         this.position = Math.Clamp(position, 0, Math.Max(0, memory.Images.Length - 1));
         BackgroundColor = JournalUi.Paper;
-        var title = JournalUi.Text(memory.Note.Title, 22, true);
+        var title = JournalUi.Text(JournalText.Title(memory), 22, true);
         title.MaxLines = 2;
         title.LineBreakMode = LineBreakMode.TailTruncation;
         var header = new Grid { ColumnDefinitions = [new(GridLength.Star), new(GridLength.Auto)] };
         header.Add(title);
-        header.Add(JournalUi.Icon("action_close.svg", "Cerrar fotos", CloseAsync), 1);
-        previous = JournalUi.Icon("today_arrow_dark.svg", "Foto anterior", () => MoveAsync(-1));
+        header.Add(JournalUi.Icon("action_close.svg", JournalText.Get("JournalClose"), CloseAsync), 1);
+        previous = JournalUi.Icon("today_arrow_dark.svg", JournalText.Get("JournalPreviousPhoto"), () => MoveAsync(-1));
         previous.Rotation = 180;
-        next = JournalUi.Icon("today_arrow_dark.svg", "Foto siguiente", () => MoveAsync(1));
+        next = JournalUi.Icon("today_arrow_dark.svg", JournalText.Get("JournalNextPhoto"), () => MoveAsync(1));
         counter.HorizontalTextAlignment = TextAlignment.Center;
         counter.VerticalOptions = LayoutOptions.Center;
         var controls = new Grid { ColumnDefinitions = [new(GridLength.Auto), new(GridLength.Star), new(GridLength.Auto)] };
@@ -82,8 +82,8 @@ public sealed class JournalPhotoPage : JournalScopedPage
         previous.IsEnabled = position > 0;
         next.IsEnabled = position + 1 < memory.Images.Length;
         counter.Text = memory.Images.Length == 0 ? "Sin fotos" : $"{position + 1} / {memory.Images.Length}";
-        SemanticProperties.SetDescription(image, $"Foto {position + 1} de {memory.Images.Length} de {memory.Note.Title}");
-        message.Text = "Cargando foto…";
+        SemanticProperties.SetDescription(image, JournalText.Format("JournalPhotoNumber", position + 1, memory.Images.Length));
+        message.Text = JournalText.Get("JournalLoadingPhoto");
         try
         {
             var bytes = memory.Images.Length == 0 ? null : await store.PhotoAsync(scope, memory.Images[position].Id);
@@ -94,7 +94,7 @@ public sealed class JournalPhotoPage : JournalScopedPage
         catch (Exception)
         {
             if (visible && version == loadVersion && store.IsCurrent(scope))
-                message.Text = "No pudimos abrir esta foto. Probá con otra.";
+                message.Text = JournalText.Get("JournalPhotoFailed");
         }
     }
 

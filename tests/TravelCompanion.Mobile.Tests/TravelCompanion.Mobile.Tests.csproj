@@ -27,10 +27,16 @@
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\JournalEntries.cs" Link="JournalEntries.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\MapUpdateBatch.cs" Link="MapUpdateBatch.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\JournalStore.cs" Link="JournalStore.cs" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\Services\JournalStore.FreeEntries.cs" Link="JournalStore.FreeEntries.cs" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\Services\JournalStore.DraftPhotos.cs" Link="JournalStore.DraftPhotos.cs" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\Services\JournalText.cs" Link="JournalText.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\NavigationTrail.cs" Link="NavigationTrail.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\ViewModels\ViewModelBase.cs" Link="ViewModelBase.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\LocalDocumentPolicy.cs" Link="LocalDocumentPolicy.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\TripDocumentStore.cs" Link="TripDocumentStore.cs" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\Services\TripDocumentAttachmentService.cs" Link="TripDocumentAttachmentService.cs" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\Services\TripPreparationCategoryCatalog.cs" Link="TripPreparationCategoryCatalog.cs" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\Services\TripPreparationOrganizerStore.cs" Link="TripPreparationOrganizerStore.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\ReservationDocumentLinkStore.cs" Link="ReservationDocumentLinkStore.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\OfflineTripManifest.cs" Link="OfflineTripManifest.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\TripPreparationProgress.cs" Link="TripPreparationProgress.cs" />

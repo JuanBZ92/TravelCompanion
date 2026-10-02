@@ -6,7 +6,7 @@ using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Api.Services;
 
-public sealed class JournalService(TravelCompanionDbContext db, UserSessionService sessions)
+public sealed partial class JournalService(TravelCompanionDbContext db, UserSessionService sessions)
 {
     private async Task<Trip> AuthorizeAsync(HttpContext context, Guid tripId, CancellationToken ct)
     {

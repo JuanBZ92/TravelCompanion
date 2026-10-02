@@ -35,9 +35,15 @@
                     <Label Text="{Binding DocumentLimitText}" FontSize="11" TextColor="#8E867D" HorizontalTextAlignment="Center" />
                 </VerticalStackLayout>
                 <Label Text="{Binding LocalDocumentsNotice}" IsVisible="{Binding ShowLocalNotice}" FontSize="13" TextColor="#8E867D" />
-                <VerticalStackLayout BindableLayout.ItemsSource="{Binding LocalDocuments}" Spacing="12">
+                <VerticalStackLayout BindableLayout.ItemsSource="{Binding LocalDocumentGroups}" Spacing="16">
                     <BindableLayout.ItemTemplate>
-                        <DataTemplate x:DataType="viewModels:LocalDocumentItemViewModel">
+                        <DataTemplate x:DataType="viewModels:LocalDocumentGroupViewModel">
+                            <VerticalStackLayout Spacing="10">
+                                <Label Text="{Binding Name}" Style="{StaticResource Eyebrow}"
+                                       CharacterSpacing="3" SemanticProperties.HeadingLevel="Level2" />
+                                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Documents}" Spacing="10">
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate x:DataType="viewModels:LocalDocumentItemViewModel">
                             <Border Padding="12" Stroke="#E5DED5" BackgroundColor="#FFFDF8" StrokeShape="RoundRectangle 14">
                                 <Grid ColumnDefinitions="44,*,44" ColumnSpacing="12" MinimumHeightRequest="56">
                                     <Border BackgroundColor="#F1EBE2" StrokeThickness="0" StrokeShape="RoundRectangle 12"
@@ -55,6 +61,10 @@
                                                  SemanticProperties.Description="{Binding MoreDescription}" />
                                 </Grid>
                             </Border>
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+                                </VerticalStackLayout>
+                            </VerticalStackLayout>
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
                 </VerticalStackLayout>

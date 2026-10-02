@@ -87,6 +87,9 @@ public static class MauiProgram
         builder.Services.AddSingleton<BiometricUnlockService>();
         builder.Services.AddSingleton<OfflineCacheService>();
         builder.Services.AddSingleton<TripDocumentStore>();
+        builder.Services.AddSingleton<TripPreparationOrganizerStore>();
+        builder.Services.AddSingleton<ITripDocumentPicker, MauiTripDocumentPicker>();
+        builder.Services.AddSingleton<TripDocumentAttachmentService>();
         builder.Services.AddSingleton<JournalStore>();
         builder.Services.AddSingleton<ExpenseStore>();
         builder.Services.AddSingleton<PendingExpenseAction>();

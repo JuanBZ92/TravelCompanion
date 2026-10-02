@@ -384,7 +384,7 @@ Your way.</value></data>
   <data name="OfflineScope" xml:space="preserve"><value>Includes itinerary, places and downloaded files. Assistant, external maps and routes require a connection.</value></data>
   <data name="DownloadTrip" xml:space="preserve"><value>Save for offline use</value></data>
   <data name="LocalDocuments" xml:space="preserve"><value>Files on this device</value></data>
-  <data name="LocalDocumentsNotice" xml:space="preserve"><value>Saved only on this device; not recoverable after reinstalling. Keep the original file.</value></data>
+  <data name="LocalDocumentsNotice" xml:space="preserve"><value>Saved only on this device. Keep the original; it cannot be recovered after reinstalling.</value></data>
   <data name="AttachDocument" xml:space="preserve"><value>Attach PDF or image</value></data>
   <data name="DocumentLimit" xml:space="preserve"><value>PDF, JPEG or PNG. Maximum 20 MB per file.</value></data>
   <data name="DocumentUnavailable" xml:space="preserve"><value>Could not open the file. Check that it is downloaded and a compatible app is installed.</value></data>
@@ -512,7 +512,35 @@ Your way.</value></data>
   <data name="PaywallShareBody" xml:space="preserve"><value>Share an itinerary summary with days, places and times through your phone's apps.</value></data>
   <data name="PaywallBack" xml:space="preserve"><value>Back</value></data>
   <data name="PreparationTitle" xml:space="preserve"><value>Prepare my Japan trip</value></data>
-  <data name="PreparationIntro" xml:space="preserve"><value>Check these items yourself. Marking an item does not make or verify a booking. Connect to save changes.</value></data>
+  <data name="PreparationIntro" xml:space="preserve"><value>Keep your travel files organized by category. Adding a file does not verify a booking or entry requirement.</value></data>
+  <data name="PreparationOrganizerSummary" xml:space="preserve"><value>{0} of {1} categories organized</value></data>
+  <data name="PreparationDescription_Transport" xml:space="preserve"><value>Flights, trains and airport transfers.</value></data>
+  <data name="PreparationDescription_Accommodation" xml:space="preserve"><value>Hotel or other accommodation confirmations.</value></data>
+  <data name="PreparationDescription_Reservations" xml:space="preserve"><value>Tours, museums and other booked activities.</value></data>
+  <data name="PreparationDescription_TravelDocuments" xml:space="preserve"><value>Insurance and other personal travel documents.</value></data>
+  <data name="PreparationAdd_Transport" xml:space="preserve"><value>Add ticket</value></data>
+  <data name="PreparationAdd_Accommodation" xml:space="preserve"><value>Add booking</value></data>
+  <data name="PreparationAdd_Reservations" xml:space="preserve"><value>Add ticket</value></data>
+  <data name="PreparationAdd_TravelDocuments" xml:space="preserve"><value>Add document</value></data>
+  <data name="PreparationOneDocument" xml:space="preserve"><value>1 document</value></data>
+  <data name="PreparationDocumentCount" xml:space="preserve"><value>{0} documents</value></data>
+  <data name="PreparationOutsideApp" xml:space="preserve"><value>I have it outside the app</value></data>
+  <data name="PreparationNotNeeded" xml:space="preserve"><value>I do not need it</value></data>
+  <data name="PreparationPending" xml:space="preserve"><value>Mark as pending</value></data>
+  <data name="PreparationOutsideAppStatus" xml:space="preserve"><value>Outside the app</value></data>
+  <data name="PreparationNotNeededStatus" xml:space="preserve"><value>Not needed</value></data>
+  <data name="PreparationPendingStatus" xml:space="preserve"><value>Pending</value></data>
+  <data name="PreparationViewDocuments" xml:space="preserve"><value>View documents</value></data>
+  <data name="PreparationOptionsNamed" xml:space="preserve"><value>Options for {0}</value></data>
+  <data name="DocumentCategory_Transport" xml:space="preserve"><value>Transport</value></data>
+  <data name="DocumentCategory_Accommodation" xml:space="preserve"><value>Accommodation</value></data>
+  <data name="DocumentCategory_Reservations" xml:space="preserve"><value>Bookings and activities</value></data>
+  <data name="DocumentCategory_TravelDocuments" xml:space="preserve"><value>Travel documents</value></data>
+  <data name="DocumentCategory_Other" xml:space="preserve"><value>Other</value></data>
+  <data name="ChooseDocumentCategory" xml:space="preserve"><value>Choose a category</value></data>
+  <data name="AttachDocumentToCategory" xml:space="preserve"><value>Add to {0}</value></data>
+  <data name="DocumentSavedInCategory" xml:space="preserve"><value>Saved in Documents · {0}</value></data>
+  <data name="MoveDocumentCategory" xml:space="preserve"><value>Change category</value></data>
   <data name="PreparationSummary" xml:space="preserve"><value>{0} days with activities · {1} points to review · {2} documents on this device</value></data>
   <data name="PreparationNoSchedule" xml:space="preserve"><value>Open your itinerary first to load its status.</value></data>
   <data name="PreparationCached" xml:space="preserve"><value>Summary based on the last itinerary saved on this device. Review downloads before departure.</value></data>
@@ -531,4 +559,97 @@ Your way.</value></data>
   <data name="EditorialStale" xml:space="preserve"><value>Editorial review: {0:d}. An update is due; confirm details with the source.</value></data>
   <data name="EditorialSource" xml:space="preserve"><value>Consult source (internet required)</value></data>
   <data name="PreparationResources" xml:space="preserve"><value>Downloaded resources: {0} of {1}. External links need internet.</value></data>
+  <data name="JournalHeading" xml:space="preserve"><value>My journal</value></data>
+  <data name="JournalWrite" xml:space="preserve"><value>Write a memory</value></data>
+  <data name="JournalOptions" xml:space="preserve"><value>Journal options</value></data>
+  <data name="JournalContinueDraft" xml:space="preserve"><value>Continue draft ({0})</value></data>
+  <data name="JournalEmptyTitle" xml:space="preserve"><value>Your journey starts here</value></data>
+  <data name="JournalChooseTrip" xml:space="preserve"><value>Choose a trip</value></data>
+  <data name="JournalInvitation" xml:space="preserve"><value>Places pass. Memories stay.</value></data>
+  <data name="JournalSummary" xml:space="preserve"><value>{0} memories · {1} photos</value></data>
+  <data name="JournalPrompt" xml:space="preserve"><value>What would you like to remember about today?</value></data>
+  <data name="JournalNeedsTrip" xml:space="preserve"><value>Open a trip to start writing. Your journal is also available for free.</value></data>
+  <data name="JournalMyTrip" xml:space="preserve"><value>My trip</value></data>
+  <data name="JournalPhotoNumber" xml:space="preserve"><value>Open photo {0} of {1}</value></data>
+  <data name="JournalPhotoCount" xml:space="preserve"><value>{0} photos · open to see all</value></data>
+  <data name="JournalRead" xml:space="preserve"><value>Read · {0}</value></data>
+  <data name="JournalDrafts" xml:space="preserve"><value>Your drafts</value></data>
+  <data name="JournalCancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="JournalChooseActivity" xml:space="preserve"><value>Choose an activity</value></data>
+  <data name="JournalExport" xml:space="preserve"><value>Create PDF album</value></data>
+  <data name="JournalDateTitle" xml:space="preserve"><value>Memory of {0}</value></data>
+  <data name="JournalConflict" xml:space="preserve"><value>Conflict · compare versions</value></data>
+  <data name="JournalPending" xml:space="preserve"><value>Pending sync</value></data>
+  <data name="JournalDeleted" xml:space="preserve"><value>This memory was deleted on another device.</value></data>
+  <data name="JournalEmptyValidation" xml:space="preserve"><value>Add some text or a photo before saving.</value></data>
+  <data name="JournalFailure" xml:space="preserve"><value>This action could not be completed. Please try again.</value></data>
+  <data name="JournalOk" xml:space="preserve"><value>OK</value></data>
+  <data name="JournalSearchActivity" xml:space="preserve"><value>Find a place in your trip</value></data>
+  <data name="JournalClose" xml:space="preserve"><value>Close</value></data>
+  <data name="JournalTitleOptional" xml:space="preserve"><value>Title (optional)</value></data>
+  <data name="JournalPlaceOptional" xml:space="preserve"><value>Place (optional)</value></data>
+  <data name="JournalDate" xml:space="preserve"><value>Memory date</value></data>
+  <data name="JournalYourText" xml:space="preserve"><value>Your memory · up to 2,000 characters</value></data>
+  <data name="JournalStorageNotice" xml:space="preserve"><value>Confirmed notes sync with your account. Photos and drafts stay only on this device and cannot be recovered after reinstalling.</value></data>
+  <data name="JournalDiscardDraft" xml:space="preserve"><value>Discard draft</value></data>
+  <data name="JournalSave" xml:space="preserve"><value>Save memory</value></data>
+  <data name="JournalDraftFailed" xml:space="preserve"><value>Could not save. Your content is still here; try again before closing.</value></data>
+  <data name="JournalSaving" xml:space="preserve"><value>Saving…</value></data>
+  <data name="JournalDraftSaved" xml:space="preserve"><value>Draft saved on this device</value></data>
+  <data name="JournalCompare" xml:space="preserve"><value>Compare versions</value></data>
+  <data name="JournalPhotosLimit" xml:space="preserve"><value>PHOTOS · {0} / 10</value></data>
+  <data name="JournalAddPhotos" xml:space="preserve"><value>Add photos</value></data>
+  <data name="JournalCover" xml:space="preserve"><value>Cover</value></data>
+  <data name="JournalSetCover" xml:space="preserve"><value>Set cover</value></data>
+  <data name="JournalRemovePhoto" xml:space="preserve"><value>Remove photo</value></data>
+  <data name="JournalOriginalKept" xml:space="preserve"><value>The original stays in your gallery.</value></data>
+  <data name="JournalRemove" xml:space="preserve"><value>Remove</value></data>
+  <data name="JournalSaved" xml:space="preserve"><value>Memory saved</value></data>
+  <data name="JournalKeepMine" xml:space="preserve"><value>Keep my version</value></data>
+  <data name="JournalUseRemote" xml:space="preserve"><value>Use saved version</value></data>
+  <data name="JournalDiscardQuestion" xml:space="preserve"><value>Discard these draft changes? The confirmed memory will be kept.</value></data>
+  <data name="JournalDiscard" xml:space="preserve"><value>Discard</value></data>
+  <data name="JournalOpenPhotos" xml:space="preserve"><value>Open all photos</value></data>
+  <data name="JournalEdit" xml:space="preserve"><value>Edit memory</value></data>
+  <data name="JournalActivity" xml:space="preserve"><value>View activity</value></data>
+  <data name="JournalDelete" xml:space="preserve"><value>Delete memory</value></data>
+  <data name="JournalDeleteQuestion" xml:space="preserve"><value>Delete this memory? The deletion will sync with your other devices.</value></data>
+  <data name="JournalAlbumTitle" xml:space="preserve"><value>Album title</value></data>
+  <data name="JournalAlbum" xml:space="preserve"><value>Your travel album</value></data>
+  <data name="JournalAlbumIntro" xml:space="preserve"><value>A PDF with your places, words and photos. Choose the days to keep.</value></data>
+  <data name="JournalIncludeDay" xml:space="preserve"><value>Include {0}</value></data>
+  <data name="JournalDayCount" xml:space="preserve"><value>{0} · {1} memories</value></data>
+  <data name="JournalCoverPhoto" xml:space="preserve"><value>Cover photo</value></data>
+  <data name="JournalPhotoChoice" xml:space="preserve"><value>{0} · photo {1}</value></data>
+  <data name="JournalNoPhoto" xml:space="preserve"><value>No photo</value></data>
+  <data name="JournalPreview" xml:space="preserve"><value>Preview</value></data>
+  <data name="JournalSavePdf" xml:space="preserve"><value>Save PDF</value></data>
+  <data name="JournalShare" xml:space="preserve"><value>Share album</value></data>
+  <data name="JournalCancelExport" xml:space="preserve"><value>Cancel export</value></data>
+  <data name="JournalChooseDay" xml:space="preserve"><value>Choose at least one day.</value></data>
+  <data name="JournalMissingPhotos" xml:space="preserve"><value>Photos unavailable</value></data>
+  <data name="JournalMissingQuestion" xml:space="preserve"><value>{0} photos are missing on this device. Export without them?</value></data>
+  <data name="JournalContinue" xml:space="preserve"><value>Continue</value></data>
+  <data name="JournalBuilding" xml:space="preserve"><value>Creating your album…</value></data>
+  <data name="JournalNoViewer" xml:space="preserve"><value>No PDF viewer is available. Save or share the file instead.</value></data>
+  <data name="JournalPreviewReady" xml:space="preserve"><value>Preview ready</value></data>
+  <data name="JournalShareReady" xml:space="preserve"><value>Album ready to share</value></data>
+  <data name="JournalPdfSaved" xml:space="preserve"><value>PDF saved</value></data>
+  <data name="JournalSaveCancelled" xml:space="preserve"><value>Save cancelled</value></data>
+  <data name="JournalExportCancelled" xml:space="preserve"><value>Export cancelled</value></data>
+  <data name="JournalExportFailed" xml:space="preserve"><value>Could not export. Your notes and photos are still saved.</value></data>
+  <data name="JournalPreviousPhoto" xml:space="preserve"><value>Previous photo</value></data>
+  <data name="JournalNextPhoto" xml:space="preserve"><value>Next photo</value></data>
+  <data name="JournalLoadingPhoto" xml:space="preserve"><value>Loading photo…</value></data>
+  <data name="JournalPhotoMissing" xml:space="preserve"><value>This photo is no longer available on this device.</value></data>
+  <data name="JournalPhotoFailed" xml:space="preserve"><value>Could not open this photo. Try another.</value></data>
+  <data name="JournalPhotoPicker" xml:space="preserve"><value>Photos for your journal</value></data>
+  <data name="JournalPhotoTooLarge" xml:space="preserve"><value>This photo is too large. Choose a smaller copy.</value></data>
+  <data name="JournalOneMemory" xml:space="preserve"><value>{0} memory</value></data>
+  <data name="JournalManyMemories" xml:space="preserve"><value>{0} memories</value></data>
+  <data name="JournalOnePhoto" xml:space="preserve"><value>{0} photo</value></data>
+  <data name="JournalManyPhotos" xml:space="preserve"><value>{0} photos</value></data>
+  <data name="JournalReadAction" xml:space="preserve"><value>Read memory</value></data>
+  <data name="JournalCharacterCount" xml:space="preserve"><value>{0} / 2,000 characters</value></data>
+  <data name="JournalSyncUnavailable" xml:space="preserve"><value>Sync is unavailable. Your memories are still saved on this device.</value></data>
 </root>

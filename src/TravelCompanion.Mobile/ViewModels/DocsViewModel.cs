@@ -15,7 +15,8 @@ public sealed partial class DocsViewModel(
     OfflineCacheService offlineCacheService,
     OfflineSyncCoordinator syncCoordinator,
     MobileSyncStateStore syncStateStore,
-    TripDocumentStore documentStore) : ViewModelBase, ISessionStateResettable
+    TripDocumentStore documentStore,
+    TripDocumentAttachmentService attachmentService) : ViewModelBase, ISessionStateResettable
 {
     [ObservableProperty]
     private string title = "Documentos";
@@ -186,7 +187,7 @@ public sealed partial class DocsViewModel(
     public void ResetForNewSession()
     {
         HasLoaded = false;
-        LocalDocuments.Clear();
+        LocalDocumentGroups.Clear();
         OnPropertyChanged(nameof(CanAttachDocument));
         OnPropertyChanged(nameof(ShowLocalNotice));
         ErrorMessage = null;

@@ -20,6 +20,7 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
     public DbSet<TripPlanDraft> TripPlanDrafts => Set<TripPlanDraft>();
     public DbSet<Reservation> Reservations => Set<Reservation>();
     public DbSet<JournalNote> JournalNotes => Set<JournalNote>();
+    public DbSet<JournalFreeEntry> JournalFreeEntries => Set<JournalFreeEntry>();
     public DbSet<TripExpense> TripExpenses => Set<TripExpense>();
     public DbSet<TripExpenseSettings> TripExpenseSettings => Set<TripExpenseSettings>();
     public DbSet<TravelDocument> TravelDocuments => Set<TravelDocument>();
@@ -86,6 +87,16 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
         modelBuilder.Entity<JournalNote>(entity =>
         {
             entity.HasIndex(x => new { x.UserId, x.TripId, x.ActivityId }).IsUnique();
+            entity.Property(x => x.Revision).IsConcurrencyToken();
+            entity.HasOne<AppUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne<Trip>().WithMany().HasForeignKey(x => x.TripId).OnDelete(DeleteBehavior.Cascade);
+        });
+        modelBuilder.Entity<JournalFreeEntry>(entity =>
+        {
+            entity.HasIndex(x => new { x.UserId, x.TripId, x.Date, x.Id });
+            entity.Property(x => x.Title).HasMaxLength(120);
+            entity.Property(x => x.Place).HasMaxLength(200);
+            entity.Property(x => x.Notes).HasMaxLength(2000);
             entity.Property(x => x.Revision).IsConcurrencyToken();
             entity.HasOne<AppUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
             entity.HasOne<Trip>().WithMany().HasForeignKey(x => x.TripId).OnDelete(DeleteBehavior.Cascade);

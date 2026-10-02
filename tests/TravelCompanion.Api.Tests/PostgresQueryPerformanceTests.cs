@@ -133,9 +133,10 @@ public sealed class PostgresQueryPerformanceTests
         await fixture.SeedEventsAsync(10);
         await using var db = fixture.Open();
         var migrations = (await db.Database.GetAppliedMigrationsAsync()).ToArray();
-        Assert.EndsWith("OptimizeQueryWorkloads", migrations[^1]);
+        var indexMigration = Array.FindIndex(migrations, x => x.EndsWith("OptimizeQueryWorkloads", StringComparison.Ordinal));
+        Assert.True(indexMigration > 0);
         var migrator = Microsoft.EntityFrameworkCore.Infrastructure.AccessorExtensions.GetService<Microsoft.EntityFrameworkCore.Migrations.IMigrator>(db);
-        await migrator.MigrateAsync(migrations[^2]);
+        await migrator.MigrateAsync(migrations[indexMigration - 1]);
         Assert.Equal(10, await db.ProductAnalyticsEvents.CountAsync());
         await db.Database.MigrateAsync();
         var indexes = await db.Database.SqlQueryRaw<string>("""

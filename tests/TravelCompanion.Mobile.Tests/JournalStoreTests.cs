@@ -8,6 +8,178 @@ namespace TravelCompanion.Mobile.Tests;
 public sealed class JournalStoreTests
 {
     [Fact]
+    public async Task DeletionConflictRemainsVisibleUntilUserResolvesIt()
+    {
+        var sessions = new AuthSessionService(); var api = new TravelCompanionApiClient(); var store = new JournalStore(new(), sessions, api);
+        try {
+            await sessions.SaveAsync(Session()); var scope = store.Scope();
+            var dto = JournalMemory.NewFree(scope.TripId, new(2026, 10, 1)).FreeEntry! with { Notes = "First", Revision = 1 };
+            api.FetchJournalFree = () => Task.FromResult(new List<JournalFreeEntryDto> { dto });
+            var saved = Assert.Single(await store.LoadAsync(scope, [], true, default));
+            await store.DeleteFreeLocalAsync(scope, saved);
+            dto = dto with { Notes = "Edited elsewhere", Revision = 2 };
+            api.DeleteJournalFree = _ => Task.FromResult(new JournalFreeSaveResult(false, dto));
+            var conflict = Assert.Single(await store.LoadAsync(scope, [], true, default));
+            Assert.True(conflict.HasConflict); Assert.NotNull(conflict.DeletePending);
+            Assert.True(Assert.Single(await store.LoadAsync(scope, [], true, default)).HasConflict);
+            await store.ResolveAsync(scope, conflict, false);
+            var remote = Assert.Single(await store.LoadAsync(scope, [], false, default));
+            Assert.False(remote.HasConflict); Assert.Null(remote.DeletePending); Assert.Equal("Edited elsewhere", remote.Text);
+        } finally { sessions.Clear(); }
+    }
+    [Fact]
+    public async Task FailedOrCancelledPhotoSelectionDoesNotReplaceDraftAndAccountSwitchDiscardsIt()
+    {
+        var sessions = new AuthSessionService(); var store = new JournalStore(new(), sessions, new());
+        try {
+            await sessions.SaveAsync(Session()); var scope = store.Scope();
+            var memory = JournalMemory.NewFree(scope.TripId, new(2026, 10, 1));
+            await store.SaveDraftAsync(scope, memory, "Keep this");
+            Assert.Equal(memory, await store.AddDraftPhotosAsync(scope, memory, "Keep this", []));
+            await Assert.ThrowsAsync<IOException>(() => store.AddDraftPhotosAsync(scope, memory, "Keep this",
+                [new FileResult(), new FileResult { Read = () => throw new IOException("unreadable photo") }]));
+            var retained = Assert.Single(await store.DraftsAsync(scope));
+            Assert.Empty(retained.Memory.Images); Assert.Equal("Keep this", retained.Text);
+            await Assert.ThrowsAsync<OperationCanceledException>(() => store.AddDraftPhotosAsync(scope, memory, "Keep this",
+                [new FileResult { Read = async () => { await sessions.SaveAsync(Session()); return new MemoryStream([1]); } }]));
+            Assert.Empty(await store.DraftsAsync(store.Scope()));
+            Assert.Empty(await store.LoadAsync(store.Scope(), [], false, default));
+        } finally { sessions.Clear(); }
+    }
+    [Fact]
+    public void LegacyJsonRetainsPendingConflictAndCover()
+    {
+        var memory = Memory(Guid.NewGuid());
+        var photo = new JournalPhoto(Guid.NewGuid());
+        var pending = new SaveJournalNoteRequest("Offline", 1, Guid.NewGuid());
+        var conflict = memory.Note with { Revision = 2, Notes = "Remote" };
+        var json = System.Text.Json.JsonSerializer.Serialize(new { memory.Note, Pending = pending, Conflict = conflict, Photos = new[] { photo }, CoverId = photo.Id });
+        var restored = System.Text.Json.JsonSerializer.Deserialize<JournalMemory>(json)!;
+        Assert.False(restored.IsFree); Assert.False(restored.IsDraft);
+        Assert.Equal(pending, restored.Pending); Assert.Equal(conflict, restored.Conflict);
+        Assert.Equal(photo.Id, restored.CoverId); Assert.Single(restored.Images);
+    }
+
+    [Fact]
+    public async Task FreeDraftPhotosTransferOnVerifiedLinkAndAreErasedWithTrip()
+    {
+        var sessions = new AuthSessionService(); var account = Session(); var disk = new OfflineCacheService();
+        var store = new JournalStore(disk, sessions, new());
+        try {
+            await sessions.SaveAsync(account); var scope = store.Scope();
+            var draft = await store.AddDraftPhotosAsync(scope, JournalMemory.NewFree(scope.TripId, new(2026, 10, 1)), "Local", [new FileResult()]);
+            var target = account with { UserId = Guid.NewGuid(), LinkedFromUserId = account.UserId };
+            await store.TransferLinkedTripAsync(target); await sessions.SaveAsync(target);
+            var moved = Assert.Single(await store.DraftsAsync(store.Scope()));
+            Assert.Equal("Local", moved.Text); Assert.NotNull(await store.PhotoAsync(store.Scope(), moved.Memory.Images[0].Id));
+            Assert.Empty(await store.LoadAsync(store.Scope(), [], false, default));
+            await store.DeleteTripAsync(target.UserId, target.TripId!.Value);
+            Assert.DoesNotContain(disk.Entries.Keys, x => x.StartsWith($"personal-journal-{target.UserId}-{target.TripId}-"));
+        } finally { sessions.Clear(); }
+    }
+
+    [Fact]
+    public async Task InterruptedResponseKeepsFreeMutationForRetry()
+    {
+        var sessions = new AuthSessionService(); var api = new TravelCompanionApiClient();
+        var store = new JournalStore(new(), sessions, api);
+        try {
+            await sessions.SaveAsync(Session()); var scope = store.Scope();
+            var memory = JournalMemory.NewFree(scope.TripId, new(2026, 10, 1));
+            await store.SaveAsync(scope, memory, "Keep me");
+            api.FetchJournalFree = () => throw new IOException("stream closed");
+            var saved = Assert.Single(await store.LoadAsync(scope, [], true, default));
+            Assert.Equal("Keep me", saved.Text); Assert.NotNull(saved.FreePending);
+        } finally { sessions.Clear(); }
+    }
+    [Fact]
+    public async Task FreeDraftSurvivesRestartButIsNotConfirmedOrSynced()
+    {
+        var sessions = new AuthSessionService(); var disk = new OfflineCacheService(); var api = new TravelCompanionApiClient();
+        var store = new JournalStore(disk, sessions, api); var account = Session();
+        try {
+            await sessions.SaveAsync(account); var scope = store.Scope();
+            var memory = JournalMemory.NewFree(scope.TripId, new(2025, 12, 1));
+            await store.SaveDraftAsync(scope, memory, "Preparación");
+            store = new JournalStore(disk, sessions, api);
+            Assert.Empty(await store.LoadAsync(scope, [], true, default));
+            Assert.Equal("Preparación", Assert.Single(await store.DraftsAsync(scope)).Text);
+            await sessions.SaveAsync(Session());
+            Assert.Empty(await store.DraftsAsync(store.Scope()));
+            await Assert.ThrowsAsync<OperationCanceledException>(() => store.SaveDraftAsync(scope, memory, "Wrong account"));
+            await sessions.SaveAsync(account); scope = store.Scope();
+            await store.DiscardDraftAsync(scope, memory);
+            Assert.Empty(await store.DraftsAsync(scope));
+        } finally { sessions.Clear(); }
+    }
+
+    [Fact]
+    public async Task PhotoOnlyDraftUsesCoverAndStaysSeparateFromAlbumUntilSaved()
+    {
+        var sessions = new AuthSessionService(); var store = new JournalStore(new(), sessions, new());
+        try {
+            await sessions.SaveAsync(Session()); var scope = store.Scope();
+            var memory = JournalMemory.NewFree(scope.TripId, new(2026, 10, 1));
+            await Assert.ThrowsAsync<ArgumentException>(() => store.SaveAsync(scope, memory, ""));
+            await Assert.ThrowsAsync<ArgumentException>(() => store.SaveDraftAsync(scope, memory, new string('x', 2001)));
+            memory = await store.AddDraftPhotosAsync(scope, memory, "", Enumerable.Range(0, 12).Select(_ => new FileResult()));
+            Assert.Equal(10, memory.Images.Length); Assert.Equal(memory.Images[0].Id, memory.CoverId);
+            Assert.Empty(await store.LoadAsync(scope, [], false, default));
+            memory = memory with { CoverId = memory.Images[3].Id };
+            await store.SaveAsync(scope, memory, "");
+            await store.DiscardDraftAsync(scope, memory);
+            var saved = Assert.Single(await store.LoadAsync(scope, [], false, default));
+            Assert.False(saved.IsDraft); Assert.Equal(memory.CoverId, saved.CoverId);
+            Assert.NotNull(await store.PhotoAsync(scope, saved.CoverId!.Value));
+            var edit = saved with { Photos = [] };
+            await store.SaveDraftAsync(scope, edit, "Unsaved edit");
+            Assert.Equal(10, Assert.Single(await store.LoadAsync(scope, [], false, default)).Images.Length);
+            await store.DiscardDraftAsync(scope, edit);
+            Assert.Equal(10, Assert.Single(await store.LoadAsync(scope, [], false, default)).Images.Length);
+        } finally { sessions.Clear(); }
+    }
+
+    [Fact]
+    public async Task FreeSyncRetainsMutationsResolvesConflictsAndHonorsTombstones()
+    {
+        var sessions = new AuthSessionService(); var api = new TravelCompanionApiClient(); var store = new JournalStore(new(), sessions, api);
+        try {
+            await sessions.SaveAsync(Session()); var scope = store.Scope();
+            var memory = JournalMemory.NewFree(scope.TripId, new(2026, 10, 1));
+            await store.SaveAsync(scope, memory, "Offline");
+            var pending = Assert.Single(await store.LoadAsync(scope, [], true, default));
+            var mutation = pending.FreePending!.MutationId;
+            Assert.Equal(mutation, Assert.Single(await store.LoadAsync(scope, [], true, default)).FreePending!.MutationId);
+            var remote = memory.FreeEntry! with { Notes = "Other device", Revision = 2 };
+            api.SaveJournalFree = _ => Task.FromResult(new JournalFreeSaveResult(false, remote));
+            var conflict = Assert.Single(await store.LoadAsync(scope, [], true, default));
+            Assert.True(conflict.HasConflict); Assert.Equal("Offline", conflict.Text);
+            await store.ResolveAsync(scope, conflict, true);
+            api.SaveJournalFree = p => Task.FromResult(new JournalFreeSaveResult(true, remote with { Notes = p.Notes, Revision = 3 }));
+            var saved = Assert.Single(await store.LoadAsync(scope, [], true, default));
+            Assert.Null(saved.FreePending); Assert.Equal("Offline", saved.Text);
+            api.FetchJournalFree = () => Task.FromResult(new List<JournalFreeEntryDto> { remote with { Deleted = true, Revision = 4 } });
+            Assert.Empty(await store.LoadAsync(scope, [], true, default));
+            await Assert.ThrowsAsync<InvalidOperationException>(() => store.SaveAsync(scope, saved, "Cannot resurrect"));
+        } finally { sessions.Clear(); }
+    }
+
+    [Fact]
+    public async Task SeveralFreeMemoriesOnSameDateKeepSeparateIdentitiesAndLegacyNotes()
+    {
+        var sessions = new AuthSessionService(); var store = new JournalStore(new(), sessions, new());
+        try {
+            await sessions.SaveAsync(Session()); var scope = store.Scope();
+            var date = new DateOnly(2026, 10, 1);
+            await store.SaveAsync(scope, JournalMemory.NewFree(scope.TripId, date), "One");
+            await store.SaveAsync(scope, JournalMemory.NewFree(scope.TripId, date), "Two");
+            await store.SaveAsync(scope, Memory(scope.TripId), "Legacy");
+            var all = await store.LoadAsync(scope, [], false, default);
+            Assert.Equal(3, all.Count); Assert.Equal(3, all.Select(x => x.Key).Distinct().Count());
+            Assert.False(all[0].IsFree); Assert.All(all.Where(x => x.IsFree), x => Assert.Equal(Guid.Empty, x.Note.ActivityId));
+        } finally { sessions.Clear(); }
+    }
+    [Fact]
     public async Task CorrectedLegacySourceRemovesOnlyUntouchedPreview()
     {
         var sessions = new AuthSessionService();

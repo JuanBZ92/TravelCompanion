@@ -129,6 +129,8 @@ public sealed class EmailAccountService(
                 await TripConcurrencyLock.LockAsync(dbContext, sourceTripId, cancellationToken);
             foreach (var trip in sourceTrips) trip.AppUserId = target.Id;
             var sourceJournal = await dbContext.JournalNotes.Where(note => note.UserId == source.User.Id).ToListAsync(cancellationToken);
+            var freeJournal = await dbContext.JournalFreeEntries.Where(note => note.UserId == source.User.Id).ToListAsync(cancellationToken);
+            foreach (var entry in freeJournal) entry.UserId = target.Id;
             foreach (var note in sourceJournal) note.UserId = target.Id;
             foreach (var expense in await dbContext.TripExpenses.Where(x => x.UserId == source.User.Id).ToListAsync(cancellationToken)) expense.UserId = target.Id;
             foreach (var expenseSettings in await dbContext.TripExpenseSettings.Where(x => x.UserId == source.User.Id).ToListAsync(cancellationToken)) expenseSettings.UserId = target.Id;
@@ -336,6 +338,7 @@ public sealed class EmailAccountService(
         dbContext.Reservations.RemoveRange(await dbContext.Reservations.Where(item => tripIds.Contains(item.TripId)).ToListAsync(cancellationToken));
         dbContext.TravelDocuments.RemoveRange(await dbContext.TravelDocuments.Where(item => tripIds.Contains(item.TripId)).ToListAsync(cancellationToken));
         dbContext.JournalNotes.RemoveRange(await dbContext.JournalNotes.Where(item => item.UserId == user.Id).ToListAsync(cancellationToken));
+        dbContext.JournalFreeEntries.RemoveRange(await dbContext.JournalFreeEntries.Where(item => item.UserId == user.Id).ToListAsync(cancellationToken));
         dbContext.TripPreparationItems.RemoveRange(await dbContext.TripPreparationItems
             .Where(item => item.Trip.AppUserId == user.Id).ToListAsync(cancellationToken));
         dbContext.TripExpenses.RemoveRange(await dbContext.TripExpenses.Where(x => x.UserId == user.Id).ToListAsync(cancellationToken));

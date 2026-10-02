@@ -3,7 +3,10 @@ using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Mobile.Services;
 
-public sealed record LocalTripDocument(Guid Id, string Title, string Extension, long Size, DateTimeOffset SavedAt, string? SourceUrl = null);
+public enum LocalDocumentCategory { Transport, Accommodation, Reservations, TravelDocuments, Other }
+public enum PreparationManualState { Pending, OutsideApp, NotNeeded }
+public sealed record LocalTripDocument(Guid Id, string Title, string Extension, long Size, DateTimeOffset SavedAt,
+    string? SourceUrl = null, LocalDocumentCategory? Category = null);
 public sealed record LocalDocumentPayload(byte[] Bytes);
 
 // Personal files use the existing encrypted, atomic cache writer, but a separate
@@ -17,8 +20,7 @@ public sealed class TripDocumentStore(OfflineCacheService cache, AuthSessionServ
     private static readonly HttpClient DownloadClient = new(new HttpClientHandler { AllowAutoRedirect = false })
     { Timeout = TimeSpan.FromSeconds(60) };
 
-    public bool CanAttach => sessions.HasKnownValidAccess && sessions.IsBuilder && !sessions.IsFreeMapPreview
-        && sessions.CanEditItinerary && sessions.CurrentTripId.HasValue;
+    public bool CanAttach => sessions.HasSession && sessions.CurrentTripId.HasValue;
 
     private (Guid User, Guid Trip) Scope() => sessions.HasSession && sessions.CurrentUserId is { } user && sessions.CurrentTripId is { } trip
         ? (user, trip) : throw new UnauthorizedAccessException();
@@ -33,15 +35,17 @@ public sealed class TripDocumentStore(OfflineCacheService cache, AuthSessionServ
         return result?.Value ?? [];
     }
 
-    public async Task AttachAsync(Stream source, string name, CancellationToken ct = default)
+    public async Task<LocalTripDocument> AttachAsync(Stream source, string name,
+        LocalDocumentCategory category = LocalDocumentCategory.Other, CancellationToken ct = default)
     {
         if (!CanAttach) throw new UnauthorizedAccessException();
         var scope = Scope();
         var bytes = await LocalDocumentPolicy.ReadAsync(source, name, ct);
-        await SaveAsync(scope, name, bytes, null, ct);
+        return await SaveAsync(scope, name, bytes, null, category, ct);
     }
 
-    private async Task SaveAsync((Guid User, Guid Trip) scope, string name, byte[] bytes, string? url, CancellationToken ct)
+    private async Task<LocalTripDocument> SaveAsync((Guid User, Guid Trip) scope, string name, byte[] bytes,
+        string? url, LocalDocumentCategory? category, CancellationToken ct)
     {
         await _gate.WaitAsync(ct);
         try
@@ -54,7 +58,7 @@ public sealed class TripDocumentStore(OfflineCacheService cache, AuthSessionServ
             var index = (await cache.GetAsync<List<LocalTripDocument>>(IndexKey(scope), cancellationToken: ct))?.Value ?? [];
             var old = url is null ? null : index.FirstOrDefault(item => item.SourceUrl == url);
             var document = new LocalTripDocument(Guid.NewGuid(), Path.GetFileNameWithoutExtension(name),
-                LocalDocumentPolicy.Extension(name), bytes.Length, DateTimeOffset.UtcNow, url);
+                LocalDocumentPolicy.Extension(name), bytes.Length, DateTimeOffset.UtcNow, url, category);
             await cache.SaveAsync(FileKey(scope, document.Id), new LocalDocumentPayload(bytes), ct);
             try
             {
@@ -63,6 +67,7 @@ public sealed class TripDocumentStore(OfflineCacheService cache, AuthSessionServ
             }
             catch { await cache.DeleteAsync(FileKey(scope, document.Id)); throw; }
             if (old is not null) await cache.DeleteAsync(FileKey(scope, old.Id));
+            return document;
         }
         finally { _gate.Release(); }
     }
@@ -78,6 +83,20 @@ public sealed class TripDocumentStore(OfflineCacheService cache, AuthSessionServ
             var index = await ListAsync(ct);
             EnsureScope(scope);
             await cache.SaveAsync(IndexKey(scope), index.Select(item => item.Id == id ? item with { Title = title } : item).ToList(), ct);
+        }
+        finally { _gate.Release(); }
+    }
+
+    public async Task SetCategoryAsync(Guid id, LocalDocumentCategory category, CancellationToken ct = default)
+    {
+        var scope = Scope();
+        await _gate.WaitAsync(ct);
+        try
+        {
+            var index = await ListAsync(ct);
+            EnsureScope(scope);
+            if (!index.Any(item => item.Id == id && item.SourceUrl is null)) throw new KeyNotFoundException();
+            await cache.SaveAsync(IndexKey(scope), index.Select(item => item.Id == id ? item with { Category = category } : item).ToList(), ct);
         }
         finally { _gate.Release(); }
     }
@@ -179,7 +198,7 @@ public sealed class TripDocumentStore(OfflineCacheService cache, AuthSessionServ
             };
             await using var stream = await response.Content.ReadAsStreamAsync(ct);
             var bytes = await LocalDocumentPolicy.ReadAsync(stream, "file" + extension, ct);
-            await SaveAsync(scope, title + extension, bytes, url, ct);
+            await SaveAsync(scope, title + extension, bytes, url, null, ct);
             return;
         }
         throw new HttpRequestException("Too many document redirects.");
@@ -207,7 +226,7 @@ public sealed class TripDocumentStore(OfflineCacheService cache, AuthSessionServ
             if (tripId.HasValue) _deletedTrips.Add((userId, tripId.Value));
             else _deletedAccounts.Add(userId);
             await cache.DeleteByPrefixAsync($"personal-document-file-{suffix}", $"personal-documents-{suffix}",
-                $"offline-preparation-{suffix}", $"document-links-{suffix}");
+                $"offline-preparation-{suffix}", $"document-links-{suffix}", $"preparation-organizer-{suffix}");
             await ClearPreviewsAsync();
         }
         finally { _gate.Release(); }

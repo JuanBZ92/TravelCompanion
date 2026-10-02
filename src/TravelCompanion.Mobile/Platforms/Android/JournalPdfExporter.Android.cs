@@ -64,16 +64,16 @@ public static partial class JournalPdfExporter
             try
             {
                 NewPage(); y = 110; Text(title, 32, true);
-                Text($"{entries.Min(x => x.Note.Date):d MMMM yyyy} — {entries.Max(x => x.Note.Date):d MMMM yyyy}", 13);
-                Text(string.Join(" · ", entries.Select(x => x.Note.City).Distinct()), 13);
+                Text($"{entries.Min(x => x.Date):d MMMM yyyy} — {entries.Max(x => x.Date):d MMMM yyyy}", 13);
+                Text(string.Join(" · ", entries.Select(x => x.City).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct()), 13);
                 if (cover.HasValue) await Photo(cover.Value, 420);
                 for (var i = 0; i < entries.Count; i++)
                 {
                     var entry = entries[i]; NewPage();
-                    Text($"{entry.Note.Date:d MMMM yyyy} · {entry.Note.City}", 12);
-                    Text(entry.Note.Title, 26, true);
+                    Text(entry.Date.ToString("d MMMM yyyy") + (string.IsNullOrWhiteSpace(entry.City) ? "" : $" · {entry.City}"), 12);
+                    Text(JournalText.Title(entry), 26, true);
                     Text(entry.Text, 13);
-                    foreach (var photo in entry.Images) await Photo(photo.Id, 420);
+                    foreach (var photo in entry.Images.OrderByDescending(x => x.Id == entry.CoverId)) await Photo(photo.Id, 420);
                     progress.Report((double)(i + 1) / entries.Count);
                 }
                 if (page is not null) { pdf.FinishPage(page); page = null; }

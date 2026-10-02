@@ -106,7 +106,7 @@ public sealed class TripDocumentStoreTests
     }
 
     [Fact]
-    public async Task Expired_pass_can_read_saved_files_but_cannot_attach()
+    public async Task Read_only_or_free_access_can_attach_personal_documents()
     {
         var sessions = new AuthSessionService();
         var account = Session();
@@ -117,8 +117,9 @@ public sealed class TripDocumentStoreTests
             await store.AttachAsync(new MemoryStream("%PDF-1.7 test"u8.ToArray()), "ticket.pdf");
             await sessions.SaveAsync(account with { AccessMode = SessionAccessMode.BuilderReadOnly, Capabilities = new(true, false, false, false, false) });
             Assert.Single(await store.ListAsync());
-            Assert.False(store.CanAttach);
-            await Assert.ThrowsAsync<UnauthorizedAccessException>(() => store.AttachAsync(new MemoryStream([]), "new.pdf"));
+            Assert.True(store.CanAttach);
+            await store.AttachAsync(new MemoryStream("%PDF-1.7 second"u8.ToArray()), "new.pdf");
+            Assert.Equal(2, (await store.ListAsync()).Count);
         }
         finally { sessions.Clear(); }
     }
@@ -140,7 +141,7 @@ public sealed class TripDocumentStoreTests
     }
 
     [Fact]
-    public async Task Expiring_access_during_file_selection_does_not_save_the_attachment()
+    public async Task Access_expiry_during_file_read_does_not_block_personal_attachment()
     {
         var sessions = new AuthSessionService();
         var account = Session();
@@ -153,8 +154,8 @@ public sealed class TripDocumentStoreTests
                 AccessMode = SessionAccessMode.BuilderReadOnly,
                 Capabilities = new(true, false, false, false, false)
             }));
-            await Assert.ThrowsAsync<UnauthorizedAccessException>(() => store.AttachAsync(stream, "ticket.pdf"));
-            Assert.Empty(await store.ListAsync());
+            await store.AttachAsync(stream, "ticket.pdf");
+            Assert.Single(await store.ListAsync());
         }
         finally { sessions.Clear(); }
     }

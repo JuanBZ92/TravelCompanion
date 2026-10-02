@@ -13,6 +13,12 @@ public sealed class TravelCompanionApiClient
     public Task<ExpenseSettingsDto?> SaveExpenseSettingsAsync(string token, Guid trip, SaveExpenseSettingsRequest value, CancellationToken ct) => SaveExpenseSettings(value);
     public Task<ExpenseRateDto?> GetExpenseRateAsync(string token, Guid trip, string currency, string target, DateOnly date, CancellationToken ct) => Task.FromResult<ExpenseRateDto?>(null);
     public Func<Task<List<JournalNoteDto>>> FetchJournal = () => Task.FromResult(new List<JournalNoteDto>());
+    public Func<Task<List<JournalFreeEntryDto>>> FetchJournalFree = () => Task.FromResult(new List<JournalFreeEntryDto>());
+    public Func<SaveJournalFreeEntryRequest, Task<JournalFreeSaveResult>> SaveJournalFree = _ => throw new HttpRequestException();
+    public Func<DeleteJournalFreeEntryRequest, Task<JournalFreeSaveResult>> DeleteJournalFree = _ => throw new HttpRequestException();
+    public Task<List<JournalFreeEntryDto>> GetJournalFreeAsync(string token, Guid trip, CancellationToken ct) => FetchJournalFree();
+    public Task<JournalFreeSaveResult> SaveJournalFreeAsync(string token, Guid trip, Guid id, SaveJournalFreeEntryRequest request, CancellationToken ct) => SaveJournalFree(request);
+    public Task<JournalFreeSaveResult> DeleteJournalFreeAsync(string token, Guid trip, Guid id, DeleteJournalFreeEntryRequest request, CancellationToken ct) => DeleteJournalFree(request);
     public Func<SaveJournalNoteRequest, Task<JournalSaveResult>> SaveJournal = _ => throw new HttpRequestException();
     public Task<List<JournalNoteDto>> GetJournalAsync(string token, Guid trip, CancellationToken ct) => FetchJournal();
     public Task<JournalSaveResult> SaveJournalAsync(string token, Guid trip, Guid activity, SaveJournalNoteRequest request, CancellationToken ct) => SaveJournal(request);
