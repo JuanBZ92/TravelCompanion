@@ -4,21 +4,20 @@ namespace TravelCompanion.Mobile.Pages;
 
 public partial class TripPreparationPage : TripScopedPage
 {
-    private readonly TripPreparationViewModel viewModel;
     public TripPreparationPage(TripPreparationViewModel viewModel)
     {
         InitializeComponent();
-        BindingContext = this.viewModel = viewModel;
+        BindingContext = viewModel;
+        Shell.SetNavBarIsVisible(this, true);
     }
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-        await viewModel.LoadPreparationCommand.ExecuteAsync(null);
+        await FolderPanel.ActivateAsync();
     }
     protected override void OnDisappearing()
     {
-        viewModel.CancelLoading();
+        FolderPanel.Deactivate();
         base.OnDisappearing();
     }
-    private async void OnBackClicked(object? sender, EventArgs e) => await Shell.Current.GoToAsync("..");
 }

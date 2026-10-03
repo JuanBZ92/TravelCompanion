@@ -2,6 +2,11 @@ namespace TravelCompanion.Mobile.Services;
 
 public static class LocalDocumentPolicy
 {
+    public static IEnumerable<LocalTripDocument> PersonalDocuments(
+        IEnumerable<LocalTripDocument> documents, LocalDocumentCategory? category = null) =>
+        documents.Where(item => item.SourceUrl is null
+            && (!category.HasValue || (item.Category ?? LocalDocumentCategory.Other) == category.Value));
+
     public const int MaximumBytes = 20 * 1024 * 1024;
 
     public static string Extension(string fileName) => Path.GetExtension(fileName).ToLowerInvariant() switch

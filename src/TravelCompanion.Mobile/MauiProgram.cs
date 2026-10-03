@@ -163,7 +163,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<TravelChatPage>();
         builder.Services.AddTransient<ScheduleItemDetailPage>();
         builder.Services.AddSingleton<PackagesPage>();
-        builder.Services.AddSingleton<DocsPage>();
+        builder.Services.AddTransient<DocsPage>();
         builder.Services.AddTransient<LogoutPage>();
         builder.Services.AddTransient<RecommendationDetailPage>();
         builder.Services.AddTransient<BuilderSetupPage>();

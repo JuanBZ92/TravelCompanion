@@ -14,11 +14,13 @@
              BackgroundColor="{StaticResource Mist}">
 
     <Grid x:Name="ScheduleRoot" RowDefinitions="Auto,*">
-        <Grid x:Name="ScheduleHeader" ColumnDefinitions="*,*,48" Padding="24,4" ColumnSpacing="8">
-            <Button x:Name="ItinerarySectionButton" Text="Itinerario" Clicked="OnItinerarySectionClicked" BackgroundColor="Transparent" TextColor="#393226" MinimumHeightRequest="44" FontSize="13" />
-            <Button x:Name="ExpensesSectionButton" Grid.Column="1" Text="Gastos" Clicked="OnExpensesSectionClicked" BackgroundColor="Transparent" TextColor="#8E867D" MinimumHeightRequest="44" FontSize="13" />
-            <ImageButton Grid.Column="2" Source="itinerary_menu.svg" Clicked="OnItineraryMenuClicked" WidthRequest="48" HeightRequest="48" Padding="12" BackgroundColor="Transparent" SemanticProperties.Description="Opciones del viaje" />
+        <Grid x:Name="ScheduleHeader" ColumnDefinitions="*,*,*,48" Padding="12,4" ColumnSpacing="0">
+            <Button x:Name="ItinerarySectionButton" Text="Itinerario" Clicked="OnItinerarySectionClicked" BackgroundColor="Transparent" TextColor="#393226" MinimumHeightRequest="48" FontSize="13" Padding="0" />
+            <Button x:Name="FolderSectionButton" Grid.Column="1" Text="Carpeta" Clicked="OnFolderSectionClicked" BackgroundColor="Transparent" TextColor="#8E867D" MinimumHeightRequest="48" FontSize="13" Padding="0" />
+            <Button x:Name="ExpensesSectionButton" Grid.Column="2" Text="Gastos" Clicked="OnExpensesSectionClicked" BackgroundColor="Transparent" TextColor="#8E867D" MinimumHeightRequest="48" FontSize="13" Padding="0" />
+            <ImageButton Grid.Column="3" Source="itinerary_menu.svg" Clicked="OnItineraryMenuClicked" WidthRequest="48" HeightRequest="48" Padding="12" BackgroundColor="Transparent" SemanticProperties.Description="Opciones del viaje" />
         </Grid>
+        <pages:TripFolderPanel x:Name="FolderPanelView" Grid.Row="1" IsVisible="False" />
         <pages:ExpensesPanel x:Name="ExpensesPanelView" Grid.Row="1" IsVisible="False" />
     <Grid x:Name="ItineraryContent" Grid.Row="1" RowDefinitions="*">
         <RefreshView IsRefreshing="{Binding IsRefreshing}"
@@ -26,9 +28,6 @@
             <ScrollView VerticalScrollBarVisibility="Never">
                 <VerticalStackLayout Padding="24,12,24,28"
                                      Spacing="16">
-                    <Button Text="{Binding [PreparationTitle], Source={x:Static services:LocalizationResourceManager.Instance}}"
-                            Command="{Binding PrepareTripCommand}" MinimumHeightRequest="48"
-                            BackgroundColor="#FAF6F0" TextColor="#393226" FontSize="14" />
 
                     <CollectionView ItemsSource="{Binding DayFilters}"
                                     SelectionMode="None"

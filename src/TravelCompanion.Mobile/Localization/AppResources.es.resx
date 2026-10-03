@@ -511,7 +511,7 @@ A tu manera.</value></data>
   <data name="PaywallShareTitle" xml:space="preserve"><value>Compartí lo que vas a vivir</value></data>
   <data name="PaywallShareBody" xml:space="preserve"><value>Compartí el resumen de tu itinerario, con sus días, lugares y horarios, desde las apps de tu teléfono.</value></data>
   <data name="PaywallBack" xml:space="preserve"><value>Volver</value></data>
-  <data name="PreparationTitle" xml:space="preserve"><value>Preparar mi viaje a Japón</value></data>
+  <data name="PreparationTitle" xml:space="preserve"><value>Carpeta del viaje</value></data>
   <data name="PreparationIntro" xml:space="preserve"><value>Organiza los archivos de tu viaje por categoría. Añadir un archivo no verifica una reserva ni un requisito de entrada.</value></data>
   <data name="PreparationOrganizerSummary" xml:space="preserve"><value>{0} de {1} categorías organizadas</value></data>
   <data name="PreparationDescription_Transport" xml:space="preserve"><value>Vuelos, trenes y traslados al aeropuerto.</value></data>

@@ -511,7 +511,7 @@ Your way.</value></data>
   <data name="PaywallShareTitle" xml:space="preserve"><value>Share what's ahead</value></data>
   <data name="PaywallShareBody" xml:space="preserve"><value>Share an itinerary summary with days, places and times through your phone's apps.</value></data>
   <data name="PaywallBack" xml:space="preserve"><value>Back</value></data>
-  <data name="PreparationTitle" xml:space="preserve"><value>Prepare my Japan trip</value></data>
+  <data name="PreparationTitle" xml:space="preserve"><value>Trip folder</value></data>
   <data name="PreparationIntro" xml:space="preserve"><value>Keep your travel files organized by category. Adding a file does not verify a booking or entry requirement.</value></data>
   <data name="PreparationOrganizerSummary" xml:space="preserve"><value>{0} of {1} categories organized</value></data>
   <data name="PreparationDescription_Transport" xml:space="preserve"><value>Flights, trains and airport transfers.</value></data>

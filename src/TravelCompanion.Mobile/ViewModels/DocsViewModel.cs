@@ -41,10 +41,10 @@ public sealed partial class DocsViewModel(
     public ObservableCollection<DocumentItemViewModel> OtherDocuments { get; } = [];
     public ObservableCollection<HotelItemViewModel> Hotels { get; } = [];
 
-    public bool HasFlights => Journeys.Count > 0;
-    public bool HasHotelDocuments => HotelDocuments.Count > 0;
-    public bool HasOtherDocuments => OtherDocuments.Count > 0;
-    public bool HasHotels => Hotels.Count > 0;
+    public bool HasFlights => SelectedCategory is null && Journeys.Count > 0;
+    public bool HasHotelDocuments => SelectedCategory is null && HotelDocuments.Count > 0;
+    public bool HasOtherDocuments => SelectedCategory is null && OtherDocuments.Count > 0;
+    public bool HasHotels => SelectedCategory is null && Hotels.Count > 0;
     partial void OnSelectedJourneyChanged(FlightJourneyItemViewModel? value)
     {
         foreach (var journey in Journeys)
@@ -64,12 +64,12 @@ public sealed partial class DocsViewModel(
             await Shell.Current.GoToAsync("//login");
             return;
         }
-        Title = Text("TabDocs");
+        Title = SelectedCategory is { } category ? CategoryName(category) : Text("TabDocs");
         Subtitle = Text("LocalDocumentsNotice");
         await RefreshLocalDocumentsAsync(cancellationToken);
         OnPropertyChanged(nameof(CanAttachDocument));
         OnPropertyChanged(nameof(ShowLocalNotice));
-        if (!sessionService.HasCuratedDocs || !sessionService.HasKnownValidAccess) return;
+        if (SelectedCategory.HasValue || !sessionService.HasCuratedDocs || !sessionService.HasKnownValidAccess) return;
         var contextVersion = sessionService.ContextVersion;
         var userId = sessionService.CurrentUserId;
         var tripId = sessionService.CurrentTripId;
@@ -187,6 +187,7 @@ public sealed partial class DocsViewModel(
     public void ResetForNewSession()
     {
         HasLoaded = false;
+        SelectedCategory = null;
         LocalDocumentGroups.Clear();
         OnPropertyChanged(nameof(CanAttachDocument));
         OnPropertyChanged(nameof(ShowLocalNotice));

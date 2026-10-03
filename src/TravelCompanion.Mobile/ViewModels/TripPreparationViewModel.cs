@@ -29,6 +29,8 @@ public sealed partial class TripPreparationViewModel(
     private bool canSave;
     public bool CanSave { get => canSave; private set => SetProperty(ref canSave, value); }
     public string Title => Text("PreparationTitle");
+    private string destination = "";
+    public string Destination { get => destination; private set => SetProperty(ref destination, value); }
     public string Introduction => Text("PreparationIntro");
     public string OfflineScope => Text("OfflineScope");
     public string LocalNotice => Text("LocalDocumentsNotice");
@@ -60,6 +62,7 @@ public sealed partial class TripPreparationViewModel(
         Apply(state, localDocuments);
 
         var saved = await bootstrap.GetCachedAsync(cancellationToken: ct);
+        Destination = saved?.Value.Schedule?.DestinationName ?? "";
         var manifest = await offline.GetAsync(ct);
         var versions = await syncState.GetCachedStateAsync(ct);
         var progress = TripPreparationProgress.Create(trip.Value, saved?.Value.Schedule, manifest, versions?.CatalogVersion,
@@ -120,8 +123,8 @@ public sealed partial class TripPreparationViewModel(
     });
 
     [RelayCommand]
-    private Task ViewDocumentsAsync(PreparationRow? row) => IsCurrent
-        ? Shell.Current.GoToAsync(nameof(DocsPage)) : Task.CompletedTask;
+    private Task ViewDocumentsAsync(PreparationRow? row) => IsCurrent && row is not null
+        ? Shell.Current.GoToAsync(nameof(DocsPage), new ShellNavigationQueryParameters { ["DocumentCategory"] = row!.Category }) : Task.CompletedTask;
 
     [RelayCommand]
     private Task MoreItemAsync(PreparationRow? row) => LoadAsync(async ct =>
@@ -178,6 +181,7 @@ public sealed record PreparationRow(
     public bool HasDocuments => DocumentCount > 0;
     public bool IsOrganized => TripPreparationOrganizationPolicy.IsOrganized(State.ManualState, DocumentCount);
     public string CardDescription => $"{Label}. {StateText}. {AddAction}";
+    public string ViewDescription => $"{Label}. {StateText}. {ViewDocumentsAction}";
     public string ViewDocumentsAction => TripPreparationViewModel.Text("PreparationViewDocuments");
     public string MenuDescription => string.Format(TripPreparationViewModel.Text("PreparationOptionsNamed"), Label);
 }

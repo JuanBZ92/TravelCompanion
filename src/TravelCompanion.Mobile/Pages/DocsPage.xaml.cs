@@ -1,6 +1,6 @@
 namespace TravelCompanion.Mobile.Pages;
 
-public partial class DocsPage : ContentPage
+public partial class DocsPage : ContentPage, IQueryAttributable
 {
     private readonly ViewModels.DocsViewModel _viewModel;
 
@@ -13,6 +13,13 @@ public partial class DocsPage : ContentPage
     {
         InitializeComponent();
         BindingContext = _viewModel = viewModel;
+        _viewModel.SetCategory(null);
+    }
+
+    public void ApplyQueryAttributes(IDictionary<string, object> query)
+    {
+        _viewModel.SetCategory(query.TryGetValue("DocumentCategory", out var value)
+            && value is Services.LocalDocumentCategory category ? category : null);
     }
 
     protected override async void OnAppearing()

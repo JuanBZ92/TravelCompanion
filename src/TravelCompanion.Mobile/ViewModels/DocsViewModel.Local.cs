@@ -6,6 +6,13 @@ namespace TravelCompanion.Mobile.ViewModels;
 
 public sealed partial class DocsViewModel
 {
+    public LocalDocumentCategory? SelectedCategory { get; private set; }
+    public void SetCategory(LocalDocumentCategory? category)
+    {
+        SelectedCategory = category;
+        LocalDocumentGroups.Clear();
+        NotifySectionsChanged();
+    }
     public ObservableCollection<LocalDocumentGroupViewModel> LocalDocumentGroups { get; } = [];
     public string CopyCodeText => Text("CopyConfirmationCode");
     public bool ShowLocalNotice => sessionService.CurrentTripId.HasValue;
@@ -25,9 +32,11 @@ public sealed partial class DocsViewModel
         var documents = await documentStore.ListAsync(ct);
         if (user != sessionService.CurrentUserId || trip != sessionService.CurrentTripId) return;
         LocalDocumentGroups.Clear();
-        var personal = documents.Where(item => item.SourceUrl is null).ToList();
+        var personal = LocalDocumentPolicy.PersonalDocuments(documents, SelectedCategory).ToList();
+        StatusMessage = SelectedCategory.HasValue && personal.Count == 0 ? Text("NoDocuments") : null;
         foreach (var category in Enum.GetValues<LocalDocumentCategory>())
         {
+            if (SelectedCategory.HasValue && SelectedCategory.Value != category) continue;
             var rows = personal.Where(item => (item.Category ?? LocalDocumentCategory.Other) == category)
                 .Select(item => new LocalDocumentItemViewModel(item, documentStore,
                     () => RefreshLocalDocumentsAsync(default), SelectCategoryAsync)).ToList();
@@ -65,7 +74,7 @@ public sealed partial class DocsViewModel
     private Task AttachDocumentAsync() => base.LoadAsync(async ct =>
     {
         if (!CanAttachDocument) return;
-        var category = await SelectCategoryAsync();
+        var category = SelectedCategory ?? await SelectCategoryAsync();
         if (!category.HasValue) return;
         try { await AttachToCategoryAsync(category.Value, ct); }
         catch (IOException) { ErrorMessage = Text("DocumentError") + " " + Text("DocumentLimit"); }

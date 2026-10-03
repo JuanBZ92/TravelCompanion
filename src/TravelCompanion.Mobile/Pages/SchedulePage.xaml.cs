@@ -11,18 +11,31 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
     private async void OnExpensesSectionClicked(object? sender, EventArgs e) => await ShowExpensesAsync();
     private void OnItinerarySectionClicked(object? sender, EventArgs e)
     {
+        FolderPanelView.Deactivate(); FolderPanelView.IsVisible = false;
+        FolderSectionButton.TextColor = ExpenseUi.Muted;
         ExpensesPanelView.Deactivate(); ExpensesPanelView.IsVisible = false; ItineraryContent.IsVisible = true;
         ItinerarySectionButton.TextColor = ExpenseUi.Ink; ExpensesSectionButton.TextColor = ExpenseUi.Muted;
     }
     private async Task ShowExpensesAsync()
     {
+        FolderPanelView.Deactivate(); FolderPanelView.IsVisible = false;
+        FolderSectionButton.TextColor = ExpenseUi.Muted;
         ItineraryContent.IsVisible = false; ExpensesPanelView.IsVisible = true;
         ItinerarySectionButton.TextColor = ExpenseUi.Muted; ExpensesSectionButton.TextColor = ExpenseUi.Ink;
         await ExpensesPanelView.ActivateAsync();
     }
+    private async void OnFolderSectionClicked(object? sender, EventArgs e)
+    {
+        ExpensesPanelView.Deactivate(); ExpensesPanelView.IsVisible = false;
+        ItineraryContent.IsVisible = false; FolderPanelView.IsVisible = true;
+        ItinerarySectionButton.TextColor = ExpenseUi.Muted;
+        ExpensesSectionButton.TextColor = ExpenseUi.Muted;
+        FolderSectionButton.TextColor = ExpenseUi.Ink;
+        await FolderPanelView.ActivateAsync();
+    }
     protected override bool OnBackButtonPressed()
     {
-        if (!ExpensesPanelView.IsVisible) return base.OnBackButtonPressed();
+        if (!ExpensesPanelView.IsVisible && !FolderPanelView.IsVisible) return base.OnBackButtonPressed();
         OnItinerarySectionClicked(this, EventArgs.Empty); return true;
     }
     private async void OnDocumentsClicked(object? sender, EventArgs e) => await Shell.Current.GoToAsync(nameof(DocsPage));
@@ -61,6 +74,7 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
         BindingContext = viewModel;
         ItinerarySectionButton.Text = ExpenseUi.T("Itinerario", "Itinerary");
         ExpensesSectionButton.Text = ExpenseUi.T("Gastos", "Expenses");
+        FolderSectionButton.Text = ExpenseUi.T("Carpeta", "Folder");
 
         _logger.LogInformation(
             "Schedule page initialized in {ElapsedMs}ms. HasLoaded={HasLoaded}.",
@@ -72,7 +86,9 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
     {
         base.OnAppearing();
         _viewModel.RefreshDayConfirmation();
+        StartAccessTimer();
         if (ExpensesPanelView.IsVisible) await ExpensesPanelView.ActivateAsync();
+        if (FolderPanelView.IsVisible) { await FolderPanelView.ActivateAsync(); return; }
 
         if (_isHandlingAppearance)
         {
@@ -87,6 +103,7 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
     protected override void OnDisappearing()
     {
         ExpensesPanelView.Deactivate();
+        FolderPanelView.Deactivate();
         _viewModel.CancelLoading();
         _accessTimer?.Stop();
         base.OnDisappearing();
