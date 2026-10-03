@@ -107,46 +107,21 @@ public sealed partial class TravelChatService
             timeline.Insert(0, (new TimeOnly(8, 0), hotel.Title,
                 hotel.Latitude ?? hotel.Recommendation?.Latitude,
                 hotel.Longitude ?? hotel.Recommendation?.Longitude));
-        var occupied = existing.Where(item => item.Type == ReservationType.Event
-                && item.TimePrecision == ItineraryTimePrecision.PeriodOnly)
-            .Select(DaySlot).ToHashSet();
+        // New proposals add ideas for the day, regardless of how many plans are saved.
+        // Explicit replacements and adaptations retain their targeted behavior.
+        var additiveProposal = adaptation is null && selected.Count == 0 && !isDraftChange;
         var slots = selected.Count > 0
             ? selected.Select(item => (Slot: DaySlot(item), Original: (Reservation?)item)).ToList()
-            : Enumerable.Range(0, 5).Where(slot => !occupied.Contains(slot)
-                && !existing.Any(item => BlocksDaySlot(item, date, slot)))
-                .Select(slot => (Slot: slot, Original: (Reservation?)null)).ToList();
+            : Enumerable.Range(0, 5).Select(slot => (Slot: slot, Original: (Reservation?)null)).ToList();
         if (personalized)
         {
-            var goal = request.Criteria!.TravelPace switch { "relaxed" => 3, "efficient" => 5, _ => 4 };
-            var preferredSlots = goal switch
+            var preferredSlots = request.Criteria!.TravelPace switch
             {
-                3 => new[] { 1, 2, 3 },
-                4 => new[] { 0, 1, 2, 3 },
-                _ => new[] { 0, 1, 2, 3, 4 }
+                "relaxed" => new[] { 1, 2, 3 },
+                "efficient" => new[] { 0, 1, 2, 3, 4 },
+                _ => new[] { 0, 1, 2, 3 }
             };
-            slots = slots.Where(item => preferredSlots.Contains(item.Slot))
-                .Take(Math.Max(0, goal - existing.Count(item => item.Type == ReservationType.Event))).ToList();
-            if (slots.Count == 0)
-                return responseComposer.MissingContext(conversationId, "day",
-                    english ? "This day is already full for your chosen pace."
-                        : "Este día ya está completo para el ritmo elegido.", []);
-        }
-        if (slots.Count == 0 && !isDraftChange)
-        {
-            var editable = existing.Where(CanReplaceDayStop).Select(item => WithDayTransfer(new TravelCardDto(
-                "existing_day_stop", item.Title, null, null, item.StartsAt.ToString("HH:mm"),
-                item.EndsAt?.ToString("HH:mm"), item.Recommendation?.PriceLevel, null, null, [], [],
-                item.RecommendationId?.ToString(), item.Id.ToString())
-                {
-                    IsDayPlan = true,
-                    IsPeriodOnly = item.TimePrecision != ItineraryTimePrecision.Exact,
-                    PeriodKey = item.TripDayBlock?.PeriodKey
-                },
-                timeline, item.StartsAt, item.Latitude ?? item.Recommendation?.Latitude,
-                item.Longitude ?? item.Recommendation?.Longitude, english)).ToList();
-            return new(conversationId,
-                english ? "Day already complete. Select the events you want to change." : "Día ya completo. Seleccioná los eventos que querés cambiar.",
-                "day_complete", editable, [], null);
+            slots = slots.Where(item => preferredSlots.Contains(item.Slot)).ToList();
         }
 
         var city = ResolveCity(request.City, existing, trips);
@@ -183,7 +158,7 @@ public sealed partial class TravelChatService
         {
             var result = await recommendationPlanningService.RankAsync(user,
                 trips.Select(trip => trip.DestinationId).Distinct().ToList(), candidateCity,
-                preferenceProfile, existing, context with { City = candidateCity }, BalancedMode,
+                preferenceProfile, additiveProposal ? [] : existing, context with { City = candidateCity }, BalancedMode,
                 personalized ? new GuidedPlanCriteriaDto(Budget: request.Criteria!.Budget)
                     : new GuidedPlanCriteriaDto { IgnorePreferences = adaptation != "indoors" }, excluded, cancellationToken);
             foreach (var candidate in result.RankedRecommendations.Where(item =>
@@ -265,7 +240,7 @@ public sealed partial class TravelChatService
                     && (slot is 1 or 3 || MatchesDaySlot(item.Recommendation, slot))
                     && (slot >= 3 || !IsNightlifeDayCandidate(item.Recommendation))
                     && (!personalized || HasDietaryEvidence(item.Recommendation, preferenceProfile.DietaryRestrictions))
-                    && (original is not null || !OverlapsExactReservation(existing, date, time,
+                    && (additiveProposal || original is not null || !OverlapsExactReservation(existing, date, time,
                         item.Recommendation.SuggestedDurationMinutes)));
             if (adaptation == "indoors")
                 options = options.Where(item => IsIndoorCandidate(item.Recommendation));
@@ -336,8 +311,8 @@ public sealed partial class TravelChatService
         }
         var message = cards.Count == 0
             ? english ? "No matching alternatives found. Your existing plans are unchanged." : "No encontré alternativas compatibles. Tus planes siguen igual."
-            : english ? $"Prepared {cards.Count} stops. Existing events are kept unless selected for replacement."
-                : $"Preparé {cards.Count} paradas. Se conservan los eventos que no seleccionaste para cambiar.";
+            : english ? $"Prepared {cards.Count} new ideas. Save the ones you want to add to your day. Your current plans stay in place."
+                : $"Preparé {cards.Count} ideas nuevas. Guardá las que quieras añadir al día. Tus planes actuales se conservan.";
         if (cards.Count > 0 && (isDraftChange || selected.Count > 0))
             message = english ? "Alternative ready. Review it and save to update Today. Nothing has been changed yet."
                 : "Alternativa lista. Revisala y guardala para actualizar Today. Todavía no se cambió nada.";
@@ -347,8 +322,8 @@ public sealed partial class TravelChatService
             message += selected.Count > 0
                 ? english ? $" {missing} selected events have no alternative and stay unchanged."
                     : $" {missing} eventos seleccionados no tienen alternativa y siguen igual."
-                : english ? $" {missing} slots stay open because no suitable place is available."
-                    : $" Quedan {missing} huecos libres porque no hay un lugar adecuado disponible.";
+                : english ? $" No suitable new idea is available for {missing} moments of the day."
+                    : $" No hay una idea nueva adecuada para {missing} momentos del día.";
         }
         if (adaptation is not null)
         {
@@ -413,7 +388,7 @@ public sealed partial class TravelChatService
         if (recommendation.IsPriceKnown && RecommendationBudget.GetRank(recommendation.PriceLevel)
             <= RecommendationBudget.GetRank(profile.BudgetLevel))
             return [english ? "Within your chosen budget." : "Dentro del presupuesto que elegiste."];
-        return [english ? "Fits a free part of your day." : "Encaja en un momento libre del día."];
+        return [english ? "An additional idea for your chosen pace." : "Una idea adicional para el ritmo que elegiste."];
     }
 
     private static bool OverlapsExactReservation(IReadOnlyList<Reservation> existing, DateOnly date,
@@ -470,18 +445,6 @@ public sealed partial class TravelChatService
         if (item.Recommendation is not null) return IsFoodRecommendation(item.Recommendation) ? 0 : 1;
         return new[] { "cafe", "café", "coffee", "breakfast", "desayuno" }
             .Any(term => item.Title.Contains(term, StringComparison.OrdinalIgnoreCase)) ? 0 : 1;
-    }
-
-    private static bool BlocksDaySlot(Reservation item, DateOnly date, int slot)
-    {
-        if (item.Type == ReservationType.Lodging || item.TimePrecision != ItineraryTimePrecision.Exact) return false;
-        var start = item.Date.ToDateTime(item.StartsAt);
-        var end = item.EndsAt.HasValue
-            ? (item.EndsOn ?? item.Date).ToDateTime(item.EndsAt.Value)
-            : start.AddMinutes(item.DurationMinutes ?? 60);
-        if (end <= start) end = end.AddDays(1);
-        var time = date.ToDateTime(DayStopTimes[slot]);
-        return time >= start && time < end;
     }
 
     private static bool MatchesDaySlot(Recommendation item, int slot) => slot switch

@@ -93,7 +93,7 @@ public sealed class ImproveDayPage : ContentPage, IQueryAttributable
     private void RenderChoices()
     {
         choices.Clear();
-        Add(ExpenseUi.T("Completar el día", "Complete the day"), ExpenseUi.T("Ideas para los espacios libres, sin mover tus planes.", "Ideas for free time, keeping your plans."), async () =>
+        Add(ExpenseUi.T("Completar el día", "Complete the day"), ExpenseUi.T("Ideas nuevas para cada momento del día, aunque ya tengas planes.", "New ideas for each part of the day, even if you already have plans."), async () =>
             await Shell.Current.GoToAsync("//main/assistant", new ShellNavigationQueryParameters { ["ReviewDate"] = date, ["ReviewCity"] = city ?? string.Empty }), true);
         if (options?.Enabled == true)
             Add(ExpenseUi.T("Personalizar mi día", "Personalize my day"), ExpenseUi.T("Elegí tus intereses, presupuesto y ritmo.", "Choose your interests, budget and pace."), async () =>

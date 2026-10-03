@@ -450,7 +450,7 @@ A tu manera.</value></data>
   <data name="AssistantForDay" xml:space="preserve"><value>PARA ESTE DÍA</value></data>
   <data name="AssistantChooseDate" xml:space="preserve"><value>Elegir fecha del viaje</value></data>
   <data name="AssistantCompleteDay" xml:space="preserve"><value>Completar mi día</value></data>
-  <data name="AssistantCompleteDayHelp" xml:space="preserve"><value>Ideas para los espacios libres, sin mover tus reservas.</value></data>
+  <data name="AssistantCompleteDayHelp" xml:space="preserve"><value>Ideas nuevas para cada momento del día, aunque ya tengas planes.</value></data>
   <data name="AssistantFindPlace" xml:space="preserve"><value>Buscar un lugar</value></data>
   <data name="AssistantAsk" xml:space="preserve"><value>Preguntar al Asistente</value></data>
   <data name="AssistantBackHome" xml:space="preserve"><value>Volver al inicio del Asistente</value></data>

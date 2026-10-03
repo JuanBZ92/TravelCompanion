@@ -1941,7 +1941,7 @@ public sealed class TravelChatServiceTests
     }
 
     [Fact]
-    public async Task Full_day_fills_only_missing_slots_and_warns_about_long_transfers()
+    public async Task Full_day_adds_ideas_in_occupied_slots_and_warns_about_long_transfers()
     {
         await using var db = CreateDbContext();
         var destination = Guid.NewGuid();
@@ -1957,14 +1957,14 @@ public sealed class TravelChatServiceTests
         db.Reservations.AddRange(DayReservation(trip.Id, cafe, new(9, 0)), DayReservation(trip.Id, lunch, new(13, 0)));
         await db.SaveChangesAsync();
         var response = await CreateService(db).CreatePlanAsync(user, DayRequest(), CancellationToken.None);
-        Assert.Equal(["10:30", "16:00", "19:30"], response.Cards.Select(card => card.StartTime));
+        Assert.Equal(["10:30", "13:00", "16:00"], response.Cards.Select(card => card.StartTime));
         Assert.DoesNotContain(response.Cards, card => card.RecommendationId == cafe.Id.ToString() || card.RecommendationId == lunch.Id.ToString());
         Assert.Contains(response.Cards, card => card.HasLongTransfer && card.Warnings.Any(warning => warning.Contains("línea recta")));
         Assert.Equal(2, await db.Reservations.CountAsync());
     }
 
     [Fact]
-    public async Task Full_day_complete_returns_selection_and_batch_replaces_only_selected_events()
+    public async Task Full_day_adds_alternatives_and_explicit_batch_replaces_only_selected_events()
     {
         await using var db = CreateDbContext();
         var destination = Guid.NewGuid();
@@ -1980,8 +1980,9 @@ public sealed class TravelChatServiceTests
         await db.SaveChangesAsync();
         var service = CreateService(db);
         var complete = await service.CreatePlanAsync(user, DayRequest(), CancellationToken.None);
-        Assert.Equal("day_complete", complete.Intent);
-        Assert.Equal(5, complete.Cards.Count);
+        Assert.Equal("day_plan", complete.Intent);
+        Assert.Equal(2, complete.Cards.Count);
+        Assert.All(complete.Cards, card => Assert.Null(card.ReservationId));
         var batch = await service.CreatePlanAsync(user, DayRequest(reservations[1].Id, reservations[3].Id), CancellationToken.None);
         Assert.Equal(2, batch.Cards.Count);
         Assert.Equal(["10:30", "16:00"], batch.Cards.Select(card => card.StartTime));
@@ -2088,6 +2089,68 @@ public sealed class TravelChatServiceTests
         Assert.All(response.Cards, card => Assert.True(card.IsPeriodOnly));
         Assert.All(response.Cards, card => Assert.Null(card.ReservationId));
         Assert.Equal(lunch.Id, (await db.Reservations.SingleAsync()).Id);
+    }
+
+    [Theory]
+    [InlineData(false, "relaxed", 5)]
+    [InlineData(true, "relaxed", 3)]
+    [InlineData(true, "balanced", 4)]
+    [InlineData(true, "efficient", 5)]
+    public async Task New_day_proposals_ignore_existing_plan_count_and_can_be_saved(bool personalized, string pace, int expected)
+    {
+        await using var db = CreateDbContext();
+        var destination = Guid.NewGuid();
+        var plans = Enumerable.Range(0, 10).Select(index =>
+            DayRecommendation(destination, $"Old plan {index}", "Culture")).ToArray();
+        var fresh = new[] { DayRecommendation(destination, "New cafe", "Food"),
+            DayRecommendation(destination, "New gallery", "Culture"),
+            DayRecommendation(destination, "New lunch", "Food"),
+            DayRecommendation(destination, "New garden", "Nature"),
+            DayRecommendation(destination, "New dinner", "Food") };
+        var user = await SeedPlanningWorldAsync(db, destination, plans.Concat(fresh).ToArray());
+        db.Reservations.RemoveRange(await db.Reservations.ToListAsync());
+        var trip = await db.Trips.SingleAsync();
+        foreach (var plan in plans)
+        {
+            var saved = DayReservation(trip.Id, plan, new(13, 0));
+            if (plan == plans[0])
+            {
+                saved.StartsAt = new(8, 0);
+                saved.EndsAt = new(23, 0);
+                saved.TimePrecision = ItineraryTimePrecision.Exact;
+                saved.PlanningKind = ScheduleItemKind.ConfirmedReservation;
+                saved.Flexibility = ItineraryFlexibility.ConfirmedReservation;
+            }
+            db.Reservations.Add(saved);
+        }
+        await db.SaveChangesAsync();
+        var request = DayRequest() with
+        {
+            GuidedAction = new GuidedTravelActionDto(GuidedTravelActions.FullDay, "new-day")
+            {
+                PlanningMode = personalized ? "personalized" : null,
+                TripId = personalized ? trip.Id : null,
+                ExpectedRevision = personalized ? trip.PlanRevision : null
+            },
+            Criteria = personalized ? new GuidedPlanCriteriaDto(Budget: "medium") { TravelPace = pace } : null
+        };
+        var response = await CreateService(db).CreatePlanAsync(user, request, CancellationToken.None);
+        Assert.Null(response.MissingContext);
+        Assert.Equal("day_plan", response.Intent);
+        Assert.Equal(expected, response.Cards.Count);
+        Assert.DoesNotContain("seleccionaste", response.Message);
+        Assert.All(response.Cards, card => { Assert.Null(card.ReservationId); Assert.True(card.IsPeriodOnly); });
+        Assert.Equal(10, await db.Reservations.CountAsync());
+        var service = new ItineraryService(db);
+        foreach (var card in response.Cards)
+        {
+            var saved = await service.SaveItineraryItemAsync(user, new SaveItineraryItemRequest(
+                Guid.Parse(card.RecommendationId!), new(2026, 10, 6), TimeOnly.Parse(card.StartTime!), null,
+                Guid.NewGuid(), TimePrecision: ItineraryTimePrecision.PeriodOnly, PeriodKey: card.PeriodKey), CancellationToken.None);
+            Assert.True(saved.Saved);
+        }
+        Assert.Equal(10 + expected, await db.Reservations.CountAsync());
+        Assert.All(plans, plan => Assert.Contains(db.Reservations, item => item.RecommendationId == plan.Id));
     }
 
     [Fact]
@@ -2341,7 +2404,8 @@ public sealed class TravelChatServiceTests
         }
         await db.SaveChangesAsync();
         var complete = await service.CreatePlanAsync(user, DayRequest(), CancellationToken.None);
-        Assert.Equal("day_complete", complete.Intent);
+        Assert.Equal("day_plan", complete.Intent);
+        Assert.Empty(complete.Cards);
     }
 
     [Theory]
@@ -2549,7 +2613,7 @@ public sealed class TravelChatServiceTests
         Assert.NotEqual("day_complete", response.Intent);
         var idea = Assert.Single(response.Cards);
         Assert.Equal(lunch.Id.ToString(), idea.RecommendationId);
-        Assert.Equal("midday", idea.PeriodKey);
+        Assert.True(idea.IsPeriodOnly);
         Assert.Equal(5, await db.Reservations.CountAsync());
     }
 
