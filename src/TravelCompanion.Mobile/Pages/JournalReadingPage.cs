@@ -11,6 +11,11 @@ public sealed class JournalReadingPage(JournalScope scope, JournalMemory origina
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
         BackgroundColor = JournalUi.Paper;
         SafeAreaEdges = SafeAreaEdges.All;
         try
@@ -108,7 +113,23 @@ public sealed class JournalReadingPage(JournalScope scope, JournalMemory origina
             Content = layout;
         }
         catch (OperationCanceledException) { }
-        catch (Exception) { Content = JournalUi.Text(JournalText.Get("JournalFailure")); }
+        catch (Exception exception)
+        {
+            ClientDiagnostics.Record("journal_read_failed", exception: exception);
+            if (!store.IsCurrent(scope)) return;
+            var header = new Grid { ColumnDefinitions = [new(GridLength.Star), new(GridLength.Auto)] };
+            header.Add(EditorialUi.Heading(JournalText.Get("JournalMemoryLabel")));
+            header.Add(EditorialUi.Icon("action_close.svg", JournalText.Get("JournalClose"),
+                () => Navigation.PopModalAsync()), 1);
+            Content = new ScrollView { Content = new VerticalStackLayout
+            {
+                Padding = 24, Spacing = 18, Children =
+                {
+                    header, EditorialUi.Text(EditorialUi.TextResource("UxMemoryRetry")),
+                    EditorialUi.Button(EditorialUi.TextResource("UxRetry"), LoadAsync, true)
+                }
+            } };
+        }
     }
 
     private async Task OpenActivityAsync()

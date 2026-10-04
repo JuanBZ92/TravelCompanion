@@ -148,6 +148,9 @@ public sealed class EmailAccountService(
             var sourceOperations = await dbContext.ItineraryOperations
                 .Where(item => item.AppUserId == source.User.Id).ToListAsync(cancellationToken);
             foreach (var operation in sourceOperations) operation.AppUserId = target.Id;
+            var planningReceipts = await dbContext.PlanningApplicationReceipts
+                .Where(item => item.AppUserId == source.User.Id).ToListAsync(cancellationToken);
+            foreach (var receipt in planningReceipts) receipt.AppUserId = target.Id;
             var sourceAssignments = await dbContext.ProductExperimentAssignments
                 .Where(item => item.AppUserId == source.User.Id).ToListAsync(cancellationToken);
             var sourceExperiments = sourceAssignments.Select(item => item.Experiment).ToList();
@@ -346,6 +349,9 @@ public sealed class EmailAccountService(
         dbContext.ThematicRoutes.RemoveRange(await dbContext.ThematicRoutes.Where(item => item.AppUserId == user.Id).ToListAsync(cancellationToken));
         dbContext.ItineraryProposals.RemoveRange(await dbContext.ItineraryProposals.Where(item => item.AppUserId == user.Id).ToListAsync(cancellationToken));
         dbContext.ItineraryOperations.RemoveRange(await dbContext.ItineraryOperations.Where(item => item.AppUserId == user.Id).ToListAsync(cancellationToken));
+        dbContext.PlanningApplicationReceipts.RemoveRange(await dbContext.PlanningApplicationReceipts.Where(item => item.AppUserId == user.Id).ToListAsync(cancellationToken));
+        foreach (var lease in await dbContext.AssistantUsageLeases.Where(item => item.BuilderAccessGrant!.AppUserId == user.Id
+            && item.ResponseJson != null).ToListAsync(cancellationToken)) lease.ResponseJson = null;
         dbContext.TripPlanDrafts.RemoveRange(await dbContext.TripPlanDrafts.Where(item => tripIds.Contains(item.TripId)).ToListAsync(cancellationToken));
         dbContext.TripDayPlans.RemoveRange(await dbContext.TripDayPlans.Where(item => tripIds.Contains(item.TripId)).ToListAsync(cancellationToken));
         foreach (var trip in trips)

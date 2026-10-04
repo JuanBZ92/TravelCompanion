@@ -11,14 +11,15 @@ public sealed partial class TravelChatService
         [new(9, 0), new(10, 30), new(13, 0), new(16, 0), new(19, 30)];
 
     private async Task<TravelChatResponse> CreateUnfilteredDayAsync(
-        AppUser user, TravelChatRequest request, string conversationId, string locale, CancellationToken cancellationToken)
+        AppUser user, TravelChatRequest request, string conversationId, string locale, CancellationToken cancellationToken,
+        LoadedDayPlanContext? loaded = null)
     {
         var english = IsEnglish(locale);
         var action = request.GuidedAction!;
         var date = request.Date ?? DateOnly.FromDateTime(DateTime.UtcNow);
         var adaptation = action.AdaptationReason;
         var personalized = action.PlanningMode == "personalized";
-        var trips = await dbContext.Trips.AsNoTracking()
+        var trips = loaded is not null ? new List<Trip> { loaded.Trip } : await dbContext.Trips.AsNoTracking()
             .Include(trip => trip.Destination)
             .Include(trip => trip.Reservations).ThenInclude(item => item.Recommendation)
             .Include(trip => trip.Reservations).ThenInclude(item => item.TripDayBlock)
@@ -62,8 +63,8 @@ public sealed partial class TravelChatService
                 || action.BudgetAdjustment is not null || criteria is null
                 || criteria.TravelPace is not ("relaxed" or "balanced" or "efficient")
                 || criteria.Budget is not ("low" or "medium" or "high")
-                || criteria.Interests.Count > 3 || criteria.Interests.Any(value =>
-                    string.IsNullOrWhiteSpace(value) || value.Length > 32)
+                || loaded is null && (criteria.Interests.Count > 3 || criteria.Interests.Any(value =>
+                    string.IsNullOrWhiteSpace(value) || value.Length > 32))
                 || trips.Count != 1 || trips[0].PlanRevision != action.ExpectedRevision)
                 return responseComposer.MissingContext(conversationId, "stale",
                     english ? "Refresh the day and try again." : "Actualizá el día e intentá nuevamente.", []);
@@ -119,13 +120,14 @@ public sealed partial class TravelChatService
             {
                 "relaxed" => new[] { 1, 2, 3 },
                 "efficient" => new[] { 0, 1, 2, 3, 4 },
+                _ when loaded is not null => new[] { 1, 2, 3, 4 },
                 _ => new[] { 0, 1, 2, 3 }
             };
             slots = slots.Where(item => preferredSlots.Contains(item.Slot)).ToList();
         }
 
         var city = ResolveCity(request.City, existing, trips);
-        var cities = trips.Where(trip => !string.IsNullOrWhiteSpace(trip.BuilderSegmentsJson))
+        var cities = loaded?.Cities(date).ToList() ?? trips.Where(trip => !string.IsNullOrWhiteSpace(trip.BuilderSegmentsJson))
             .SelectMany(trip => TripCityScope.ForDate(
                 System.Text.Json.JsonSerializer.Deserialize<List<BuilderTripSetupSegmentDto>>(trip.BuilderSegmentsJson!) ?? [], date))
             .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
@@ -133,11 +135,12 @@ public sealed partial class TravelChatService
         var context = new TravelPlanningContext(city, date, new(8, 0), new(23, 0), null, null);
         var excluded = trips.SelectMany(trip => trip.Reservations).Where(item => item.RecommendationId.HasValue)
             .Select(item => item.RecommendationId!.Value.ToString()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (loaded is not null) excluded.UnionWith(loaded.Excluded);
         var ranked = new List<ScoredRecommendation>();
-        var preferenceProfile = adaptation == "indoors" || personalized
+        var preferenceProfile = loaded?.Profile ?? (adaptation == "indoors" || personalized
             ? await userProfileService.GetProfileAsync(user.Id, cancellationToken)
                 ?? new TravelPreferenceProfile { UserId = user.Id }
-            : new TravelPreferenceProfile { UserId = user.Id };
+            : new TravelPreferenceProfile { UserId = user.Id });
         if (personalized)
         {
             preferenceProfile = new TravelPreferenceProfile
@@ -156,7 +159,11 @@ public sealed partial class TravelChatService
         var cityByRecommendation = new Dictionary<Guid, string>();
         foreach (var candidateCity in cities)
         {
-            var result = await recommendationPlanningService.RankAsync(user,
+            var result = loaded is not null
+                ? loaded.Planning.RankLoaded(loaded.ForCity(candidateCity), preferenceProfile,
+                    additiveProposal ? [] : existing, context with { City = candidateCity }, BalancedMode,
+                    new GuidedPlanCriteriaDto(Budget: request.Criteria!.Budget), excluded)
+                : await recommendationPlanningService.RankAsync(user,
                 trips.Select(trip => trip.DestinationId).Distinct().ToList(), candidateCity,
                 preferenceProfile, additiveProposal ? [] : existing, context with { City = candidateCity }, BalancedMode,
                 personalized ? new GuidedPlanCriteriaDto(Budget: request.Criteria!.Budget)
@@ -357,7 +364,7 @@ public sealed partial class TravelChatService
                     : "No encontré lugares compatibles. Tus planes siguen igual."
                 : english ? $"{cards.Count} {(cards.Count == 1 ? "suggestion" : "suggestions")} for your pace and interests. Review before saving; existing plans stay in place."
                     : $"{cards.Count} {(cards.Count == 1 ? "sugerencia" : "sugerencias")} para tu ritmo y tus gustos. Revisá antes de guardar; tus planes actuales se conservan.";
-        if (personalized && await dbContext.Trips.AsNoTracking().AnyAsync(item =>
+        if (loaded is null && personalized && await dbContext.Trips.AsNoTracking().AnyAsync(item =>
             item.Id == action.TripId && item.PlanRevision != action.ExpectedRevision, cancellationToken))
             return responseComposer.MissingContext(conversationId, "stale",
                 english ? "Your itinerary changed. Refresh the day and generate a new proposal."

@@ -55,8 +55,8 @@
 
     <Style TargetType="CheckBox">
         <Setter Property="Color" Value="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource White}}" />
-        <Setter Property="MinimumHeightRequest" Value="44"/>
-        <Setter Property="MinimumWidthRequest" Value="44"/>
+        <Setter Property="MinimumHeightRequest" Value="48"/>
+        <Setter Property="MinimumWidthRequest" Value="48"/>
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
                 <VisualStateGroup x:Name="CommonStates">
@@ -141,8 +141,8 @@
         <Setter Property="BorderColor" Value="Transparent"/>
         <Setter Property="BorderWidth" Value="0"/>
         <Setter Property="CornerRadius" Value="0"/>
-        <Setter Property="MinimumHeightRequest" Value="44"/>
-        <Setter Property="MinimumWidthRequest" Value="44"/>
+        <Setter Property="MinimumHeightRequest" Value="48"/>
+        <Setter Property="MinimumWidthRequest" Value="48"/>
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
                 <VisualStateGroup x:Name="CommonStates">
@@ -289,7 +289,7 @@
         <Setter Property="FontFamily" Value="OpenSansSemibold" />
         <Setter Property="FontSize" Value="13" />
         <Setter Property="Padding" Value="8,6" />
-        <Setter Property="MinimumHeightRequest" Value="34" />
+        <Setter Property="MinimumHeightRequest" Value="48" />
         <Setter Property="MinimumWidthRequest" Value="72" />
         <Setter Property="CornerRadius" Value="0" />
     </Style>
@@ -306,10 +306,10 @@
 
     <Style TargetType="Button" x:Key="MapPreviewNavigationButton" BasedOn="{StaticResource PagerButton}">
         <Setter Property="FontSize" Value="20" />
-        <Setter Property="WidthRequest" Value="40" />
-        <Setter Property="HeightRequest" Value="42" />
-        <Setter Property="MinimumWidthRequest" Value="40" />
-        <Setter Property="MinimumHeightRequest" Value="42" />
+        <Setter Property="WidthRequest" Value="48" />
+        <Setter Property="HeightRequest" Value="48" />
+        <Setter Property="MinimumWidthRequest" Value="48" />
+        <Setter Property="MinimumHeightRequest" Value="48" />
         <Setter Property="Padding" Value="0" />
     </Style>
 
@@ -317,16 +317,16 @@
         <Setter Property="BackgroundColor" Value="Transparent" />
         <Setter Property="BorderWidth" Value="0" />
         <Setter Property="Padding" Value="9" />
-        <Setter Property="WidthRequest" Value="42" />
-        <Setter Property="HeightRequest" Value="42" />
+        <Setter Property="WidthRequest" Value="48" />
+        <Setter Property="HeightRequest" Value="48" />
     </Style>
 
     <Style TargetType="ImageButton" x:Key="ContextIconButton">
         <Setter Property="BackgroundColor" Value="Transparent" />
         <Setter Property="BorderWidth" Value="0" />
         <Setter Property="Padding" Value="10" />
-        <Setter Property="WidthRequest" Value="44" />
-        <Setter Property="HeightRequest" Value="44" />
+        <Setter Property="WidthRequest" Value="48" />
+        <Setter Property="HeightRequest" Value="48" />
     </Style>
 
     <Style TargetType="Border" x:Key="Chip">
@@ -347,6 +347,48 @@
         <Setter Property="StrokeShape">
             <RoundRectangle CornerRadius="0" />
         </Setter>
+    </Style>
+
+    <Style TargetType="Label" x:Key="EditorialHeading">
+        <Setter Property="FontFamily" Value="serif" />
+        <Setter Property="FontSize" Value="30" />
+        <Setter Property="TextColor" Value="{StaticResource Ink}" />
+        <Setter Property="LineHeight" Value="1.12" />
+        <Setter Property="LineBreakMode" Value="WordWrap" />
+        <Setter Property="SemanticProperties.HeadingLevel" Value="Level1" />
+    </Style>
+    <Style TargetType="Label" x:Key="EditorialBody">
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="TextColor" Value="{StaticResource EditorialMuted}" />
+        <Setter Property="LineHeight" Value="1.25" />
+        <Setter Property="LineBreakMode" Value="WordWrap" />
+    </Style>
+    <Style TargetType="Border" x:Key="EditorialCard">
+        <Setter Property="Padding" Value="16" />
+        <Setter Property="BackgroundColor" Value="{StaticResource EditorialSurface}" />
+        <Setter Property="Stroke" Value="{StaticResource EditorialLine}" />
+        <Setter Property="StrokeShape" Value="RoundRectangle 16" />
+    </Style>
+    <Style TargetType="ImageButton" x:Key="EditorialIconButton">
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="MinimumWidthRequest" Value="48" />
+        <Setter Property="MinimumHeightRequest" Value="48" />
+        <Setter Property="WidthRequest" Value="48" />
+        <Setter Property="HeightRequest" Value="48" />
+        <Setter Property="Padding" Value="12" />
+    </Style>
+    <Style TargetType="Button" x:Key="EditorialPrimaryButton">
+        <Setter Property="BackgroundColor" Value="{StaticResource Accent}" />
+        <Setter Property="TextColor" Value="White" />
+        <Setter Property="CornerRadius" Value="14" />
+        <Setter Property="MinimumHeightRequest" Value="48" />
+        <Setter Property="MinimumWidthRequest" Value="48" />
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="Padding" Value="16,12" />
+    </Style>
+    <Style TargetType="Button" x:Key="EditorialSecondaryButton" BasedOn="{StaticResource EditorialPrimaryButton}">
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="TextColor" Value="{StaticResource Ink}" />
     </Style>
 
     <Style TargetType="ListView">

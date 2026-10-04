@@ -173,6 +173,7 @@ public sealed class OfflineCacheService
         // User attachments are not translated catalog entries. Changing the UI
         // language must not hide their index or create another copy of a file.
         var locale = key.StartsWith("offline-mutation-", StringComparison.Ordinal)
+            || key.StartsWith("personal-planner-", StringComparison.Ordinal)
             || key.StartsWith("personal-journal-", StringComparison.Ordinal)
             || key.StartsWith("personal-expenses-", StringComparison.Ordinal)
             || key.StartsWith("personal-documents-", StringComparison.Ordinal)

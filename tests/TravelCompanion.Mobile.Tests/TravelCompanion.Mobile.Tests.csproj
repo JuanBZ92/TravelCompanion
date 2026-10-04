@@ -17,11 +17,15 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\TravelCompanion.Shared\TravelCompanion.Shared.csproj" />
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
   <ItemGroup>
     <Using Include="Xunit" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\MobileRetryHandler.cs" Link="MobileRetryHandler.cs" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\Services\DayPlannerStore.cs" Link="DayPlannerStore.cs" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\Services\DayPlanClient.cs" Link="DayPlanClient.cs" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\ViewModels\DayPlannerViewModel.cs" Link="DayPlannerViewModel.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\ExpenseStore.cs" Link="ExpenseStore.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\DiagnosticJournal.cs" Link="DiagnosticJournal.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\JournalEntries.cs" Link="JournalEntries.cs" />

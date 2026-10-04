@@ -186,8 +186,8 @@ public sealed partial class TravelChatViewModel
     [RelayCommand]
     private async Task OpenCompleteDayAsync()
     {
-        SetAssistantSurface("conversation");
-        await RequestDayAlternativeAsync(DateOnly.FromDateTime(PlanningDate), City, null);
+        await Shell.Current.GoToAsync(nameof(ImproveDayPage), new ShellNavigationQueryParameters
+        { ["Date"] = DateOnly.FromDateTime(PlanningDate), ["City"] = City ?? "" });
     }
 
     [RelayCommand]

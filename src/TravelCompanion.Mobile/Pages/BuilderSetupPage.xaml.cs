@@ -1,6 +1,7 @@
 using TravelCompanion.Mobile.Services;
 using TravelCompanion.Mobile.ViewModels;
 using TravelCompanion.Shared.Dtos;
+using System.ComponentModel;
 
 namespace TravelCompanion.Mobile.Pages;
 
@@ -20,7 +21,15 @@ public partial class BuilderSetupPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        _viewModel.PropertyChanged -= OnValidationChanged;
+        _viewModel.PropertyChanged += OnValidationChanged;
         if (!_viewModel.HasLoaded) await _viewModel.LoadSetupCommand.ExecuteAsync(null);
+    }
+
+    private void OnValidationChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(_viewModel.HasError) && _viewModel.HasError)
+            EditorialUi.RevealError(FormScroll, ValidationMessage);
     }
 
     private async void OnHotelTextChanged(object? sender, TextChangedEventArgs e)
@@ -81,6 +90,7 @@ public partial class BuilderSetupPage : ContentPage
 
     protected override void OnDisappearing()
     {
+        _viewModel.PropertyChanged -= OnValidationChanged;
         _suggestionScroller.Stop();
         foreach (var segment in _viewModel.Segments) segment.CitySuggestions.Clear();
         _viewModel.CancelHotelSearches();

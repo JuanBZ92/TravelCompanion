@@ -117,7 +117,12 @@
                 <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
                 <Button Text="{Binding [DiagnosticsShare], Source={x:Static services:LocalizationResourceManager.Instance}}"
                         Clicked="OnDiagnosticsClicked" Style="{StaticResource AccountAction}" />
-                <Border Style="{StaticResource ErrorPanel}" IsVisible="{Binding HasError}"><Label Text="{Binding ErrorMessage}" /></Border>
+                <Border Style="{StaticResource ErrorPanel}" IsVisible="{Binding HasError}">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="{Binding ErrorMessage}" />
+                        <Button Text="{Binding [UxRetry], Source={x:Static services:LocalizationResourceManager.Instance}}" Command="{Binding LoadAccountCommand}" IsEnabled="{Binding IsNotBusy}" Style="{StaticResource AccountAction}" />
+                    </VerticalStackLayout>
+                </Border>
                 <Button Text="{Binding [AccountSignOut], Source={x:Static services:LocalizationResourceManager.Instance}}" Clicked="OnLogoutClicked" Style="{StaticResource AccountAction}" />
                 <Button Text="{Binding [AccountDelete], Source={x:Static services:LocalizationResourceManager.Instance}}"
                         Command="{Binding DeleteAccountCommand}" Style="{StaticResource AccountAction}" TextColor="#985C55" FontSize="12" />

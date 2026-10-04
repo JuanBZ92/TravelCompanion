@@ -10,6 +10,13 @@ namespace TravelCompanion.Mobile.ViewModels;
 public sealed partial class TripReviewViewModel(AuthSessionService sessions, MobileBootstrapStore bootstrap,
     TravelCompanionApiClient api, ProductAnalyticsTracker analytics) : ViewModelBase
 {
+    private DateOnly? startsOn;
+    private DateOnly? endsOn;
+    public void SetRange(DateOnly first, DateOnly last)
+    {
+        if (last < first) return;
+        startsOn = first; endsOn = last;
+    }
     public ObservableCollection<TripReviewDayViewModel> Days { get; } = [];
     public string Title => Text("ReviewTrip");
     public string Coverage => Text("ReviewCoverage");
@@ -22,6 +29,7 @@ public sealed partial class TripReviewViewModel(AuthSessionService sessions, Mob
         var user = sessions.CurrentUserId;
         var trip = sessions.CurrentTripId;
         var cached = await bootstrap.GetCachedAsync(cancellationToken: ct);
+        if (user != sessions.CurrentUserId || trip != sessions.CurrentTripId) return;
         if (cached?.Value.Schedule is { } saved) Apply(saved);
         var token = await sessions.GetTokenAsync();
         if (token is null) return;
@@ -38,7 +46,8 @@ public sealed partial class TripReviewViewModel(AuthSessionService sessions, Mob
     {
         if (schedule.TripId != sessions.CurrentTripId) return;
         Days.Clear();
-        foreach (var day in schedule.DayReviews ?? ScheduleReviewAnalyzer.Analyze(schedule.Items, schedule.StartsOn, schedule.EndsOn))
+        foreach (var day in (schedule.DayReviews ?? ScheduleReviewAnalyzer.Analyze(schedule.Items, schedule.StartsOn, schedule.EndsOn))
+            .Where(day => (!startsOn.HasValue || day.Date >= startsOn) && (!endsOn.HasValue || day.Date <= endsOn)))
             Days.Add(new TripReviewDayViewModel(day, schedule, sessions));
     }
 }
@@ -65,9 +74,9 @@ public sealed class TripReviewDayViewModel
         {
             if (!sessions.CanEditItinerary || sessions.IsTrial && !FreePlanningPolicy.CanPlanDate(schedule.StartsOn, review.Date))
             { await PaywallNavigation.OpenAsync(PaywallEntryPoint.Today, limitReached: true); return; }
-            await Shell.Current.GoToAsync("//main/assistant", new ShellNavigationQueryParameters
+            await Shell.Current.GoToAsync(nameof(ImproveDayPage), new ShellNavigationQueryParameters
             {
-                ["ReviewDate"] = review.Date, ["ReviewCity"] = covered.FirstOrDefault()?.City ?? string.Empty
+                ["Date"] = review.Date
             });
         });
         CanImprove = sessions.IsBuilder;

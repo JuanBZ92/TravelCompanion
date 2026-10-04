@@ -9,11 +9,10 @@
     <Label Text="{Binding Heading}" FontFamily="serif" FontSize="31" TextColor="#302920" SemanticProperties.HeadingLevel="Level1" VerticalOptions="Center"/>
     <Button Grid.Column="1" Text="···" Command="{Binding MenuCommand}" SemanticProperties.Description="{Binding MenuAction}" MinimumHeightRequest="48" MinimumWidthRequest="48" BackgroundColor="Transparent" TextColor="#765831" FontSize="24"/>
    </Grid>
-   <HorizontalStackLayout Spacing="8">
+   <VerticalStackLayout Spacing="2">
     <Label Text="{Binding TripTitle}" FontSize="15" TextColor="#765831" FontAttributes="Bold"/>
-    <Label Text="·" FontSize="15" TextColor="#A89B8A"/>
-    <Label Text="{Binding Summary}" FontSize="14" TextColor="#71675D" LineBreakMode="TailTruncation"/>
-   </HorizontalStackLayout>
+    <Label Text="{Binding Summary}" FontSize="14" TextColor="#71675D" LineBreakMode="WordWrap"/>
+   </VerticalStackLayout>
    <Grid IsVisible="{Binding HasTrip}" Margin="0,12,0,4" ColumnDefinitions="52,*" ColumnSpacing="12">
     <ImageButton Source="journal_add.svg" Command="{Binding AddMemoryCommand}" SemanticProperties.Description="{Binding WriteAction}" WidthRequest="52" HeightRequest="52" Padding="14" BackgroundColor="#F0E8DE" CornerRadius="14"/>
     <Label Grid.Column="1" Text="{Binding WriteAction}" FontFamily="serif" FontSize="20" TextColor="#302920" VerticalOptions="Center">
@@ -44,7 +43,6 @@
     <CollectionView.ItemTemplate>
      <DataTemplate x:DataType="vm:JournalRow">
       <Border Margin="0,0,0,10" Padding="14" BackgroundColor="#FFFCF8" Stroke="#E5DDD3" StrokeShape="RoundRectangle 12">
-       <Border.GestureRecognizers><TapGestureRecognizer Command="{Binding BindingContext.OpenEntryCommand, Source={x:Reference JournalRoot}}" CommandParameter="{Binding .}"/></Border.GestureRecognizers>
        <Grid ColumnDefinitions="48,*,Auto" ColumnSpacing="12" MinimumHeightRequest="92">
         <VerticalStackLayout Spacing="0" VerticalOptions="Start">
          <Label Text="{Binding Day}" FontFamily="serif" FontSize="27" TextColor="#765831" HorizontalTextAlignment="Center"/>
@@ -60,7 +58,8 @@
          <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}" FontSize="11" TextColor="#9A693F"/>
         </VerticalStackLayout>
         <Image Grid.Column="2" Source="{Binding Cover.Source}" IsVisible="{Binding HasPhotos}" Aspect="AspectFill" WidthRequest="78" HeightRequest="78" VerticalOptions="Center" AutomationProperties.IsInAccessibleTree="False"/>
-        <Button Grid.Column="2" Text="›" IsVisible="{Binding HasNoPhotos}" SemanticProperties.Description="{Binding OpenDescription}" Command="{Binding BindingContext.OpenEntryCommand, Source={x:Reference JournalRoot}}" CommandParameter="{Binding .}" MinimumWidthRequest="48" MinimumHeightRequest="48" BackgroundColor="Transparent" TextColor="#765831" FontSize="30"/>
+        <Label Grid.Column="2" Text="›" IsVisible="{Binding HasNoPhotos}" MinimumWidthRequest="48" TextColor="#765831" FontSize="30" HorizontalTextAlignment="Center" VerticalTextAlignment="Center" AutomationProperties.IsInAccessibleTree="False"/>
+        <Button Grid.ColumnSpan="3" SemanticProperties.Description="{Binding OpenDescription}" Command="{Binding BindingContext.OpenEntryCommand, Source={x:Reference JournalRoot}}" CommandParameter="{Binding .}" Padding="0" MinimumHeightRequest="92" BackgroundColor="Transparent"/>
        </Grid>
       </Border>
      </DataTemplate>

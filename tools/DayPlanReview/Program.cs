@@ -1,0 +1,160 @@
+using System.Text.Json;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using Npgsql;
+using TravelCompanion.Api.Data;
+using TravelCompanion.Api.Models;
+using TravelCompanion.Api.Services;
+using TravelCompanion.Shared;
+using TravelCompanion.Shared.Dtos;
+
+// Synthetic review data belongs exclusively to this local database. No app settings or secrets are read.
+const string databaseName = "tc_dayplanner_review";
+const string password = "JournalReview2026!";
+const string paidPin = "700701";
+var connection = new NpgsqlConnectionStringBuilder(
+    Environment.GetEnvironmentVariable("TRAVELCOMPANION_REVIEW_POSTGRES")
+    ?? "Host=127.0.0.1;Port=55439;Database=tc_dayplanner_review;Username=postgres;Pooling=false");
+if (connection.Host != "127.0.0.1" || connection.Port != 55439 || connection.Database != databaseName
+    || !string.IsNullOrWhiteSpace(connection.SearchPath))
+    throw new InvalidOperationException("Review seeding only supports 127.0.0.1:55439/tc_dayplanner_review without a custom search path.");
+await using var db = new TravelCompanionDbContext(new DbContextOptionsBuilder<TravelCompanionDbContext>()
+    .UseNpgsql(connection.ConnectionString).Options);
+await db.Database.MigrateAsync();
+var userHasher = new PasswordHasher<AppUser>();
+await DatabaseSeeder.SeedAsync(db, userHasher);
+var japan = await db.Destinations.SingleAsync(item => item.Slug == "japon");
+japan.HeroImageUrl = "";
+japan.ShortDescription = "Viaje sintético para revisar la experiencia de planificación local.";
+await SeedCatalogAsync(db, japan.Id);
+var start = new DateOnly(2026, 10, 20);
+await SeedTravelerAsync(db, japan.Id, "planner-free@example.test", "Lucía · viaje gratuito", 7, true);
+await SeedTravelerAsync(db, japan.Id, "planner-pass@example.test", "Mateo · viaje con pase", 10, false);
+await db.SaveChangesAsync();
+Console.WriteLine($"Local synthetic review database ready: 127.0.0.1:55439/{databaseName}");
+Console.WriteLine($"Review accounts: planner-free@example.test / planner-pass@example.test; password: {password}");
+Console.WriteLine($"Paid account PIN: {paidPin}. Free account uses email/password and Select trip (no custom trial PIN).");
+Console.WriteLine("Existing review accounts, plans and generation counts are preserved when this tool runs again.");
+
+async Task SeedTravelerAsync(TravelCompanionDbContext context, Guid destinationId, string email, string name, int days, bool trial)
+{
+    var existing = await context.AppUsers.AsNoTracking().SingleOrDefaultAsync(item => item.Email == email);
+    if (existing is not null)
+    {
+        var existingTrip = await context.Trips.AsNoTracking().FirstOrDefaultAsync(item => item.AppUserId == existing.Id);
+        Console.WriteLine($"Reused {email}; trip: {existingTrip?.Id}");
+        return;
+    }
+    var now = DateTimeOffset.UtcNow;
+    var user = new AppUser
+    {
+        Id = Guid.NewGuid(), Email = email, DisplayName = name, EmailVerified = true,
+        EmailVerifiedAtUtc = now, MustChangePassword = false, BehaviorAnalyticsConsent = true
+    };
+    user.PasswordHash = userHasher.HashPassword(user, password);
+    user.TravelPreferenceProfile = new TravelPreferenceProfile
+    {
+        UserId = user.Id, BudgetLevel = "medium", TravelPace = "balanced",
+        Interests = ["Culture", "Food"], MaxWalkingMinutes = 90
+    };
+    user.Entitlements.Add(new UserEntitlement
+    {
+        Id = Guid.NewGuid(), UserId = user.Id, DestinationId = destinationId,
+        AccessLevel = trial ? ContentAccessLevel.Free : ContentAccessLevel.Subscription,
+        GrantedAt = now, ExpiresAt = trial ? null : now.AddDays(60), Source = "local-day-planner-review"
+    });
+    var transition = start.AddDays(4);
+    var trip = new Trip
+    {
+        Id = Guid.NewGuid(), AppUserId = user.Id, AppUser = user, DestinationId = destinationId,
+        TravelerName = name, StartsOn = start, EndsOn = start.AddDays(days - 1), TimeZoneId = "Asia/Tokyo",
+        ExperienceMode = ExperienceMode.SelfServiceBuilder, PublicationStatus = TripPublicationStatus.Published,
+        PublishedAtUtc = now, BuilderSegmentsJson = JsonSerializer.Serialize(new BuilderTripSetupSegmentDto[]
+        {
+            new("Tokyo", start, transition), new("Kyoto", transition, start.AddDays(days - 1))
+        })
+    };
+    var grant = new BuilderAccessGrant
+    {
+        Id = Guid.NewGuid(), AppUserId = user.Id, AppUser = user, DestinationId = destinationId,
+        TripId = trip.Id, Trip = trip, Status = BuilderAccessStatus.Active, IsTrial = trial,
+        FreePolicy = FreeAccessPolicy.PersistentFree, TrialEditingStartedAtUtc = trial ? now : null,
+        CreatedAtUtc = now, RedeemedAtUtc = now, ExpiresAtUtc = trial ? null : now.AddDays(60),
+        OrderReference = "local-day-planner-review"
+    };
+    if (!trial) grant.PinHash = new PasswordHasher<BuilderAccessGrant>().HashPassword(grant, paidPin);
+    for (var offset = 0; offset < days; offset++)
+    {
+        var day = new TripDayPlan
+        {
+            Id = Guid.NewGuid(), TripId = trip.Id, Trip = trip, Date = start.AddDays(offset), DayNumber = offset + 1,
+            City = offset < 4 ? "Tokyo" : "Kyoto", HotelBase = offset < 4 ? "Hotel de revisión en Tokyo" : "Hotel de revisión en Kyoto",
+            Introduction = offset == 4 ? "Traslado de Tokyo a Kyoto: ideas flexibles para aprovechar ambas ciudades." : "Un día para descubrir Japón a tu ritmo."
+        };
+        foreach (var period in TripPlanPeriods.All)
+            day.Blocks.Add(new TripDayBlock
+            {
+                Id = Guid.NewGuid(), TripDayPlanId = day.Id, TripDayPlan = day,
+                PeriodKey = period.Key, SortOrder = period.SortOrder
+            });
+        trip.DayPlans.Add(day);
+    }
+    trip.Reservations.Add(new Reservation
+    {
+        Id = Guid.NewGuid(), TripId = trip.Id, Trip = trip, Date = start, StartsAt = new TimeOnly(10, 0),
+        EndsAt = new TimeOnly(11, 30), City = "Tokyo", Title = "Entrada reservada: exposición de arte y jardines del centro de Tokyo",
+        LocationName = "Museo de revisión", Address = "Tokyo, Japan", ConfirmationCode = "REVIEW-001",
+        Notes = "Reserva sintética con horario fijo. El nuevo plan conserva este compromiso.",
+        Owner = ItineraryItemOwner.Yuku, Flexibility = ItineraryFlexibility.ConfirmedReservation,
+        TimePrecision = ItineraryTimePrecision.Exact, Type = ReservationType.Event
+    });
+    context.AddRange(user, trip, grant);
+    context.JournalFreeEntries.AddRange(
+        new JournalFreeEntry
+        {
+            Id = Guid.NewGuid(), UserId = user.Id, TripId = trip.Id, Date = start.AddDays(-1),
+            Title = "La emoción de salir hacia Japón", Place = "Antes del viaje",
+            Notes = "Dejé el equipaje preparado junto a la puerta. Me gustaría recordar la emoción de empezar este viaje sin tener que llenar cada hora del itinerario.",
+            Revision = 1, MutationId = Guid.NewGuid(), UpdatedAt = now
+        },
+        new JournalFreeEntry
+        {
+            Id = Guid.NewGuid(), UserId = user.Id, TripId = trip.Id, Date = start,
+            Title = "", Place = "Una cafetería tranquila en Tokyo",
+            Notes = "Nos detuvimos a tomar café, a mirar la calle y a conversar. Este recuerdo sintético permite revisar el diseño cuando el lugar sustituye al título.",
+            Revision = 1, MutationId = Guid.NewGuid(), UpdatedAt = now
+        });
+    Console.WriteLine($"Created {email}; trip: {trip.Id}; {start:yyyy-MM-dd} through {trip.EndsOn:yyyy-MM-dd}; {(trial ? "free" : "pass")}");
+}
+
+static async Task SeedCatalogAsync(TravelCompanionDbContext context, Guid destinationId)
+{
+    var known = await context.Recommendations.AsNoTracking()
+        .Where(item => item.ExternalId != null && item.ExternalId.StartsWith("local-day-planner-review-"))
+        .Select(item => item.ExternalId!).ToListAsync();
+    var foodTitles = new[] { "Desayuno de temporada y café de especialidad", "Una mesa tranquila para probar ramen artesanal", "Sabores locales en un mercado de barrio", "Cena de cocina japonesa con vistas al río" };
+    var cultureTitles = new[] { "Arte y pequeñas historias en un museo de barrio", "Paseo por jardines, templos y calles con historia", "Una librería y una exposición para descubrir sin prisa", "Arquitectura tradicional junto a una plaza tranquila" };
+    foreach (var city in new[] { "Tokyo", "Kyoto" })
+    for (var i = 0; i < 64; i++)
+    {
+        var key = $"local-day-planner-review-{city.ToLowerInvariant()}-{i:00}";
+        if (known.Contains(key)) continue;
+        var food = i % 3 == 0;
+        var titles = food ? foodTitles : cultureTitles;
+        context.Recommendations.Add(new Recommendation
+        {
+            Id = Guid.NewGuid(), ExternalId = key, DestinationId = destinationId,
+            Title = $"{titles[(i / 3) % titles.Length]} · {city} {i + 1}",
+            Category = food ? "Food" : "Culture", Neighborhood = $"{city}, Japan", CitySlug = city.ToLowerInvariant(),
+            Description = $"Una propuesta sintética en {city} para revisar títulos largos, preferencias y organización por momentos del día. No es una recomendación comercial ni una reserva real.",
+            Tags = food ? ["food", "restaurant", "breakfast", "lunch", "dinner"] : ["culture", "museum", "art", "walk"],
+            PriceLevel = i % 4 == 0 ? "low" : "medium", IsPriceKnown = true,
+            Latitude = (city == "Tokyo" ? 35.681236m : 35.003700m) + (i % 6) * 0.001m,
+            Longitude = (city == "Tokyo" ? 139.767125m : 135.768800m) + (i % 5) * 0.001m,
+            SuggestedDurationMinutes = food ? 60 : 90, Rating = 4.4 + (i % 3) * 0.1,
+            OpeningHours = "08:00-23:00", SourceName = "Catálogo sintético local",
+            EditorialReviewedOn = new DateOnly(2026, 10, 4),
+            AccessLevel = i % 10 == 9 ? ContentAccessLevel.Subscription : ContentAccessLevel.Free
+        });
+    }
+}

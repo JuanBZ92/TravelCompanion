@@ -154,6 +154,8 @@ public sealed class AssistantUsageLease
     public DateTimeOffset ExpiresAtUtc { get; set; }
     public DateTimeOffset? CompletedAtUtc { get; set; }
     public DateTimeOffset? CancelledAtUtc { get; set; }
+    public string? RequestHash { get; set; }
+    public string? ResponseJson { get; set; }
 }
 
 public sealed class ItineraryProposal

@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:services="clr-namespace:TravelCompanion.Mobile.Services"
              xmlns:dtos="clr-namespace:TravelCompanion.Shared.Dtos;assembly=TravelCompanion.Shared"
              xmlns:viewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
              x:Class="TravelCompanion.Mobile.Pages.MapPage"
@@ -29,12 +30,12 @@
                                          Spacing="12"
                                          HorizontalOptions="Center"
                                          VerticalOptions="Center">
-                        <Label Text="Map View"
+                        <Label Text="{Binding [UxMap], Source={x:Static services:LocalizationResourceManager.Instance}}"
                                FontSize="20"
                                FontAttributes="Bold"
                                TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}"
                                HorizontalTextAlignment="Center" />
-                        <Label Text="Interactive map available on mobile devices"
+                        <Label Text="{Binding [UxMapFallback], Source={x:Static services:LocalizationResourceManager.Instance}}"
                                FontSize="14"
                                TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
                                HorizontalTextAlignment="Center" />
@@ -59,12 +60,12 @@
                                TextColor="{AppThemeBinding Light={StaticResource Rose}, Dark={StaticResource Paper}}"
                                VerticalOptions="Center" />
                         <Button Grid.Column="1"
-                                Text="Reintentar"
+                                Text="{Binding [UxRetry], Source={x:Static services:LocalizationResourceManager.Instance}}"
                                 Command="{Binding LoadNearbyRecommendationsCommand}"
                                 Style="{StaticResource GhostButton}"
                                 FontSize="12"
                                 Padding="12,8"
-                                MinimumHeightRequest="44" />
+                                MinimumHeightRequest="48" />
                     </Grid>
                 </Border>
             </VerticalStackLayout>
@@ -81,13 +82,13 @@
               RowSpacing="6"
               IsVisible="{Binding ShowRecommendationBrowser}">
             <SearchBar x:Name="PlaceSearch" Grid.Row="0"
-                       Placeholder="Buscar restaurante, café o lugar"
+                       Placeholder="{Binding [UxMapSearch], Source={x:Static services:LocalizationResourceManager.Instance}}"
                        Text="{Binding SearchText}"
                        TextChanged="OnSearchTextChanged"
                        SearchButtonPressed="OnSearchSubmitted"
                        Focused="OnSearchFocused"
                        Unfocused="OnSearchUnfocused"
-                       HeightRequest="44"
+                       HeightRequest="48"
                        FontSize="13"
                        BackgroundColor="{StaticResource Mist}"
                        CancelButtonColor="#8E867D" />
@@ -108,11 +109,11 @@
                                 <Setter Property="IsVisible" Value="True" />
                             </DataTrigger>
                         </VerticalStackLayout.Triggers>
-                        <Label Text="No nearby places found"
+                        <Label Text="{Binding [UxMapEmpty], Source={x:Static services:LocalizationResourceManager.Instance}}"
                                FontSize="16"
                                TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
                                HorizontalOptions="Center" />
-                        <Label Text="Cambia de pagina o intenta nuevamente"
+                        <Label Text="{Binding [UxMapEmptyHelp], Source={x:Static services:LocalizationResourceManager.Instance}}"
                                FontSize="13"
                                TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}"
                                HorizontalOptions="Center" />
@@ -181,6 +182,7 @@
                         <Button Text="‹"
                                 Command="{Binding PreviousPageCommand}"
                                 IsEnabled="{Binding CanGoPrevious}"
+                                SemanticProperties.Description="{Binding [UxPreviousPage], Source={x:Static services:LocalizationResourceManager.Instance}}"
                                 Style="{StaticResource PagerButton}" />
                         <Label Grid.Column="1"
                                Text="{Binding PageSummary}"
@@ -193,6 +195,7 @@
                                 Text="›"
                                 Command="{Binding NextPageCommand}"
                                 IsEnabled="{Binding CanGoNext}"
+                                SemanticProperties.Description="{Binding [UxNextPage], Source={x:Static services:LocalizationResourceManager.Instance}}"
                                 Style="{StaticResource PagerButton}" />
                     </Grid>
                     <BoxView HeightRequest="28" Opacity="0" />
@@ -207,7 +210,7 @@
                 <ActivityIndicator IsRunning="{Binding ShowInitialLoading}"
                                    WidthRequest="28"
                                    HeightRequest="28" />
-                <Label Text="Cargando lugares cercanos"
+                <Label Text="{Binding [UxMapLoading], Source={x:Static services:LocalizationResourceManager.Instance}}"
                        FontSize="13"
                        TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
             </VerticalStackLayout>
@@ -219,7 +222,7 @@
                 Style="{StaticResource MapPreviewPanel}"
                 IsVisible="{Binding HasSelectedRecommendation}">
             <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="6">
-                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" HeightRequest="32">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" HeightRequest="48">
                     <Label Text="{Binding SelectedRecommendationPosition}"
                            FontSize="11"
                            TextColor="{StaticResource Muted}"
@@ -238,12 +241,12 @@
                             Text="×"
                             Command="{Binding ClearRecommendationSelectionCommand}"
                             Style="{StaticResource MapPreviewNavigationButton}"
-                            WidthRequest="32"
-                            MinimumWidthRequest="32"
-                            HeightRequest="32"
-                            MinimumHeightRequest="32"
+                            WidthRequest="48"
+                            MinimumWidthRequest="48"
+                            HeightRequest="48"
+                            MinimumHeightRequest="48"
                             FontSize="16"
-                            SemanticProperties.Description="Cerrar preview" />
+                            SemanticProperties.Description="{Binding [UxClose], Source={x:Static services:LocalizationResourceManager.Instance}}" />
                 </Grid>
 
                 <VerticalStackLayout Grid.Row="1" Spacing="5">
@@ -270,31 +273,31 @@
                                TextColor="{StaticResource InkSoft}" />
                 </VerticalStackLayout>
 
-                <Grid Grid.Row="2" ColumnDefinitions="40,*,40" ColumnSpacing="8" HeightRequest="44">
+                <Grid Grid.Row="2" ColumnDefinitions="48,*,48" ColumnSpacing="8" HeightRequest="48">
                     <Button Text="‹"
                             Command="{Binding SelectPreviousRecommendationCommand}"
                             IsEnabled="{Binding CanBrowseSelectedRecommendations}"
                             Style="{StaticResource MapPreviewNavigationButton}"
-                            SemanticProperties.Description="Lugar anterior" />
+                            SemanticProperties.Description="{Binding [UxPreviousPlace], Source={x:Static services:LocalizationResourceManager.Instance}}" />
                     <HorizontalStackLayout Grid.Column="1" Spacing="8" HorizontalOptions="Center">
                         <ImageButton Source="itinerary_add.svg"
                                      Command="{Binding AddToItineraryCommand}"
                                      CommandParameter="{Binding SelectedRecommendation}"
                                      IsVisible="{Binding CanAddToItinerary}"
                                      Style="{StaticResource MapPreviewIconButton}"
-                                     SemanticProperties.Description="Agregar al itinerario" />
+                                     SemanticProperties.Description="{Binding [UxAddToTrip], Source={x:Static services:LocalizationResourceManager.Instance}}" />
                         <ImageButton Source="tab_map.svg"
                                      Command="{Binding OpenInGoogleMapsCommand}"
                                      CommandParameter="{Binding SelectedRecommendation}"
                                      Style="{StaticResource MapPreviewIconButton}"
-                                     SemanticProperties.Description="Abrir ubicación en Google Maps" />
+                                     SemanticProperties.Description="{Binding [UxOpenMaps], Source={x:Static services:LocalizationResourceManager.Instance}}" />
                     </HorizontalStackLayout>
                     <Button Grid.Column="2"
                             Text="›"
                             Command="{Binding SelectNextRecommendationCommand}"
                             IsEnabled="{Binding CanBrowseSelectedRecommendations}"
                             Style="{StaticResource MapPreviewNavigationButton}"
-                            SemanticProperties.Description="Lugar siguiente" />
+                            SemanticProperties.Description="{Binding [UxNextPlace], Source={x:Static services:LocalizationResourceManager.Instance}}" />
                 </Grid>
             </Grid>
         </Border>

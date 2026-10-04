@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:services="clr-namespace:TravelCompanion.Mobile.Services"
              xmlns:viewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
              x:Class="TravelCompanion.Mobile.Pages.ScheduleItemDetailPage"
              x:DataType="viewModels:ScheduleItemDetailViewModel"
@@ -11,7 +12,7 @@
 
     <ScrollView VerticalScrollBarVisibility="Never">
         <VerticalStackLayout Spacing="0">
-            <Border HeightRequest="300"
+            <Border HeightRequest="176"
                     BackgroundColor="{StaticResource AccentSoft}"
                     Stroke="#D8CFC4"
                     StrokeThickness="1">
@@ -41,8 +42,8 @@
 
                     <Button Text="&lt;"
                             Clicked="OnBackClicked"
-                            WidthRequest="44"
-                            HeightRequest="44"
+                            WidthRequest="48"
+                            HeightRequest="48"
                             Padding="0"
                             Margin="20,22,0,0"
                             HorizontalOptions="Start"
@@ -51,15 +52,16 @@
                             TextColor="#1A1714"
                             BorderColor="#D8CFC4"
                             BorderWidth="1"
-                            CornerRadius="0"
+                            CornerRadius="12"
+                            SemanticProperties.Description="{Binding [UxBack], Source={x:Static services:LocalizationResourceManager.Instance}}"
                             FontSize="20" />
                 </Grid>
             </Border>
 
-            <VerticalStackLayout Padding="28,28,28,40"
-                                 Spacing="24">
+            <VerticalStackLayout Padding="24,20,24,32"
+                                 Spacing="18">
                 <VerticalStackLayout Spacing="10">
-                    <Label Text="RESERVA · YUKU JAPAN"
+                    <Label Text="{Binding [UxReservationEyebrow], Source={x:Static services:LocalizationResourceManager.Instance}}"
                            CharacterSpacing="6"
                            FontSize="11"
                            FontAttributes="Bold"
@@ -85,7 +87,7 @@
                 </VerticalStackLayout>
 
                 <VerticalStackLayout Spacing="8">
-                    <Label Text="FECHA Y HORARIO"
+                    <Label Text="{Binding [UxDateTime], Source={x:Static services:LocalizationResourceManager.Instance}}"
                            CharacterSpacing="3"
                            FontSize="11"
                            FontAttributes="Bold"
@@ -97,7 +99,7 @@
                 </VerticalStackLayout>
 
                 <VerticalStackLayout Spacing="8">
-                    <Label Text="DIRECCION"
+                    <Label Text="{Binding [UxAddress], Source={x:Static services:LocalizationResourceManager.Instance}}"
                            CharacterSpacing="3"
                            FontSize="11"
                            FontAttributes="Bold"
@@ -112,18 +114,18 @@
                     <Label Text="{Binding EditorialStatus}" FontSize="13" TextColor="{StaticResource Muted}" />
                 </VerticalStackLayout>
                 <VerticalStackLayout Spacing="8" IsVisible="{Binding HasCuratedNotes}">
-                    <Label Text="NOTAS YUKU" CharacterSpacing="3" FontSize="11" FontAttributes="Bold" TextColor="{StaticResource Muted}" />
+                    <Label Text="{Binding [UxCuratedNotes], Source={x:Static services:LocalizationResourceManager.Instance}}" CharacterSpacing="3" FontSize="11" FontAttributes="Bold" TextColor="{StaticResource Muted}" />
                     <Label Text="{Binding CuratedNotes}" FontSize="15" LineHeight="1.3" TextColor="{StaticResource Accent}" />
                 </VerticalStackLayout>
                 <VerticalStackLayout Spacing="8">
                     <Grid ColumnDefinitions="*,48">
-                        <Label Text="NOTAS PERSONALES" CharacterSpacing="3" FontSize="11"
+                        <Label Text="{Binding [UxPersonalNotes], Source={x:Static services:LocalizationResourceManager.Instance}}" CharacterSpacing="3" FontSize="11"
                                FontAttributes="Bold" TextColor="{StaticResource Muted}" VerticalOptions="Center" />
                         <ImageButton Grid.Column="1" Source="action_edit.svg" Command="{Binding OpenJournalCommand}"
                                      WidthRequest="48" HeightRequest="48" Padding="12" BackgroundColor="Transparent"
-                                     SemanticProperties.Description="Agregar o editar mi nota personal" />
+                                     SemanticProperties.Description="{Binding [UxEditMemory], Source={x:Static services:LocalizationResourceManager.Instance}}" />
                     </Grid>
-                    <Label Text="Agregá una nota o un recuerdo de este lugar." FontSize="14" TextColor="{StaticResource InkSoft}">
+                    <Label Text="{Binding [UxMemoryHint], Source={x:Static services:LocalizationResourceManager.Instance}}" FontSize="14" TextColor="{StaticResource InkSoft}">
                         <Label.Triggers>
                             <DataTrigger TargetType="Label" Binding="{Binding HasNotes}" Value="True">
                                 <Setter Property="IsVisible" Value="False" />
@@ -138,26 +140,26 @@
 
                 <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="8" Margin="0,4,0,0">
                     <VerticalStackLayout Grid.Column="3" Spacing="4">
-                        <ImageButton Source="expense_other.svg" Clicked="OnExpenseClicked" BackgroundColor="Transparent" WidthRequest="48" HeightRequest="48" Padding="12" SemanticProperties.Description="Agregar gasto" />
-                        <Label Text="Gasto" FontSize="12" TextColor="{StaticResource InkSoft}" HorizontalTextAlignment="Center" />
+                        <ImageButton Source="expense_other.svg" Clicked="OnExpenseClicked" BackgroundColor="Transparent" WidthRequest="48" HeightRequest="48" Padding="12" SemanticProperties.Description="{Binding [UxAddExpense], Source={x:Static services:LocalizationResourceManager.Instance}}" />
+                        <Label Text="{Binding [UxExpense], Source={x:Static services:LocalizationResourceManager.Instance}}" FontSize="12" TextColor="{StaticResource InkSoft}" HorizontalTextAlignment="Center" />
                     </VerticalStackLayout>
                     <VerticalStackLayout Spacing="4">
                         <ImageButton Source="today_folded_map.svg" Command="{Binding OpenMapsCommand}" IsEnabled="{Binding HasAddress}"
                             WidthRequest="52" HeightRequest="52" Padding="13" BackgroundColor="Transparent" HorizontalOptions="Center"
-                            SemanticProperties.Description="Abrir ubicación en el mapa" />
-                        <Label Text="Mapa" FontSize="12" TextColor="{StaticResource InkSoft}" HorizontalTextAlignment="Center" />
+                            SemanticProperties.Description="{Binding [UxOpenMaps], Source={x:Static services:LocalizationResourceManager.Instance}}" />
+                        <Label Text="{Binding [UxMap], Source={x:Static services:LocalizationResourceManager.Instance}}" FontSize="12" TextColor="{StaticResource InkSoft}" HorizontalTextAlignment="Center" />
                     </VerticalStackLayout>
                     <VerticalStackLayout Grid.Column="1" Spacing="4">
                         <ImageButton Source="tab_journal.svg" Command="{Binding OpenJournalCommand}"
                             WidthRequest="52" HeightRequest="52" Padding="13" BackgroundColor="Transparent" HorizontalOptions="Center"
-                            SemanticProperties.Description="Abrir mi recuerdo en Journal" />
-                        <Label Text="Journal" FontSize="12" TextColor="{StaticResource InkSoft}" HorizontalTextAlignment="Center" />
+                            SemanticProperties.Description="{Binding [UxOpenJournal], Source={x:Static services:LocalizationResourceManager.Instance}}" />
+                        <Label Text="{Binding [UxJournal], Source={x:Static services:LocalizationResourceManager.Instance}}" FontSize="12" TextColor="{StaticResource InkSoft}" HorizontalTextAlignment="Center" />
                     </VerticalStackLayout>
                     <VerticalStackLayout Grid.Column="2" Spacing="4" IsVisible="{Binding CanLinkDocument}">
                         <ImageButton Source="doc_add.svg" Command="{Binding LinkDocumentCommand}"
                             WidthRequest="52" HeightRequest="52" Padding="13" BackgroundColor="Transparent" HorizontalOptions="Center"
-                            SemanticProperties.Description="Vincular o cambiar documento" />
-                        <Label Text="Documentos" FontSize="12" TextColor="{StaticResource InkSoft}" HorizontalTextAlignment="Center" />
+                            SemanticProperties.Description="{Binding [UxLinkDocument], Source={x:Static services:LocalizationResourceManager.Instance}}" />
+                        <Label Text="{Binding [UxDocuments], Source={x:Static services:LocalizationResourceManager.Instance}}" FontSize="12" TextColor="{StaticResource InkSoft}" HorizontalTextAlignment="Center" />
                     </VerticalStackLayout>
                 </Grid>
                 <Border Padding="14,12" BackgroundColor="#FFFCF8" Stroke="#DDD4C9"
@@ -165,13 +167,13 @@
                     <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                         <VerticalStackLayout Spacing="3">
-                            <Label Text="DOCUMENTO" CharacterSpacing="2" FontSize="10" TextColor="#9D794F" />
+                            <Label Text="{Binding [UxDocument], Source={x:Static services:LocalizationResourceManager.Instance}}" CharacterSpacing="2" FontSize="10" TextColor="#9D794F" />
                             <Label Text="{Binding LinkedDocumentTitle}" FontSize="14" TextColor="#1A1714"
                                    MaxLines="1" LineBreakMode="TailTruncation" />
                         </VerticalStackLayout>
                         <ImageButton Grid.Column="1" Source="doc_open.svg" Command="{Binding OpenLinkedDocumentCommand}"
                             BackgroundColor="Transparent" Padding="12" WidthRequest="48" HeightRequest="48"
-                            SemanticProperties.Description="Abrir documento vinculado" />
+                            SemanticProperties.Description="{Binding [UxOpenDocument], Source={x:Static services:LocalizationResourceManager.Instance}}" />
                     </Grid>
                 </Border>
             </VerticalStackLayout>

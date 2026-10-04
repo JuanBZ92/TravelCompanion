@@ -33,13 +33,14 @@ public sealed class ExpensesPanel : ContentView
                 var row = new Grid { ColumnDefinitions = [new(new GridLength(30)), new(GridLength.Star), new(GridLength.Auto)], ColumnSpacing = 10 };
                 row.Add(icon); row.Add(new VerticalStackLayout { Spacing = 5, Children = { name, detail } }, 1); row.Add(price, 2);
                 var layout = new VerticalStackLayout { Spacing = 8, Padding = new Thickness(0, 0, 0, 12), Children = { day, Card(row) } };
-                var tap = new TapGestureRecognizer(); tap.Tapped += async (_, _) =>
+                var open = new Button { BackgroundColor = Colors.Transparent, Padding = 0, MinimumHeightRequest = 48 };
+                open.SetBinding(SemanticProperties.DescriptionProperty, nameof(ExpenseRow.OpenDescription));
+                open.Clicked += async (_, _) =>
                 {
                     if (layout.BindingContext is ExpenseRow item)
                         await Act(async () => await OpenAsync(item.Entry));
                 };
-                layout.GestureRecognizers.Add(tap);
-                SemanticProperties.SetHint(layout, T("Tocar para editar gasto", "Tap to edit expense"));
+                row.Add(open, 0); Grid.SetColumnSpan(open, 3);
                 return layout;
             }) };
         var refresh = new RefreshView { Content = list };
@@ -227,7 +228,10 @@ public sealed class ExpensesPanel : ContentView
         catch (HttpRequestException error) when (error.StatusCode == System.Net.HttpStatusCode.Forbidden)
         { book = book with { HasPremium = false }; await PremiumAsync(action); }
     }
-    private sealed record ExpenseRow(LocalExpense Entry, string Day, string Name, string Price, string Icon, string Detail);
+    private sealed record ExpenseRow(LocalExpense Entry, string Day, string Name, string Price, string Icon, string Detail)
+    {
+        public string OpenDescription => $"{Name}. {Price}. {T("Editar gasto", "Edit expense")}";
+    }
 }
 
 internal sealed class ExpenseBudgetPage : TripScopedPage

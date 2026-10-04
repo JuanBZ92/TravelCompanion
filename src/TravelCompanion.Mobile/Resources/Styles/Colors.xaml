@@ -25,6 +25,9 @@
     <Color x:Key="NightSurfaceAlt">#3D3329</Color>
     <Color x:Key="NightLine">#1A171433</Color>
     <Color x:Key="NightMuted">#8A8078</Color>
+    <Color x:Key="EditorialSurface">#FFFCF8</Color>
+    <Color x:Key="EditorialMuted">#71675D</Color>
+    <Color x:Key="EditorialLine">#E5DDD3</Color>
 
     <Color x:Key="Primary">#3D3329</Color>
     <Color x:Key="PrimaryDark">#B8956A</Color>

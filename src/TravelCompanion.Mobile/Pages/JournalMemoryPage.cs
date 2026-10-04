@@ -5,9 +5,9 @@ namespace TravelCompanion.Mobile.Pages;
 
 internal static class JournalUi
 {
-    public static readonly Color Ink = Color.FromArgb("#302920");
-    public static readonly Color Muted = Color.FromArgb("#71675D");
-    public static readonly Color Paper = Color.FromArgb("#F8F3ED");
+    public static Color Ink => EditorialUi.Ink;
+    public static Color Muted => EditorialUi.Muted;
+    public static Color Paper => EditorialUi.Paper;
     public static Label Text(string text, double size = 15, bool heading = false) => new()
     { Text = text, FontSize = size, FontFamily = heading ? "serif" : null,
         TextColor = heading ? Ink : Muted, LineHeight = 1.2 };

@@ -217,11 +217,11 @@
   <data name="CommonContinue" xml:space="preserve"><value>Continuar</value></data>
   <data name="AssistantFullDaySaved" xml:space="preserve"><value>Se agregaron {0} planes directamente a este día.</value></data>
   <data name="AssistantFullDayPartiallySaved" xml:space="preserve"><value>Se agregaron {0} de {1} planes. Volvé a intentar para completar el día sin duplicados.</value></data>
-  <data name="TodayImproveDay" xml:space="preserve"><value>Mejorar el día con IA</value></data>
+  <data name="TodayImproveDay" xml:space="preserve"><value>Planificar</value></data>
   <data name="TodayImproveSubtitle" xml:space="preserve"><value>Genera recomendaciones personalizadas</value></data>
   <data name="TodayEmptyTitle" xml:space="preserve"><value>Libre</value></data>
   <data name="TodayEmptySubtitle" xml:space="preserve"><value>Aún no hay planes para esta franja</value></data>
-  <data name="TodayEmptyHint" xml:space="preserve"><value>Pulsa “Mejorar el día” para descubrir ideas según tus intereses.</value></data>
+  <data name="TodayEmptyHint" xml:space="preserve"><value>Pulsa “Planificar” para descubrir ideas para uno o varios días.</value></data>
   <data name="AssistantFullDayPreparing" xml:space="preserve"><value>Armando tu día...</value></data>
   <data name="AssistantFullDayProgress" xml:space="preserve"><value>{0} de {1} planes listos.</value></data>
   <data name="CommonSave" xml:space="preserve"><value>Guardar</value></data>
@@ -399,7 +399,7 @@ A tu manera.</value></data>
   <data name="ReviewNoDates" xml:space="preserve"><value>No hay días para revisar.</value></data>
   <data name="ReviewIncomplete" xml:space="preserve"><value>Faltan horarios; todavía no podemos comprobar todos los conflictos.</value></data>
   <data name="ReviewPlans" xml:space="preserve"><value>Ver planes implicados</value></data>
-  <data name="ReviewImprove" xml:space="preserve"><value>Mejorar este día</value></data>
+  <data name="ReviewImprove" xml:space="preserve"><value>Planificar desde este día</value></data>
   <data name="ReviewCoverage" xml:space="preserve"><value>Revisión de los horarios conocidos. Los tiempos de traslado son estimaciones; no se comprueban cierres ni cambios en tiempo real.</value></data>
   <data name="ReviewViewDay" xml:space="preserve"><value>Ver este día</value></data>
   <data name="SetupArrival" xml:space="preserve"><value>Llegada</value></data>
@@ -449,8 +449,8 @@ A tu manera.</value></data>
   <data name="AssistantHomeIntro" xml:space="preserve"><value>Elegí qué querés resolver para tu viaje.</value></data>
   <data name="AssistantForDay" xml:space="preserve"><value>PARA ESTE DÍA</value></data>
   <data name="AssistantChooseDate" xml:space="preserve"><value>Elegir fecha del viaje</value></data>
-  <data name="AssistantCompleteDay" xml:space="preserve"><value>Completar mi día</value></data>
-  <data name="AssistantCompleteDayHelp" xml:space="preserve"><value>Ideas nuevas para cada momento del día, aunque ya tengas planes.</value></data>
+  <data name="AssistantCompleteDay" xml:space="preserve"><value>Planificar mis días</value></data>
+  <data name="AssistantCompleteDayHelp" xml:space="preserve"><value>Ideas para 1, 3, 5 o 7 días, según tu ritmo e intereses.</value></data>
   <data name="AssistantFindPlace" xml:space="preserve"><value>Buscar un lugar</value></data>
   <data name="AssistantAsk" xml:space="preserve"><value>Preguntar al Asistente</value></data>
   <data name="AssistantBackHome" xml:space="preserve"><value>Volver al inicio del Asistente</value></data>
@@ -659,4 +659,122 @@ A tu manera.</value></data>
   <data name="JournalNoMatchingActivities" xml:space="preserve"><value>No hay actividades que coincidan. Puedes volver y escribir un recuerdo libre.</value></data>
   <data name="JournalActivityDraftNotice" xml:space="preserve"><value>¿Hiciste una actividad ese día? Búscala abajo para usarla como lugar.</value></data>
   <data name="JournalActivitySelected" xml:space="preserve"><value>Actividad añadida como lugar. Puedes seguir escribiendo aquí.</value></data>
+  <data name="UxOk" xml:space="preserve"><value>OK</value></data>
+  <data name="UxActionFailedTitle" xml:space="preserve"><value>No pudimos completar la acción</value></data>
+  <data name="UxActionFailed" xml:space="preserve"><value>Tus cambios guardados siguen disponibles. Volvé a intentarlo.</value></data>
+  <data name="UxBack" xml:space="preserve"><value>Volver</value></data>
+  <data name="UxRetry" xml:space="preserve"><value>Reintentar</value></data>
+  <data name="UxClose" xml:space="preserve"><value>Cerrar detalle</value></data>
+  <data name="UxPreviousPlace" xml:space="preserve"><value>Lugar anterior</value></data>
+  <data name="UxNextPlace" xml:space="preserve"><value>Lugar siguiente</value></data>
+  <data name="UxPreviousPage" xml:space="preserve"><value>Página anterior</value></data>
+  <data name="UxNextPage" xml:space="preserve"><value>Página siguiente</value></data>
+  <data name="UxAddToTrip" xml:space="preserve"><value>Agregar al itinerario</value></data>
+  <data name="UxOpenMaps" xml:space="preserve"><value>Abrir ubicación en Google Maps</value></data>
+  <data name="UxMapFallback" xml:space="preserve"><value>Mapa disponible en Android y iPhone</value></data>
+  <data name="UxMapSearch" xml:space="preserve"><value>Buscar restaurante, café o lugar</value></data>
+  <data name="UxMapEmpty" xml:space="preserve"><value>No encontramos lugares cercanos</value></data>
+  <data name="UxMapEmptyHelp" xml:space="preserve"><value>Mové el mapa, cambiá la búsqueda o volvé a intentar.</value></data>
+  <data name="UxMapLoading" xml:space="preserve"><value>Buscando lugares cercanos…</value></data>
+  <data name="UxMapCurated" xml:space="preserve"><value>Mapa curado</value></data>
+  <data name="UxMapExplore" xml:space="preserve"><value>EXPLORAR · YUKU JAPAN</value></data>
+  <data name="UxChangePin" xml:space="preserve"><value>Cambiar PIN</value></data>
+  <data name="UxLockedPlace" xml:space="preserve"><value>Hay una recomendación YUKU en esta zona</value></data>
+  <data name="UxLockedPlaceHelp" xml:space="preserve"><value>Abrí el pase para descubrir este lugar y sus detalles.</value></data>
+  <data name="UxRequestAccess" xml:space="preserve"><value>Solicitar acceso</value></data>
+  <data name="UxHavePin" xml:space="preserve"><value>Ya tengo PIN</value></data>
+  <data name="UxCreateTrip" xml:space="preserve"><value>Crear mi itinerario gratis</value></data>
+  <data name="UxActivatePass" xml:space="preserve"><value>Activar pase</value></data>
+  <data name="UxFreeRadius" xml:space="preserve"><value>RADIO GRATUITO</value></data>
+  <data name="UxTapPin" xml:space="preserve"><value>Tocá un pin para explorar.</value></data>
+  <data name="UxCreateTripTrial" xml:space="preserve"><value>Crear mi itinerario gratis · 30 min</value></data>
+  <data name="UxHavePass" xml:space="preserve"><value>Ya compré el pase</value></data>
+  <data name="UxLocationEyebrow" xml:space="preserve"><value>LUGAR · YUKU JAPAN</value></data>
+  <data name="UxExperienceAbout" xml:space="preserve"><value>SOBRE ESTE LUGAR</value></data>
+  <data name="UxViewMap" xml:space="preserve"><value>Ver en el mapa</value></data>
+  <data name="UxReservationEyebrow" xml:space="preserve"><value>PLAN · YUKU JAPAN</value></data>
+  <data name="UxDateTime" xml:space="preserve"><value>FECHA Y HORARIO</value></data>
+  <data name="UxAddress" xml:space="preserve"><value>DIRECCIÓN</value></data>
+  <data name="UxCuratedNotes" xml:space="preserve"><value>NOTAS YUKU</value></data>
+  <data name="UxPersonalNotes" xml:space="preserve"><value>MI RECUERDO</value></data>
+  <data name="UxMemoryHint" xml:space="preserve"><value>Agregá una nota o un recuerdo de este lugar.</value></data>
+  <data name="UxEditMemory" xml:space="preserve"><value>Agregar o editar mi recuerdo</value></data>
+  <data name="UxExpense" xml:space="preserve"><value>Gasto</value></data>
+  <data name="UxAddExpense" xml:space="preserve"><value>Agregar gasto</value></data>
+  <data name="UxExpenseOpenFailed" xml:space="preserve"><value>No pudimos abrir el gasto. Volvé a intentarlo.</value></data>
+  <data name="UxMap" xml:space="preserve"><value>Mapa</value></data>
+  <data name="UxJournal" xml:space="preserve"><value>Diario</value></data>
+  <data name="UxOpenJournal" xml:space="preserve"><value>Abrir mi recuerdo en Journal</value></data>
+  <data name="UxDocuments" xml:space="preserve"><value>Documentos</value></data>
+  <data name="UxDocument" xml:space="preserve"><value>DOCUMENTO</value></data>
+  <data name="UxLinkDocument" xml:space="preserve"><value>Vincular o cambiar documento</value></data>
+  <data name="UxOpenDocument" xml:space="preserve"><value>Abrir documento vinculado</value></data>
+  <data name="UxPlanName" xml:space="preserve"><value>Nombre del plan</value></data>
+  <data name="UxPlaceOptional" xml:space="preserve"><value>Lugar (opcional)</value></data>
+  <data name="UxAddressOptional" xml:space="preserve"><value>Dirección (opcional)</value></data>
+  <data name="UxDay" xml:space="preserve"><value>DÍA</value></data>
+  <data name="UxPeriod" xml:space="preserve"><value>MOMENTO</value></data>
+  <data name="UxExactTime" xml:space="preserve"><value>Definir hora exacta</value></data>
+  <data name="UxEditJournal" xml:space="preserve"><value>Editar recuerdo en Journal</value></data>
+  <data name="UxPersonalNotesOptional" xml:space="preserve"><value>Notas personales (opcional)</value></data>
+  <data name="UxRemoveCity" xml:space="preserve"><value>Eliminar ciudad del viaje</value></data>
+  <data name="UxFlightHeading" xml:space="preserve"><value>VUELOS</value></data>
+  <data name="UxMemoryRetry" xml:space="preserve"><value>No pudimos abrir este recuerdo. Tus datos guardados se conservan.</value></data>
+  <data name="UxHotelDocumentsHeading" xml:space="preserve"><value>HOTELES · CONFIRMACIONES</value></data>
+  <data name="UxOtherDocumentsHeading" xml:space="preserve"><value>OTROS</value></data>
+  <data name="UxHotelsHeading" xml:space="preserve"><value>HOTELES</value></data>
+  <data name="PlannerTitle" xml:space="preserve"><value>Planificar tus días</value></data>
+  <data name="PlannerIntro" xml:space="preserve"><value>Ideas para disfrutar el viaje a tu manera. Elegí fechas y añadí lo que te guste.</value></data>
+  <data name="PlannerStartDate" xml:space="preserve"><value>EMPEZAR EL</value></data>
+  <data name="PlannerDuration" xml:space="preserve"><value>CUÁNTOS DÍAS</value></data>
+  <data name="PlannerPreferences" xml:space="preserve"><value>A tu medida</value></data>
+  <data name="PlannerAdjust" xml:space="preserve"><value>Ajustar preferencias</value></data>
+  <data name="PlannerPace" xml:space="preserve"><value>Ritmo</value></data>
+  <data name="PlannerBudget" xml:space="preserve"><value>Presupuesto</value></data>
+  <data name="PlannerInterests" xml:space="preserve"><value>Intereses · hasta 3</value></data>
+  <data name="PlannerGenerate" xml:space="preserve"><value>Crear propuesta</value></data>
+  <data name="PlannerRetry" xml:space="preserve"><value>Actualizar y reintentar</value></data>
+  <data name="PlannerReview" xml:space="preserve"><value>Revisar horarios y conflictos</value></data>
+  <data name="PlannerContinue" xml:space="preserve"><value>Ver mi última propuesta</value></data>
+  <data name="PlannerResult" xml:space="preserve"><value>Tus próximos días</value></data>
+  <data name="PlannerResultIntro" xml:space="preserve"><value>Elegí las ideas que querés añadir. Tus planes actuales se conservan.</value></data>
+  <data name="PlannerAnother" xml:space="preserve"><value>Crear otra propuesta</value></data>
+  <data name="PlannerRelaxed" xml:space="preserve"><value>Tranquilo</value></data>
+  <data name="PlannerBalanced" xml:space="preserve"><value>Equilibrado</value></data>
+  <data name="PlannerActive" xml:space="preserve"><value>Intenso</value></data>
+  <data name="PlannerLow" xml:space="preserve"><value>Bajo</value></data>
+  <data name="PlannerMedium" xml:space="preserve"><value>Medio</value></data>
+  <data name="PlannerHigh" xml:space="preserve"><value>Alto</value></data>
+  <data name="PlannerOneDay" xml:space="preserve"><value>1 día</value></data>
+  <data name="PlannerDays" xml:space="preserve"><value>{0} días</value></data>
+  <data name="PlannerWithPass" xml:space="preserve"><value>Con pase</value></data>
+  <data name="PlannerOutsideTrip" xml:space="preserve"><value>Fuera del viaje</value></data>
+  <data name="PlannerFreeUses" xml:space="preserve"><value>{0} generaciones disponibles · hasta 3 días</value></data>
+  <data name="PlannerPassUses" xml:space="preserve"><value>Una generación por propuesta, sea de uno o varios días.</value></data>
+  <data name="PlannerReadOnly" xml:space="preserve"><value>Este viaje permite consultar los planes. Para crear propuestas necesitás un viaje editable.</value></data>
+  <data name="PlannerChecking" xml:space="preserve"><value>Comprobando fechas y preferencias…</value></data>
+  <data name="PlannerGenerating" xml:space="preserve"><value>Buscando ideas para tus días…</value></data>
+  <data name="PlannerSaving" xml:space="preserve"><value>Añadiendo tus ideas al viaje…</value></data>
+  <data name="PlannerAddIdeas" xml:space="preserve"><value>Añadir {0} ideas al viaje</value></data>
+  <data name="PlannerOffline" xml:space="preserve"><value>Sin conexión. Podés consultar tu propuesta guardada; conectate para generar o añadir ideas.</value></data>
+  <data name="PlannerConnectionError" xml:space="preserve"><value>No pudimos completar la operación. Tu propuesta se conserva; volvé a intentar.</value></data>
+  <data name="PlannerCancelled" xml:space="preserve"><value>Operación detenida. Tu propuesta y selección se conservan.</value></data>
+  <data name="PlannerLocalSaveFailed" xml:space="preserve"><value>No pudimos guardar la propuesta en este dispositivo.</value></data>
+  <data name="PlannerPendingSave" xml:space="preserve"><value>Guardado pendiente de confirmar. Reintentá para comprobarlo sin duplicar ideas.</value></data>
+  <data name="PlannerSelectionHelp" xml:space="preserve"><value>Tus planes actuales se conservan. Marcá las ideas que quieras añadir; quedan flexibles para elegir durante el viaje.</value></data>
+  <data name="PlannerEmptyDay" xml:space="preserve"><value>No encontramos ideas nuevas disponibles para esta fecha.</value></data>
+  <data name="PlannerPartialDay" xml:space="preserve"><value>Hay menos ideas disponibles para algunos momentos del día.</value></data>
+  <data name="PlannerOpenIdea" xml:space="preserve"><value>Ver {0}</value></data>
+  <data name="PlannerSelectIdea" xml:space="preserve"><value>Seleccionar {0}</value></data>
+  <data name="PlannerSelectDay" xml:space="preserve"><value>Seleccionar o quitar todas las ideas de este día</value></data>
+  <data name="PlannerInterestLimit" xml:space="preserve"><value>Elegí hasta tres intereses.</value></data>
+  <data name="PlannerInterest_food" xml:space="preserve"><value>Gastronomía</value></data>
+  <data name="PlannerInterest_culture" xml:space="preserve"><value>Cultura</value></data>
+  <data name="PlannerInterest_nature" xml:space="preserve"><value>Naturaleza</value></data>
+  <data name="PlannerInterest_history" xml:space="preserve"><value>Historia</value></data>
+  <data name="PlannerInterest_art" xml:space="preserve"><value>Arte</value></data>
+  <data name="PlannerInterest_shopping" xml:space="preserve"><value>Compras</value></data>
+  <data name="PlannerInterest_gardens" xml:space="preserve"><value>Jardines</value></data>
+  <data name="PlannerInterest_nightlife" xml:space="preserve"><value>Vida nocturna</value></data>
+  <data name="PlannerViewTrip" xml:space="preserve"><value>Ver en mi viaje</value></data>
 </root>

@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:services="clr-namespace:TravelCompanion.Mobile.Services"
              xmlns:dtos="clr-namespace:TravelCompanion.Shared.Dtos;assembly=TravelCompanion.Shared"
              xmlns:viewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
              x:Class="TravelCompanion.Mobile.Pages.FreeMapPage"
@@ -21,7 +22,7 @@
                        FontAttributes="Bold"
                        TextColor="#8E867D"
                        HorizontalTextAlignment="Center" />
-                <Label Text="Mapa disponible en Android y iPhone"
+                <Label Text="{Binding [UxMapFallback], Source={x:Static services:LocalizationResourceManager.Instance}}"
                        FontFamily="serif"
                        FontSize="22"
                        TextColor="#1A1714"
@@ -36,21 +37,21 @@
             <Border Grid.Row="0" BackgroundColor="#F2F8F3ED" Stroke="#D8CFC4" StrokeThickness="1" Padding="16,12" IsVisible="{Binding ShowMapSummary}">
                 <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="8">
                     <VerticalStackLayout Spacing="2">
-                        <Label Text="EXPLORE · YUKU JAPAN" CharacterSpacing="4" FontSize="10" FontAttributes="Bold" TextColor="#8E867D" />
-                        <Label Text="Mapa curado" FontFamily="serif" FontSize="25" TextColor="#1A1714" />
+                        <Label Text="{Binding [UxMapExplore], Source={x:Static services:LocalizationResourceManager.Instance}}" CharacterSpacing="4" FontSize="10" FontAttributes="Bold" TextColor="#8E867D" />
+                        <Label Text="{Binding [UxMapCurated], Source={x:Static services:LocalizationResourceManager.Instance}}" FontFamily="serif" FontSize="25" TextColor="#1A1714" />
                     </VerticalStackLayout>
                     <Button Grid.Column="1"
-                            Text="Cambiar PIN"
+                            Text="{Binding [UxChangePin], Source={x:Static services:LocalizationResourceManager.Instance}}"
                             Command="{Binding LogoutCommand}"
                             Style="{StaticResource GhostButton}"
                             FontSize="12"
                             Padding="10,6"
-                            MinimumHeightRequest="44" />
+                            MinimumHeightRequest="48" />
                     <CollectionView Grid.Row="1" Grid.ColumnSpan="2"
                                     ItemsSource="{Binding Cities}"
                                     SelectedItem="{Binding SelectedCity, Mode=TwoWay}"
                                     SelectionMode="Single"
-                                    HeightRequest="42"
+                                    HeightRequest="48"
                                     HorizontalScrollBarVisibility="Never">
                         <CollectionView.ItemsLayout>
                             <LinearItemsLayout Orientation="Horizontal" ItemSpacing="8" />
@@ -84,7 +85,7 @@
 
             <Border Grid.Row="2" Margin="0,0,0,8" VerticalOptions="End" Style="{StaticResource MapPreviewPanel}" IsVisible="{Binding HasPreview}">
                 <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="6">
-                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" HeightRequest="32" IsVisible="{Binding HasSelection}">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" HeightRequest="48" IsVisible="{Binding HasSelection}">
                         <Label Text="{Binding SelectedMarkerPosition}"
                                FontSize="11"
                                TextColor="{StaticResource Muted}"
@@ -103,12 +104,12 @@
                                 Text="×"
                                 Command="{Binding CloseSelectionCommand}"
                                 Style="{StaticResource MapPreviewNavigationButton}"
-                                WidthRequest="32"
-                                MinimumWidthRequest="32"
-                                HeightRequest="32"
-                                MinimumHeightRequest="32"
+                                WidthRequest="48"
+                                MinimumWidthRequest="48"
+                                HeightRequest="48"
+                                MinimumHeightRequest="48"
                                 FontSize="16"
-                                SemanticProperties.Description="Cerrar detalle" />
+                                SemanticProperties.Description="{Binding [UxClose], Source={x:Static services:LocalizationResourceManager.Instance}}" />
                     </Grid>
 
                     <VerticalStackLayout Grid.Row="1" Spacing="5" IsVisible="{Binding IsUnlockedSelection}">
@@ -137,57 +138,57 @@
                     </VerticalStackLayout>
 
                     <VerticalStackLayout Grid.Row="1" Spacing="6" IsVisible="{Binding IsLockedSelection}">
-                        <Label Text="Hay una recomendación YUKU en esta zona" FontFamily="serif" FontSize="21" TextColor="{StaticResource Ink}" />
-                        <Label Text="Accede al plan Pago o a un viaje Premium para descubrir el lugar, sus tags y todos los detalles." FontSize="13" TextColor="{StaticResource Muted}" LineHeight="1.2" />
+                        <Label Text="{Binding [UxLockedPlace], Source={x:Static services:LocalizationResourceManager.Instance}}" FontFamily="serif" FontSize="21" TextColor="{StaticResource Ink}" />
+                        <Label Text="{Binding [UxLockedPlaceHelp], Source={x:Static services:LocalizationResourceManager.Instance}}" FontSize="13" TextColor="{StaticResource Muted}" LineHeight="1.2" />
                         <Grid ColumnDefinitions="*,*" ColumnSpacing="8" IsVisible="{Binding HasContactUrl}">
-                            <Button Text="Solicitar acceso" Command="{Binding ContactCommand}" IsVisible="{Binding HasContactUrl}" BackgroundColor="#3D3329" TextColor="White" CornerRadius="0" />
-                            <Button Grid.Column="1" Text="Ya tengo PIN" Command="{Binding UseAnotherPinCommand}" Style="{StaticResource GhostButton}" CornerRadius="0" />
+                            <Button Text="{Binding [UxRequestAccess], Source={x:Static services:LocalizationResourceManager.Instance}}" Command="{Binding ContactCommand}" IsVisible="{Binding HasContactUrl}" BackgroundColor="#3D3329" TextColor="White" CornerRadius="0" />
+                            <Button Grid.Column="1" Text="{Binding [UxHavePin], Source={x:Static services:LocalizationResourceManager.Instance}}" Command="{Binding UseAnotherPinCommand}" Style="{StaticResource GhostButton}" CornerRadius="0" />
                         </Grid>
-                        <Button Text="Ya tengo PIN" Command="{Binding UseAnotherPinCommand}" Style="{StaticResource GhostButton}" CornerRadius="0" IsVisible="{Binding ShowPinOnlyAction}" />
-                        <Button Text="Crear mi itinerario gratis" Command="{Binding StartFreeBuilderCommand}" BackgroundColor="#3D3329" TextColor="White" CornerRadius="0" />
-                        <Button Text="Activar pase" Command="{Binding RedeemPassCommand}" BackgroundColor="#3D3329" TextColor="White" CornerRadius="0" />
+                        <Button Text="{Binding [UxHavePin], Source={x:Static services:LocalizationResourceManager.Instance}}" Command="{Binding UseAnotherPinCommand}" Style="{StaticResource GhostButton}" CornerRadius="0" IsVisible="{Binding ShowPinOnlyAction}" />
+                        <Button Text="{Binding [UxCreateTrip], Source={x:Static services:LocalizationResourceManager.Instance}}" Command="{Binding StartFreeBuilderCommand}" BackgroundColor="#3D3329" TextColor="White" CornerRadius="0" />
+                        <Button Text="{Binding [UxActivatePass], Source={x:Static services:LocalizationResourceManager.Instance}}" Command="{Binding RedeemPassCommand}" BackgroundColor="#3D3329" TextColor="White" CornerRadius="0" />
                     </VerticalStackLayout>
 
                     <VerticalStackLayout Grid.Row="1" Spacing="4" IsVisible="{Binding ShowMapSummary}">
-                        <Label Text="RADIO GRATUITO" CharacterSpacing="3" FontSize="10" FontAttributes="Bold" TextColor="#9B9288" />
+                        <Label Text="{Binding [UxFreeRadius], Source={x:Static services:LocalizationResourceManager.Instance}}" CharacterSpacing="3" FontSize="10" FontAttributes="Bold" TextColor="#9B9288" />
                         <Label Text="{Binding MapSummary}" FontFamily="serif" FontSize="20" TextColor="#1A1714" />
-                        <Label Text="Toca un pin para explorar." FontSize="13" TextColor="#6E675F" />
-                        <Button Text="Crear mi itinerario gratis · 30 min"
+                        <Label Text="{Binding [UxTapPin], Source={x:Static services:LocalizationResourceManager.Instance}}" FontSize="13" TextColor="#6E675F" />
+                        <Button Text="{Binding [UxCreateTripTrial], Source={x:Static services:LocalizationResourceManager.Instance}}"
                                 Command="{Binding StartFreeBuilderCommand}"
                                 Margin="0,8,0,0"
                                 BackgroundColor="#3D3329"
                                 TextColor="White"
                                 CornerRadius="0" />
-                        <Button Text="Ya compré el pase"
+                        <Button Text="{Binding [UxHavePass], Source={x:Static services:LocalizationResourceManager.Instance}}"
                                 Command="{Binding RedeemPassCommand}"
                                 Style="{StaticResource GhostButton}"
                                 CornerRadius="0" />
                     </VerticalStackLayout>
 
-                    <Grid Grid.Row="2" ColumnDefinitions="40,*,40" ColumnSpacing="8" HeightRequest="44" IsVisible="{Binding HasSelection}">
+                    <Grid Grid.Row="2" ColumnDefinitions="48,*,48" ColumnSpacing="8" HeightRequest="48" IsVisible="{Binding HasSelection}">
                         <Button Text="‹"
                                 Command="{Binding SelectPreviousMarkerCommand}"
                                 IsEnabled="{Binding CanBrowseMarkers}"
                                 Style="{StaticResource MapPreviewNavigationButton}"
-                                SemanticProperties.Description="Lugar anterior" />
+                                SemanticProperties.Description="{Binding [UxPreviousPlace], Source={x:Static services:LocalizationResourceManager.Instance}}" />
                         <HorizontalStackLayout Grid.Column="1" Spacing="8" HorizontalOptions="Center">
                             <ImageButton Source="itinerary_add.svg"
                                          Command="{Binding AddSelectedToItineraryCommand}"
                                          IsVisible="{Binding IsUnlockedSelection}"
                                          Style="{StaticResource MapPreviewIconButton}"
-                                         SemanticProperties.Description="Agregar al itinerario" />
+                                         SemanticProperties.Description="{Binding [UxAddToTrip], Source={x:Static services:LocalizationResourceManager.Instance}}" />
                             <ImageButton Source="tab_map.svg"
                                          Command="{Binding OpenSelectedMapCommand}"
                                          IsVisible="{Binding IsUnlockedSelection}"
                                          Style="{StaticResource MapPreviewIconButton}"
-                                         SemanticProperties.Description="Abrir ubicación en Google Maps" />
+                                         SemanticProperties.Description="{Binding [UxOpenMaps], Source={x:Static services:LocalizationResourceManager.Instance}}" />
                         </HorizontalStackLayout>
                         <Button Grid.Column="2"
                                 Text="›"
                                 Command="{Binding SelectNextMarkerCommand}"
                                 IsEnabled="{Binding CanBrowseMarkers}"
                                 Style="{StaticResource MapPreviewNavigationButton}"
-                                SemanticProperties.Description="Lugar siguiente" />
+                                SemanticProperties.Description="{Binding [UxNextPlace], Source={x:Static services:LocalizationResourceManager.Instance}}" />
                     </Grid>
                 </Grid>
             </Border>
@@ -195,7 +196,7 @@
             <Border Grid.Row="2" Margin="0,0,0,8" Padding="16" VerticalOptions="End" BackgroundColor="{StaticResource Mist}" Stroke="#B42318" StrokeThickness="1" IsVisible="{Binding HasError}">
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                     <Label Text="{Binding ErrorMessage}" FontSize="13" TextColor="#B42318" VerticalOptions="Center" />
-                    <Button Grid.Column="1" Text="Reintentar" Command="{Binding LoadCommand}" Style="{StaticResource GhostButton}" />
+                    <Button Grid.Column="1" Text="{Binding [UxRetry], Source={x:Static services:LocalizationResourceManager.Instance}}" Command="{Binding LoadCommand}" Style="{StaticResource GhostButton}" />
                 </Grid>
             </Border>
         </Grid>

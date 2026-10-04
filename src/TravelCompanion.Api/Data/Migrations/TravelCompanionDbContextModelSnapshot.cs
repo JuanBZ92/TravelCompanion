@@ -215,6 +215,13 @@ namespace TravelCompanion.Api.Data.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<string>("RequestHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("ResponseJson")
+                        .HasColumnType("jsonb");
+
                     b.Property<DateOnly>("UtcDate")
                         .HasColumnType("date");
 
@@ -865,6 +872,43 @@ namespace TravelCompanion.Api.Data.Migrations
                     b.HasIndex("UserId", "Status");
 
                     b.ToTable("NotificationOutboxItems");
+                });
+
+            modelBuilder.Entity("TravelCompanion.Api.Models.PlanningApplicationReceipt", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AppUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("MutationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("RequestHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("ResultJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<Guid>("TripId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AppUserId", "TripId");
+
+                    b.HasIndex("TripId", "MutationId")
+                        .IsUnique();
+
+                    b.ToTable("PlanningApplicationReceipts");
                 });
 
             modelBuilder.Entity("TravelCompanion.Api.Models.ProductAnalyticsDailyAggregate", b =>
@@ -2725,6 +2769,17 @@ namespace TravelCompanion.Api.Data.Migrations
                     b.Navigation("Reservation");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("TravelCompanion.Api.Models.PlanningApplicationReceipt", b =>
+                {
+                    b.HasOne("TravelCompanion.Api.Models.Trip", "Trip")
+                        .WithMany()
+                        .HasForeignKey("TripId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Trip");
                 });
 
             modelBuilder.Entity("TravelCompanion.Api.Models.ProductExperimentAssignment", b =>

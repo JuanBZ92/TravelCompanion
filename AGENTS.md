@@ -16,6 +16,16 @@ shared contracts and a notifications worker. Tests use xUnit.
 - Add or update focused tests for behavior changes.
 - Start exploration in the relevant area; skip bin, obj, artifacts, outputs and logs unless needed.
 - Treat documentation as guidance; verify implementation details against current code.
+- New or modified mobile screens must match the existing editorial style: warm paper,
+  readable serif headings, restrained cards and a clear primary action. Reuse shared
+  resources and `EditorialUi` controls rather than introducing another palette.
+- Treat UX as part of completion: verify navigation, loading, empty/error/retry states,
+  offline behavior, keyboard use, long text and enlarged fonts. Keep icon controls
+  accessible with localized descriptions and touch targets of at least 48 dp.
+- Localize changed user-facing flows in Spanish and English. Preserve session/trip
+  isolation and existing access rules; visual changes must not broaden permissions.
+- Validate affected behavior and Android compilation. Review changed screens on a
+  device or emulator when available; record actual coverage and any blocked checks.
 
 ## Commands (repository root)
 - Use `--verbosity minimal`; target the affected project and installed mobile platform.

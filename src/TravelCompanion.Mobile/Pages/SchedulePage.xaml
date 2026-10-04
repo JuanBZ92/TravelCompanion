@@ -71,7 +71,7 @@
                     <Border Padding="14,12" BackgroundColor="#FFFCF8" Stroke="#DDD4C9"
                             StrokeThickness="1" IsVisible="{Binding HasFocusItem}">
                         <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
-                        <Grid ColumnDefinitions="*,44" ColumnSpacing="12">
+                        <Grid ColumnDefinitions="*,48" ColumnSpacing="12">
                             <VerticalStackLayout Spacing="4" VerticalOptions="Center">
                                 <Label Text="A CONTINUACIÓN" CharacterSpacing="2" FontSize="10"
                                        FontAttributes="Bold" TextColor="#9D794F" />
@@ -108,7 +108,7 @@
                         <Border.StrokeShape>
                             <RoundRectangle CornerRadius="10" />
                         </Border.StrokeShape>
-                        <Grid ColumnDefinitions="24,*,44" ColumnSpacing="10" MinimumHeightRequest="44">
+                        <Grid ColumnDefinitions="24,*,48" ColumnSpacing="10" MinimumHeightRequest="44">
                             <Image Source="today_hotel.svg" WidthRequest="22" HeightRequest="22"
                                    VerticalOptions="Center" />
                             <Label Grid.Column="1" Text="{Binding StayTitle}" FontSize="14"
@@ -290,7 +290,7 @@
                                     <VerticalStackLayout Grid.Column="1"
                                                          Spacing="13"
                                                          Padding="12,0,0,8">
-                                        <Grid ColumnDefinitions="*,44"
+                                        <Grid ColumnDefinitions="*,48"
                                               ColumnSpacing="8"
                                               HeightRequest="44">
 
@@ -338,7 +338,7 @@
                                                                  BindableLayout.ItemsSource="{Binding Locations}">
                                                 <BindableLayout.ItemTemplate>
                                                     <DataTemplate x:DataType="viewModels:TodayLocationViewModel">
-                                                        <Grid ColumnDefinitions="*,44"
+                                                        <Grid ColumnDefinitions="*,48"
                                                               ColumnSpacing="12"
                                                               Padding="0,2">
                                                             <VerticalStackLayout Spacing="3">

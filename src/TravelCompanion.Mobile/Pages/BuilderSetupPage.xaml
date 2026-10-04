@@ -15,7 +15,7 @@
             <VerticalStackLayout Padding="24,20" Spacing="22">
                 <VerticalStackLayout Spacing="6">
                     <Label Text="{Binding HeaderEyebrow}" CharacterSpacing="3" FontSize="11" TextColor="#8E867D" />
-                    <Label Text="{Binding HeaderTitle}" FontFamily="serif" FontSize="34" TextColor="#1A1714" />
+                    <Label Text="{Binding HeaderTitle}" Style="{StaticResource EditorialHeading}" />
                     <Label Text="{Binding HeaderDescription}" FontSize="15" TextColor="#6E675F" />
                 </VerticalStackLayout>
                 <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
@@ -26,14 +26,14 @@
                 <VerticalStackLayout BindableLayout.ItemsSource="{Binding Segments}" Spacing="14">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="viewModels:BuilderSegmentViewModel">
-                            <Border Padding="16" BackgroundColor="#FFFDF9" Stroke="#D8CFC4" StrokeThickness="1">
+                            <Border Style="{StaticResource EditorialCard}">
                                 <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="12">
                                     <Entry Placeholder="{Binding [SetupCity], Source={x:Static services:LocalizationResourceManager.Instance}}" Text="{Binding City}" FontSize="18" Focused="OnCityFocused" Unfocused="OnCityUnfocused" TextChanged="OnCityTextChanged" />
-                                    <Button Grid.Column="1" Text="×" Command="{Binding RemoveSegmentCommand, Source={RelativeSource AncestorType={x:Type viewModels:BuilderSetupViewModel}}, x:DataType=viewModels:BuilderSetupViewModel}" CommandParameter="{Binding .}" Style="{StaticResource GhostButton}" />
+                                    <Button Grid.Column="1" Text="×" Command="{Binding RemoveSegmentCommand, Source={RelativeSource AncestorType={x:Type viewModels:BuilderSetupViewModel}}, x:DataType=viewModels:BuilderSetupViewModel}" CommandParameter="{Binding .}" Style="{StaticResource EditorialSecondaryButton}" SemanticProperties.Description="{Binding [UxRemoveCity], Source={x:Static services:LocalizationResourceManager.Instance}}" />
                                     <VerticalStackLayout Grid.Row="1" Grid.ColumnSpan="2" BindableLayout.ItemsSource="{Binding CitySuggestions}">
                                         <BindableLayout.ItemTemplate>
                                             <DataTemplate x:DataType="x:String">
-                                                <Label Text="{Binding .}" Padding="4,10" TextColor="#1A1714" FontSize="15">
+                                                <Label Text="{Binding .}" Padding="4,10" TextColor="#1A1714" FontSize="15" MinimumHeightRequest="48">
                                                     <Label.GestureRecognizers><TapGestureRecognizer Tapped="OnCitySuggestionTapped" /></Label.GestureRecognizers>
                                                 </Label>
                                             </DataTemplate>
@@ -71,7 +71,7 @@
                 <Button IsVisible="{Binding BindingContext.ShowTripDetails, Source={x:Reference PageRoot}}" Text="{Binding [SetupAddCity], Source={x:Static services:LocalizationResourceManager.Instance}}" Command="{Binding AddSegmentCommand}" Style="{StaticResource GhostButton}" />
                 <Border IsVisible="{Binding HasError}" Style="{StaticResource ErrorPanel}">
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
-                        <Label Text="{Binding ErrorMessage}" VerticalTextAlignment="Center" />
+                        <Label x:Name="ValidationMessage" Text="{Binding ErrorMessage}" VerticalTextAlignment="Center" />
                         <Button Grid.Column="1"
                                 Text="{Binding [SetupRetry], Source={x:Static services:LocalizationResourceManager.Instance}}"
                                 Command="{Binding RetryCommand}"
@@ -79,7 +79,7 @@
                                 Style="{StaticResource GhostButton}"
                                 FontSize="12"
                                 Padding="10,6"
-                                MinimumHeightRequest="44" />
+                                MinimumHeightRequest="48" />
                     </Grid>
                 </Border>
                 <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />

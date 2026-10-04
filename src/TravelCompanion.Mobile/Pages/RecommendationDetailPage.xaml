@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:services="clr-namespace:TravelCompanion.Mobile.Services"
              xmlns:viewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
              x:Class="TravelCompanion.Mobile.Pages.RecommendationDetailPage"
              x:DataType="viewModels:RecommendationDetailViewModel"
@@ -11,7 +12,7 @@
 
     <ScrollView VerticalScrollBarVisibility="Never">
         <VerticalStackLayout Spacing="0">
-            <Border HeightRequest="300"
+            <Border HeightRequest="176"
                     BackgroundColor="{StaticResource AccentSoft}"
                     Stroke="#D8CFC4"
                     StrokeThickness="1">
@@ -41,8 +42,8 @@
 
                     <Button Text="&lt;"
                             Clicked="OnBackClicked"
-                            WidthRequest="44"
-                            HeightRequest="44"
+                            WidthRequest="48"
+                            HeightRequest="48"
                             Padding="0"
                             Margin="20,22,0,0"
                             HorizontalOptions="Start"
@@ -51,15 +52,16 @@
                             TextColor="#1A1714"
                             BorderColor="#D8CFC4"
                             BorderWidth="1"
-                            CornerRadius="0"
+                            CornerRadius="12"
+                            SemanticProperties.Description="{Binding [UxBack], Source={x:Static services:LocalizationResourceManager.Instance}}"
                             FontSize="20" />
                 </Grid>
             </Border>
 
-            <VerticalStackLayout Padding="28,28,28,40"
-                                 Spacing="24">
+            <VerticalStackLayout Padding="24,20,24,32"
+                                 Spacing="18">
                 <VerticalStackLayout Spacing="10">
-                    <Label Text="LOCATION · YUKU JAPAN"
+                    <Label Text="{Binding [UxLocationEyebrow], Source={x:Static services:LocalizationResourceManager.Instance}}"
                            CharacterSpacing="6"
                            FontSize="11"
                            FontAttributes="Bold"
@@ -78,7 +80,7 @@
                 </VerticalStackLayout>
 
                 <VerticalStackLayout Spacing="10">
-                    <Label Text="ABOUT THIS EXPERIENCE"
+                    <Label Text="{Binding [UxExperienceAbout], Source={x:Static services:LocalizationResourceManager.Instance}}"
                            CharacterSpacing="3"
                            FontSize="11"
                            FontAttributes="Bold"
@@ -90,7 +92,7 @@
                 </VerticalStackLayout>
 
                 <Label Text="{Binding EditorialStatus}" FontSize="14" TextColor="#4D4741" />
-                <Button Text="View on Map"
+                <Button Text="{Binding [UxViewMap], Source={x:Static services:LocalizationResourceManager.Instance}}"
                         Command="{Binding OpenMapsCommand}"
                         IsEnabled="{Binding IsUnlocked}"
                         BackgroundColor="#3D3329"

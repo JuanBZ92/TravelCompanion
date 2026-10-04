@@ -81,7 +81,7 @@ public sealed class JournalPhotoPage : JournalScopedPage
         image.Source = null;
         previous.IsEnabled = position > 0;
         next.IsEnabled = position + 1 < memory.Images.Length;
-        counter.Text = memory.Images.Length == 0 ? "Sin fotos" : $"{position + 1} / {memory.Images.Length}";
+        counter.Text = memory.Images.Length == 0 ? JournalText.Get("JournalNoPhoto") : $"{position + 1} / {memory.Images.Length}";
         SemanticProperties.SetDescription(image, JournalText.Format("JournalPhotoNumber", position + 1, memory.Images.Length));
         message.Text = JournalText.Get("JournalLoadingPhoto");
         try
@@ -89,7 +89,7 @@ public sealed class JournalPhotoPage : JournalScopedPage
             var bytes = memory.Images.Length == 0 ? null : await store.PhotoAsync(scope, memory.Images[position].Id);
             if (!visible || version != loadVersion || !store.IsCurrent(scope)) return;
             image.Source = bytes is null ? null : ImageSource.FromStream(() => new MemoryStream(bytes));
-            message.Text = bytes is null ? "Esta foto ya no está disponible en el dispositivo." : "";
+            message.Text = bytes is null ? JournalText.Get("JournalPhotoMissing") : "";
         }
         catch (Exception)
         {

@@ -83,6 +83,10 @@ public static class MauiProgram
             Timeout = TimeSpan.FromSeconds(20)
         });
         builder.Services.AddSingleton<TravelCompanionApiClient>();
+        builder.Services.AddSingleton<DayPlanClient>();
+        builder.Services.AddSingleton<DayPlannerStore>();
+        builder.Services.AddTransient<DayPlannerViewModel>();
+        builder.Services.AddTransient<DayPlanProposalPage>();
         builder.Services.AddSingleton<AuthSessionService>();
         builder.Services.AddSingleton<BiometricUnlockService>();
         builder.Services.AddSingleton<OfflineCacheService>();

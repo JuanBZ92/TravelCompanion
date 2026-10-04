@@ -55,6 +55,14 @@ public sealed class TravelRecommendationPlanningService(
             city,
             cancellationToken).ConfigureAwait(false);
         operation.Rows = unlockedRecommendations.Count;
+        return RankLoaded(unlockedRecommendations, profile, reservations, context, responseMode,
+            guidedCriteria, excludedRecommendationIds);
+    }
+
+    internal TravelRecommendationPlanningResult RankLoaded(IReadOnlyList<Recommendation> unlockedRecommendations,
+        TravelPreferenceProfile profile, IReadOnlyList<Reservation> reservations, TravelPlanningContext context,
+        string responseMode, GuidedPlanCriteriaDto? guidedCriteria, ISet<string> excludedRecommendationIds)
+    {
         if (unlockedRecommendations.Count == 0)
         {
             return new TravelRecommendationPlanningResult(0, 0, 0, 0, []);
@@ -177,11 +185,12 @@ public sealed class TravelRecommendationPlanningService(
         };
     }
 
-    private async Task<IReadOnlyList<Recommendation>> LoadUnlockedRecommendationsAsync(
+    internal async Task<IReadOnlyList<Recommendation>> LoadUnlockedRecommendationsAsync(
         AppUser user,
         IReadOnlyCollection<Guid> destinationIds,
         string city,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IReadOnlyCollection<Guid>? onlyRecommendationIds = null)
     {
         var entitlements = ToEntitlementsDto(user);
         var subscriptions = entitlements.Entitlements?
@@ -196,6 +205,8 @@ public sealed class TravelRecommendationPlanningService(
                     ? subscriptions.Contains(item.DestinationId) || item.Packages.Any(package => packages.Contains(package.Id))
                     : item.AccessLevel == ContentAccessLevel.Free
                         || (item.AccessLevel == ContentAccessLevel.Subscription && subscriptions.Contains(item.DestinationId))));
+        if (onlyRecommendationIds is not null)
+            query = query.Where(item => onlyRecommendationIds.Contains(item.Id));
         var candidates = await query.OrderBy(item => item.Title).ThenBy(item => item.Id).Select(item => new Recommendation
         {
             Id = item.Id, DestinationId = item.DestinationId, Title = item.Title,

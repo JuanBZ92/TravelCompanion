@@ -115,6 +115,7 @@ public sealed partial class AccountViewModel(
             ?? throw new InvalidOperationException(Resource("AccountCodeInvalid"));
         await MauiProgram.Services.GetRequiredService<JournalStore>().TransferLinkedTripAsync(session);
         await MauiProgram.Services.GetRequiredService<ExpenseStore>().TransferLinkedTripAsync(session);
+        await MauiProgram.Services.GetRequiredService<DayPlannerStore>().DiscardLinkedPreviewAsync(session);
         await logout.ResetContentAsync(sessions.CurrentUserId);
         await sessions.SaveAsync(session);
         if (Shell.Current is AppShell shell) shell.ApplySessionTabs(sessions);
@@ -139,6 +140,7 @@ public sealed partial class AccountViewModel(
                 throw new InvalidOperationException(Resource("AccountDeleteError"));
             if (deletingUserId.HasValue) { await documents.DeleteAccountAsync(deletingUserId.Value); await MauiProgram.Services.GetRequiredService<JournalStore>().DeleteAccountAsync(deletingUserId.Value); }
             if (deletingUserId.HasValue) await MauiProgram.Services.GetRequiredService<ExpenseStore>().DeleteAccountAsync(deletingUserId.Value);
+            if (deletingUserId.HasValue) await MauiProgram.Services.GetRequiredService<DayPlannerStore>().DeleteAccountAsync(deletingUserId.Value);
             if (deletingContext != sessions.ContextVersion) return;
             await logout.LogoutAsync();
             if (Shell.Current is AppShell shell) shell.ApplySessionTabs(sessions);

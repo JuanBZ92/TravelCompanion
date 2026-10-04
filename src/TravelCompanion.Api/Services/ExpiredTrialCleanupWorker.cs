@@ -140,6 +140,10 @@ public sealed class ExpiredTrialCleanupWorker(
                 .Where(item => item.TripId == trip.Id).ToListAsync(cancellationToken));
             dbContext.ItineraryOperations.RemoveRange(await dbContext.ItineraryOperations
                 .Where(item => item.TripId == trip.Id).ToListAsync(cancellationToken));
+            dbContext.PlanningApplicationReceipts.RemoveRange(await dbContext.PlanningApplicationReceipts
+                .Where(item => item.TripId == trip.Id).ToListAsync(cancellationToken));
+            foreach (var lease in await dbContext.AssistantUsageLeases.Where(item => item.BuilderAccessGrant!.TripId == trip.Id
+                && item.ResponseJson != null).ToListAsync(cancellationToken)) lease.ResponseJson = null;
             trip.IsArchived = true;
             trip.DraftPurgedAtUtc = now;
             trip.BuilderSegmentsJson = null;

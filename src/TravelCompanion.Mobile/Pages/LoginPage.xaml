@@ -39,8 +39,7 @@
                         <Entry Text="{Binding Pin}" Keyboard="Numeric" MaxLength="6" IsPassword="True"
                                ReturnType="Go" ReturnCommand="{Binding LoginCommand}" IsEnabled="{Binding IsNotBusy}"
                                FontSize="22" CharacterSpacing="5" Placeholder="PIN" BackgroundColor="Transparent"
-                               TextColor="#34382F" PlaceholderColor="#B5AA99" MinimumHeightRequest="44"
-                               SemanticProperties.Description="{Binding LoginPinHint}" />
+                               TextColor="#34382F" PlaceholderColor="#B5AA99" MinimumHeightRequest="48" />
                         <Label Grid.Column="1" Text="{Binding LoginPinHint}" FontSize="11" TextColor="#9A8F80" VerticalOptions="Center" />
                     </Grid>
                 </Border>
@@ -52,13 +51,13 @@
                 </Border>
                 <Button Text="{Binding LoginBiometric}" Command="{Binding UnlockWithBiometricsCommand}"
                         IsVisible="{Binding CanUseBiometricUnlock}" IsEnabled="{Binding IsNotBusy}"
-                        BackgroundColor="Transparent" TextColor="#73654F" CornerRadius="12" MinimumHeightRequest="44" FontSize="13" />
+                        BackgroundColor="Transparent" TextColor="#73654F" CornerRadius="12" MinimumHeightRequest="48" FontSize="13" />
                 <Button Text="{Binding LoginRecoverEmail}" Command="{Binding RecoverWithEmailCommand}" IsEnabled="{Binding IsNotBusy}"
-                        BackgroundColor="Transparent" TextColor="#73654F" CornerRadius="12" MinimumHeightRequest="44" FontSize="13" />
+                        BackgroundColor="Transparent" TextColor="#73654F" CornerRadius="12" MinimumHeightRequest="48" FontSize="13" />
                 <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" Color="#8C7A5C" />
                 <Button Text="{Binding [DiagnosticsShare], Source={x:Static services:LocalizationResourceManager.Instance}}"
                         Clicked="OnDiagnosticsClicked" BackgroundColor="Transparent" TextColor="#73654F"
-                        MinimumHeightRequest="44" FontSize="12" />
+                        MinimumHeightRequest="48" FontSize="12" />
             </VerticalStackLayout>
         </VerticalStackLayout>
     </ScrollView>

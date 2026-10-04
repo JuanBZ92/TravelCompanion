@@ -1,6 +1,7 @@
 using TravelCompanion.Mobile.Services;
 using TravelCompanion.Mobile.ViewModels;
 using TravelCompanion.Shared.Dtos;
+using System.ComponentModel;
 
 namespace TravelCompanion.Mobile.Pages;
 
@@ -63,11 +64,20 @@ public partial class ItineraryItemEditorPage : ContentPage, IQueryAttributable
     protected override void OnAppearing()
     {
         base.OnAppearing();
+        _viewModel.PropertyChanged -= OnValidationChanged;
+        _viewModel.PropertyChanged += OnValidationChanged;
         _viewModel.RefreshReminderPreview();
+    }
+
+    private void OnValidationChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(_viewModel.HasError) && _viewModel.HasError)
+            EditorialUi.RevealError(FormScroll, ValidationMessage);
     }
 
     protected override void OnDisappearing()
     {
+        _viewModel.PropertyChanged -= OnValidationChanged;
         _suggestionScroller.Stop();
         _viewModel.CancelPlaceSearches();
         base.OnDisappearing();

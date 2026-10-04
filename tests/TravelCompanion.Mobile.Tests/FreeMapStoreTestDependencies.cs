@@ -5,6 +5,7 @@ namespace TravelCompanion.Mobile.Services;
 // Controlled I/O for tests that execute the production FreeMapStore.
 public sealed class TravelCompanionApiClient
 {
+    public Task NotifyItineraryChangedAsync() => Task.CompletedTask;
     public Func<Task<ExpensesDto>> FetchExpenses = () => throw new HttpRequestException();
     public Func<Guid, SaveExpenseRequest, Task<SaveExpenseResult>> SaveExpense = (_, _) => throw new HttpRequestException();
     public Func<SaveExpenseSettingsRequest, Task<ExpenseSettingsDto?>> SaveExpenseSettings = _ => throw new HttpRequestException();
@@ -39,18 +40,23 @@ public sealed class OfflineCacheService
     public readonly Dictionary<string, object> Entries = [];
     public int Reads;
     public int Writes;
-    public Task<OfflineCacheResult<T>?> GetAsync<T>(string key, TimeSpan? maxAge = null, CancellationToken cancellationToken = default)
+    public Func<Task>? BeforeRead;
+    public Func<Task>? BeforeSave;
+    public async Task<OfflineCacheResult<T>?> GetAsync<T>(string key, TimeSpan? maxAge = null, CancellationToken cancellationToken = default)
     {
         Reads++;
-        return Task.FromResult(Entries.GetValueOrDefault(key) as OfflineCacheResult<T>);
+        if (BeforeRead is not null) await BeforeRead();
+        cancellationToken.ThrowIfCancellationRequested();
+        return Entries.GetValueOrDefault(key) as OfflineCacheResult<T>;
     }
     public Task<OfflineCacheResult<T>?> GetAsync<T>(string key, CancellationToken ct) => GetAsync<T>(key, null, ct);
     public Task SaveAsync<T>(string key, T value, CancellationToken ct = default) => SaveAsync(key, value, new OfflineCacheMetadata(), ct);
-    public Task SaveAsync<T>(string key, T value, OfflineCacheMetadata metadata, CancellationToken ct = default)
+    public async Task SaveAsync<T>(string key, T value, OfflineCacheMetadata metadata, CancellationToken ct = default)
     {
         Writes++;
+        if (BeforeSave is not null) await BeforeSave();
+        ct.ThrowIfCancellationRequested();
         Entries[key] = new OfflineCacheResult<T>(value, DateTimeOffset.UtcNow, metadata);
-        return Task.CompletedTask;
     }
     public Task DeleteAsync(string key) { Entries.Remove(key); return Task.CompletedTask; }
     public Task DeleteByPrefixAsync(params string[] prefixes)

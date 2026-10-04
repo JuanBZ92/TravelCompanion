@@ -23,7 +23,7 @@ public partial class ScheduleItemDetailPage : ContentPage
                 item.Type == Shared.ReservationType.Lodging ? ExpenseCategory.Accommodation : item.Type == Shared.ReservationType.Flight ? ExpenseCategory.Flights : ExpenseCategory.Other)));
         }
         catch (OperationCanceledException) { }
-        catch (Exception exception) { Services.ClientDiagnostics.Record("expense_open_failed", exception: exception); await DisplayAlertAsync("YUKU", "No pudimos abrir el gasto. Volvé a intentarlo.", "OK"); }
+        catch (Exception exception) { Services.ClientDiagnostics.Record("expense_open_failed", exception: exception); await DisplayAlertAsync("YUKU", EditorialUi.TextResource("UxExpenseOpenFailed"), EditorialUi.TextResource("UxOk")); }
     }
     private readonly ScheduleItemDetailViewModel _viewModel;
     private int _mapRequestVersion;

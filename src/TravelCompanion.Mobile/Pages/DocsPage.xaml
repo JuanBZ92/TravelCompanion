@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:services="clr-namespace:TravelCompanion.Mobile.Services"
              xmlns:viewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
              x:Class="TravelCompanion.Mobile.Pages.DocsPage"
              x:DataType="viewModels:DocsViewModel"
@@ -11,8 +12,8 @@
     <ContentPage.Resources>
         <Style x:Key="DocumentAction" TargetType="ImageButton">
             <Setter Property="BackgroundColor" Value="Transparent" />
-            <Setter Property="WidthRequest" Value="44" />
-            <Setter Property="HeightRequest" Value="44" />
+            <Setter Property="WidthRequest" Value="48" />
+            <Setter Property="HeightRequest" Value="48" />
             <Setter Property="Padding" Value="11" />
             <Setter Property="CornerRadius" Value="12" />
         </Style>
@@ -45,7 +46,7 @@
                                     <BindableLayout.ItemTemplate>
                                         <DataTemplate x:DataType="viewModels:LocalDocumentItemViewModel">
                             <Border Padding="12" Stroke="#E5DED5" BackgroundColor="#FFFDF8" StrokeShape="RoundRectangle 14">
-                                <Grid ColumnDefinitions="44,*,44" ColumnSpacing="12" MinimumHeightRequest="56">
+                                <Grid ColumnDefinitions="44,*,48" ColumnSpacing="12" MinimumHeightRequest="56">
                                     <Border BackgroundColor="#F1EBE2" StrokeThickness="0" StrokeShape="RoundRectangle 12"
                                             WidthRequest="44" HeightRequest="48" VerticalOptions="Center" InputTransparent="True">
                                         <Image Source="tab_docs.svg" WidthRequest="22" HeightRequest="22" Opacity="0.7" AutomationProperties.IsInAccessibleTree="False" />
@@ -77,13 +78,16 @@
 
                 <Border Style="{StaticResource ErrorPanel}"
                         IsVisible="{Binding HasError}">
-                    <Label Text="{Binding ErrorMessage}"
-                           Style="{StaticResource Body}" />
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="{Binding ErrorMessage}" Style="{StaticResource Body}" />
+                        <Button Text="{Binding [UxRetry], Source={x:Static services:LocalizationResourceManager.Instance}}" Command="{Binding LoadCommand}" IsEnabled="{Binding IsNotBusy}" Style="{StaticResource EditorialSecondaryButton}" />
+                    </VerticalStackLayout>
                 </Border>
+                <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" HorizontalOptions="Start" />
 
                 <VerticalStackLayout Spacing="14"
                                      IsVisible="{Binding HasFlights}">
-                    <Label Text="VUELOS"
+                    <Label Text="{Binding [UxFlightHeading], Source={x:Static services:LocalizationResourceManager.Instance}}"
                            Style="{StaticResource Eyebrow}"
                            CharacterSpacing="5" />
 
@@ -111,7 +115,7 @@
                                            HorizontalTextAlignment="End"
                                            CharacterSpacing="3"
                                            TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
-                                    <Grid ColumnDefinitions="*,44">
+                                    <Grid ColumnDefinitions="*,48">
                                         <Label Text="{Binding FlightConfirmationCode}" FontSize="12" TextColor="#393229" VerticalOptions="Center" />
                                         <ImageButton Grid.Column="1" Source="doc_copy.svg" Command="{Binding CopyCommand}"
                                                      CommandParameter="{Binding FlightConfirmationCode}" Style="{StaticResource DocumentAction}"
@@ -137,7 +141,7 @@
                                                 FontSize="12"
                                                 CharacterSpacing="2"
                                                 CornerRadius="0"
-                                                MinimumHeightRequest="42"
+                                                MinimumHeightRequest="48"
                                                Padding="28,10"
                                                 BackgroundColor="{StaticResource AccentSoft}"
                                                 TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}">
@@ -215,7 +219,7 @@
 
                 <VerticalStackLayout Spacing="12"
                                      IsVisible="{Binding HasHotelDocuments}">
-                    <Label Text="HOTELES - CONFIRMACIONES"
+                    <Label Text="{Binding [UxHotelDocumentsHeading], Source={x:Static services:LocalizationResourceManager.Instance}}"
                            Style="{StaticResource Eyebrow}"
                            CharacterSpacing="4" />
                     <VerticalStackLayout Spacing="12"
@@ -245,7 +249,7 @@
 
                 <VerticalStackLayout Spacing="12"
                                      IsVisible="{Binding HasOtherDocuments}">
-                    <Label Text="OTROS"
+                    <Label Text="{Binding [UxOtherDocumentsHeading], Source={x:Static services:LocalizationResourceManager.Instance}}"
                            Style="{StaticResource Eyebrow}"
                            CharacterSpacing="4" />
                     <VerticalStackLayout Spacing="12"
@@ -275,7 +279,7 @@
 
                 <VerticalStackLayout Spacing="14"
                                      IsVisible="{Binding HasHotels}">
-                    <Label Text="HOTELES"
+                    <Label Text="{Binding [UxHotelsHeading], Source={x:Static services:LocalizationResourceManager.Instance}}"
                            Style="{StaticResource Eyebrow}"
                            CharacterSpacing="4" />
                     <VerticalStackLayout Spacing="0"

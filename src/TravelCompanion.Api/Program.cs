@@ -190,7 +190,8 @@ builder.Services.AddScoped<IUserInvitationSender, LoggingUserInvitationSender>()
 builder.Services.AddScoped<IUserProfileService, UserProfileService>();
 builder.Services.AddScoped<IItineraryService, ItineraryService>();
 builder.Services.AddScoped<IRecommendationRanker, DeterministicRecommendationRanker>();
-builder.Services.AddScoped<ITravelRecommendationPlanningService, TravelRecommendationPlanningService>();
+builder.Services.AddScoped<TravelRecommendationPlanningService>();
+builder.Services.AddScoped<ITravelRecommendationPlanningService>(services => services.GetRequiredService<TravelRecommendationPlanningService>());
 builder.Services.AddScoped<IRecommendationTagCatalogService, RecommendationTagCatalogService>();
 builder.Services.AddScoped<ITravelPreferenceCommandParser, TravelPreferenceCommandParser>();
 builder.Services.AddScoped<ITravelAssistantActionPlanner, TravelAssistantActionPlanner>();
@@ -207,7 +208,9 @@ builder.Services.AddScoped<ExternalPlaceInsightsService>();
 builder.Services.AddSingleton<TravelAssistantTelemetry>();
 builder.Services.AddSingleton<ITravelChatIntentClassifier, TravelChatIntentClassifier>();
 builder.Services.AddSingleton<ITravelAiModelClient, OpenAiTravelModelClient>();
-builder.Services.AddScoped<ITravelChatService, TravelChatService>();
+builder.Services.AddScoped<TravelChatService>();
+builder.Services.AddScoped<ITravelChatService>(services => services.GetRequiredService<TravelChatService>());
+builder.Services.AddScoped<DayPlanService>();
 builder.Services.AddSingleton<SlowDbCommandLoggingInterceptor>();
 builder.Services.AddDbContext<TravelCompanionDbContext>((serviceProvider, options) =>
 {

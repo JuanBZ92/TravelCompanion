@@ -908,6 +908,12 @@ public sealed partial class TravelCompanionApiClient
         return result;
     }
 
+    public async Task NotifyItineraryChangedAsync()
+    {
+        if (ItineraryChanged is not { } changed) return;
+        foreach (Func<Task> subscriber in changed.GetInvocationList()) await subscriber().ConfigureAwait(false);
+    }
+
     public async Task<ItineraryItemMutationResponse?> UpdateItineraryItemAsync(string token, Guid id, ItineraryItemMutationRequest mutation, CancellationToken cancellationToken = default)
     {
         using var request = CreateAuthorizedRequest(HttpMethod.Patch, $"api/mobile/itinerary/{id}", token);

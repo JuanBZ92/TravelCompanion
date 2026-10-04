@@ -45,6 +45,7 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
     public DbSet<ProductExperimentAssignment> ProductExperimentAssignments => Set<ProductExperimentAssignment>();
     public DbSet<AssistantDailyUsage> AssistantDailyUsages => Set<AssistantDailyUsage>();
     public DbSet<AssistantUsageLease> AssistantUsageLeases => Set<AssistantUsageLease>();
+    public DbSet<PlanningApplicationReceipt> PlanningApplicationReceipts => Set<PlanningApplicationReceipt>();
     public DbSet<ItineraryProposal> ItineraryProposals => Set<ItineraryProposal>();
     public DbSet<ItineraryOperation> ItineraryOperations => Set<ItineraryOperation>();
     public DbSet<ThematicRoute> ThematicRoutes => Set<ThematicRoute>();
@@ -646,8 +647,19 @@ public sealed class TravelCompanionDbContext(DbContextOptions<TravelCompanionDbC
             entity.HasIndex(item => new { item.BuilderAccessGrantId, item.OperationKey }).IsUnique();
             entity.HasIndex(item => new { item.BuilderAccessGrantId, item.UtcDate, item.ExpiresAtUtc });
             entity.Property(item => item.OperationKey).HasMaxLength(100);
+            entity.Property(item => item.RequestHash).HasMaxLength(64);
+            entity.Property(item => item.ResponseJson).HasColumnType("jsonb");
             entity.HasOne(item => item.BuilderAccessGrant).WithMany()
                 .HasForeignKey(item => item.BuilderAccessGrantId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<PlanningApplicationReceipt>(entity =>
+        {
+            entity.HasIndex(item => new { item.TripId, item.MutationId }).IsUnique();
+            entity.HasIndex(item => new { item.AppUserId, item.TripId });
+            entity.Property(item => item.RequestHash).HasMaxLength(64);
+            entity.Property(item => item.ResultJson).HasColumnType("jsonb");
+            entity.HasOne(item => item.Trip).WithMany().HasForeignKey(item => item.TripId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<ItineraryProposal>(entity =>

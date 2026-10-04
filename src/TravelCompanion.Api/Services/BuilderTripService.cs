@@ -195,6 +195,10 @@ public sealed class BuilderTripService(
 
         // Store purchases stay attached to their original trip. Administrative/PIN
         // grants can reset their demo itinerary and reuse the same access PIN.
+        dbContext.PlanningApplicationReceipts.RemoveRange(await dbContext.PlanningApplicationReceipts
+            .Where(item => item.TripId == trip.Id).ToListAsync(cancellationToken));
+        foreach (var lease in await dbContext.AssistantUsageLeases.Where(item => item.BuilderAccessGrant!.TripId == trip.Id
+            && item.ResponseJson != null).ToListAsync(cancellationToken)) lease.ResponseJson = null;
         if (grant.PurchaseTransactionId.HasValue)
         {
             var paidSessions = await dbContext.AppUserSessions
