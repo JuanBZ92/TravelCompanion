@@ -13,9 +13,11 @@ const string databaseName = "tc_dayplanner_review";
 const string password = "JournalReview2026!";
 const string paidPin = "700701";
 const string largeDocsPin = "600702";
+const string navigationPin = "800703";
 var largeLists = args.Contains("--large-lists", StringComparer.Ordinal);
-if (args.Any(argument => argument != "--large-lists"))
-    throw new ArgumentException("Only --large-lists is supported by this synthetic review tool.");
+var longTrip = args.Contains("--long-trip", StringComparer.Ordinal);
+if (args.Any(argument => argument is not ("--large-lists" or "--long-trip")))
+    throw new ArgumentException("Only --large-lists and --long-trip are supported by this synthetic review tool.");
 var connection = new NpgsqlConnectionStringBuilder(
     Environment.GetEnvironmentVariable("TRAVELCOMPANION_REVIEW_POSTGRES")
     ?? "Host=127.0.0.1;Port=55439;Database=tc_dayplanner_review;Username=postgres;Pooling=false");
@@ -36,12 +38,25 @@ await SeedTravelerAsync(db, japan.Id, "planner-free@example.test", "Lucía · vi
 await SeedTravelerAsync(db, japan.Id, "planner-pass@example.test", "Mateo · viaje con pase", 10, false);
 await db.SaveChangesAsync();
 if (largeLists) await SeedLargeListsAsync(db, japan.Id);
+if (longTrip)
+{
+    await SeedTravelerAsync(db, japan.Id, "planner-navigation@example.test", "Sofía · navegación de 30 días", 30, false,
+        pin: navigationPin, segments:
+        [
+            new("Tokyo", start, start.AddDays(4), HotelName: "Hotel Marunouchi"),
+            new("Kyoto", start.AddDays(4), start.AddDays(29),
+                HotelName: "Hotel de revisión junto a los jardines y las calles históricas de Kyoto · Una base tranquila para descubrir templos, mercados y cafés del barrio")
+        ]);
+    await db.SaveChangesAsync();
+    Console.WriteLine($"Navigation account: planner-navigation@example.test; PIN: {navigationPin}; 30 days from {start:yyyy-MM-dd} through {start.AddDays(29):yyyy-MM-dd}.");
+}
 Console.WriteLine($"Local synthetic review database ready: 127.0.0.1:55439/{databaseName}");
 Console.WriteLine($"Review accounts: planner-free@example.test / planner-pass@example.test; password: {password}");
 Console.WriteLine($"Paid account PIN: {paidPin}. Free account uses email/password and Select trip (no custom trial PIN).");
 Console.WriteLine("Existing review accounts, plans and generation counts are preserved when this tool runs again.");
 
-async Task SeedTravelerAsync(TravelCompanionDbContext context, Guid destinationId, string email, string name, int days, bool trial)
+async Task SeedTravelerAsync(TravelCompanionDbContext context, Guid destinationId, string email, string name, int days, bool trial,
+    string? pin = null, IReadOnlyList<BuilderTripSetupSegmentDto>? segments = null)
 {
     var existing = await context.AppUsers.AsNoTracking().SingleOrDefaultAsync(item => item.Email == email);
     if (existing is not null)
@@ -70,15 +85,16 @@ async Task SeedTravelerAsync(TravelCompanionDbContext context, Guid destinationI
         GrantedAt = now, ExpiresAt = trial ? null : now.AddDays(60), Source = "local-day-planner-review"
     });
     var transition = start.AddDays(4);
+    var tripSegments = segments ?? new BuilderTripSetupSegmentDto[]
+    {
+        new("Tokyo", start, transition), new("Kyoto", transition, start.AddDays(days - 1))
+    };
     var trip = new Trip
     {
         Id = Guid.NewGuid(), AppUserId = user.Id, AppUser = user, DestinationId = destinationId,
         TravelerName = name, StartsOn = start, EndsOn = start.AddDays(days - 1), TimeZoneId = "Asia/Tokyo",
         ExperienceMode = ExperienceMode.SelfServiceBuilder, PublicationStatus = TripPublicationStatus.Published,
-        PublishedAtUtc = now, BuilderSegmentsJson = JsonSerializer.Serialize(new BuilderTripSetupSegmentDto[]
-        {
-            new("Tokyo", start, transition), new("Kyoto", transition, start.AddDays(days - 1))
-        })
+        PublishedAtUtc = now, BuilderSegmentsJson = JsonSerializer.Serialize(tripSegments)
     };
     var grant = new BuilderAccessGrant
     {
@@ -88,13 +104,15 @@ async Task SeedTravelerAsync(TravelCompanionDbContext context, Guid destinationI
         CreatedAtUtc = now, RedeemedAtUtc = now, ExpiresAtUtc = trial ? null : now.AddDays(60),
         OrderReference = "local-day-planner-review"
     };
-    if (!trial) grant.PinHash = new PasswordHasher<BuilderAccessGrant>().HashPassword(grant, paidPin);
+    if (!trial) grant.PinHash = new PasswordHasher<BuilderAccessGrant>().HashPassword(grant, pin ?? paidPin);
     for (var offset = 0; offset < days; offset++)
     {
+        var date = start.AddDays(offset);
+        var segment = tripSegments.OrderBy(item => item.StartsOn).Last(item => date >= item.StartsOn && date <= item.EndsOn);
         var day = new TripDayPlan
         {
-            Id = Guid.NewGuid(), TripId = trip.Id, Trip = trip, Date = start.AddDays(offset), DayNumber = offset + 1,
-            City = offset < 4 ? "Tokyo" : "Kyoto", HotelBase = offset < 4 ? "Hotel de revisión en Tokyo" : "Hotel de revisión en Kyoto",
+            Id = Guid.NewGuid(), TripId = trip.Id, Trip = trip, Date = date, DayNumber = offset + 1,
+            City = segment.City, HotelBase = segment.HotelName ?? $"Hotel de revisión en {segment.City}",
             Introduction = offset == 4 ? "Traslado de Tokyo a Kyoto: ideas flexibles para aprovechar ambas ciudades." : "Un día para descubrir Japón a tu ritmo."
         };
         foreach (var period in TripPlanPeriods.All)

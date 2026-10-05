@@ -271,8 +271,52 @@
         </Grid>
         <pages:TripFolderPanel x:Name="FolderPanelView" Grid.Row="1" IsVisible="False" />
         <pages:ExpensesPanel x:Name="ExpensesPanelView" Grid.Row="1" IsVisible="False" />
-        <Grid x:Name="ItineraryContent" Grid.Row="1" RowDefinitions="*">
-            <RefreshView IsRefreshing="{Binding IsRefreshing}" Command="{Binding RefreshScheduleCommand}">
+        <Grid x:Name="ItineraryContent" Grid.Row="1" RowDefinitions="Auto,*">
+            <VerticalStackLayout Margin="24,8,24,0" Spacing="4" IsVisible="{Binding HasDaySelector}">
+                <CollectionView x:Name="DayStrip"
+                                ItemsSource="{Binding DayFilters}"
+                                SelectionMode="None"
+                                HeightRequest="80"
+                                ItemSizingStrategy="MeasureAllItems"
+                                HorizontalScrollBarVisibility="Default"
+                                Loaded="OnDayStripLoaded">
+                    <CollectionView.ItemsLayout>
+                        <LinearItemsLayout Orientation="Horizontal" ItemSpacing="8" />
+                    </CollectionView.ItemsLayout>
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="viewModels:ScheduleDayFilterViewModel">
+                            <Grid WidthRequest="{Binding ItemWidth}" VerticalOptions="Center"
+                                  HeightRequest="{Binding DayTileHeight, Source={RelativeSource AncestorType={x:Type pages:SchedulePage}}, x:DataType=pages:SchedulePage}">
+                                <Button Text=""
+                                        Clicked="OnDayClicked"
+                                        MinimumHeightRequest="48"
+                                        BackgroundColor="{Binding BackgroundColor}"
+                                        TextColor="{Binding PrimaryTextColor}"
+                                        BorderColor="{Binding BorderColor}"
+                                        BorderWidth="1"
+                                        CornerRadius="10"
+                                        FontSize="14"
+                                        Padding="10,8"
+                                        SemanticProperties.Description="{Binding DisplayDescription}"
+                                        SemanticProperties.Hint="{Binding [UXAuditDaySelectorSwipeHint], Source={x:Static services:LocalizationResourceManager.Instance}}">
+                                    <Button.Triggers>
+                                        <DataTrigger TargetType="Button" Binding="{Binding CanOpenMap}" Value="True">
+                                            <Setter Property="SemanticProperties.Hint" Value="{Binding [UxOpenMaps], Source={x:Static services:LocalizationResourceManager.Instance}}" />
+                                        </DataTrigger>
+                                    </Button.Triggers>
+                                </Button>
+                                <Label Text="{Binding DisplayLabel}" TextColor="{Binding PrimaryTextColor}"
+                                       FontSize="14" MaxLines="2" LineBreakMode="TailTruncation"
+                                       Margin="10,4" HorizontalTextAlignment="Center" VerticalTextAlignment="Center"
+                                       InputTransparent="True" AutomationProperties.IsInAccessibleTree="False" />
+                            </Grid>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+                <Label Text="{Binding [UXAuditDaySelectorSwipeHint], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                       FontSize="11" TextColor="#8E867D" Margin="0,0,0,4" />
+            </VerticalStackLayout>
+            <RefreshView Grid.Row="1" IsRefreshing="{Binding IsRefreshing}" Command="{Binding RefreshScheduleCommand}">
                 <CollectionView
                     ItemsSource="{Binding TodaySections}"
                     IsGrouped="True"
@@ -292,93 +336,6 @@
                     </CollectionView.Triggers>
                     <CollectionView.Header>
                         <VerticalStackLayout Padding="0,12,0,16" Spacing="16">
-                            <Grid x:Name="DaySelector"
-                                  ColumnDefinitions="64,*,64"
-                                  ColumnSpacing="8"
-                                  MinimumHeightRequest="56"
-                                  IsVisible="{Binding HasDaySelector}">
-                                <Grid Grid.Column="0" IsVisible="{Binding HasPreviousDay}">
-                                    <Button x:Name="PreviousDayButton"
-                                            Text="{Binding PreviousDayFilter.DateLabel}"
-                                            Clicked="OnPreviousDayClicked"
-                                            BackgroundColor="#FAF6F0"
-                                            TextColor="#8A8078"
-                                            BorderColor="#1A171414"
-                                            BorderWidth="1"
-                                            CornerRadius="10"
-                                            FontSize="14"
-                                            LineBreakMode="WordWrap"
-                                            Padding="8,10"
-                                            MinimumHeightRequest="48"
-                                            VerticalOptions="Fill"
-                                            SemanticProperties.Description="{Binding PreviousDayDescription}" />
-                                    <Grid x:Name="PreviousDayTouchSurface"
-                                          BackgroundColor="Transparent"
-                                          IsVisible="False"
-                                          AutomationProperties.IsInAccessibleTree="False" />
-                                </Grid>
-                                <Border Grid.Column="1"
-                                        Padding="12,4"
-                                        BackgroundColor="#1A1714"
-                                        Stroke="#1A1714"
-                                        StrokeThickness="1"
-                                        StrokeShape="RoundRectangle 10">
-                                    <Grid MinimumHeightRequest="48">
-                                        <Label x:Name="SelectedDayCaption"
-                                               Text="{Binding DaySelectorLabel}"
-                                               FontSize="14"
-                                               TextColor="#FAF6F0"
-                                               Padding="0,8"
-                                               LineBreakMode="TailTruncation"
-                                               MaxLines="2"
-                                               HorizontalTextAlignment="Center"
-                                               VerticalOptions="Center"
-                                               AutomationProperties.IsInAccessibleTree="{Binding IsDaySelectorReadOnly}">
-                                            <SemanticProperties.Hint>
-                                                <MultiBinding StringFormat="{}{0}. {1}">
-                                                    <Binding Path="DaySelectorDescription" />
-                                                    <Binding Path="[UXAuditDaySelectorSwipeHint]" Source="{x:Static services:LocalizationResourceManager.Instance}" />
-                                                </MultiBinding>
-                                            </SemanticProperties.Hint>
-                                        </Label>
-                                        <Button x:Name="StayMapButton"
-                                                Text=""
-                                                Command="{Binding OpenStayMapCommand}"
-                                                IsVisible="{Binding CanOpenStayMap}"
-                                                BackgroundColor="Transparent"
-                                                BorderWidth="0"
-                                                Padding="0"
-                                                MinimumHeightRequest="48"
-                                                SemanticProperties.Description="{Binding DaySelectorMapDescription}"
-                                                SemanticProperties.Hint="{Binding [UXAuditDaySelectorSwipeHint], Source={x:Static services:LocalizationResourceManager.Instance}}"
-                                                ToolTipProperties.Text="{Binding [UxOpenMaps], Source={x:Static services:LocalizationResourceManager.Instance}}" />
-                                        <Grid x:Name="SelectedDayTouchSurface"
-                                              BackgroundColor="Transparent"
-                                              IsVisible="False"
-                                              AutomationProperties.IsInAccessibleTree="False" />
-                                    </Grid>
-                                </Border>
-                                <Grid Grid.Column="2" IsVisible="{Binding HasNextDay}">
-                                    <Button x:Name="NextDayButton"
-                                            Text="{Binding NextDayFilter.DateLabel}"
-                                            Clicked="OnNextDayClicked"
-                                            BackgroundColor="#FAF6F0"
-                                            TextColor="#8A8078"
-                                            BorderColor="#1A171414"
-                                            BorderWidth="1"
-                                            CornerRadius="10"
-                                            FontSize="14"
-                                            LineBreakMode="WordWrap"
-                                            Padding="8,10"
-                                            MinimumHeightRequest="48"
-                                            VerticalOptions="Fill"
-                                            SemanticProperties.Description="{Binding NextDayDescription}" />
-                                    <Grid x:Name="NextDayTouchSurface"
-                                          BackgroundColor="Transparent"
-                                          IsVisible="False"
-                                          AutomationProperties.IsInAccessibleTree="False" />
-                                </Grid>
-                            </Grid>
                             <Label Text="{Binding PreviewMessage}" IsVisible="{Binding HasPreviewMessage}" FontSize="13" TextColor="#6A625B" />
                             <Border Padding="14,12" BackgroundColor="#FFFCF8" Stroke="#DDD4C9" StrokeThickness="1" IsVisible="{Binding HasFocusItem}">
                                 <Border.StrokeShape>
@@ -665,7 +622,7 @@
                     </CollectionView.Footer>
                 </CollectionView>
             </RefreshView>
-            <VerticalStackLayout Spacing="12" HorizontalOptions="Center" VerticalOptions="Center" IsVisible="{Binding ShowInitialLoading}">
+            <VerticalStackLayout Grid.Row="1" Spacing="12" HorizontalOptions="Center" VerticalOptions="Center" IsVisible="{Binding ShowInitialLoading}">
                 <ActivityIndicator IsRunning="{Binding ShowInitialLoading}" WidthRequest="28" HeightRequest="28" />
                 <Label Text="{Binding [UXAuditLoadingReservations], Source={x:Static services:LocalizationResourceManager.Instance}}" FontSize="13" TextColor="#8A8078" />
             </VerticalStackLayout>

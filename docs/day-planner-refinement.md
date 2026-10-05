@@ -59,3 +59,61 @@ La compilación y las pruebas de lógica no sustituyen las comprobaciones nativa
 4. Comparación de memoria/vistas en arranques limpios y Release, conservar la posición al descargar un documento, y los recorridos de edición restantes de la auditoría. «Sin conexión» en las pruebas físicas significa backend local apagado; no se desactivó la conectividad personal del teléfono.
 
 Al cerrar la revisión se detuvo el proceso propio de la API y se retiró únicamente el túnel ADB de 5188. PostgreSQL compartido se conservó. La APK de revisión usa una identidad separada y backend local. Para la revisión posterior se necesita iniciar ese backend y preparar la conexión del dispositivo; no es una APK de producción.
+
+## Revisión posterior: franja continua de fechas (local, sin push)
+
+Esta fase del 5 de octubre de 2026 es posterior a la entrega v120 descrita arriba. Al cerrar esa revisión, sus cambios permanecían locales, sin push, migración ni publicación en producción. Se volvió a iniciar el backend sintético para revisar el nuevo selector con un viaje de treinta días; durante esa revisión la instalación habitual `com.yuku.travelcompanion.app` continuó en v115 y conservó sus datos. La revisión usa el paquete separado `com.yuku.travelcompanion.plannerpaidreview`. La publicación posterior solicitada por el usuario se registra más abajo.
+
+### Comportamiento e implementación
+
+Viaje muestra todas las fechas en una `CollectionView` horizontal virtualizada, con `MeasureAllItems`, sin snap y con `SelectionMode=None`. La franja permite desplazamiento continuo e inercia; explorar fechas no cambia el día seleccionado ni solicita contenido a la API. Solo la activación explícita de un botón elige una fecha. Con escala de texto normal, las tarjetas no seleccionadas miden 68 dp de ancho; la elegida, 184 dp, e integra fecha y hotel o ciudad. `UpdateTextScale` amplía el ancho compacto a `68 * Max(1, scale)` y el elegido a `Max(184, 68 * Max(1, scale))`; valores no finitos usan escala uno. Pulsar de nuevo la fecha seleccionada abre Maps si tiene ubicación disponible.
+
+La activación utiliza únicamente `Button.Clicked`: no hay gestos de swipe ni una superficie de tap superpuesta en las tarjetas del selector. Los labels son transparentes al toque; las descripciones accesibles conservan la fecha completa y el alojamiento. `ScheduleDayNavigation.ResolveChoice` comprueba por referencia que el día sigue perteneciendo a la colección vigente y rechaza objetos de una carga anterior, incluso si tienen la misma fecha. La franja está fuera de `DayTimeline.Header`; se centra cuando cambia realmente la selección, sin volver a centrar por desplazarse ni perder la fecha al refrescar.
+
+La prueba con texto Android al 200 % en v122 encontró recorte de la segunda línea del hotel. v123 corrigió la altura mediante `DayTileHeight = Ceiling(64 * Max(1, FontScale))`, con otros 16 dp para la franja, y se comprobó nativamente esa corrección. Esa revisión detectó además que fechas compactas como «2/11» se dividían en dos líneas. v124 añade el ancho adaptativo descrito arriba; la revisión final al 200 % confirmó fechas compactas en una línea y ambos tipos de hotel sin corte vertical. Se conserva el truncado máximo de dos líneas para nombres de hotel largos, con texto completo en la descripción accesible y en la consulta de Maps. La validación se limita a estos controles y recorridos; no certifica toda la app al 200 %.
+
+### Validación de esta fase
+
+- Lógica móvil final: **399/399** pruebas aprobadas, cero fallos y cero omitidas. Las veintiuna de `ScheduleDayNavigationTests` cubren identidad vigente, selección explícita, límites, etiquetas, alojamiento y anchura/notificaciones con distintas escalas de texto. El resultado está en `artifacts/trip-date-strip/mobile-tests-final.log`; las 390 pruebas de `mobile-tests.log` corresponden al corte inicial de esta misma fase.
+- Las cifras anteriores de API **506** y Shared **69** son resultados históricos de la revisión v120. No se volvieron a ejecutar en esta fase, que no modifica la API ni Shared; no se suman a las 399 pruebas móviles como una ejecución nueva.
+- Se creó y repitió la fixture `--long-trip` con `planner-navigation@example.test`, PIN sintético `800703`, viaje del 20/10 al 18/11 de 2026 y treinta `TripDayPlans`. Los hoteles tienen 16/144 caracteres. Cuenta, viaje e identificadores se reutilizaron; no se reiniciaron cuotas. Consultar la [preparación local](day-planner-rollout.md#revisión-visual-local-aislada).
+
+Los recorridos de fechas, refresco y Maps de la tabla se comprobaron en v121/v122. Los ajustes posteriores amplían las tarjetas con texto grande; las comprobaciones de texto e idioma identifican su versión por separado y no convierten esos recorridos anteriores en pruebas completas de v124.
+
+| Recorrido nativo y versión | Resultado comprobado | Evidencia local en `artifacts/trip-date-strip/` |
+|---|---|---|
+| Recorrer treinta fechas | Ocho lanzamientos hacia adelante alcanzaron el extremo sin cambiar la selección ni pedir días: contador de llamadas «Hoy» 1→1. | `browse-request-count.txt`, `date-strip-end-before-selection.png` |
+| Elegir la última fecha | Tocar el 18 de noviembre seleccionó el día treinta y produjo una única carga: 1→2 llamadas. | `today-before-scroll.txt`, `today-after-final-choice.txt`, `date-strip-day-30.png` |
+| Recorrer en sentido inverso | Cuatro lanzamientos hacia atrás no solicitaron contenido: contador 7→7. | `reverse-browse-request-count.txt`, `date-strip-reverse-browse.png` |
+| Elegir una fecha adyacente | Un toque seleccionó únicamente el 22 de octubre; no hubo salto múltiple ni selección durante el movimiento. | `date-strip-adjacent-selected.png` |
+| Refrescar | Pull-to-refresh conservó el 22 de octubre elegido y su posición central. | `date-strip-after-refresh.png` |
+| Hotel largo | Tocar la fecha seleccionada abrió Google Maps con el nombre completo del hotel de 144 caracteres. | Comprobación nativa de la app externa; no implica geocodificación ni una reserva real. |
+| Texto al 200 % | v122 mostró recorte de la segunda línea del hotel corto. v123 corrigió la altura; una fecha compacta dividida llevó a ampliar también el ancho en v124. Las comprobaciones finales de v124 se registran debajo. | Hallazgos intermedios y correcciones descritos arriba. |
+| Inglés en v123 | Se comprobó inglés tras detener completamente y abrir de nuevo la app: hint «Scroll through dates» y fecha completa localizada en la descripción. Cambiar el ajuste de idioma sin reiniciar no actualizaba todavía la cultura de ese proceso. | `v123-english-confirmed.png`; `v123-english.png` no acredita el cambio efectivo de idioma. |
+
+### Cierre nativo v124
+
+El build Android v124 terminó con cero advertencias y cero errores en 1:32,22 (`android-v124-build.log`). La APK `artifacts/trip-date-strip/Yuku-Planner-QA-v124.apk` mide 93.202.061 bytes, tiene SHA-256 `8C253C06009F42C7FEB91D39B8EBB4698145DD3DF8683A67D04E4EA5D7883713` y firma v1/v2/v3 verificada (`apk-signature-v124.log`). Se instaló por actualización sobre `com.yuku.travelcompanion.plannerpaidreview`, conservando los datos de esa app QA. La instalación habitual permanece en v115. Esta APK usa exclusivamente el backend local 5188; no es una publicación de producción.
+
+| Comprobación final v124 | Resultado y alcance | Evidencia local en `artifacts/trip-date-strip/` |
+|---|---|---|
+| Inglés y texto al 200 % | Hint y controles en inglés. El hotel corto elegido se ve completo en dos líneas; «21/10» cabe en una línea en la tarjeta compacta. El árbol nativo comprobó 510 px, equivalentes a 136 dp con la densidad del dispositivo, para el ancho compacto ampliado. | `v124-font-200-en.png`, `v124-font-200-dates.png` |
+| Hotel largo al 200 % | La tarjeta del 29/10 muestra dos líneas con ellipsis y no corta verticalmente el texto. El nombre completo permanece en la descripción y en la acción de Maps ya comprobada durante los recorridos anteriores. | `v124-font-200-long-hotel.png` |
+| Español con escala normal | Se comprobó el selector y los textos del flujo en español después de revisar el inglés. | `v124-spanish-normal.png` |
+| Recorrer fechas sin backend | Se detuvo únicamente la sesión local propia de la API y se comprobó que 5188 no escuchaba. Se pudo recorrer la franja sin cambiar la fecha ni iniciar una carga visible del día. | `backend-off-verification.txt`, `v124-backend-off-browse.png` |
+| Elegir 3/11 sin backend | La selección terminó con la fecha/hotel correctos y los cuatro momentos vacíos del fallback local. Mostró el aviso localizado «No podemos conectar…», sin texto técnico de Java. La estructura y el hotel proceden de metadatos de bootstrap conservados; no se recuperaron recomendaciones de «Hoy» para esa fecha. | `v124-backend-off-cached-day.png`; su nombre no acredita una caché de recomendaciones del 3/11. |
+| Volver a 20/10 sin backend | Se conservaron la fecha elegida, el hotel y la reserva sintética original `REVIEW-001` del itinerario local. | `v124-backend-off-reservation.png` |
+
+No se repitieron el reinicio/reintento de la API ni la recuperación al reconectar en esta última revisión nativa; esos resultados corresponden al histórico v120, separado arriba. «Sin backend» significa API local detenida, no modo avión ni desactivación de la conexión personal del dispositivo.
+
+Al cerrar esta fase se verificó por CLI `font_scale=1.0` y la lista de idiomas de la app QA vacía (`[]`), para volver a seguir el idioma del sistema. Se retiró únicamente el túnel ADB de 5188 y se conservó el servidor PostgreSQL compartido en 55439. No hubo push, migración, acceso a datos de producción ni publicación. Siguen fuera de la cobertura final los anuncios hablados de TalkBack, otros anchos/plataformas, perfiles de memoria Release y los demás recorridos pendientes de la auditoría anterior.
+
+### Publicación habitual v116
+
+Por solicitud posterior del usuario, esta entrega incorpora la franja continua de fechas en `main` y actualiza la app habitual `com.yuku.travelcompanion.app` de v115 a v116. No modifica API, contratos ni esquema PostgreSQL; no requiere migración. La APK QA v124 permanece como evidencia independiente de las pruebas sintéticas anteriores.
+
+Se publicó Android en configuración Release mediante `dotnet publish src/TravelCompanion.Mobile/TravelCompanion.Mobile.csproj -f net10.0-android -c Release --no-restore --verbosity minimal -p:AndroidPackageFormat=apk -p:TravelCompanionApiBaseUrl=https://travelcompanion-api-57dw.onrender.com`. El atributo de ensamblado generado confirma ese backend habitual. La publicación terminó correctamente, con 203 advertencias XC0025 de bindings con `Source` sin compilación habilitada; cuatro instancias corresponden a la nueva franja y reutilizan el patrón actual del proyecto. Las 399 pruebas móviles volvieron a pasar, sin omisiones. Logs en `artifacts/mobile-v116/android-publish.log` y `mobile-tests.log`.
+
+La APK `artifacts/mobile-v116/YUKU-Japan-116-fechas.apk` mide 39.879.285 bytes y tiene SHA-256 `C036E8BA860326461E102AB4A962090D93B99EBDC151B0B2759407A1ADB1E450`. Se verificaron paquete, versión, ARM64/x86_64, ausencia de marca debuggable y firmas v1/v2/v3. Su certificado SHA-256 `d69a6cf0fcd1a96867f619c3222b2d1e936db07637c275c306a0de1e88f50cf2` coincide con la APK habitual instalada previamente; no se cambió la clave para esta actualización.
+
+Se instaló con `adb -s R5GL84VBTWJ install --no-incremental -r artifacts/mobile-v116/YUKU-Japan-116-fechas.apk`: resultado `Success`, versión instalada 116 y fecha original de instalación conservada (`2026-09-25 18:48:34`). No se desinstaló la app ni se borraron datos. El arranque de su actividad devolvió `Status: ok`. Esta comprobación confirma instalación y arranque; la revisión detallada del selector corresponde a los recorridos QA v124 registrados arriba. No se repitió una revisión exhaustiva sobre los datos personales de la app habitual.

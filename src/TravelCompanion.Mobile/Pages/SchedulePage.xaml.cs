@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel;
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using TravelCompanion.Mobile.Services;
@@ -58,6 +59,9 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
     }
 
     private IDispatcherTimer? _accessTimer;
+    private ScheduleDayFilterViewModel? _centeredDay;
+    private bool _dayStripActive;
+    public double DayTileHeight { get; private set; } = 64;
     public ScheduleViewModel ViewModel => _viewModel;
 
     public SchedulePage()
@@ -76,36 +80,6 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
         _logger = logger;
         InitializeComponent();
 #if ANDROID
-        // Keep native Button activation for accessibility and keyboard use. A
-        // separate touch surface owns physical taps/swipes so Android cannot
-        // dispatch both Tapped and Clicked for the same interaction.
-        PreviousDayTouchSurface.IsVisible = true;
-        SelectedDayTouchSurface.IsVisible = true;
-        NextDayTouchSurface.IsVisible = true;
-        var previousDayTap = new TapGestureRecognizer();
-        previousDayTap.Tapped += OnPreviousDayClicked;
-        PreviousDayTouchSurface.GestureRecognizers.Add(previousDayTap);
-        var nextDayTap = new TapGestureRecognizer();
-        nextDayTap.Tapped += OnNextDayClicked;
-        NextDayTouchSurface.GestureRecognizers.Add(nextDayTap);
-        SelectedDayTouchSurface.GestureRecognizers.Add(new TapGestureRecognizer
-        {
-            Command = _viewModel.OpenStayMapCommand
-        });
-        View[] swipeTargets = [PreviousDayTouchSurface, SelectedDayTouchSurface, NextDayTouchSurface];
-#else
-        View[] swipeTargets = [PreviousDayButton, SelectedDayCaption, StayMapButton, NextDayButton];
-#endif
-        foreach (var view in swipeTargets)
-        {
-            foreach (var direction in new[] { SwipeDirection.Left, SwipeDirection.Right })
-            {
-                var swipe = new SwipeGestureRecognizer { Direction = direction };
-                swipe.Swiped += OnDaySelectorSwiped;
-                view.GestureRecognizers.Add(swipe);
-            }
-        }
-#if ANDROID
         Platforms.Android.TopInsetCorrection.Observe(ScheduleRoot, ScheduleHeader);
 #endif
         stopwatch.Stop();
@@ -120,6 +94,11 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        _dayStripActive = true;
+        UpdateDayStripMetrics();
+        _viewModel.PropertyChanged -= OnSchedulePropertyChanged;
+        _viewModel.PropertyChanged += OnSchedulePropertyChanged;
+        CenterSelectedDay(animate: false);
         _viewModel.RefreshDayConfirmation();
         StartAccessTimer();
         if (ExpensesPanelView.IsVisible) await ExpensesPanelView.ActivateAsync();
@@ -137,6 +116,9 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
 
     protected override void OnDisappearing()
     {
+        _dayStripActive = false;
+        _viewModel.PropertyChanged -= OnSchedulePropertyChanged;
+        _centeredDay = null;
         ExpensesPanelView.Deactivate();
         FolderPanelView.Deactivate();
         _viewModel.CancelLoading();
@@ -211,21 +193,63 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
         }
     }
 
-    private async void OnPreviousDayClicked(object? sender, EventArgs e) => await ChangeSelectedDayAsync(-1);
-    private async void OnNextDayClicked(object? sender, EventArgs e) => await ChangeSelectedDayAsync(1);
-    private async void OnDaySelectorSwiped(object? sender, SwipedEventArgs e)
+    private void OnDayStripLoaded(object? sender, EventArgs e)
     {
-        var offset = e.Direction switch { SwipeDirection.Left => 1, SwipeDirection.Right => -1, _ => 0 };
-        await ChangeSelectedDayAsync(offset);
+        UpdateDayStripMetrics();
+        CenterSelectedDay(animate: false);
     }
 
-    private async Task ChangeSelectedDayAsync(int offset)
+    private void UpdateDayStripMetrics()
     {
+#if ANDROID
+        var textScale = Microsoft.Maui.ApplicationModel.Platform.CurrentActivity?.Resources?.Configuration?.FontScale ?? 1f;
+        DayTileHeight = Math.Ceiling(64 * Math.Max(1, textScale));
+        OnPropertyChanged(nameof(DayTileHeight));
+        DayStrip.HeightRequest = DayTileHeight + 16;
+        foreach (var day in _viewModel.DayFilters) day.UpdateTextScale(textScale);
+#endif
+    }
+
+    private void OnSchedulePropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(ScheduleViewModel.SelectedDayFilter))
+        {
+            UpdateDayStripMetrics();
+            CenterSelectedDay(animate: _centeredDay is not null);
+        }
+    }
+
+    private void CenterSelectedDay(bool animate)
+    {
+        var day = _viewModel.SelectedDayFilter;
+        if (day is null || ReferenceEquals(day, _centeredDay)) return;
+        var contextVersion = MauiProgram.Services.GetRequiredService<AuthSessionService>().ContextVersion;
+        // Scroll is purely browsing. Only an explicit button activation selects
+        // a day; neither the drag nor its momentum issues itinerary requests.
+        Dispatcher.Dispatch(() =>
+        {
+            if (!_dayStripActive || !DayStrip.IsLoaded || !ReferenceEquals(day, _viewModel.SelectedDayFilter)
+                || contextVersion != MauiProgram.Services.GetRequiredService<AuthSessionService>().ContextVersion)
+                return;
+            _centeredDay = day;
+            DayStrip.ScrollTo(day, position: ScrollToPosition.Center, animate: animate);
+        });
+    }
+
+    private async void OnDayClicked(object? sender, EventArgs e)
+    {
+        if (sender is not Button { BindingContext: ScheduleDayFilterViewModel day }
+            || ScheduleDayNavigation.ResolveChoice(_viewModel.DayFilters, day) is null) return;
         var session = MauiProgram.Services.GetRequiredService<AuthSessionService>();
         var contextVersion = session.ContextVersion;
         try
         {
-            await _viewModel.MoveSelectedDayAsync(offset);
+            if (ReferenceEquals(day, _viewModel.SelectedDayFilter))
+            {
+                if (_viewModel.CanOpenStayMap) await _viewModel.OpenStayMapCommand.ExecuteAsync(null);
+                return;
+            }
+            await _viewModel.SelectDayCommand.ExecuteAsync(day);
         }
         catch (OperationCanceledException)
         {

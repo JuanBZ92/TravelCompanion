@@ -798,7 +798,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     [RelayCommand(AllowConcurrentExecutions = true)]
     private async Task SelectDayAsync(ScheduleDayFilterViewModel? day)
     {
-        day = ScheduleDayNavigation.Find(DayFilters, day?.Date);
+        day = ScheduleDayNavigation.ResolveChoice(DayFilters, day);
         if (day is null || _selectedDate == day.Date || !_sessionService.HasSession)
         {
             return;
@@ -1295,6 +1295,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         _selectedHotelBase = _hotelsByDate.GetValueOrDefault(selectedDate);
         _selectedHotelBase ??= _today?.Date == selectedDate ? _today.HotelBase : null;
         StayTitle = _selectedHotelBase?.Name ?? GetStayTitleForDate(selectedDate);
+        SelectedDayFilter?.UpdateStay(StayTitle, CanOpenStayMap);
         OnPropertyChanged(nameof(CanOpenStayMap));
         PreviewMessage = null;
 

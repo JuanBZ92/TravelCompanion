@@ -852,7 +852,7 @@ Your way.</value></data>
   <data name="PlannerDurationPassHint" xml:space="preserve"><value>5 and 7 days available with the pass.</value></data>
   <data name="UXAuditPreviousDay" xml:space="preserve"><value>Previous day: {0}</value></data>
   <data name="UXAuditNextDay" xml:space="preserve"><value>Next day: {0}</value></data>
-  <data name="UXAuditDaySelectorSwipeHint" xml:space="preserve"><value>Swipe left or right to change the day.</value></data>
+  <data name="UXAuditDaySelectorSwipeHint" xml:space="preserve"><value>Scroll through the dates and tap a day to open it.</value></data>
   <data name="UXAuditOpenStayForDate" xml:space="preserve"><value>Open {1} in Google Maps · {0}</value></data>
   <data name="PlannerDurationSelected" xml:space="preserve"><value>{0}, selected</value></data>
   <data name="PlannerReplacementChanged" xml:space="preserve"><value>The proposal changed. Review the updated ideas before saving.</value></data>

@@ -13,6 +13,9 @@ public sealed partial class ScheduleDayFilterViewModel : ObservableObject
 
     private bool _isSelected;
     private string _city;
+    private string? _stayTitle;
+    private bool _canOpenMap;
+    private double _textScale = 1;
 
     public ScheduleDayFilterViewModel(
         DateOnly date,
@@ -32,7 +35,11 @@ public sealed partial class ScheduleDayFilterViewModel : ObservableObject
     public string City
     {
         get => _city;
-        private set => SetProperty(ref _city, value);
+        private set
+        {
+            if (SetProperty(ref _city, value) && IsSelected && _stayTitle is null)
+                NotifyDisplayChanged();
+        }
     }
     public bool IsLocked { get; }
     public string DayLabel => $"{(IsLocked ? "🔒 " : "")}D{TripDayNumber}";
@@ -41,6 +48,10 @@ public sealed partial class ScheduleDayFilterViewModel : ObservableObject
         + Date.ToString("D", LocalizationResourceManager.Instance.CurrentCulture);
     public string SelectedLabel(string? hotel) => WithPlace(DateLabel, hotel);
     public string SelectedDescription(string? hotel) => WithPlace(FullDateLabel, hotel);
+    public double ItemWidth => IsSelected ? Math.Max(184, 68 * _textScale) : 68 * _textScale;
+    public string DisplayLabel => IsSelected ? SelectedLabel(_stayTitle) : DateLabel;
+    public string DisplayDescription => IsSelected ? SelectedDescription(_stayTitle) : FullDateLabel;
+    public bool CanOpenMap => IsSelected && _canOpenMap;
 
     private string WithPlace(string date, string? hotel)
     {
@@ -59,6 +70,9 @@ public sealed partial class ScheduleDayFilterViewModel : ObservableObject
                 OnPropertyChanged(nameof(BorderColor));
                 OnPropertyChanged(nameof(PrimaryTextColor));
                 OnPropertyChanged(nameof(SecondaryTextColor));
+                OnPropertyChanged(nameof(ItemWidth));
+                OnPropertyChanged(nameof(CanOpenMap));
+                NotifyDisplayChanged();
             }
         }
     }
@@ -75,10 +89,41 @@ public sealed partial class ScheduleDayFilterViewModel : ObservableObject
             City = city;
         }
     }
+
+    public void UpdateStay(string? title, bool canOpenMap = false)
+    {
+        var normalized = string.IsNullOrWhiteSpace(title) ? null : title.Trim();
+        if (string.Equals(_stayTitle, normalized, StringComparison.Ordinal) && _canOpenMap == canOpenMap) return;
+        _stayTitle = normalized;
+        _canOpenMap = canOpenMap;
+        if (IsSelected)
+        {
+            NotifyDisplayChanged();
+            OnPropertyChanged(nameof(CanOpenMap));
+        }
+    }
+
+    public void UpdateTextScale(double scale)
+    {
+        var normalized = double.IsFinite(scale) ? Math.Max(1, scale) : 1;
+        if (_textScale == normalized) return;
+        _textScale = normalized;
+        OnPropertyChanged(nameof(ItemWidth));
+    }
+
+    private void NotifyDisplayChanged()
+    {
+        OnPropertyChanged(nameof(DisplayLabel));
+        OnPropertyChanged(nameof(DisplayDescription));
+    }
 }
 
 internal static class ScheduleDayNavigation
 {
+    public static ScheduleDayFilterViewModel? ResolveChoice(
+        IEnumerable<ScheduleDayFilterViewModel> days, ScheduleDayFilterViewModel? candidate) =>
+        candidate is not null && days.Any(day => ReferenceEquals(day, candidate)) ? candidate : null;
+
     public static ScheduleDayFilterViewModel? Find(
         IReadOnlyList<ScheduleDayFilterViewModel> days, DateOnly? selectedDate, int offset = 0)
     {
