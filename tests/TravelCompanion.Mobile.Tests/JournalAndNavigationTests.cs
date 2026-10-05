@@ -38,15 +38,32 @@ public sealed class JournalAndNavigationTests
     }
 
     [Fact]
-    public void ReaderUsesOneChosenThumbnailAndViewerStillHasAllPhotos()
+    public void ReaderPreviewsKeepChosenCoverAndHiddenPhotosKeepTheirViewerIndices()
     {
         var photos = Enumerable.Range(0, 10).Select(_ => new JournalPhoto(Guid.NewGuid())).ToArray();
         var memory = JournalMemory.NewFree(Guid.NewGuid(), new(2026, 10, 2)) with
             { Photos = photos, CoverId = photos[6].Id };
-        Assert.Equal(6, Assert.Single(JournalEntries.PhotoPreviewIndices(memory, 1)));
         Assert.Equal([6, 0, 1], JournalEntries.PhotoPreviewIndices(memory));
+        Assert.Equal(2, JournalEntries.PhotoPreviewIndices(memory, 4)[3]);
         Assert.Equal(10, memory.Images.Length);
         Assert.Empty(JournalEntries.PhotoPreviewIndices(memory with { Photos = [] }));
+    }
+
+    [Theory]
+    [InlineData(0, 0, 0)]
+    [InlineData(1, 1, 0)]
+    [InlineData(3, 3, 0)]
+    [InlineData(4, 3, 1)]
+    [InlineData(10, 3, 7)]
+    public void ReaderLimitsPreviewsToThreeAndKeepsExtraPhotosAvailable(int photoCount, int expectedPreviews, int expectedMore)
+    {
+        var memory = JournalMemory.NewFree(Guid.NewGuid(), new(2026, 10, 2)) with
+            { Photos = Enumerable.Range(0, photoCount).Select(_ => new JournalPhoto(Guid.NewGuid())).ToArray() };
+        var previews = JournalEntries.PhotoPreviewIndices(memory);
+        Assert.Equal(expectedPreviews, previews.Count);
+        var hidden = Enumerable.Range(0, memory.Images.Length).Except(previews).ToArray();
+        Assert.Equal(expectedMore, hidden.Length);
+        if (expectedMore > 0) Assert.Equal(hidden[0], JournalEntries.PhotoPreviewIndices(memory, 4)[3]);
     }
 
     [Fact]

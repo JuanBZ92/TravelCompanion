@@ -612,6 +612,8 @@ A tu manera.</value></data>
   <data name="JournalDiscardNewQuestion" xml:space="preserve"><value>¿Descartar este borrador? No se guardará como recuerdo.</value></data>
   <data name="JournalDiscard" xml:space="preserve"><value>Descartar</value></data>
   <data name="JournalOpenPhotos" xml:space="preserve"><value>Abrir todas las fotos</value></data>
+  <data name="JournalMorePhoto" xml:space="preserve"><value>Abrir {0} foto más</value></data>
+  <data name="JournalMorePhotos" xml:space="preserve"><value>Abrir {0} fotos más</value></data>
   <data name="JournalEdit" xml:space="preserve"><value>Editar recuerdo</value></data>
   <data name="JournalActivity" xml:space="preserve"><value>Ver actividad</value></data>
   <data name="JournalDelete" xml:space="preserve"><value>Eliminar recuerdo</value></data>

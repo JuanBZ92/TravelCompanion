@@ -612,6 +612,8 @@ Your way.</value></data>
   <data name="JournalDiscardNewQuestion" xml:space="preserve"><value>Discard this draft? It will not be saved as a memory.</value></data>
   <data name="JournalDiscard" xml:space="preserve"><value>Discard</value></data>
   <data name="JournalOpenPhotos" xml:space="preserve"><value>Open all photos</value></data>
+  <data name="JournalMorePhoto" xml:space="preserve"><value>Open {0} more photo</value></data>
+  <data name="JournalMorePhotos" xml:space="preserve"><value>Open {0} more photos</value></data>
   <data name="JournalEdit" xml:space="preserve"><value>Edit memory</value></data>
   <data name="JournalActivity" xml:space="preserve"><value>View activity</value></data>
   <data name="JournalDelete" xml:space="preserve"><value>Delete memory</value></data>

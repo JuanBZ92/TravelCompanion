@@ -240,38 +240,40 @@
             ReservationHeadingTemplate="{StaticResource TodayReservationHeadingTemplate}" />
     </ContentPage.Resources>
     <Grid x:Name="ScheduleRoot" RowDefinitions="Auto,*">
-        <Grid x:Name="ScheduleHeader" ColumnDefinitions="*,48" Padding="12,6" ColumnSpacing="6">
+        <Grid x:Name="ScheduleHeader" Padding="24,6">
             <Border Padding="3" BackgroundColor="{StaticResource AccentSoft}"
                     Stroke="{StaticResource EditorialLine}" StrokeThickness="1"
-                    HorizontalOptions="Start" VerticalOptions="Center">
+                    HorizontalOptions="Fill" VerticalOptions="Center">
                 <Border.StrokeShape><shapes:RoundRectangle CornerRadius="14" /></Border.StrokeShape>
-                <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Never">
-                    <HorizontalStackLayout Spacing="0">
-                        <Button x:Name="ItinerarySectionButton"
-                                Text="{Binding [TabToday], Source={x:Static services:LocalizationResourceManager.Instance}}"
-                                Clicked="OnItinerarySectionClicked"
-                                Style="{StaticResource TripSectionButton}" />
-                        <Button x:Name="FolderSectionButton"
-                                Text="{Binding [UXAuditFolderSection], Source={x:Static services:LocalizationResourceManager.Instance}}"
-                                Clicked="OnFolderSectionClicked"
-                                Style="{StaticResource TripSectionButton}" />
-                        <Button x:Name="ExpensesSectionButton"
-                                Text="{Binding [UXAuditExpensesSection], Source={x:Static services:LocalizationResourceManager.Instance}}"
-                                Clicked="OnExpensesSectionClicked"
-                                Style="{StaticResource TripSectionButton}" />
-                    </HorizontalStackLayout>
-                </ScrollView>
+                <Grid ColumnDefinitions="*,48">
+                    <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Never">
+                        <HorizontalStackLayout Spacing="0">
+                            <Button x:Name="ItinerarySectionButton"
+                                    Text="{Binding [TabToday], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                                    Clicked="OnItinerarySectionClicked"
+                                    Style="{StaticResource TripSectionButton}" />
+                            <Button x:Name="FolderSectionButton"
+                                    Text="{Binding [UXAuditFolderSection], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                                    Clicked="OnFolderSectionClicked"
+                                    Style="{StaticResource TripSectionButton}" />
+                            <Button x:Name="ExpensesSectionButton"
+                                    Text="{Binding [UXAuditExpensesSection], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                                    Clicked="OnExpensesSectionClicked"
+                                    Style="{StaticResource TripSectionButton}" />
+                        </HorizontalStackLayout>
+                    </ScrollView>
+                    <ImageButton
+                        Grid.Column="1"
+                        Source="itinerary_menu.svg"
+                        Clicked="OnItineraryMenuClicked"
+                        WidthRequest="48"
+                        HeightRequest="48"
+                        VerticalOptions="Center"
+                        Padding="12"
+                        BackgroundColor="Transparent"
+                        SemanticProperties.Description="{Binding [UXAuditTripOptions], Source={x:Static services:LocalizationResourceManager.Instance}}" />
+                </Grid>
             </Border>
-            <ImageButton
-                Grid.Column="1"
-                Source="itinerary_menu.svg"
-                Clicked="OnItineraryMenuClicked"
-                WidthRequest="48"
-                HeightRequest="48"
-                VerticalOptions="Center"
-                Padding="12"
-                BackgroundColor="Transparent"
-                SemanticProperties.Description="{Binding [UXAuditTripOptions], Source={x:Static services:LocalizationResourceManager.Instance}}" />
         </Grid>
         <pages:TripFolderPanel x:Name="FolderPanelView" Grid.Row="1" IsVisible="False" />
         <pages:ExpensesPanel x:Name="ExpensesPanelView" Grid.Row="1" IsVisible="False" />

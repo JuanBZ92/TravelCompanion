@@ -466,3 +466,85 @@ El arranque devolvió `Status: ok`. No se desinstaló ni se borraron datos perso
 Se restauraron fuente 1,0, locales QA `[]` y pantalla activa original 2; se retiró
 la conexión ADB de 5188 y se detuvo solo la API local de esta revisión. No se
 requieren migraciones ni despliegue de backend para estos cambios.
+
+## Cabecera de Viaje alineada y previsualizaciones del lector de Journal
+
+La cabecera de Viaje usa ahora `ScheduleHeader.Padding="24,6"`, con el mismo
+margen horizontal de 24 dp que la franja de fechas (`Margin="24,8,24,0"`). El
+contenedor ocupa el ancho disponible y reúne los tres selectores y el menú en un
+Grid interior de columnas `*,48`. Los tres puntos quedan dentro del contenedor,
+con un área táctil nativa de 48 × 48 dp. Las etiquetas conservan el desplazamiento
+horizontal y la altura natural para texto ampliado; no se cambiaron los handlers,
+la selección de las secciones ni las acciones y permisos del menú. La jerarquía
+nativa confirmó los bordes horizontales del contenedor entre 90 y 1350 píxeles.
+
+El lector de Journal presenta hasta tres miniaturas de 68 dp, empezando por la
+portada seleccionada. Si hay más fotos, añade un botón `+N` que abre la primera
+foto no mostrada. Las miniaturas conservan sus índices originales en el visor;
+la previsualización no cambia el orden almacenado ni el límite de diez fotos.
+La distribución admite varias filas cuando el ancho disponible no alcanza.
+Adjuntar fotos sigue volviendo directamente al lector, sin pasar por el editor.
+
+Las **79 pruebas focales aprobaron**, sin omisiones. Los registros son
+`artifacts/trip-header-20261005/mobile-focused.log` y `mobile-focused.trx` en el
+mismo directorio. Cubren los casos de cero, una y diez fotos mediante pruebas de
+lógica; esos tres tamaños no se revisaron en el Android durante esta fase. La
+compilación Android Release para ARM64, con `--no-restore`, terminó con exit 0,
+cero errores y las 205 advertencias XC0025 existentes. El registro de la APK
+definitiva es `artifacts/trip-header-20261005/android-qa-v133.log`.
+
+Se utilizó el Samsung físico de 384 dp, autenticación por PIN, un viaje sintético
+de treinta días y una API local en 5188. La revisión corresponde al paquete
+separado de QA v133; la instalación habitual v118 se conservó. La actualización
+de QA mantuvo su `firstInstallTime` original, cuya hora era 12:48:37.
+
+| Recorrido nativo | Resultado observado | Evidencia en `artifacts/trip-header-20261005/` |
+|---|---|---|
+| Viaje ES, tamaño normal | Márgenes simétricos y menú dentro del contenedor; menú sin accesos duplicados. | `trip-header-es-v133.png`, `trip-menu-es-v133.png`. |
+| Selección de secciones | Carpeta y Gastos abren y conservan el estado visual seleccionado. | `trip-folder-es-v133.png`, `trip-expenses-es-v133.png`. |
+| Tres fotos | La portada aparece primero entre las tres miniaturas; tocar la miniatura de la foto 1 abre el índice original 1/3. | `journal-three-es-v133.png`, `journal-preview-first-index-v133.png`. |
+| Cuatro fotos | Adjuntar desde el lector muestra tres miniaturas y `+1`; este botón abre la primera oculta, 4/4. Cancelar después el selector conserva las cuatro fotos. | `journal-four-es-v133.png`, `journal-more-first-hidden-v133.png`. |
+| Viaje ES al 200 % | Se pueden recorrer todas las etiquetas de las secciones y el menú conserva su área de 48 dp. | `trip-header-es-200-scroll-v133.png`. |
+| Journal ES al 200 % | Las tres miniaturas, `+1` y las acciones siguen disponibles; el botón abre 4/4. | `journal-four-es-200-v133.png`, `journal-more-es-200-v133.png`. |
+| Sin API, ES al 200 % | Con el proceso local de esta revisión detenido y 5188 sin listener, el lector y el visor cargan las cuatro fotos locales y muestran 4/4. | `journal-offline-es-200-v133.png`, `journal-offline-viewer-v133.png`. |
+
+La cobertura nativa de esta fase es en español, con tres y cuatro fotos. No se
+acredita revisión nativa en inglés, TalkBack hablado ni otras plataformas. La
+revisión de código confirmó los recursos ES/EN, el ajuste de las etiquetas y la
+conservación de los handlers; no sustituye esas comprobaciones nativas pendientes.
+
+La APK de revisión es
+`artifacts/trip-header-20261005/Yuku-Planner-QA-v133.apk`, de 24.721.438 bytes,
+SHA-256 `D567144CBBEA50424BE31F5116880AD0E196109EB26B1514A6A8AEB2056C55EC`.
+Al finalizar se restauraron la fuente a 1,0, el ajuste de pantalla activa a 2 y
+los locales del paquete QA a `[]`; se retiró la conexión ADB de 5188 y se cerró
+QA. Se detuvo únicamente la API local creada para esta revisión. No se cambiaron
+API, permisos, migraciones ni producción. Esta validación QA precede a la
+publicación de la instalación habitual registrada a continuación.
+
+### Publicación de la app habitual v119
+
+El usuario autorizó publicar los cambios en `main` e instalar la APK habitual.
+Se incrementó la versión Android de 118 a 119 y se publicó en Release con
+`dotnet publish src/TravelCompanion.Mobile/TravelCompanion.Mobile.csproj -f net10.0-android -c Release --no-restore --verbosity minimal -p:AndroidPackageFormat=apk -p:TravelCompanionApiBaseUrl=https://travelcompanion-api-57dw.onrender.com`.
+La compilación terminó con exit 0, cero errores y las 205 advertencias XC0025
+existentes. El atributo de ensamblado confirma el backend habitual de Render y
+no incluye el indicador de diagnósticos de QA. No se requieren migraciones ni
+despliegue de backend para estos cambios móviles.
+
+La APK `artifacts/trip-header-20261005/YUKU-Japan-119-ux.apk` mide 39.789.994 bytes;
+SHA-256 `ADB133B7A95B0AEE14BC688BCBEFD36BB88972A6EF0E0D7246EB2EB3B7E99B10`.
+Se verificaron paquete `com.yuku.travelcompanion.app`, versión 119, ARM64/x86_64,
+ausencia de marca debuggable y firma v1/v2/v3. El certificado SHA-256
+`d69a6cf0fcd1a96867f619c3222b2d1e936db07637c275c306a0de1e88f50cf2` coincide
+con la APK extraída de la instalación habitual antes de actualizarla.
+
+La instalación con `adb install --no-incremental -r` devolvió `Success`. Android
+confirma versión 119 y conserva `firstInstallTime=2026-09-25 18:48:34`; no se
+desinstaló ni se borraron datos personales. El arranque devolvió `Status: ok`.
+La revisión detallada de las pantallas corresponde a QA v133 con datos
+sintéticos; en la instalación habitual se verificaron actualización y arranque.
+Los registros son `android-publish-v119.log`, `badging-release-v119.log`,
+`signature-release-v119.log`, `install-release-v119.log`,
+`installed-version-v119.log` y `start-release-v119.log`, todos en
+`artifacts/trip-header-20261005/`.

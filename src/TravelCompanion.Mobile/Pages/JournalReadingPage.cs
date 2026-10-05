@@ -89,17 +89,39 @@ public sealed class JournalReadingPage(JournalScope scope, JournalMemory origina
             if (memory.Images.Length > 0)
             {
                 body.Add(JournalUi.Text(JournalText.Format("JournalPhotosLimit", memory.Images.Length), 12));
-                var index = JournalEntries.PhotoPreviewIndices(memory, 1)[0];
-                var bytes = await store.PhotoAsync(scope, memory.Images[index].Id, true);
-                if (!CanDisplay(version)) return;
-                var image = JournalUi.Icon("journal_photo.svg",
-                    $"{JournalText.Get("JournalOpenPhotos")} · {JournalText.Photos(memory.Images.Length)}", () => OpenPhotosAsync(index));
-                image.WidthRequest = 100; image.HeightRequest = 100; image.Padding = 0; image.Aspect = Aspect.AspectFill;
-                if (bytes is not null) image.Source = ImageSource.FromStream(() => new MemoryStream(bytes));
-                body.Add(new Border { WidthRequest = 100, HeightRequest = 100, Padding = 0,
-                    HorizontalOptions = LayoutOptions.Start, StrokeThickness = 0,
-                    StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = new CornerRadius(10) },
-                    Content = image });
+                var indices = JournalEntries.PhotoPreviewIndices(memory);
+                var gallery = new FlexLayout { Wrap = Microsoft.Maui.Layouts.FlexWrap.Wrap,
+                    AlignItems = Microsoft.Maui.Layouts.FlexAlignItems.Start,
+                    AlignContent = Microsoft.Maui.Layouts.FlexAlignContent.Start };
+                foreach (var index in indices)
+                {
+                    var bytes = await store.PhotoAsync(scope, memory.Images[index].Id, true);
+                    if (!CanDisplay(version)) return;
+                    var image = JournalUi.Icon("journal_photo.svg",
+                        $"{JournalText.Get("JournalOpenPhotos")} · {JournalText.Format("JournalPhotoNumber", index + 1, memory.Images.Length)}",
+                        () => OpenPhotosAsync(index));
+                    image.WidthRequest = 68; image.HeightRequest = 68; image.Padding = 0; image.Aspect = Aspect.AspectFill;
+                    if (bytes is not null) image.Source = ImageSource.FromStream(() => new MemoryStream(bytes));
+                    var tile = new Border { WidthRequest = 68, HeightRequest = 68, Padding = 0,
+                        Margin = new Thickness(0, 0, 8, 8), StrokeThickness = 0,
+                        StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = new CornerRadius(10) },
+                        Content = image };
+                    FlexLayout.SetAlignSelf(tile, Microsoft.Maui.Layouts.FlexAlignSelf.Start);
+                    gallery.Children.Add(tile);
+                }
+                var remaining = memory.Images.Length - indices.Count;
+                if (remaining > 0)
+                {
+                    var firstHiddenIndex = JournalEntries.PhotoPreviewIndices(memory, 4)[3];
+                    var more = EditorialUi.Button($"+{remaining}", () => OpenPhotosAsync(firstHiddenIndex));
+                    more.WidthRequest = 68; more.HeightRequest = 68; more.Padding = 0; more.FontSize = 20;
+                    more.CornerRadius = 10; more.BackgroundColor = Color.FromArgb("#F0E8DE");
+                    more.Margin = new Thickness(0, 0, 8, 8);
+                    SemanticProperties.SetDescription(more, JournalText.Format(remaining == 1 ? "JournalMorePhoto" : "JournalMorePhotos", remaining));
+                    FlexLayout.SetAlignSelf(more, Microsoft.Maui.Layouts.FlexAlignSelf.Start);
+                    gallery.Children.Add(more);
+                }
+                body.Add(gallery);
             }
             if (memory.Status.Length > 0)
             {
