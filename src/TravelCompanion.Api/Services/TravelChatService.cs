@@ -67,7 +67,8 @@ public sealed partial class TravelChatService(
     public async Task<TravelChatResponse> CreatePlanAsync(
         AppUser user,
         TravelChatRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Guid? activeTripId = null)
     {
         var locale = textProvider.NormalizeLocale(request.Locale);
         var promptVersion = string.IsNullOrWhiteSpace(openAiOptions.Value.PromptVersion)
@@ -193,6 +194,7 @@ public sealed partial class TravelChatService(
         {
             return await CreateScheduleResponseAsync(
                 user,
+                activeTripId,
                 conversationId,
                 date,
                 locale,
@@ -508,21 +510,27 @@ public sealed partial class TravelChatService(
 
     private async Task<TravelChatResponse> CreateScheduleResponseAsync(
         AppUser user,
+        Guid? activeTripId,
         string conversationId,
         DateOnly date,
         string locale,
         string promptVersion,
         CancellationToken cancellationToken)
     {
+        // The session supplies the selected trip; never merge overlapping trips into one agenda.
         var trips = await dbContext.Trips
             .AsNoTracking()
             .Include(trip => trip.Destination)
             .Include(trip => trip.Reservations)
             .Where(trip =>
                 trip.PublicationStatus == TripPublicationStatus.Published
+                && !trip.IsArchived
                 && trip.AppUserId == user.Id
+                && (!activeTripId.HasValue || trip.Id == activeTripId.Value)
                 && trip.StartsOn <= date
                 && trip.EndsOn >= date)
+            .OrderBy(trip => trip.Id)
+            .Take(2)
             .ToListAsync(cancellationToken);
 
         if (trips.Count == 0)
@@ -537,16 +545,30 @@ public sealed partial class TravelChatService(
                 promptVersion: promptVersion);
         }
 
-        var reservations = trips
-            .SelectMany(trip => trip.Reservations)
-            .Where(reservation => IsReservationOnDate(reservation, date))
-            .OrderBy(reservation => GetStartForDate(reservation, date))
-            .ToList();
+        // Legacy sessions without a selected trip remain valid only when the day is unambiguous.
+        if (trips.Count > 1)
+        {
+            return TrackOutcome(responseComposer.MissingContext(
+                conversationId,
+                "trip",
+                textProvider.ScheduleSelectTripMessage(locale),
+                []),
+                eventName: "missing_context",
+                locale: locale,
+                promptVersion: promptVersion);
+        }
 
-        var destinationName = trips
-            .Select(trip => trip.Destination?.Name)
-            .FirstOrDefault(name => !string.IsNullOrWhiteSpace(name))
-            ?? "tu viaje";
+        var trip = trips[0];
+        var reservations = trip.Reservations
+            .Where(reservation => IsReservationOnDate(reservation, date))
+            .OrderBy(reservation => reservation.Date < date
+                && reservation.EndsOn == date && reservation.EndsAt.HasValue
+                    ? reservation.EndsAt.Value
+                    : GetStartForDate(reservation, date))
+            .ThenBy(reservation => reservation.SortOrder)
+            .ThenBy(reservation => reservation.Id)
+            .ToList();
+        var destinationName = trip.Destination?.Name ?? "tu viaje";
 
         if (reservations.Count == 0)
         {

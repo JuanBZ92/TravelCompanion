@@ -210,7 +210,7 @@ PATCH /api/me/travel-preference-profile
 
 The chat endpoint also handles deterministic assistant intents without asking the model:
 
-- `view_schedule`: messages such as `Ver mi agenda` return a schedule summary for the requested date.
+- `view_schedule`: messages such as `Ver mi agenda` return a schedule summary for the requested date, scoped to the owned, published, non-archived trip selected in the authenticated session. Overlapping trips are never combined. Legacy sessions without a selected trip work only when exactly one valid trip matches; otherwise the response requests `trip` context. Client-supplied guided trip IDs do not override this context. Distinct reservations remain distinct even if their titles and times match. Ongoing reservations do not repeat a previous day's start time; the last day uses the recorded end time, including hotel check-out. The summary shows five entries and counts the remaining reservations in that same trip.
 - `view_preferences`: messages such as `Ver mis preferencias` return the current preference profile.
 - `update_preferences`: explicit preference edits such as `Prefiero presupuesto bajo y ritmo tranquilo` or `evitar culture` first return a confirmation prompt. The backend stores the pending patch on the chat conversation and only persists it after an affirmative reply. If the user rejects the change, the pending patch is cleared; planning requests can still use the detected preference as one-off context without modifying the profile.
 - `help`: messages such as `Que puedo pedirte` describe the assistant capabilities. This does not require a completed preference profile.

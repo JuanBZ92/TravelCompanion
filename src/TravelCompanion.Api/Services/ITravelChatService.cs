@@ -8,5 +8,6 @@ public interface ITravelChatService
     Task<TravelChatResponse> CreatePlanAsync(
         AppUser user,
         TravelChatRequest request,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        Guid? activeTripId = null);
 }

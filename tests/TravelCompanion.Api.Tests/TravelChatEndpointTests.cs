@@ -158,6 +158,162 @@ public sealed class TravelChatEndpointTests
         Assert.Contains("food", card.Tags);
     }
 
+    [Theory]
+    [InlineData("es-ES", "Además, hay una reserva más.")]
+    [InlineData("en-US", "There is 1 more reservation.")]
+    public async Task Agenda_uses_only_the_selected_trip_and_preserves_legitimate_matching_reservations(
+        string locale, string extraReservationText)
+    {
+        await using var factory = new TravelCompanionApiFactory();
+        var fixture = await factory.SeedOverlappingAgendaTripsAsync();
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", fixture.Token);
+
+        var response = await client.PostAsJsonAsync("/api/ai/travel-chat",
+            new TravelChatRequest("Ver mi agenda", null, "Tokyo", new(2026, 10, 6), null, locale));
+
+        response.EnsureSuccessStatusCode();
+        var agenda = await response.Content.ReadFromJsonAsync<TravelChatResponse>(SnapshotJsonOptions);
+        Assert.NotNull(agenda);
+        AssertSelectedTripAgenda(agenda, extraReservationText);
+    }
+
+    [Fact]
+    public async Task Agenda_follows_the_changed_session_trip_even_with_the_same_conversation_and_date()
+    {
+        await using var factory = new TravelCompanionApiFactory();
+        var fixture = await factory.SeedOverlappingAgendaTripsAsync();
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", fixture.Token);
+        var request = new TravelChatRequest("Ver mi agenda", null, "Tokyo", new(2026, 10, 6), null, "es-ES");
+        var firstResponse = await client.PostAsJsonAsync("/api/ai/travel-chat", request);
+        firstResponse.EnsureSuccessStatusCode();
+        var firstAgenda = await firstResponse.Content.ReadFromJsonAsync<TravelChatResponse>(SnapshotJsonOptions);
+        Assert.NotNull(firstAgenda);
+        AssertSelectedTripAgenda(firstAgenda, "Además, hay una reserva más.");
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<TravelCompanionDbContext>();
+            var session = await db.AppUserSessions.SingleAsync(item => item.Id == fixture.SessionId);
+            session.TripId = fixture.OtherTripId;
+            await db.SaveChangesAsync();
+        }
+        var nextResponse = await client.PostAsJsonAsync("/api/ai/travel-chat",
+            request with { ConversationId = firstAgenda.ConversationId });
+
+        nextResponse.EnsureSuccessStatusCode();
+        var nextAgenda = await nextResponse.Content.ReadFromJsonAsync<TravelChatResponse>(SnapshotJsonOptions);
+        Assert.NotNull(nextAgenda);
+        Assert.Equal(firstAgenda.ConversationId, nextAgenda.ConversationId);
+        Assert.Equal("view_schedule", nextAgenda.Intent);
+        Assert.Null(nextAgenda.MissingContext);
+        Assert.Equal(3, Regex.Matches(nextAgenda.Message, "^- ", RegexOptions.Multiline).Count);
+        Assert.Single(Regex.Matches(nextAgenda.Message, "Hotel Yuku"));
+        Assert.Single(Regex.Matches(nextAgenda.Message, "Gyoza"));
+        Assert.Contains("Solo otro viaje", nextAgenda.Message);
+        Assert.DoesNotContain("Solo primer viaje", nextAgenda.Message);
+        Assert.DoesNotContain("Museum", nextAgenda.Message);
+        Assert.DoesNotContain("Solo viaje archivado", nextAgenda.Message);
+        Assert.DoesNotContain("Solo otra cuenta", nextAgenda.Message);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Agenda_without_a_selected_trip_requests_context_when_multiple_published_trips_match(
+        bool supplyUntrustedTripId)
+    {
+        await using var factory = new TravelCompanionApiFactory();
+        var fixture = await factory.SeedOverlappingAgendaTripsAsync(bindSelectedTrip: false);
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", fixture.Token);
+        var action = supplyUntrustedTripId
+            ? new GuidedTravelActionDto(GuidedTravelActions.Recommend) { TripId = fixture.OtherTripId }
+            : null;
+
+        var response = await client.PostAsJsonAsync("/api/ai/travel-chat",
+            new TravelChatRequest("Ver mi agenda", null, "Tokyo", new(2026, 10, 6), null, "es-ES", action));
+
+        response.EnsureSuccessStatusCode();
+        var agenda = await response.Content.ReadFromJsonAsync<TravelChatResponse>(SnapshotJsonOptions);
+        Assert.NotNull(agenda);
+        Assert.Equal("trip", agenda.MissingContext?.Field);
+        Assert.Empty(agenda.Cards);
+        Assert.Empty(agenda.SuggestedReplies);
+        Assert.Contains("Cuenta", agenda.Message);
+        Assert.DoesNotContain("Hotel Yuku", agenda.Message);
+        Assert.DoesNotContain("Gyoza", agenda.Message);
+        Assert.DoesNotContain("Solo primer viaje", agenda.Message);
+        Assert.DoesNotContain("Solo otro viaje", agenda.Message);
+    }
+
+    [Theory]
+    [InlineData("other-trip")]
+    [InlineData("archived-trip")]
+    [InlineData("other-account")]
+    public async Task Agenda_does_not_allow_a_guided_payload_to_replace_the_authenticated_trip(string target)
+    {
+        await using var factory = new TravelCompanionApiFactory();
+        var fixture = await factory.SeedOverlappingAgendaTripsAsync();
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", fixture.Token);
+        var untrustedTrip = target switch
+        {
+            "other-trip" => fixture.OtherTripId,
+            "archived-trip" => fixture.ArchivedTripId,
+            _ => fixture.ForeignTripId
+        };
+        var action = new GuidedTravelActionDto(GuidedTravelActions.Recommend) { TripId = untrustedTrip };
+
+        var response = await client.PostAsJsonAsync("/api/ai/travel-chat",
+            new TravelChatRequest("Ver mi agenda", null, "Tokyo", new(2026, 10, 6), null, "es-ES", action));
+
+        response.EnsureSuccessStatusCode();
+        var agenda = await response.Content.ReadFromJsonAsync<TravelChatResponse>(SnapshotJsonOptions);
+        Assert.NotNull(agenda);
+        AssertSelectedTripAgenda(agenda, "Además, hay una reserva más.");
+    }
+
+    [Fact]
+    public async Task Agenda_without_a_selected_trip_keeps_legacy_access_when_only_one_valid_trip_matches()
+    {
+        await using var factory = new TravelCompanionApiFactory();
+        var fixture = await factory.SeedOverlappingAgendaTripsAsync(bindSelectedTrip: false);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<TravelCompanionDbContext>();
+            (await db.Trips.SingleAsync(item => item.Id == fixture.OtherTripId)).PublicationStatus = TripPublicationStatus.Draft;
+            await db.SaveChangesAsync();
+        }
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", fixture.Token);
+
+        var response = await client.PostAsJsonAsync("/api/ai/travel-chat",
+            new TravelChatRequest("Ver mi agenda", null, "Tokyo", new(2026, 10, 6), null, "es-ES"));
+
+        response.EnsureSuccessStatusCode();
+        var agenda = await response.Content.ReadFromJsonAsync<TravelChatResponse>(SnapshotJsonOptions);
+        Assert.NotNull(agenda);
+        AssertSelectedTripAgenda(agenda, "Además, hay una reserva más.");
+    }
+
+    private static void AssertSelectedTripAgenda(TravelChatResponse agenda, string extraReservationText)
+    {
+        Assert.Equal("view_schedule", agenda.Intent);
+        Assert.Null(agenda.MissingContext);
+        Assert.Empty(agenda.Cards);
+        Assert.Equal(5, Regex.Matches(agenda.Message, "^- ", RegexOptions.Multiline).Count);
+        Assert.Single(Regex.Matches(agenda.Message, "Hotel Yuku"));
+        Assert.Equal(2, Regex.Matches(agenda.Message, "Gyoza").Count);
+        Assert.Contains("Museum", agenda.Message);
+        Assert.Contains("Solo primer viaje", agenda.Message);
+        Assert.Contains("\n" + extraReservationText, agenda.Message);
+        Assert.DoesNotContain("Solo otro viaje", agenda.Message);
+        Assert.DoesNotContain("Solo viaje archivado", agenda.Message);
+        Assert.DoesNotContain("Solo otra cuenta", agenda.Message);
+    }
+
     [Fact]
     public async Task TravelAssistantFeedback_records_signal_without_updating_preferences()
     {
@@ -440,6 +596,55 @@ public sealed class TravelChatEndpointTests
             session.LastSeenAt = DateTimeOffset.UtcNow;
             await dbContext.SaveChangesAsync();
             return token;
+        }
+
+        public async Task<(string Token, Guid SessionId, Guid SelectedTripId, Guid OtherTripId,
+            Guid ArchivedTripId, Guid ForeignTripId)> SeedOverlappingAgendaTripsAsync(bool bindSelectedTrip = true)
+        {
+            var token = await SeedPlanningUserAsync();
+            using var scope = Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<TravelCompanionDbContext>();
+            var user = await db.AppUsers.SingleAsync();
+            var selected = await db.Trips.Include(item => item.Reservations).SingleAsync();
+            Reservation[] selectedBookings = [
+                Booking("Hotel Yuku", new(0, 0), ReservationType.Lodging),
+                Booking("Gyoza", new(10, 0)),
+                Booking("Gyoza", new(10, 0)),
+                Booking("Solo primer viaje", new(12, 0))
+            ];
+            foreach (var booking in selectedBookings) booking.TripId = selected.Id;
+            selected.Reservations.AddRange(selectedBookings);
+            db.Reservations.AddRange(selectedBookings);
+            var other = OverlappingTrip(user.Id, "Solo otro viaje");
+            var archived = OverlappingTrip(user.Id, "Solo viaje archivado");
+            archived.IsArchived = true;
+            var foreignOwner = new AppUser
+            {
+                Id = Guid.NewGuid(), Email = "another-agenda@example.test", DisplayName = "Another traveler"
+            };
+            var foreign = OverlappingTrip(foreignOwner.Id, "Solo otra cuenta");
+            db.AppUsers.Add(foreignOwner);
+            db.Trips.AddRange(other, archived, foreign);
+            var session = await db.AppUserSessions.SingleAsync();
+            session.TripId = bindSelectedTrip ? selected.Id : null;
+            await db.SaveChangesAsync();
+            return (token, session.Id, selected.Id, other.Id, archived.Id, foreign.Id);
+
+            Trip OverlappingTrip(Guid owner, string exclusiveTitle) => new()
+            {
+                Id = Guid.NewGuid(), AppUserId = owner, DestinationId = selected.DestinationId,
+                TravelerName = "Overlapping traveler", StartsOn = selected.StartsOn, EndsOn = selected.EndsOn,
+                PublicationStatus = TripPublicationStatus.Published,
+                Reservations = [Booking("Hotel Yuku", new(0, 0), ReservationType.Lodging),
+                    Booking("Gyoza", new(10, 0)), Booking(exclusiveTitle, new(0, 10))]
+            };
+
+            static Reservation Booking(string title, TimeOnly time, ReservationType type = ReservationType.Event) => new()
+            {
+                Id = Guid.NewGuid(), Type = type, Date = new(2026, 10, 6), StartsAt = time,
+                Title = title, City = "Tokyo", LocationName = title, Address = "Synthetic address",
+                ConfirmationCode = Guid.NewGuid().ToString("N"), Notes = "Synthetic agenda scope validation"
+            };
         }
     }
 

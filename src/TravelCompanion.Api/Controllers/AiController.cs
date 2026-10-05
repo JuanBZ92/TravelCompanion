@@ -146,7 +146,7 @@ public sealed class AiController(
         TravelChatResponse response;
         try
         {
-            response = await travelChatService.CreatePlanAsync(user, request, cancellationToken);
+            response = await travelChatService.CreatePlanAsync(user, request, cancellationToken, access?.TripId);
             if (usageLease is not null && response.Cards.Count > 0 && response.Intent != "day_complete")
             {
                 await assistantUsageService.CompleteAsync(usageLease.LeaseId, cancellationToken);

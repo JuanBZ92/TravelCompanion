@@ -24,6 +24,7 @@ public interface ITravelAssistantTextProvider
     IReadOnlyList<string> NoPlanningWindowReplies(string? locale);
     string ScheduleNoActiveTripMessage(DateOnly date, string? locale);
     IReadOnlyList<string> ScheduleNoActiveTripReplies(string? locale);
+    string ScheduleSelectTripMessage(string? locale);
     string EmptyScheduleMessage(DateOnly date, string destinationName, string? locale);
     IReadOnlyList<string> EmptyScheduleReplies(DateOnly date, string? locale);
     string ScheduleSummaryMessage(DateOnly date, string destinationName, IReadOnlyList<Reservation> reservations, string? locale);
@@ -200,6 +201,13 @@ public sealed class TravelAssistantTextProvider : ITravelAssistantTextProvider
             : ["Pick another date", "Suggest a plan"];
     }
 
+    public string ScheduleSelectTripMessage(string? locale)
+    {
+        return IsSpanish(locale)
+            ? "Tenés varios viajes para esta fecha. Elegí el que querés consultar desde Cuenta."
+            : "You have several trips on this date. Select the one you want to check from Account.";
+    }
+
     public string EmptyScheduleMessage(DateOnly date, string destinationName, string? locale)
     {
         return IsSpanish(locale)
@@ -220,18 +228,34 @@ public sealed class TravelAssistantTextProvider : ITravelAssistantTextProvider
         IReadOnlyList<Reservation> reservations,
         string? locale)
     {
-        var lines = reservations
-            .Take(5)
-            .Select(reservation =>
-                $"- {reservation.StartsAt:HH\\:mm}: {reservation.Title} ({reservation.City})")
-            .ToList();
-        var extra = reservations.Count > 5
-            ? IsSpanish(locale)
-                ? $" Tambien hay {reservations.Count - 5} reserva(s) mas."
-                : $" There are {reservations.Count - 5} more reservation(s)."
+        var spanish = IsSpanish(locale);
+        var lines = reservations.Take(5).Select(reservation =>
+        {
+            var prefix = reservation.StartsAt.ToString("HH:mm");
+            if (reservation.Date < date)
+            {
+                if (reservation.EndsOn == date && reservation.EndsAt.HasValue)
+                {
+                    var ending = reservation.Type == ReservationType.Lodging
+                        ? "Check-out"
+                        : spanish ? "Finaliza" : "Ends";
+                    prefix = $"{reservation.EndsAt.Value:HH:mm} · {ending}";
+                }
+                else
+                {
+                    prefix = spanish ? "En curso" : "Ongoing";
+                }
+            }
+            return $"- {prefix}: {reservation.Title} ({reservation.City})";
+        }).ToList();
+        var remaining = reservations.Count - lines.Count;
+        var extra = remaining > 0
+            ? spanish
+                ? remaining == 1 ? "\nAdemás, hay una reserva más." : $"\nAdemás, hay {remaining} reservas más."
+                : $"\nThere {(remaining == 1 ? "is" : "are")} {remaining} more reservation{(remaining == 1 ? "" : "s")}."
             : string.Empty;
 
-        return IsSpanish(locale)
+        return spanish
             ? $"Tu agenda del {date:dd/MM} en {destinationName}:\n{string.Join('\n', lines)}{extra}"
             : $"Your {date:MM/dd} schedule in {destinationName}:\n{string.Join('\n', lines)}{extra}";
     }
