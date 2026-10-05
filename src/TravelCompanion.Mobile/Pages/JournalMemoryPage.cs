@@ -38,10 +38,12 @@ internal static class JournalUi
         icon.WidthRequest = 52;
         icon.HeightRequest = 52;
         icon.CornerRadius = 14;
+        icon.HorizontalOptions = LayoutOptions.Center;
         if (primary) icon.BackgroundColor = Ink;
-        return new VerticalStackLayout { Spacing = 3, HorizontalOptions = LayoutOptions.Center,
+        return new VerticalStackLayout { Spacing = 3, HorizontalOptions = LayoutOptions.Fill,
             MinimumWidthRequest = 72, Children = { icon, new Label { Text = label, FontSize = 11,
-                MaxLines = 2, HorizontalTextAlignment = TextAlignment.Center, TextColor = primary ? Ink : Muted } } };
+                LineBreakMode = LineBreakMode.WordWrap, HorizontalTextAlignment = TextAlignment.Center,
+                TextColor = primary ? Ink : Muted } } };
     }
 }
 
@@ -150,10 +152,13 @@ public sealed class JournalMemoryPage : JournalScopedPage
             Padding = new Thickness(18, 12), Content = editor });
         body.Add(counter); body.Add(photos);
         body.Add(JournalUi.Text(JournalText.Get("JournalStorageNotice"), 12));
-        var tools = new HorizontalStackLayout { Spacing = 22, HorizontalOptions = LayoutOptions.Center };
-        tools.Add(JournalUi.Tool("journal_photo.svg", "JournalAddPhotos", AddPhotosAsync));
-        if (memory.IsFree) tools.Add(JournalUi.Tool("journal_search.svg", "JournalFindDayActivity", FindDayActivityAsync));
-        tools.Add(JournalUi.Tool("action_saved.svg", "JournalSave", SaveAsync, true));
+        var tools = new Grid { ColumnSpacing = 8,
+            ColumnDefinitions = memory.IsFree
+                ? [new(GridLength.Star), new(GridLength.Star), new(GridLength.Star)]
+                : [new(GridLength.Star), new(GridLength.Star)] };
+        tools.Add(JournalUi.Tool("journal_photo.svg", "JournalAddPhotos", AddPhotosAsync), 0);
+        if (memory.IsFree) tools.Add(JournalUi.Tool("journal_search.svg", "JournalFindDayActivity", FindDayActivityAsync), 1);
+        tools.Add(JournalUi.Tool("action_saved.svg", "JournalSave", SaveAsync, true), memory.IsFree ? 2 : 1);
         var footer = new VerticalStackLayout { Padding = new Thickness(22, 8, 22, 16), Spacing = 8,
             Children = { status, tools } };
         footer.BackgroundColor = Color.FromArgb("#FFFCF8");
@@ -262,24 +267,44 @@ public sealed class JournalMemoryPage : JournalScopedPage
         photos.Clear();
         if (memory.HasConflict) photos.Add(JournalUi.Action("JournalCompare", ResolveAsync));
         photos.Add(JournalUi.Text(JournalText.Format("JournalPhotosLimit", memory.Images.Length), 12));
-        var gallery = new FlexLayout { Wrap = Microsoft.Maui.Layouts.FlexWrap.Wrap };
+        var gallery = new FlexLayout { Wrap = Microsoft.Maui.Layouts.FlexWrap.Wrap,
+            AlignItems = Microsoft.Maui.Layouts.FlexAlignItems.Start,
+            AlignContent = Microsoft.Maui.Layouts.FlexAlignContent.Start };
         for (var i = 0; i < memory.Images.Length; i++) {
             var index = i; var photo = memory.Images[i]; var bytes = await store.PhotoAsync(scope, photo.Id, true);
-            var tile = new VerticalStackLayout { WidthRequest = 100, Margin = new Thickness(0, 0, 8, 8) };
+            if (!store.IsCurrent(scope)) return;
+            var tile = new Grid { WidthRequest = 100, HeightRequest = 156, RowSpacing = 8,
+                RowDefinitions = [new(new GridLength(100)), new(new GridLength(48))],
+                Margin = new Thickness(0, 0, 8, 8), VerticalOptions = LayoutOptions.Start };
+            FlexLayout.SetAlignSelf(tile, Microsoft.Maui.Layouts.FlexAlignSelf.Start);
             var image = JournalUi.Icon("journal_photo.svg", JournalText.Format("JournalPhotoNumber", i + 1, memory.Images.Length),
                 () => Navigation.PushModalAsync(new JournalPhotoPage(scope, memory, index)));
             image.WidthRequest = 100; image.HeightRequest = 100; image.Padding = 0; image.Aspect = Aspect.AspectFill;
             if (bytes is not null) image.Source = ImageSource.FromStream(() => new MemoryStream(bytes));
-            tile.Add(image);
-            tile.Add(JournalUi.Icon(photo.Id == memory.CoverId ? "expense_check.svg" : "journal_cover.svg",
+            tile.Add(new Border { StrokeThickness = 0, Padding = 0,
+                StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = new CornerRadius(10) },
+                Content = image });
+            var controls = new Grid { ColumnDefinitions = [new(new GridLength(48)), new(new GridLength(48))], ColumnSpacing = 4 };
+            var coverAction = JournalUi.Icon(photo.Id == memory.CoverId ? "expense_check.svg" : "journal_cover.svg",
                 JournalText.Get(photo.Id == memory.CoverId ? "JournalCover" : "JournalSetCover"), async () => {
-                if (busy) return; memory = Snapshot() with { CoverId = photo.Id }; dirty = true; await PersistAsync(); await RenderPhotosAsync(); }));
-            tile.Add(JournalUi.Icon("action_delete.svg", JournalText.Get("JournalRemovePhoto"), async () => {
-                if (busy || !await DisplayAlertAsync(JournalText.Get("JournalRemovePhoto"), JournalText.Get("JournalOriginalKept"), JournalText.Get("JournalRemove"), JournalText.Get("JournalCancel"))) return;
-                var remaining = memory.Images.Where(x => x.Id != photo.Id).ToArray();
-                memory = Snapshot() with { Photos = remaining, CoverId = memory.CoverId == photo.Id ? remaining.FirstOrDefault()?.Id : memory.CoverId };
-                dirty = true; await PersistAsync(); await RenderPhotosAsync();
-            }));
+                if (busy || !store.IsCurrent(scope)) return;
+                busy = true;
+                try { memory = Snapshot() with { CoverId = photo.Id }; dirty = true; await PersistAsync(); await RenderPhotosAsync(); }
+                finally { busy = false; } });
+            coverAction.BackgroundColor = photo.Id == memory.CoverId ? JournalUi.Ink : Colors.Transparent;
+            coverAction.CornerRadius = 12;
+            controls.Add(coverAction);
+            controls.Add(JournalUi.Icon("action_delete.svg", JournalText.Get("JournalRemovePhoto"), async () => {
+                if (busy || !store.IsCurrent(scope)) return;
+                busy = true;
+                try {
+                    if (!await DisplayAlertAsync(JournalText.Get("JournalRemovePhoto"), JournalText.Get("JournalOriginalKept"), JournalText.Get("JournalRemove"), JournalText.Get("JournalCancel")) || !store.IsCurrent(scope)) return;
+                    var remaining = memory.Images.Where(x => x.Id != photo.Id).ToArray();
+                    memory = Snapshot() with { Photos = remaining, CoverId = memory.CoverId == photo.Id ? remaining.FirstOrDefault()?.Id : memory.CoverId };
+                    dirty = true; await PersistAsync(); await RenderPhotosAsync();
+                } finally { busy = false; }
+            }), 1);
+            tile.Add(controls, 0, 1);
             gallery.Children.Add(tile);
         }
         photos.Add(gallery);

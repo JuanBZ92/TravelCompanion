@@ -856,4 +856,13 @@ A tu manera.</value></data>
   <data name="UXAuditOpenStayForDate" xml:space="preserve"><value>Abrir {1} en Google Maps · {0}</value></data>
   <data name="PlannerDurationSelected" xml:space="preserve"><value>{0}, seleccionado</value></data>
   <data name="PlannerReplacementChanged" xml:space="preserve"><value>La propuesta cambió. Revisa las ideas actualizadas antes de guardarlas.</value></data>
+  <data name="UxCurrentSection" xml:space="preserve"><value>Sección actual</value></data>
+  <data name="AssistantConversationStarterSchedule" xml:space="preserve"><value>¿Qué tengo reservado este día?</value></data>
+  <data name="AssistantConversationStarterNearby" xml:space="preserve"><value>¿Qué puedo hacer cerca?</value></data>
+  <data name="AssistantConversationStarterHelp" xml:space="preserve"><value>¿Cómo puedes ayudarme?</value></data>
+  <data name="AssistantConversationStarterHint" xml:space="preserve"><value>Completa tu pregunta y toca Enviar.</value></data>
+  <data name="AssistantConversationMessagePlaceholder" xml:space="preserve"><value>Escribe tu pregunta…</value></data>
+  <data name="JournalAddingPhotos" xml:space="preserve"><value>Añadiendo fotos…</value></data>
+  <data name="JournalDraftPhotoLimit" xml:space="preserve"><value>El borrador de este recuerdo ya tiene 10 fotos. Edita o descarta el borrador antes de añadir más.</value></data>
+  <data name="AssistantConversationThinking" xml:space="preserve"><value>Preparando una respuesta…</value></data>
 </root>

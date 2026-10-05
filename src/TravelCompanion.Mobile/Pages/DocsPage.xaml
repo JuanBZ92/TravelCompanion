@@ -98,7 +98,7 @@
         </DataTemplate>
         <DataTemplate x:Key="HotelRow" x:DataType="viewModels:HotelItemViewModel">
             <VerticalStackLayout Margin="24,0,24,12" Spacing="6" Padding="0,16">
-                <BoxView HeightRequest="1" Color="{StaticResource Line}" Margin="0,0,0,10" />
+                <BoxView HeightRequest="1" Color="{StaticResource EditorialLine}" BackgroundColor="Transparent" Margin="0,0,0,10" />
                 <Label Text="{Binding City}" FontSize="11" CharacterSpacing="3" TextColor="#9B9288" />
                 <Label Text="{Binding Name}" FontSize="21" FontFamily="serif" TextColor="{StaticResource Ink}" LineBreakMode="WordWrap" />
                 <Label Text="{Binding DateRange}" Style="{StaticResource Metadata}" />
@@ -148,7 +148,7 @@
                            CharacterSpacing="3" SemanticProperties.HeadingLevel="Level2" />
                 </DataTemplate>
             </CollectionView.GroupHeaderTemplate>
-            <CollectionView.Footer><BoxView HeightRequest="24" Color="Transparent" /></CollectionView.Footer>
+            <CollectionView.Footer><Grid HeightRequest="24" BackgroundColor="Transparent" /></CollectionView.Footer>
         </CollectionView>
     </RefreshView>
     </Grid>

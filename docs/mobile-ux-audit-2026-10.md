@@ -288,3 +288,104 @@ Las métricas Debug actuales no son una comparación controlada: Viaje pasó de 
 ## Revisión posterior de la franja continua de fechas
 
 Una fase local posterior reemplaza el selector de tres posiciones por una franja horizontal de todas las fechas: recorrerla no selecciona ni carga días, y activar un botón elige la fecha explícitamente. La [validación de la franja continua](day-planner-refinement.md#revisión-posterior-franja-continua-de-fechas-local-sin-push) registra la fixture de treinta días, 399 pruebas móviles, llamadas observadas, correcciones de altura/ancho al 200 % y el estado de la revisión nativa v124. El histórico v120 anterior conserva su cobertura; esta fase no amplía por sí sola las comprobaciones de TalkBack, Release, otros anchos ni las ediciones pendientes.
+
+## Botones de Viaje, conversación y fotos de Journal
+
+Esta fase modifica exclusivamente el cliente móvil. Viaje presenta botones con
+borde y relleno de selección; su cabecera permite desplazamiento horizontal cuando
+la fuente ampliada necesita más ancho. El modo de conversación del Asistente
+organiza fecha, preguntas sugeridas, mensajes y un único compositor con envío por
+icono o teclado. Las sugerencias rellenan el mensaje antes de enviarlo. Se
+conservan comandos, contexto, permisos y menú secundario.
+
+La franja negra de Documentos se reprodujo con una cuenta sintética incluso sin
+documentos: el espaciador `BoxView` heredaba un `BackgroundColor` oscuro del estilo
+global. Se reemplazó por un `Grid` transparente y se explicitó el fondo del
+separador de hoteles. No se accedió a los documentos personales de la cuenta 3333.
+
+El lector de Journal coloca miniaturas cuadradas después del texto y abre el visor
+modal existente. «Añadir fotos» abre directamente el selector, conserva el texto,
+la revisión y los cambios pendientes, y guarda los archivos cifrados localmente.
+Si existe un borrador del mismo recuerdo, añade las referencias también a ese
+borrador sin sustituir su contenido. Se conserva el límite de diez fotos y la
+portada usada en otros contextos. Los fallos revierten las escrituras del lote;
+si también falla la reversión del borrador se mantienen sus archivos recuperables.
+El editor sitúa portada y eliminación en controles de 48 dp inmediatamente bajo
+cada miniatura, y distribuye las acciones inferiores en columnas con etiquetas
+ajustables al tamaño de fuente.
+
+La suite móvil aprobó **414/414 pruebas**, sin omisiones
+(`artifacts/ux-polish-20261005/mobile-tests.log`). Incluye 35 pruebas de
+`JournalStore`: límites, concurrencia, conservación de notas/conflictos/borradores,
+cambios de cuenta/viaje y fallos de almacenamiento. Las pruebas de lógica no
+sustituyen la comprobación de XAML o de los selectores nativos. No se cambiaron
+API, contratos ni esquema de base de datos.
+
+Se utilizó el Samsung físico de 384 dp, una API local en 5188 con OpenAI desactivado
+y datos sintéticos, y el paquete separado
+`com.yuku.travelcompanion.plannerpaidreview`. Las revisiones v125/v126 conservaron
+los datos de QA; la instalación habitual `com.yuku.travelcompanion.app` v116 se
+mantuvo intacta. La autenticación de la cuenta sintética se hizo por PIN.
+
+| Recorrido nativo | Resultado observado | Evidencia local |
+|---|---|---|
+| Viaje ES, tamaño normal | Alternar Itinerario, Carpeta y Gastos; selección con relleno y borde. | `trip-tabs-v125.png`, `trip-expenses-v125.png`, `trip-folder-v125.png`. |
+| Documentos | Reproducción de la franja negra y desaparición tras actualizar QA, con el mismo estado vacío. | `documents-before.png`, `documents-after-v125.png`. |
+| Journal: adjuntar y cancelar | El selector abre desde el lector; cancelar conserva la entrada. Seleccionar dos PNG sintéticos vuelve al lector con dos miniaturas y el mismo texto, sin editor. | `journal-picker-cancel-v125.png`, `journal-direct-photos-v125.png`. |
+| Journal: abrir y eliminar | Miniatura abre modal; cancelar eliminación conserva la foto; confirmar elimina una; guardar y volver actualiza el contador. La actualización v126 conserva la foto restante. | `journal-photo-modal-v125.png`, `journal-editor-removed-v125.png`, `journal-reading-v126.png`. |
+| Editor y portada | Controles situados a 8 dp de la imagen, con 48 dp de área táctil; portada seleccionada con contraste visible. | `journal-editor-v126.png`. |
+| Asistente y teclado | Pregunta sugerida rellena y enfoca sin enviar; enviar desde teclado devuelve respuesta local; compositor visible con teclado; menú conserva agenda/preferencias/ayuda. | `assistant-question-empty-v125.png`, `assistant-keyboard-v125.png`, `assistant-answer-v125.png`, `assistant-menu-v125.png`. |
+| EN y texto ampliado | Lista y lector de Journal en inglés al 200 %, sin pérdida de la nota ni de su foto. | `journal-list-en-200-v126.png`, `journal-reading-en-200-v126.png`. |
+| Cabecera de Viaje al 200 % | Botones sin palabras partidas; desplazamiento horizontal hasta Gastos y selección de Gastos/Carpeta. | `trip-tabs-en-200-v128.png`, `trip-tabs-en-200-scroll-v128.png`, `trip-expenses-en-200-v128.png`, `trip-folder-en-200-v128.png`. |
+| Editor al 200 % | Las tres acciones inferiores permanecen visibles; controles de portada/eliminación justo debajo de la miniatura. | `journal-editor-en-200-v128.png`, `journal-editor-photo-controls-en-200-v128.png`. |
+| Sugerencias al 200 % | Se pueden recorrer las tres sugerencias completas, con ajuste de texto y compositor visible. | `assistant-suggestions-en-200-v128.png`. Los dos textos EN se ajustaron posteriormente para ser reconocidos por el clasificador. |
+| Foto con conexión ADB retirada | La foto cifrada y el modal siguen disponibles al retirar la conexión ADB. La conexión se restableció después. | `journal-photo-modal-no-backend-en-v126.png`. Este recorrido no prueba por sí solo el cierre de conexiones HTTP ya abiertas. |
+| Sugerencias definitivas EN | Los dos textos actualizados se leen completos al 200 %; elegir agenda y enviar desde el teclado devuelve la agenda del día, en inglés. | `assistant-starters-en-200-v129.png`, `assistant-starter-answer-en-200-v129.png`. |
+| Sin API en v129 | Se detuvo la API local y se comprobó que 5188 ya no tenía listener. Journal abre desde otra pestaña con dos recuerdos y una foto; el lector y su modal cargan la foto local. | `journal-offline-list-es-v129.png`, `journal-reading-offline-es-v129.png`, `journal-photo-offline-es-v129.png`. |
+
+La revisión al 200 % encontró palabras partidas en la cabecera de Viaje,
+sugerencias truncadas y «Guardar» fuera de la pantalla en el editor. Se corrigieron
+con desplazamiento horizontal, ajuste de texto y columnas, respectivamente.
+Las comprobaciones de v128 en la tabla acreditan estas tres correcciones. La
+revisión EN encontró además dos sugerencias sin señales reconocidas por el
+clasificador existente. Se adaptaron sus textos; **62/62 pruebas de
+`TravelChatIntentClassifierTests`** aprobaron, incluyendo las seis sugerencias
+ES/EN, sin cambiar las reglas del backend. La comprobación nativa de v129 acredita
+los dos textos actualizados y la respuesta de agenda.
+No se acredita perfil Release, otros anchos, anuncios hablados de TalkBack
+ni sincronización de fotos en nube: las fotos siguen siendo locales.
+
+El cierre QA usa `artifacts/ux-polish-20261005/Yuku-Planner-QA-v129.apk`,
+93.541.664 bytes, SHA-256
+`3873266176D568C16C35D1AAF9F370CD774FD654F6C13081AFD9566AFE855DB6`.
+La compilación Android terminó con cero advertencias y errores; se verificaron
+paquete, versión y firma y se instaló con `-r`, conservando los datos QA.
+Log: `android-build-v129.log`. Al terminar se restauraron la fuente a 1,0,
+los locales de QA a `[]` y el ajuste de pantalla activa original; se retiró la
+conexión ADB de 5188 y se detuvo únicamente la API creada para esta revisión.
+
+### Publicación de la app habitual v117
+
+El usuario autorizó después publicar en `main` e instalar la app habitual. Se
+incrementó la versión Android a 117 y se ejecutó
+`dotnet publish src/TravelCompanion.Mobile/TravelCompanion.Mobile.csproj -f net10.0-android -c Release --no-restore --verbosity minimal -p:AndroidPackageFormat=apk -p:TravelCompanionApiBaseUrl=https://travelcompanion-api-57dw.onrender.com`.
+La publicación terminó con exit 0; mantuvo las 203 advertencias XC0025 ya
+registradas en v116. La compilación de bindings con `Source` sigue deshabilitada
+según las instrucciones del proyecto. El atributo de ensamblado generado confirma
+el backend habitual. No se requieren migraciones ni cambios de configuración.
+
+La APK `artifacts/ux-polish-20261005/YUKU-Japan-117-ux.apk` mide 40.067.701 bytes;
+SHA-256 `623DE1950E5FC95976F4695967D957F3C455FF455D3F8B01B9B2436EF7FD7759`.
+Se verificaron versión 117, paquete `com.yuku.travelcompanion.app`, ARM64/x86_64,
+ausencia de marca debuggable y firma v1/v2/v3. El certificado SHA-256
+`d69a6cf0fcd1a96867f619c3222b2d1e936db07637c275c306a0de1e88f50cf2` coincide
+con la APK extraída de la instalación habitual justo antes de actualizarla.
+
+`adb -s R5GL84VBTWJ install --no-incremental -r` devolvió `Success`; Android
+confirma versión 117 y conserva `firstInstallTime=2026-09-25 18:48:34`.
+El arranque de la actividad devolvió `Status: ok`. No se desinstaló ni se borraron
+datos personales. La revisión detallada de las pantallas corresponde a QA con
+datos sintéticos; en la instalación habitual se comprobó actualización y arranque.
+Logs y metadatos: `android-publish-v117.log`, `badging-release-v117.log`,
+`signature-release-v117.log`, `install-release-v117.log`, `start-release-v117.log`
+en `artifacts/ux-polish-20261005/`.

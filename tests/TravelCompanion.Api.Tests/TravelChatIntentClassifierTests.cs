@@ -7,6 +7,21 @@ public sealed class TravelChatIntentClassifierTests
     private readonly TravelChatIntentClassifier _classifier = new();
 
     [Theory]
+    [InlineData("¿Qué tengo reservado este día?", TravelChatIntents.ViewSchedule)]
+    [InlineData("What is on my schedule for this day?", TravelChatIntents.ViewSchedule)]
+    [InlineData("¿Qué puedo hacer cerca?", TravelChatIntents.Plan)]
+    [InlineData("What plans do you recommend nearby?", TravelChatIntents.Plan)]
+    [InlineData("¿Cómo puedes ayudarme?", TravelChatIntents.Help)]
+    [InlineData("How can you help me?", TravelChatIntents.Help)]
+    public void Classify_routes_conversation_starters_in_both_languages(string message, string expectedIntent)
+    {
+        var result = _classifier.Classify(message);
+
+        Assert.Equal(expectedIntent, result.Intent);
+        Assert.True(result.IsSupported);
+    }
+
+    [Theory]
     [InlineData("proponme un plan")]
     [InlineData("dime un plan")]
     [InlineData("quiero un plan")]

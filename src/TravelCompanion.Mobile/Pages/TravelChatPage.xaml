@@ -27,33 +27,46 @@
     </ContentPage.Resources>
 
     <Grid>
-    <Grid Padding="28,26,28,0" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="8"
+    <Grid Padding="24,16,24,0" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="10"
           InputTransparent="{Binding HasSelectedDetailCard}"
           IsVisible="{Binding ShowAssistantConversation}">
-        <Grid ColumnDefinitions="48,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="4">
-            <Button Text="‹" Command="{Binding ReturnAssistantHomeCommand}"
-                    BackgroundColor="Transparent" TextColor="{StaticResource Ink}" FontSize="28"
-                    SemanticProperties.Description="{Binding AssistantBackHome}"
-                    MinimumWidthRequest="48" MinimumHeightRequest="48" />
-            <VerticalStackLayout Grid.Column="1" Spacing="6">
+        <Grid ColumnDefinitions="48,*,48" RowDefinitions="Auto,Auto" ColumnSpacing="6" RowSpacing="10">
+            <ImageButton Source="planner_back.svg" Command="{Binding ReturnAssistantHomeCommand}"
+                         Style="{StaticResource AssistantIconAction}"
+                         SemanticProperties.Description="{Binding AssistantBackHome}" />
+            <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
                 <Label Text="{Binding AssistantEyebrow}"
-                       CharacterSpacing="6" FontSize="11" FontAttributes="Bold"
-                       TextColor="#8E867D" />
-                <Label Text="{Binding AssistantTitle}" FontFamily="serif" FontSize="34"
-                       SemanticProperties.HeadingLevel="Level1" TextColor="#1A1714" />
+                       CharacterSpacing="1" FontSize="9" TextColor="{StaticResource Muted}" />
+                <Label Text="{Binding AssistantTitle}" FontFamily="serif" FontSize="28"
+                       SemanticProperties.HeadingLevel="Level1" TextColor="{StaticResource Ink}" />
             </VerticalStackLayout>
-            <VerticalStackLayout Grid.Row="1" Grid.Column="1" Spacing="2">
-                <DatePicker Date="{Binding PlanningDate}"
-                            DateSelected="OnAssistantDateSelected"
-                            MinimumDate="{Binding AssistantMinimumDate}"
-                            MaximumDate="{Binding AssistantMaximumDate}"
-                            IsEnabled="{Binding IsNotBusy}"
-                            FontSize="14" TextColor="{StaticResource Ink}"
-                            MinimumHeightRequest="48" HorizontalOptions="Fill"
-                            SemanticProperties.Description="{Binding AssistantChooseDate}" />
+            <ImageButton Grid.Column="2" Source="itinerary_menu.svg"
+                         Command="{Binding ToggleSecondaryMenuCommand}"
+                         Style="{StaticResource AssistantIconAction}"
+                         SemanticProperties.Description="{Binding MenuText}" />
+            <VerticalStackLayout Grid.Row="1" Grid.ColumnSpan="3" Spacing="4">
+                <Border Padding="12,6" BackgroundColor="{StaticResource Paper}" Stroke="{StaticResource Line}">
+                    <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
+                    <Grid ColumnDefinitions="28,*,Auto" ColumnSpacing="10">
+                        <Image Source="tab_trip.svg" WidthRequest="24" HeightRequest="24" VerticalOptions="Center"
+                               AutomationProperties.IsInAccessibleTree="False" />
+                        <VerticalStackLayout Grid.Column="1" Spacing="0">
+                            <Label Text="{Binding AssistantForDay}" FontSize="9" CharacterSpacing="1"
+                                   TextColor="{StaticResource Muted}" />
+                            <DatePicker Date="{Binding PlanningDate}" Format="ddd d MMMM"
+                                        DateSelected="OnAssistantDateSelected" HandlerChanged="OnConversationInputHandlerChanged"
+                                        MinimumDate="{Binding AssistantMinimumDate}" MaximumDate="{Binding AssistantMaximumDate}"
+                                        IsEnabled="{Binding IsNotBusy}" FontSize="14" TextColor="{StaticResource Ink}"
+                                        MinimumHeightRequest="48" HorizontalOptions="Fill"
+                                        SemanticProperties.Description="{Binding AssistantChooseDate}" />
+                        </VerticalStackLayout>
+                        <Label Grid.Column="2" Text="⌄" FontSize="22" TextColor="{StaticResource Muted}"
+                               VerticalOptions="Center" InputTransparent="True" AutomationProperties.IsInAccessibleTree="False" />
+                    </Grid>
+                </Border>
                 <Label Text="{Binding LastUpdatedMessage}"
                        IsVisible="{Binding HasLastUpdated}"
-                       FontSize="11"
+                       Margin="4,0" FontSize="10"
                        TextColor="{StaticResource Muted}" />
             </VerticalStackLayout>
         </Grid>
@@ -352,41 +365,61 @@
                 </CollectionView.ItemTemplate>
             </CollectionView>
 
-            <VerticalStackLayout Grid.Row="1" IsVisible="{Binding ShowEmptyState}"
-                                 Spacing="12" Margin="8,0,8,0">
-                <Label Text="{Binding AssistantConversationPrompt}" FontFamily="serif"
-                       FontSize="26" TextColor="{StaticResource Ink}"
-                       SemanticProperties.HeadingLevel="Level2" />
-                <Label Text="{Binding AssistantConversationHelp}" FontSize="14"
-                       LineHeight="1.4" TextColor="{StaticResource Muted}" />
-            </VerticalStackLayout>
+            <ScrollView Grid.Row="1" IsVisible="{Binding ShowEmptyState}" VerticalScrollBarVisibility="Never">
+                <Border Padding="20,20" Margin="0,8,0,12" BackgroundColor="{StaticResource Paper}"
+                        Stroke="{StaticResource Line}" VerticalOptions="Start">
+                    <Border.StrokeShape><RoundRectangle CornerRadius="18" /></Border.StrokeShape>
+                    <VerticalStackLayout Spacing="12">
+                        <Border WidthRequest="44" HeightRequest="44" Padding="10" HorizontalOptions="Start"
+                                BackgroundColor="{StaticResource AccentSoft}" StrokeThickness="0">
+                            <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
+                            <Image Source="tab_ideas.svg" AutomationProperties.IsInAccessibleTree="False" />
+                        </Border>
+                        <Label Text="{Binding AssistantConversationPrompt}" FontFamily="serif"
+                               FontSize="24" TextColor="{StaticResource Ink}"
+                               SemanticProperties.HeadingLevel="Level2" />
+                        <Label Text="{Binding AssistantConversationHelp}" FontSize="14"
+                               LineHeight="1.35" TextColor="{StaticResource Muted}" />
+                        <VerticalStackLayout Spacing="8" Margin="0,4,0,0">
+                            <Button Text="{Binding AssistantConversationStarterSchedule}"
+                                    LineBreakMode="WordWrap"
+                                    CommandParameter="{Binding AssistantConversationStarterSchedule}"
+                                    Clicked="OnConversationStarterClicked" Style="{StaticResource GhostButton}"
+                                    SemanticProperties.Hint="{Binding AssistantConversationStarterHint}"
+                                    BackgroundColor="{StaticResource AccentSoft}" BorderWidth="1" BorderColor="{StaticResource Line}"
+                                    CornerRadius="12" TextColor="{StaticResource Ink}" FontSize="13"
+                                    Padding="12,10" MinimumHeightRequest="48" HorizontalOptions="Fill" />
+                            <Button Text="{Binding AssistantConversationStarterNearby}"
+                                    LineBreakMode="WordWrap"
+                                    CommandParameter="{Binding AssistantConversationStarterNearby}"
+                                    Clicked="OnConversationStarterClicked" Style="{StaticResource GhostButton}"
+                                    SemanticProperties.Hint="{Binding AssistantConversationStarterHint}"
+                                    BackgroundColor="{StaticResource AccentSoft}" BorderWidth="1" BorderColor="{StaticResource Line}"
+                                    CornerRadius="12" TextColor="{StaticResource Ink}" FontSize="13"
+                                    Padding="12,10" MinimumHeightRequest="48" HorizontalOptions="Fill" />
+                            <Button Text="{Binding AssistantConversationStarterHelp}"
+                                    LineBreakMode="WordWrap"
+                                    CommandParameter="{Binding AssistantConversationStarterHelp}"
+                                    Clicked="OnConversationStarterClicked" Style="{StaticResource GhostButton}"
+                                    SemanticProperties.Hint="{Binding AssistantConversationStarterHint}"
+                                    BackgroundColor="{StaticResource AccentSoft}" BorderWidth="1" BorderColor="{StaticResource Line}"
+                                    CornerRadius="12" TextColor="{StaticResource Ink}" FontSize="13"
+                                    Padding="12,10" MinimumHeightRequest="48" HorizontalOptions="Fill" />
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </Border>
+            </ScrollView>
 
         </Grid>
 
-        <VerticalStackLayout Grid.Row="3" Spacing="8" Padding="0,0,0,10">
-            <BoxView HeightRequest="1" HorizontalOptions="Fill"
-                     BackgroundColor="{StaticResource Line}" />
-            <FlexLayout Direction="Row" Wrap="Wrap" AlignItems="Center">
-                <Button Text="{Binding WriteRequestText, StringFormat='✎  {0}'}"
-                        Command="{Binding ToggleFreeTextCommand}"
-                        SemanticProperties.Description="{Binding WriteRequestText}"
-                        TextColor="{StaticResource Accent}"
-                        BackgroundColor="Transparent"
-                        BorderWidth="0"
-                        FontSize="13"
-                        Padding="8,6"
-                        MinimumHeightRequest="48" Margin="0,0,8,6" />
-                <Button Text="{Binding MenuText, StringFormat='•••  {0}'}"
-                        Command="{Binding ToggleSecondaryMenuCommand}"
-                        SemanticProperties.Description="{Binding MenuText}"
-                        TextColor="{StaticResource Accent}"
-                        BackgroundColor="Transparent"
-                        BorderWidth="0"
-                        FontSize="13"
-                        Padding="8,6"
-                        MinimumHeightRequest="48" Margin="0,0,8,6" />
-            </FlexLayout>
-
+        <VerticalStackLayout Grid.Row="3" Spacing="8" Padding="0,4,0,10">
+            <Grid ColumnDefinitions="24,*" ColumnSpacing="8" Padding="4,4"
+                  IsVisible="{Binding ShowGlobalLoading}">
+                <ActivityIndicator IsRunning="{Binding ShowGlobalLoading}" Color="{StaticResource Accent}"
+                                   WidthRequest="20" HeightRequest="20" VerticalOptions="Center" />
+                <Label Grid.Column="1" Text="{Binding AssistantConversationThinking}" FontSize="12"
+                       TextColor="{StaticResource Muted}" VerticalOptions="Center" />
+            </Grid>
             <FlexLayout Direction="Row"
                         Wrap="Wrap"
                         IsVisible="{Binding IsSecondaryMenuVisible}"
@@ -405,24 +438,32 @@
                 </BindableLayout.ItemTemplate>
             </FlexLayout>
 
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10" IsVisible="{Binding IsFreeTextVisible}">
-                <Border Padding="12,0" BackgroundColor="{StaticResource AccentSoft}"
-                        Stroke="#D8CFC4" StrokeThickness="1">
-                    <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
-                    <Entry Text="{Binding MessageText}"
-                           Placeholder="{Binding MessagePlaceholder}"
-                           ReturnCommand="{Binding SendMessageCommand}"
-                           TextColor="{StaticResource Ink}"
-                           PlaceholderColor="{StaticResource Muted}"
-                           FontSize="14" />
-                </Border>
-                <Button Grid.Column="1" Text="{Binding SendButtonText}"
-                        Command="{Binding SendMessageCommand}"
-                        TextColor="{StaticResource Paper}"
-                        BackgroundColor="{StaticResource Accent}"
-                        FontSize="14" Padding="16,10"
-                        MinimumWidthRequest="74" MinimumHeightRequest="48" />
-            </Grid>
+            <Button Text="{Binding WriteRequestText, StringFormat='✎  {0}'}"
+                    Clicked="OnWriteConversationClicked" Style="{StaticResource GhostButton}"
+                    BorderWidth="1" BorderColor="{StaticResource Line}" CornerRadius="12"
+                    MinimumHeightRequest="48" FontSize="13" TextColor="{StaticResource Accent}">
+                <Button.Triggers>
+                    <DataTrigger TargetType="Button" Binding="{Binding IsFreeTextVisible}" Value="True">
+                        <Setter Property="IsVisible" Value="False" />
+                    </DataTrigger>
+                </Button.Triggers>
+            </Button>
+            <Border Padding="10,6" BackgroundColor="{StaticResource Paper}"
+                    Stroke="{StaticResource Line}" StrokeThickness="1" IsVisible="{Binding IsFreeTextVisible}">
+                <Border.StrokeShape><RoundRectangle CornerRadius="18" /></Border.StrokeShape>
+                <Grid ColumnDefinitions="*,48" ColumnSpacing="8">
+                    <Entry x:Name="ConversationMessageInput" Text="{Binding MessageText}"
+                           Placeholder="{Binding AssistantConversationMessagePlaceholder}"
+                           ReturnType="Send" ReturnCommand="{Binding SendMessageCommand}"
+                           HandlerChanged="OnConversationInputHandlerChanged"
+                           BackgroundColor="Transparent" TextColor="{StaticResource Ink}"
+                           PlaceholderColor="{StaticResource Muted}" MinimumHeightRequest="48" FontSize="14" />
+                    <ImageButton Grid.Column="1" Source="today_arrow.svg"
+                                 Command="{Binding SendMessageCommand}" Style="{StaticResource AssistantIconAction}"
+                                 BackgroundColor="{StaticResource Accent}" CornerRadius="14" VerticalOptions="Center"
+                                 SemanticProperties.Description="{Binding SendButtonText}" ToolTipProperties.Text="{Binding SendButtonText}" />
+                </Grid>
+            </Border>
         </VerticalStackLayout>
     </Grid>
 

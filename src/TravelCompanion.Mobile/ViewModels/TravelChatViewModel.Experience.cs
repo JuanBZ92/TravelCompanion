@@ -78,6 +78,12 @@ public sealed partial class TravelChatViewModel
     public string AssistantAskAboutDay => Resource("AssistantAskAboutDay");
     public string AssistantConversationPrompt => Resource("AssistantConversationPrompt");
     public string AssistantConversationHelp => Resource("AssistantConversationHelp");
+    public string AssistantConversationStarterSchedule => Resource("AssistantConversationStarterSchedule");
+    public string AssistantConversationStarterNearby => Resource("AssistantConversationStarterNearby");
+    public string AssistantConversationStarterHelp => Resource("AssistantConversationStarterHelp");
+    public string AssistantConversationStarterHint => Resource("AssistantConversationStarterHint");
+    public string AssistantConversationMessagePlaceholder => Resource("AssistantConversationMessagePlaceholder");
+    public string AssistantConversationThinking => Resource("AssistantConversationThinking");
     public string AssistantAnotherOption => Resource("AssistantAnotherOption");
     public string AssistantAdjust => Resource("AssistantAdjust");
     public string AssistantClose => Resource("AssistantClose");
@@ -163,6 +169,12 @@ public sealed partial class TravelChatViewModel
         OnPropertyChanged(nameof(AssistantAskAboutDay));
         OnPropertyChanged(nameof(AssistantConversationPrompt));
         OnPropertyChanged(nameof(AssistantConversationHelp));
+        OnPropertyChanged(nameof(AssistantConversationStarterSchedule));
+        OnPropertyChanged(nameof(AssistantConversationStarterNearby));
+        OnPropertyChanged(nameof(AssistantConversationStarterHelp));
+        OnPropertyChanged(nameof(AssistantConversationStarterHint));
+        OnPropertyChanged(nameof(AssistantConversationMessagePlaceholder));
+        OnPropertyChanged(nameof(AssistantConversationThinking));
         OnPropertyChanged(nameof(AssistantAnotherOption));
         OnPropertyChanged(nameof(AssistantAdjust));
         OnPropertyChanged(nameof(AssistantClose));

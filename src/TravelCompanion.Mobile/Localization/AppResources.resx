@@ -856,4 +856,13 @@ Your way.</value></data>
   <data name="UXAuditOpenStayForDate" xml:space="preserve"><value>Open {1} in Google Maps · {0}</value></data>
   <data name="PlannerDurationSelected" xml:space="preserve"><value>{0}, selected</value></data>
   <data name="PlannerReplacementChanged" xml:space="preserve"><value>The proposal changed. Review the updated ideas before saving.</value></data>
+  <data name="UxCurrentSection" xml:space="preserve"><value>Current section</value></data>
+  <data name="AssistantConversationStarterSchedule" xml:space="preserve"><value>What is on my schedule for this day?</value></data>
+  <data name="AssistantConversationStarterNearby" xml:space="preserve"><value>What plans do you recommend nearby?</value></data>
+  <data name="AssistantConversationStarterHelp" xml:space="preserve"><value>How can you help me?</value></data>
+  <data name="AssistantConversationStarterHint" xml:space="preserve"><value>Edit your question, then tap Send.</value></data>
+  <data name="AssistantConversationMessagePlaceholder" xml:space="preserve"><value>Write your question…</value></data>
+  <data name="JournalAddingPhotos" xml:space="preserve"><value>Adding photos…</value></data>
+  <data name="JournalDraftPhotoLimit" xml:space="preserve"><value>This memory’s draft already has 10 photos. Edit or discard the draft before adding more.</value></data>
+  <data name="AssistantConversationThinking" xml:space="preserve"><value>Preparing a reply…</value></data>
 </root>

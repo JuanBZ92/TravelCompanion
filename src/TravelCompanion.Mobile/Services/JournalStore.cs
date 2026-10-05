@@ -166,27 +166,94 @@ public sealed partial class JournalStore(OfflineCacheService cache, AuthSessionS
 
     public async Task AddPhotosAsync(JournalScope scope, JournalMemory entry, IEnumerable<FileResult> files)
     {
-        foreach (var file in files)
+        await AddPhotoBatchAsync(scope, entry, files, false);
+    }
+
+    // Attaching from the reader changes only local photo metadata, never confirmed notes or sync mutations.
+    public Task<JournalMemory> AddConfirmedPhotosAsync(JournalScope scope, JournalMemory entry, IEnumerable<FileResult> files) =>
+        AddPhotoBatchAsync(scope, entry, files, true);
+
+    private async Task<JournalMemory> AddPhotoBatchAsync(JournalScope scope, JournalMemory entry,
+        IEnumerable<FileResult> files, bool requireConfirmed)
+    {
+        Check(scope);
+        if (entry.Note.TripId != scope.TripId || (entry.FreeEntry is { } free && free.TripId != scope.TripId))
+            throw new OperationCanceledException();
+        var normalized = new List<JournalImageData>();
+        foreach (var file in files.Take(Math.Max(0, 10 - entry.Images.Length)))
         {
             Check(scope);
             await using var input = await file.OpenReadAsync();
-            var photo = await JournalMedia.NormalizeAsync(input);
-            await gate.WaitAsync();
-            try
+            normalized.Add(await JournalMedia.NormalizeAsync(input));
+            Check(scope);
+        }
+        if (normalized.Count == 0) return entry;
+        await gate.WaitAsync();
+        var created = new List<Guid>();
+        List<JournalDraft>? previousDrafts = null;
+        var draftWritten = false;
+        try
+        {
+            Check(scope);
+            var entries = (await ReadAsync(scope, default)).ToList();
+            Check(scope);
+            var index = entries.FindIndex(x => x.Key == entry.Key);
+            var current = index >= 0 ? entries[index] : entry;
+            if (current.Deleted || current.DeletePending is not null ||
+                (requireConfirmed && (index < 0 || current.IsDraft)))
+                throw new InvalidOperationException(JournalText.Get("JournalDeleted"));
+            var drafts = requireConfirmed ? (await ReadDraftsAsync(scope, default)).ToList() : [];
+            Check(scope);
+            var draftIndex = drafts.FindIndex(x => x.Memory.Key == current.Key);
+            var remaining = Math.Max(0, 10 - current.Images.Length);
+            if (draftIndex >= 0)
+            {
+                var draftRemaining = Math.Max(0, 10 - drafts[draftIndex].Memory.Images.Length);
+                if (draftRemaining == 0) throw new InvalidOperationException(JournalText.Get("JournalDraftPhotoLimit"));
+                remaining = Math.Min(remaining, draftRemaining);
+            }
+            var updated = current;
+            foreach (var photo in normalized.Take(remaining))
             {
                 Check(scope);
-                var entries = await ReadAsync(scope, default);
-                var index = entries.FindIndex(x => x.Key == entry.Key);
-                var current = index >= 0 ? entries[index] : entry;
-                if (current.Images.Length >= 10) break;
                 var id = Guid.NewGuid();
+                created.Add(id);
                 await cache.SaveAsync(Prefix(scope) + id, photo);
-                var updated = current with { Photos = [..current.Images, new(id)], CoverId = current.CoverId ?? id };
-                if (index < 0) entries.Add(updated); else entries[index] = updated;
-                await WriteAsync(scope, entries, default);
+                updated = updated with { Photos = [..updated.Images, new(id)], CoverId = updated.CoverId ?? id };
+                Check(scope);
             }
-            finally { gate.Release(); }
+            if (created.Count == 0) return current;
+            if (index < 0) entries.Add(updated); else entries[index] = updated;
+            if (draftIndex >= 0)
+            {
+                previousDrafts = drafts.ToList();
+                var draft = drafts[draftIndex];
+                var appended = updated.Images.Where(x => created.Contains(x.Id)).ToArray();
+                drafts[draftIndex] = draft with { Memory = draft.Memory with
+                    { Photos = [..draft.Memory.Images, ..appended], CoverId = draft.Memory.CoverId ?? draft.Memory.Images.FirstOrDefault()?.Id ?? appended[0].Id } };
+                Check(scope);
+                await cache.SaveAsync(Prefix(scope) + "drafts", drafts);
+                draftWritten = true;
+            }
+            Check(scope);
+            await WriteAsync(scope, entries, default);
+            return updated;
         }
+        catch (Exception exception)
+        {
+            if (draftWritten)
+            {
+                try { await cache.SaveAsync(Prefix(scope) + "drafts", previousDrafts!); }
+                catch (Exception rollback)
+                {
+                    // Retain payloads referenced by the recoverable draft if disk failure prevents rollback.
+                    throw new AggregateException(exception, rollback);
+                }
+            }
+            foreach (var id in created) await cache.DeleteAsync(Prefix(scope) + id);
+            throw;
+        }
+        finally { gate.Release(); }
     }
 
     public async Task ChangePhotoAsync(JournalScope scope, Guid activityId, Guid photoId, bool remove, bool isFree = false)

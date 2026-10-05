@@ -15,9 +15,8 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
     private async void OnItinerarySectionClicked(object? sender, EventArgs e)
     {
         FolderPanelView.Deactivate(); FolderPanelView.IsVisible = false;
-        FolderSectionButton.TextColor = ExpenseUi.Muted;
         ExpensesPanelView.Deactivate(); ExpensesPanelView.IsVisible = false; ItineraryContent.IsVisible = true;
-        ItinerarySectionButton.TextColor = ExpenseUi.Ink; ExpensesSectionButton.TextColor = ExpenseUi.Muted;
+        UpdateSectionButtons();
         // A panel can stay selected while session reset clears the itinerary behind it.
         if (!_viewModel.HasLoaded && !_isHandlingAppearance)
         {
@@ -28,19 +27,33 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
     private async Task ShowExpensesAsync()
     {
         FolderPanelView.Deactivate(); FolderPanelView.IsVisible = false;
-        FolderSectionButton.TextColor = ExpenseUi.Muted;
         ItineraryContent.IsVisible = false; ExpensesPanelView.IsVisible = true;
-        ItinerarySectionButton.TextColor = ExpenseUi.Muted; ExpensesSectionButton.TextColor = ExpenseUi.Ink;
+        UpdateSectionButtons();
         await ExpensesPanelView.ActivateAsync();
     }
     private async void OnFolderSectionClicked(object? sender, EventArgs e)
     {
         ExpensesPanelView.Deactivate(); ExpensesPanelView.IsVisible = false;
         ItineraryContent.IsVisible = false; FolderPanelView.IsVisible = true;
-        ItinerarySectionButton.TextColor = ExpenseUi.Muted;
-        ExpensesSectionButton.TextColor = ExpenseUi.Muted;
-        FolderSectionButton.TextColor = ExpenseUi.Ink;
+        UpdateSectionButtons();
         await FolderPanelView.ActivateAsync();
+    }
+    private void UpdateSectionButtons()
+    {
+        var sections = new[]
+        {
+            (ItinerarySectionButton, ItineraryContent.IsVisible),
+            (FolderSectionButton, FolderPanelView.IsVisible),
+            (ExpensesSectionButton, ExpensesPanelView.IsVisible)
+        };
+        foreach (var (button, selected) in sections)
+        {
+            button.BackgroundColor = selected ? EditorialUi.Accent : EditorialUi.Surface;
+            button.TextColor = selected ? EditorialUi.Paper : EditorialUi.Ink;
+            button.BorderColor = selected ? EditorialUi.Accent : EditorialUi.Line;
+            button.FontAttributes = selected ? FontAttributes.Bold : FontAttributes.None;
+            SemanticProperties.SetHint(button, selected ? EditorialUi.TextResource("UxCurrentSection") : null);
+        }
     }
     protected override bool OnBackButtonPressed()
     {
@@ -79,6 +92,7 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
         _viewModel = viewModel;
         _logger = logger;
         InitializeComponent();
+        UpdateSectionButtons();
 #if ANDROID
         Platforms.Android.TopInsetCorrection.Observe(ScheduleRoot, ScheduleHeader);
 #endif
@@ -94,6 +108,7 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        UpdateSectionButtons();
         _dayStripActive = true;
         UpdateDayStripMetrics();
         _viewModel.PropertyChanged -= OnSchedulePropertyChanged;

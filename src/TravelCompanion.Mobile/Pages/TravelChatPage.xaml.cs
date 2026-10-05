@@ -128,6 +128,40 @@ public partial class TravelChatPage : ContentPage, IQueryAttributable
         if (e.NewDate is { } date) await _viewModel.UpdateCityForDateAsync(date);
     }
 
+    private void OnConversationInputHandlerChanged(object? sender, EventArgs e)
+    {
+#if ANDROID
+        // These controls already have their own paper border; keep the native input
+        // and date selection behavior without a second underline inside that border.
+        if (sender is View { Handler.PlatformView: Android.Widget.EditText input })
+            input.BackgroundTintList = Android.Content.Res.ColorStateList.ValueOf(Android.Graphics.Color.Transparent);
+#endif
+    }
+
+    private void OnWriteConversationClicked(object? sender, EventArgs e)
+    {
+        if (!_viewModel.IsFreeTextVisible) _viewModel.ToggleFreeTextCommand.Execute(null);
+        FocusConversationInput();
+    }
+
+    private void OnConversationStarterClicked(object? sender, EventArgs e)
+    {
+        if (_viewModel.IsBusy || !_viewModel.ShowAssistantConversation
+            || sender is not Button { CommandParameter: string question }) return;
+        if (!_viewModel.IsFreeTextVisible) _viewModel.ToggleFreeTextCommand.Execute(null);
+        _viewModel.MessageText = question;
+        FocusConversationInput();
+    }
+
+    private void FocusConversationInput()
+    {
+        Dispatcher.Dispatch(() =>
+        {
+            if (Handler is not null && _viewModel.ShowAssistantConversation && _viewModel.IsFreeTextVisible)
+                ConversationMessageInput.Focus();
+        });
+    }
+
     private void OnOpenCardClicked(object? sender, EventArgs e)
     {
         if ((sender as BindableObject)?.BindingContext is TravelChatCardViewModel card)

@@ -406,4 +406,263 @@ public sealed class JournalStoreTests
         }
         finally { sessions.Clear(); }
     }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ReaderPhotoAttachmentPreservesConfirmedTextConflictAndDraft(bool free)
+    {
+        var sessions = new AuthSessionService(); var disk = new OfflineCacheService();
+        var api = new TravelCompanionApiClient(); var store = new JournalStore(disk, sessions, api);
+        try
+        {
+            await sessions.SaveAsync(Session()); var scope = store.Scope();
+            var entry = free ? JournalMemory.NewFree(scope.TripId, new(2026, 10, 2)) : Memory(scope.TripId);
+            await store.SaveAsync(scope, entry, "Confirmed local text");
+            api.SaveJournal = _ => Task.FromResult(new JournalSaveResult(false, entry.Note with { Notes = "Remote", Revision = 3 }));
+            if (free) api.SaveJournalFree = _ => Task.FromResult(new JournalFreeSaveResult(false,
+                entry.FreeEntry! with { Title = "Remote title", Notes = "Remote", Revision = 3 }));
+            var before = Assert.Single(await store.LoadAsync(scope, [], true, default));
+            Assert.True(before.HasConflict);
+            await store.SaveDraftAsync(scope, before, "Unfinished writing");
+            var draft = Assert.Single(await store.DraftsAsync(scope));
+            var attached = await store.AddConfirmedPhotosAsync(scope, before, [new FileResult(), new FileResult()]);
+            Assert.Equal(before, attached with { Photos = before.Photos, CoverId = before.CoverId });
+            Assert.Equal(2, attached.Images.Length);
+            Assert.Equal(attached.Images[0].Id, attached.CoverId);
+            var keptDraft = Assert.Single(await store.DraftsAsync(scope));
+            Assert.Equal(draft, keptDraft with { Memory = draft.Memory });
+            Assert.Equal(draft.Memory, keptDraft.Memory with { Photos = draft.Memory.Photos, CoverId = draft.Memory.CoverId });
+            Assert.Equal(attached.Images, keptDraft.Memory.Images);
+            Assert.Equal(attached, Assert.Single(await store.LoadAsync(scope, [], false, default)));
+            Assert.NotNull(await store.PhotoAsync(scope, attached.Images[0].Id));
+        }
+        finally { sessions.Clear(); }
+    }
+
+    [Fact]
+    public async Task ReaderAttachmentUsesLatestConfirmedContentAndRetainsChosenCover()
+    {
+        var sessions = new AuthSessionService(); var store = new JournalStore(new(), sessions, new());
+        try
+        {
+            await sessions.SaveAsync(Session()); var scope = store.Scope(); var entry = Memory(scope.TripId);
+            await store.SaveAsync(scope, entry, "Original");
+            await store.AddPhotosAsync(scope, entry, [new FileResult(), new FileResult()]);
+            var before = Assert.Single(await store.LoadAsync(scope, [], false, default));
+            await store.ChangePhotoAsync(scope, before.Id, before.Images[1].Id, false);
+            var attached = await store.AddConfirmedPhotosAsync(scope, before, [new FileResult
+            {
+                Read = async () =>
+                {
+                    await store.SaveAsync(scope, before with { CoverId = before.Images[1].Id }, "Updated while picker was open");
+                    return new MemoryStream([1]);
+                }
+            }]);
+            Assert.Equal("Updated while picker was open", attached.Text);
+            Assert.Equal(before.Images[1].Id, attached.CoverId);
+            Assert.Equal(3, attached.Images.Length);
+        }
+        finally { sessions.Clear(); }
+    }
+
+    [Fact]
+    public async Task ReaderPickerCancellationAndUnreadableBatchDoNotChangePhotosOrWriting()
+    {
+        var sessions = new AuthSessionService(); var disk = new OfflineCacheService();
+        var store = new JournalStore(disk, sessions, new());
+        try
+        {
+            await sessions.SaveAsync(Session()); var scope = store.Scope();
+            await store.SaveAsync(scope, Memory(scope.TripId), "Keep this");
+            var before = Assert.Single(await store.LoadAsync(scope, [], false, default));
+            var writes = disk.Writes;
+            Assert.Equal(before, await store.AddConfirmedPhotosAsync(scope, before, []));
+            await Assert.ThrowsAsync<IOException>(() => store.AddConfirmedPhotosAsync(scope, before,
+                [new FileResult(), new FileResult { Read = () => throw new IOException("Unreadable") }]));
+            Assert.Equal(writes, disk.Writes);
+            Assert.Equal(before, Assert.Single(await store.LoadAsync(scope, [], false, default)));
+        }
+        finally { sessions.Clear(); }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task FailedPhotoBatchRollsBackPayloadsAndPreservesPreviousIndex(bool failIndex)
+    {
+        var sessions = new AuthSessionService(); var disk = new OfflineCacheService();
+        var store = new JournalStore(disk, sessions, new());
+        try
+        {
+            await sessions.SaveAsync(Session()); var scope = store.Scope(); var entry = Memory(scope.TripId);
+            await store.SaveAsync(scope, entry, "Keep this");
+            await store.AddPhotosAsync(scope, entry, [new FileResult()]);
+            var before = Assert.Single(await store.LoadAsync(scope, [], false, default));
+            var keys = disk.Entries.Keys.Order().ToArray(); var writes = 0;
+            disk.BeforeSave = () => ++writes == (failIndex ? 3 : 2)
+                ? throw new IOException("Disk full") : Task.CompletedTask;
+            await Assert.ThrowsAsync<IOException>(() => store.AddConfirmedPhotosAsync(scope, before,
+                [new FileResult(), new FileResult()]));
+            disk.BeforeSave = null;
+            Assert.Equal(keys, disk.Entries.Keys.Order().ToArray());
+            Assert.Equal(before, Assert.Single(await store.LoadAsync(scope, [], false, default)));
+            Assert.NotNull(await store.PhotoAsync(scope, before.Images[0].Id));
+        }
+        finally { sessions.Clear(); }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ReaderCannotAttachToDeletedOrUnconfirmedMemory(bool deleted)
+    {
+        var sessions = new AuthSessionService(); var disk = new OfflineCacheService();
+        var store = new JournalStore(disk, sessions, new());
+        try
+        {
+            await sessions.SaveAsync(Session()); var scope = store.Scope();
+            var memory = JournalMemory.NewFree(scope.TripId, new(2026, 10, 2));
+            if (deleted)
+            {
+                await store.SaveAsync(scope, memory, "Confirmed");
+                memory = Assert.Single(await store.LoadAsync(scope, [], false, default));
+                await store.DeleteFreeLocalAsync(scope, memory);
+            }
+            var keys = disk.Entries.Keys.Order().ToArray();
+            await Assert.ThrowsAsync<InvalidOperationException>(() => store.AddConfirmedPhotosAsync(scope, memory, [new FileResult()]));
+            Assert.Equal(keys, disk.Entries.Keys.Order().ToArray());
+            Assert.Empty(await store.LoadAsync(scope, [], false, default));
+        }
+        finally { sessions.Clear(); }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SessionOrTripChangeDuringReaderSelectionDiscardsBatch(bool changeTrip)
+    {
+        var sessions = new AuthSessionService(); var account = Session(); var disk = new OfflineCacheService();
+        var store = new JournalStore(disk, sessions, new());
+        try
+        {
+            await sessions.SaveAsync(account); var scope = store.Scope();
+            await store.SaveAsync(scope, Memory(scope.TripId), "Private writing");
+            var before = Assert.Single(await store.LoadAsync(scope, [], false, default));
+            var keys = disk.Entries.Keys.Order().ToArray();
+            await Assert.ThrowsAsync<OperationCanceledException>(() => store.AddConfirmedPhotosAsync(scope, before,
+                [new FileResult { Read = async () =>
+                    { await sessions.SaveAsync(changeTrip ? account with { TripId = Guid.NewGuid() } : Session()); return new MemoryStream([1]); } }]));
+            Assert.Equal(keys, disk.Entries.Keys.Order().ToArray());
+            Assert.Empty(await store.LoadAsync(store.Scope(), [], false, default));
+        }
+        finally { sessions.Clear(); }
+    }
+
+    [Fact]
+    public async Task ConcurrentReaderAttachmentsRespectTenPhotoLimit()
+    {
+        var sessions = new AuthSessionService(); var store = new JournalStore(new(), sessions, new());
+        try
+        {
+            await sessions.SaveAsync(Session()); var scope = store.Scope(); var entry = Memory(scope.TripId);
+            await store.SaveAsync(scope, entry, "Confirmed");
+            await store.AddPhotosAsync(scope, entry, Enumerable.Range(0, 8).Select(_ => new FileResult()));
+            var before = Assert.Single(await store.LoadAsync(scope, [], false, default));
+            var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var file = new FileResult { Read = async () => { await release.Task; return new MemoryStream([1]); } };
+            var first = store.AddConfirmedPhotosAsync(scope, before, [file, file]);
+            var second = store.AddConfirmedPhotosAsync(scope, before, [file, file]);
+            release.SetResult(); await Task.WhenAll(first, second);
+            var saved = Assert.Single(await store.LoadAsync(scope, [], false, default));
+            Assert.Equal(10, saved.Images.Length);
+            Assert.Equal(10, saved.Images.Select(x => x.Id).Distinct().Count());
+            Assert.Equal(before.CoverId, saved.CoverId);
+            Assert.Equal(before.Pending, saved.Pending);
+        }
+        finally { sessions.Clear(); }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PhotosAttachedInReaderSurviveSavingOrDiscardingPreviousDraft(bool saveDraft)
+    {
+        var sessions = new AuthSessionService(); var store = new JournalStore(new(), sessions, new());
+        try
+        {
+            await sessions.SaveAsync(Session()); var scope = store.Scope();
+            var entry = JournalMemory.NewFree(scope.TripId, new(2026, 10, 2));
+            await store.SaveAsync(scope, entry, "Confirmed text");
+            var confirmed = Assert.Single(await store.LoadAsync(scope, [], false, default));
+            var draft = await store.AddDraftPhotosAsync(scope, confirmed with
+                { FreeEntry = confirmed.FreeEntry! with { Title = "Unfinished title" },
+                    FreePending = confirmed.FreePending! with { Title = "Unfinished title" } }, "Unfinished text", [new FileResult()]);
+            var localPhoto = Assert.Single(draft.Images).Id;
+            var attached = await store.AddConfirmedPhotosAsync(scope, confirmed, [new FileResult()]);
+            var confirmedPhoto = Assert.Single(attached.Images).Id;
+            var updatedDraft = Assert.Single(await store.DraftsAsync(scope));
+            Assert.Equal("Unfinished title", updatedDraft.Memory.Title);
+            Assert.Equal("Unfinished text", updatedDraft.Text);
+            Assert.Equal(localPhoto, updatedDraft.Memory.CoverId);
+            Assert.Equal(2, updatedDraft.Memory.Images.Length);
+            if (saveDraft) await store.SaveAsync(scope, updatedDraft.Memory, updatedDraft.Text);
+            await store.DiscardDraftAsync(scope, updatedDraft.Memory);
+            var retained = Assert.Single(await store.LoadAsync(scope, [], false, default));
+            Assert.Contains(retained.Images, x => x.Id == confirmedPhoto);
+            Assert.NotNull(await store.PhotoAsync(scope, confirmedPhoto));
+            Assert.Equal(saveDraft ? "Unfinished text" : "Confirmed text", retained.Text);
+            Assert.Equal(saveDraft, retained.Images.Any(x => x.Id == localPhoto));
+            Assert.Empty(await store.DraftsAsync(scope));
+        }
+        finally { sessions.Clear(); }
+    }
+
+    [Fact]
+    public async Task ReaderAttachmentBlocksFullDraftAndLimitsBatchToDraftSpace()
+    {
+        var sessions = new AuthSessionService(); var disk = new OfflineCacheService();
+        var store = new JournalStore(disk, sessions, new());
+        try
+        {
+            await sessions.SaveAsync(Session()); var scope = store.Scope(); var entry = Memory(scope.TripId);
+            await store.SaveAsync(scope, entry, "Confirmed");
+            var before = Assert.Single(await store.LoadAsync(scope, [], false, default));
+            await store.AddDraftPhotosAsync(scope, before, "Draft", Enumerable.Range(0, 9).Select(_ => new FileResult()));
+            var attached = await store.AddConfirmedPhotosAsync(scope, before, [new FileResult(), new FileResult()]);
+            Assert.Single(attached.Images);
+            var fullDraft = Assert.Single(await store.DraftsAsync(scope));
+            Assert.Equal(10, fullDraft.Memory.Images.Length);
+            var keys = disk.Entries.Keys.Order().ToArray();
+            await Assert.ThrowsAsync<InvalidOperationException>(() => store.AddConfirmedPhotosAsync(scope, attached, [new FileResult()]));
+            Assert.Equal(keys, disk.Entries.Keys.Order().ToArray());
+            Assert.Equal(fullDraft, Assert.Single(await store.DraftsAsync(scope)));
+            Assert.Equal(attached, Assert.Single(await store.LoadAsync(scope, [], false, default)));
+        }
+        finally { sessions.Clear(); }
+    }
+
+    [Fact]
+    public async Task IndexWriteFailureRestoresDraftBeforeRemovingNewPayloads()
+    {
+        var sessions = new AuthSessionService(); var disk = new OfflineCacheService();
+        var store = new JournalStore(disk, sessions, new());
+        try
+        {
+            await sessions.SaveAsync(Session()); var scope = store.Scope(); var entry = Memory(scope.TripId);
+            await store.SaveAsync(scope, entry, "Confirmed");
+            var before = Assert.Single(await store.LoadAsync(scope, [], false, default));
+            await store.AddDraftPhotosAsync(scope, before, "Draft", [new FileResult()]);
+            var draft = Assert.Single(await store.DraftsAsync(scope));
+            var keys = disk.Entries.Keys.Order().ToArray(); var writes = 0;
+            disk.BeforeSave = () => ++writes == 3 ? throw new IOException("Index write failed") : Task.CompletedTask;
+            await Assert.ThrowsAsync<IOException>(() => store.AddConfirmedPhotosAsync(scope, before, [new FileResult()]));
+            disk.BeforeSave = null;
+            Assert.Equal(keys, disk.Entries.Keys.Order().ToArray());
+            Assert.Equal(draft, Assert.Single(await store.DraftsAsync(scope)));
+            Assert.Equal(before, Assert.Single(await store.LoadAsync(scope, [], false, default)));
+            Assert.NotNull(await store.PhotoAsync(scope, draft.Memory.Images[0].Id));
+        }
+        finally { sessions.Clear(); }
+    }
 }

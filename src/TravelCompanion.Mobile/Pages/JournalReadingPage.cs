@@ -7,28 +7,44 @@ public sealed class JournalReadingPage(JournalScope scope, JournalMemory origina
 {
     private readonly JournalStore store = MauiProgram.Services.GetRequiredService<JournalStore>();
     private JournalMemory memory = original;
+    private Label photoStatus = JournalUi.Text("", 12);
+    private Grid? actions;
+    private int loadVersion;
+    private bool visible;
+    private bool addingPhotos;
+    private bool opening;
 
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        visible = true;
         await LoadAsync();
+    }
+
+    protected override void OnDisappearing()
+    {
+        visible = false;
+        loadVersion++;
+        base.OnDisappearing();
     }
 
     private async Task LoadAsync()
     {
+        var version = ++loadVersion;
         BackgroundColor = JournalUi.Paper;
         SafeAreaEdges = SafeAreaEdges.All;
         try
         {
             var memories = await store.LoadAsync(scope, [], false, default);
+            if (!CanDisplay(version)) return;
             var current = memories.FirstOrDefault(x => x.Key == memory.Key);
             if (current is null && memory.IsFree && !memory.IsDraft)
             {
-                await Navigation.PopModalAsync();
+                if (Navigation.ModalStack.LastOrDefault() == this) await Navigation.PopModalAsync();
                 return;
             }
             memory = current ?? memory;
-            if (!store.IsCurrent(scope)) return;
+            if (!CanDisplay(version)) return;
 
             var header = new Grid { Padding = new Thickness(22, 8, 18, 8),
                 ColumnDefinitions = [new(GridLength.Star), new(GridLength.Auto), new(GridLength.Auto)] };
@@ -56,21 +72,6 @@ public sealed class JournalReadingPage(JournalScope scope, JournalMemory origina
                     Padding = new Thickness(12, 7), HorizontalOptions = LayoutOptions.Start, Content = place });
             }
 
-            if (memory.Images.Length > 0)
-            {
-                var index = Math.Max(0, Array.FindIndex(memory.Images, x => x.Id == memory.CoverId));
-                var bytes = await store.PhotoAsync(scope, memory.Images[index].Id, true);
-                if (!store.IsCurrent(scope)) return;
-                var cover = JournalUi.Icon("journal_photo.svg", JournalText.Get("JournalOpenPhotos"),
-                    () => Navigation.PushModalAsync(new JournalPhotoPage(scope, memory, index)));
-                cover.WidthRequest = -1; cover.HeightRequest = 240; cover.Padding = 0; cover.Aspect = Aspect.AspectFill;
-                if (bytes is not null) cover.Source = ImageSource.FromStream(() => new MemoryStream(bytes));
-                body.Add(new Border { Stroke = Color.FromArgb("#E5DDD3"),
-                    StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = new CornerRadius(12) },
-                    Padding = 0, Content = cover });
-                body.Add(JournalUi.Text(JournalText.Format("JournalPhotoCount", memory.Images.Length), 12));
-            }
-
             if (!string.IsNullOrWhiteSpace(memory.Text))
             {
                 var prose = JournalUi.Text(memory.Text, 18);
@@ -85,6 +86,30 @@ public sealed class JournalReadingPage(JournalScope scope, JournalMemory origina
                     StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = new CornerRadius(12) },
                     Padding = 20, Content = paper });
             }
+            if (memory.Images.Length > 0)
+            {
+                body.Add(JournalUi.Text(JournalText.Format("JournalPhotosLimit", memory.Images.Length), 12));
+                var gallery = new FlexLayout { Wrap = Microsoft.Maui.Layouts.FlexWrap.Wrap,
+                    AlignItems = Microsoft.Maui.Layouts.FlexAlignItems.Start,
+                    AlignContent = Microsoft.Maui.Layouts.FlexAlignContent.Start };
+                for (var i = 0; i < memory.Images.Length; i++)
+                {
+                    var index = i;
+                    var bytes = await store.PhotoAsync(scope, memory.Images[i].Id, true);
+                    if (!CanDisplay(version)) return;
+                    var image = JournalUi.Icon("journal_photo.svg",
+                        JournalText.Format("JournalPhotoNumber", i + 1, memory.Images.Length), () => OpenPhotosAsync(index));
+                    image.WidthRequest = 100; image.HeightRequest = 100; image.Padding = 0; image.Aspect = Aspect.AspectFill;
+                    if (bytes is not null) image.Source = ImageSource.FromStream(() => new MemoryStream(bytes));
+                    var tile = new Border { WidthRequest = 100, HeightRequest = 100, Padding = 0,
+                        Margin = new Thickness(0, 0, 8, 8), StrokeThickness = 0,
+                        StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = new CornerRadius(10) },
+                        Content = image };
+                    FlexLayout.SetAlignSelf(tile, Microsoft.Maui.Layouts.FlexAlignSelf.Start);
+                    gallery.Children.Add(tile);
+                }
+                body.Add(gallery);
+            }
             if (memory.Status.Length > 0)
             {
                 var status = JournalUi.Text(memory.Status, 13);
@@ -95,28 +120,32 @@ public sealed class JournalReadingPage(JournalScope scope, JournalMemory origina
             notice.LineHeight = 1.3;
             body.Add(notice);
 
-            var actions = new Grid { Padding = new Thickness(22, 10, 22, 16),
+            actions = new Grid { Padding = new Thickness(22, 10, 22, 16), IsEnabled = !addingPhotos,
                 ColumnDefinitions = item is null
                     ? [new(GridLength.Star), new(GridLength.Star)]
                     : [new(GridLength.Star), new(GridLength.Star), new(GridLength.Star)] };
             actions.Add(JournalUi.Tool("action_edit.svg", "JournalEdit",
-                () => Navigation.PushModalAsync(new JournalMemoryPage(scope, memory, item))), 0);
+                EditAsync), 0);
             actions.Add(JournalUi.Tool("journal_photo.svg", "JournalAddPhotos",
-                () => Navigation.PushModalAsync(new JournalMemoryPage(scope, memory, item, true))), 1);
+                AddPhotosAsync), 1);
             if (item is not null) actions.Add(JournalUi.Tool("tab_trip.svg", "JournalActivity", OpenActivityAsync), 2);
 
             var layout = new Grid { RowDefinitions = [new(GridLength.Auto),
                 new(GridLength.Star), new(GridLength.Auto)] };
             layout.Add(header);
             layout.Add(new ScrollView { Content = body }, 0, 1);
-            layout.Add(actions, 0, 2);
+            photoStatus = JournalUi.Text(photoStatus.Text ?? "", 12);
+            photoStatus.Margin = new Thickness(22, 0);
+            photoStatus.IsVisible = photoStatus.Text.Length > 0;
+            layout.Add(new VerticalStackLayout { Children = { photoStatus, actions } }, 0, 2);
+            if (!CanDisplay(version)) return;
             Content = layout;
         }
         catch (OperationCanceledException) { }
         catch (Exception exception)
         {
             ClientDiagnostics.Record("journal_read_failed", exception: exception);
-            if (!store.IsCurrent(scope)) return;
+            if (!CanDisplay(version)) return;
             var header = new Grid { ColumnDefinitions = [new(GridLength.Star), new(GridLength.Auto)] };
             header.Add(EditorialUi.Heading(JournalText.Get("JournalMemoryLabel")));
             header.Add(EditorialUi.Icon("action_close.svg", JournalText.Get("JournalClose"),
@@ -129,6 +158,76 @@ public sealed class JournalReadingPage(JournalScope scope, JournalMemory origina
                     EditorialUi.Button(EditorialUi.TextResource("UxRetry"), LoadAsync, true)
                 }
             } };
+        }
+    }
+
+    private bool CanDisplay(int version) => visible && version == loadVersion && store.IsCurrent(scope);
+
+    private void SetPhotoStatus(string text)
+    {
+        photoStatus.Text = text;
+        photoStatus.IsVisible = text.Length > 0;
+    }
+
+    private async Task OpenPhotosAsync(int index)
+    {
+        if (opening || addingPhotos || !visible || !store.IsCurrent(scope)) return;
+        opening = true;
+        try { await Navigation.PushModalAsync(new JournalPhotoPage(scope, memory, index)); }
+        finally { opening = false; }
+    }
+
+    private async Task EditAsync()
+    {
+        if (opening || addingPhotos || !visible || !store.IsCurrent(scope)) return;
+        opening = true;
+        try { await Navigation.PushModalAsync(new JournalMemoryPage(scope, memory, item)); }
+        finally { opening = false; }
+    }
+
+    private async Task AddPhotosAsync()
+    {
+        if (addingPhotos || opening || !visible || !store.IsCurrent(scope)) return;
+        if (memory.Images.Length >= 10)
+        {
+            SetPhotoStatus(JournalText.Format("JournalPhotosLimit", memory.Images.Length));
+            return;
+        }
+        addingPhotos = true;
+        if (actions is not null) actions.IsEnabled = false;
+        SetPhotoStatus("");
+        try
+        {
+            var draft = (await store.DraftsAsync(scope)).FirstOrDefault(x => x.Memory.Key == memory.Key);
+            if (!store.IsCurrent(scope)) return;
+            var remaining = 10 - memory.Images.Length;
+            if (draft is not null)
+            {
+                remaining = Math.Min(remaining, 10 - draft.Memory.Images.Length);
+                if (remaining <= 0)
+                {
+                    SetPhotoStatus(JournalText.Get("JournalDraftPhotoLimit"));
+                    return;
+                }
+            }
+            var files = await MediaPicker.Default.PickPhotosAsync(JournalMedia.PickerOptions(remaining));
+            if (files.Count == 0 || !store.IsCurrent(scope)) return;
+            SetPhotoStatus(JournalText.Get("JournalAddingPhotos"));
+            memory = await store.AddConfirmedPhotosAsync(scope, memory, files);
+            if (!store.IsCurrent(scope)) return;
+            SetPhotoStatus("");
+            if (visible) await LoadAsync();
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception exception)
+        {
+            ClientDiagnostics.Record("journal_add_photos_failed", exception: exception);
+            if (visible && store.IsCurrent(scope)) SetPhotoStatus(JournalText.Get("JournalFailure"));
+        }
+        finally
+        {
+            addingPhotos = false;
+            if (actions is not null) actions.IsEnabled = true;
         }
     }
 

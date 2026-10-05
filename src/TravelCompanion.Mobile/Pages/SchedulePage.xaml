@@ -14,6 +14,18 @@
     SafeAreaEdges="All"
     BackgroundColor="{StaticResource Mist}">
     <ContentPage.Resources>
+        <Style x:Key="TripSectionButton" TargetType="Button">
+            <Setter Property="BackgroundColor" Value="{StaticResource EditorialSurface}" />
+            <Setter Property="TextColor" Value="{StaticResource Ink}" />
+            <Setter Property="BorderColor" Value="{StaticResource EditorialLine}" />
+            <Setter Property="BorderWidth" Value="1" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="MinimumHeightRequest" Value="48" />
+            <Setter Property="MinimumWidthRequest" Value="88" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="LineBreakMode" Value="NoWrap" />
+            <Setter Property="Padding" Value="12,10" />
+        </Style>
         <DataTemplate x:Key="TodayLocationTemplate" x:DataType="viewModels:TodayLocationViewModel">
             <Grid ColumnDefinitions="26,*" Margin="0,0,0,9">
                 <BoxView WidthRequest="1" HorizontalOptions="Center" VerticalOptions="Fill" BackgroundColor="#1A171426" />
@@ -229,38 +241,28 @@
             ReservationHeadingTemplate="{StaticResource TodayReservationHeadingTemplate}" />
     </ContentPage.Resources>
     <Grid x:Name="ScheduleRoot" RowDefinitions="Auto,*">
-        <Grid x:Name="ScheduleHeader" ColumnDefinitions="*,*,*,48" Padding="12,4" ColumnSpacing="0">
+        <Grid x:Name="ScheduleHeader" ColumnDefinitions="*,48" Padding="12,6" ColumnSpacing="6">
+            <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Never">
+            <HorizontalStackLayout Spacing="6">
             <Button
                 x:Name="ItinerarySectionButton"
                 Text="{Binding [TabToday], Source={x:Static services:LocalizationResourceManager.Instance}}"
                 Clicked="OnItinerarySectionClicked"
-                BackgroundColor="Transparent"
-                TextColor="#393226"
-                MinimumHeightRequest="48"
-                FontSize="13"
-                Padding="0" />
+                Style="{StaticResource TripSectionButton}" />
             <Button
                 x:Name="FolderSectionButton"
-                Grid.Column="1"
                 Text="{Binding [UXAuditFolderSection], Source={x:Static services:LocalizationResourceManager.Instance}}"
                 Clicked="OnFolderSectionClicked"
-                BackgroundColor="Transparent"
-                TextColor="#8E867D"
-                MinimumHeightRequest="48"
-                FontSize="13"
-                Padding="0" />
+                Style="{StaticResource TripSectionButton}" />
             <Button
                 x:Name="ExpensesSectionButton"
-                Grid.Column="2"
                 Text="{Binding [UXAuditExpensesSection], Source={x:Static services:LocalizationResourceManager.Instance}}"
                 Clicked="OnExpensesSectionClicked"
-                BackgroundColor="Transparent"
-                TextColor="#8E867D"
-                MinimumHeightRequest="48"
-                FontSize="13"
-                Padding="0" />
+                Style="{StaticResource TripSectionButton}" />
+            </HorizontalStackLayout>
+            </ScrollView>
             <ImageButton
-                Grid.Column="3"
+                Grid.Column="1"
                 Source="itinerary_menu.svg"
                 Clicked="OnItineraryMenuClicked"
                 WidthRequest="48"
