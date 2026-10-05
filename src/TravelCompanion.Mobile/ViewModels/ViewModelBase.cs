@@ -4,9 +4,25 @@ namespace TravelCompanion.Mobile.ViewModels;
 
 public abstract partial class ViewModelBase : ObservableObject
 {
-    private static string ConnectionError => System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "es"
-        ? "No pudimos actualizar la información. Comprobá tu conexión y volvé a intentar."
-        : "We couldn't refresh the information. Check your connection and try again.";
+    private static string ConnectionError => Services.LocalizationResourceManager.Instance["AssistantOfflineStatusNoCache"];
+
+    protected static bool IsConnectionError(Exception exception)
+    {
+        if (exception is HttpRequestException or IOException or OperationCanceledException) return true;
+        // AndroidMessageHandler wraps native IO failures in WebException.
+        // An HTTP protocol response must keep its existing error handling.
+        if (exception is System.Net.WebException
+            { Status: not System.Net.WebExceptionStatus.ProtocolError, InnerException: { } inner })
+            return IsConnectionError(inner);
+
+        // Android native IO exceptions do not inherit System.IO.IOException.
+        // Check the hierarchy without referencing Android types in other targets.
+        for (var type = exception.GetType(); type is not null; type = type.BaseType)
+        {
+            if (type.FullName == "Java.IO.IOException") return true;
+        }
+        return false;
+    }
     private bool _isBusy;
     private bool _isRefreshing;
     private bool _hasLoaded;
@@ -117,7 +133,7 @@ public abstract partial class ViewModelBase : ObservableObject
         {
             // Expected when operation is cancelled - don't show error
         }
-        catch (Exception ex) when (ex is HttpRequestException or IOException or OperationCanceledException)
+        catch (Exception ex) when (IsConnectionError(ex))
         {
             if (_loadCancellationTokenSource?.IsCancellationRequested != true) ErrorMessage = ConnectionError;
         }
@@ -158,7 +174,7 @@ public abstract partial class ViewModelBase : ObservableObject
         {
             // Expected when operation is cancelled - don't show error
         }
-        catch (Exception ex) when (ex is HttpRequestException or IOException or OperationCanceledException)
+        catch (Exception ex) when (IsConnectionError(ex))
         {
             if (!cancellationToken.IsCancellationRequested) ErrorMessage = ConnectionError;
         }

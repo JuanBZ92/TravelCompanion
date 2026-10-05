@@ -965,7 +965,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
                 ApplyBuilderDayMetadata(setup);
             }
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
+        catch (Exception ex) when (IsConnectionError(ex))
         {
             _builderRevision = null;
         }
@@ -1038,7 +1038,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
                 StatusMessage = null;
             }
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
+        catch (Exception ex) when (IsConnectionError(ex))
         {
             if (!IsCurrentSelection())
             {
@@ -1055,7 +1055,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
             }
             else
             {
-                StatusMessage = "No pudimos completar las sugerencias. Mostrando el itinerario disponible.";
+                StatusMessage = LocalizationResourceManager.Instance["AssistantOfflineStatusNoCache"];
                 CompleteTodayLoadingWithScheduleFallback();
             }
         }
@@ -2069,7 +2069,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
                 ApplyToday(today);
             }
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
+        catch (Exception ex) when (IsConnectionError(ex))
         {
             _logger.LogWarning(
                 "Today refresh after schedule update failed ({ErrorType}); keeping the updated schedule visible.",

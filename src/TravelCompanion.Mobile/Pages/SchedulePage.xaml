@@ -297,22 +297,26 @@
                                   ColumnSpacing="8"
                                   MinimumHeightRequest="56"
                                   IsVisible="{Binding HasDaySelector}">
-                                <Button x:Name="PreviousDayButton"
-                                        Grid.Column="0"
-                                        Text="{Binding PreviousDayFilter.DateLabel}"
-                                        Clicked="OnPreviousDayClicked"
-                                        IsVisible="{Binding HasPreviousDay}"
-                                        BackgroundColor="#FAF6F0"
-                                        TextColor="#8A8078"
-                                        BorderColor="#1A171414"
-                                        BorderWidth="1"
-                                        CornerRadius="10"
-                                        FontSize="14"
-                                        LineBreakMode="WordWrap"
-                                        Padding="8,10"
-                                        MinimumHeightRequest="48"
-                                        VerticalOptions="Fill"
-                                        SemanticProperties.Description="{Binding PreviousDayDescription}" />
+                                <Grid Grid.Column="0" IsVisible="{Binding HasPreviousDay}">
+                                    <Button x:Name="PreviousDayButton"
+                                            Text="{Binding PreviousDayFilter.DateLabel}"
+                                            Clicked="OnPreviousDayClicked"
+                                            BackgroundColor="#FAF6F0"
+                                            TextColor="#8A8078"
+                                            BorderColor="#1A171414"
+                                            BorderWidth="1"
+                                            CornerRadius="10"
+                                            FontSize="14"
+                                            LineBreakMode="WordWrap"
+                                            Padding="8,10"
+                                            MinimumHeightRequest="48"
+                                            VerticalOptions="Fill"
+                                            SemanticProperties.Description="{Binding PreviousDayDescription}" />
+                                    <Grid x:Name="PreviousDayTouchSurface"
+                                          BackgroundColor="Transparent"
+                                          IsVisible="False"
+                                          AutomationProperties.IsInAccessibleTree="False" />
+                                </Grid>
                                 <Border Grid.Column="1"
                                         Padding="12,4"
                                         BackgroundColor="#1A1714"
@@ -348,24 +352,32 @@
                                                 SemanticProperties.Description="{Binding DaySelectorMapDescription}"
                                                 SemanticProperties.Hint="{Binding [UXAuditDaySelectorSwipeHint], Source={x:Static services:LocalizationResourceManager.Instance}}"
                                                 ToolTipProperties.Text="{Binding [UxOpenMaps], Source={x:Static services:LocalizationResourceManager.Instance}}" />
+                                        <Grid x:Name="SelectedDayTouchSurface"
+                                              BackgroundColor="Transparent"
+                                              IsVisible="False"
+                                              AutomationProperties.IsInAccessibleTree="False" />
                                     </Grid>
                                 </Border>
-                                <Button x:Name="NextDayButton"
-                                        Grid.Column="2"
-                                        Text="{Binding NextDayFilter.DateLabel}"
-                                        Clicked="OnNextDayClicked"
-                                        IsVisible="{Binding HasNextDay}"
-                                        BackgroundColor="#FAF6F0"
-                                        TextColor="#8A8078"
-                                        BorderColor="#1A171414"
-                                        BorderWidth="1"
-                                        CornerRadius="10"
-                                        FontSize="14"
-                                        LineBreakMode="WordWrap"
-                                        Padding="8,10"
-                                        MinimumHeightRequest="48"
-                                        VerticalOptions="Fill"
-                                        SemanticProperties.Description="{Binding NextDayDescription}" />
+                                <Grid Grid.Column="2" IsVisible="{Binding HasNextDay}">
+                                    <Button x:Name="NextDayButton"
+                                            Text="{Binding NextDayFilter.DateLabel}"
+                                            Clicked="OnNextDayClicked"
+                                            BackgroundColor="#FAF6F0"
+                                            TextColor="#8A8078"
+                                            BorderColor="#1A171414"
+                                            BorderWidth="1"
+                                            CornerRadius="10"
+                                            FontSize="14"
+                                            LineBreakMode="WordWrap"
+                                            Padding="8,10"
+                                            MinimumHeightRequest="48"
+                                            VerticalOptions="Fill"
+                                            SemanticProperties.Description="{Binding NextDayDescription}" />
+                                    <Grid x:Name="NextDayTouchSurface"
+                                          BackgroundColor="Transparent"
+                                          IsVisible="False"
+                                          AutomationProperties.IsInAccessibleTree="False" />
+                                </Grid>
                             </Grid>
                             <Label Text="{Binding PreviewMessage}" IsVisible="{Binding HasPreviewMessage}" FontSize="13" TextColor="#6A625B" />
                             <Border Padding="14,12" BackgroundColor="#FFFCF8" Stroke="#DDD4C9" StrokeThickness="1" IsVisible="{Binding HasFocusItem}">

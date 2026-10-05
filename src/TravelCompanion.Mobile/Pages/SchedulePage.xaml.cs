@@ -75,8 +75,28 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
         _viewModel = viewModel;
         _logger = logger;
         InitializeComponent();
-        // Native buttons handle their own touches, so recognize swipes on each card.
-        foreach (var view in new View[] { PreviousDayButton, SelectedDayCaption, StayMapButton, NextDayButton })
+#if ANDROID
+        // Keep native Button activation for accessibility and keyboard use. A
+        // separate touch surface owns physical taps/swipes so Android cannot
+        // dispatch both Tapped and Clicked for the same interaction.
+        PreviousDayTouchSurface.IsVisible = true;
+        SelectedDayTouchSurface.IsVisible = true;
+        NextDayTouchSurface.IsVisible = true;
+        var previousDayTap = new TapGestureRecognizer();
+        previousDayTap.Tapped += OnPreviousDayClicked;
+        PreviousDayTouchSurface.GestureRecognizers.Add(previousDayTap);
+        var nextDayTap = new TapGestureRecognizer();
+        nextDayTap.Tapped += OnNextDayClicked;
+        NextDayTouchSurface.GestureRecognizers.Add(nextDayTap);
+        SelectedDayTouchSurface.GestureRecognizers.Add(new TapGestureRecognizer
+        {
+            Command = _viewModel.OpenStayMapCommand
+        });
+        View[] swipeTargets = [PreviousDayTouchSurface, SelectedDayTouchSurface, NextDayTouchSurface];
+#else
+        View[] swipeTargets = [PreviousDayButton, SelectedDayCaption, StayMapButton, NextDayButton];
+#endif
+        foreach (var view in swipeTargets)
         {
             foreach (var direction in new[] { SwipeDirection.Left, SwipeDirection.Right })
             {
