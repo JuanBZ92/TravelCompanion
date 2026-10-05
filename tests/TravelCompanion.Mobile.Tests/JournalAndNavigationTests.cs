@@ -6,6 +6,49 @@ namespace TravelCompanion.Mobile.Tests;
 
 public sealed class JournalAndNavigationTests
 {
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(7)]
+    public void PhotoFanKeepsChosenCoverInFrontAndOriginalViewerIndices(int photoCount)
+    {
+        var photos = Enumerable.Range(0, photoCount).Select(_ => new JournalPhoto(Guid.NewGuid())).ToArray();
+        var memory = JournalMemory.NewFree(Guid.NewGuid(), new(2026, 10, 2)) with
+            { Photos = photos, CoverId = photos[^1].Id };
+        var fan = JournalEntries.PhotoPreviewIndices(memory);
+        Assert.Equal(Math.Min(3, photoCount), fan.Count);
+        Assert.Equal(photoCount - 1, fan[0]);
+        Assert.Equal(memory.CoverId, memory.Images[fan[0]].Id);
+        Assert.Equal(fan.Count, fan.Distinct().Count());
+        Assert.Equal(photos.Select(x => x.Id), memory.Images.Select(x => x.Id));
+        Assert.Equal(photoCount, memory.Images.Length);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void MissingCoverFallsBackToFirstPhotoWithoutChangingSavedCover(bool invalidCover)
+    {
+        var photos = Enumerable.Range(0, 5).Select(_ => new JournalPhoto(Guid.NewGuid())).ToArray();
+        Guid? cover = invalidCover ? Guid.NewGuid() : null;
+        var memory = JournalMemory.NewFree(Guid.NewGuid(), new(2026, 10, 2)) with { Photos = photos, CoverId = cover };
+        Assert.Equal([0, 1, 2], JournalEntries.PhotoPreviewIndices(memory));
+        Assert.Equal(0, Assert.Single(JournalEntries.PhotoPreviewIndices(memory, 1)));
+        Assert.Equal(cover, memory.CoverId);
+    }
+
+    [Fact]
+    public void ReaderUsesOneChosenThumbnailAndViewerStillHasAllPhotos()
+    {
+        var photos = Enumerable.Range(0, 10).Select(_ => new JournalPhoto(Guid.NewGuid())).ToArray();
+        var memory = JournalMemory.NewFree(Guid.NewGuid(), new(2026, 10, 2)) with
+            { Photos = photos, CoverId = photos[6].Id };
+        Assert.Equal(6, Assert.Single(JournalEntries.PhotoPreviewIndices(memory, 1)));
+        Assert.Equal([6, 0, 1], JournalEntries.PhotoPreviewIndices(memory));
+        Assert.Equal(10, memory.Images.Length);
+        Assert.Empty(JournalEntries.PhotoPreviewIndices(memory with { Photos = [] }));
+    }
+
     [Fact]
     public void Journal_excludes_editorial_notes_and_placeholders_and_preserves_personal_text()
     {

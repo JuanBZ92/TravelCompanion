@@ -227,6 +227,43 @@ public sealed class TripPreparationOrganizerTests
         Assert.False(TripPreparationOrganizationPolicy.IsOrganized(PreparationManualState.Pending, 0));
     }
 
+    [Theory]
+    [InlineData(PreparationManualState.Pending, false)]
+    [InlineData(PreparationManualState.OutsideApp, true)]
+    [InlineData(PreparationManualState.NotNeeded, true)]
+    public void Missing_personal_document_is_pending_only_without_a_manual_declaration(
+        PreparationManualState manualState, bool isOrganized)
+    {
+        var curated = new LocalTripDocument(Guid.NewGuid(), "Included", ".pdf", 10, DateTimeOffset.UtcNow,
+            "/documents/included", LocalDocumentCategory.Transport);
+        var hotel = new LocalTripDocument(Guid.NewGuid(), "Hotel", ".pdf", 10, DateTimeOffset.UtcNow,
+            Category: LocalDocumentCategory.Accommodation);
+        var legacy = new LocalTripDocument(Guid.NewGuid(), "Old", ".pdf", 10, DateTimeOffset.UtcNow);
+        var transportCount = TripPreparationOrganizationPolicy.DocumentCount(
+            LocalDocumentCategory.Transport, [curated, hotel, legacy]);
+
+        Assert.Equal(0, transportCount);
+        Assert.Equal(isOrganized, TripPreparationOrganizationPolicy.IsOrganized(manualState, transportCount));
+    }
+
+    [Fact]
+    public void Moving_the_last_attachment_changes_organization_in_both_categories_without_clearing_manual_choices()
+    {
+        var hotel = new LocalTripDocument(Guid.NewGuid(), "Hotel", ".pdf", 10, DateTimeOffset.UtcNow,
+            Category: LocalDocumentCategory.Accommodation);
+        Assert.True(TripPreparationOrganizationPolicy.IsOrganized(PreparationManualState.Pending,
+            TripPreparationOrganizationPolicy.DocumentCount(LocalDocumentCategory.Accommodation, [hotel])));
+
+        var moved = hotel with { Category = LocalDocumentCategory.Reservations };
+        var accommodationCount = TripPreparationOrganizationPolicy.DocumentCount(LocalDocumentCategory.Accommodation, [moved]);
+        var reservationsCount = TripPreparationOrganizationPolicy.DocumentCount(LocalDocumentCategory.Reservations, [moved]);
+
+        Assert.False(TripPreparationOrganizationPolicy.IsOrganized(PreparationManualState.Pending, accommodationCount));
+        Assert.True(TripPreparationOrganizationPolicy.IsOrganized(PreparationManualState.Pending, reservationsCount));
+        Assert.True(TripPreparationOrganizationPolicy.IsOrganized(PreparationManualState.OutsideApp, accommodationCount));
+        Assert.True(TripPreparationOrganizationPolicy.IsOrganized(PreparationManualState.NotNeeded, accommodationCount));
+    }
+
     private static PreparationManualState State(PreparationOrganizerState state, string key) =>
         state.Categories.Single(item => item.Key == key).ManualState;
 

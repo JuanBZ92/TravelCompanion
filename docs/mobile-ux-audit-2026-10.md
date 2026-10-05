@@ -389,3 +389,80 @@ datos sintéticos; en la instalación habitual se comprobó actualización y arr
 Logs y metadatos: `android-publish-v117.log`, `badging-release-v117.log`,
 `signature-release-v117.log`, `install-release-v117.log`, `start-release-v117.log`
 en `artifacts/ux-polish-20261005/`.
+
+## Barra discreta de Viaje, fotos en abanico y documentos pendientes
+
+La cabecera de Viaje reúne Itinerario, Carpeta y Gastos en un único contenedor
+suave. La selección usa una superficie clara y texto destacado; se conserva el
+desplazamiento horizontal para fuentes grandes. El menú secundario elimina los
+accesos duplicados a Carpeta y Documentos, conservando las demás acciones y sus
+permisos. Las categorías pendientes de Carpeta muestran un triángulo amarillo
+suave; archivos personales o declaraciones manuales restauran el icono habitual.
+
+Journal presenta hasta tres fotos en abanico, con la portada elegida delante y
+algo más alta. Tocar las fotos abre directamente el álbum completo; tocar el texto
+abre el recuerdo. El lector carga una única miniatura cuadrada después del texto,
+que también abre el álbum. Se mantienen las diez fotos, los índices originales,
+el almacenamiento cifrado y la lista virtualizada. Una guardia compartida evita
+navegaciones simultáneas desde texto y fotos; el contexto de cuenta y viaje debe
+seguir siendo el de la lista mostrada.
+
+La revisión nativa detectó que Preparación almacenaba decisiones por idioma.
+Ahora utiliza una clave neutral por usuario y viaje. La primera lectura recupera
+las copias anteriores de todos los idiomas, conserva la última declaración por
+categoría y el indicador de importación de checks antiguos, y escribe el resultado
+cifrado. Los pendientes sin fecha de las versiones anteriores no se distinguen
+de los valores iniciales: se tratan como valores iniciales durante esa recuperación.
+Las decisiones futuras de volver a pendiente conservan fecha y quedan protegidas
+frente a la importación de checks. Un estado neutral existente es la autoridad;
+las copias antiguas se conservan y la limpieza de cuenta/viaje cubre ambos formatos.
+
+La suite móvil aprobó **434/434 pruebas**, sin omisiones
+(`artifacts/ux-minimal-20261005/mobile-tests-final.log`). Incluye selección de
+portada, límite de previsualizaciones, estados y contadores de documentos,
+recuperación entre idiomas, decisiones posteriores, cancelación, aislamiento y
+limpieza. Los tests de almacenamiento utilizan la dependencia de caché simulada;
+la recuperación de los archivos cifrados reales se comprueba en el Android.
+
+Se revisó el Samsung físico de 384 dp, con una cuenta y archivos sintéticos,
+API local en 5188 y el paquete separado de QA. No se cambiaron API, contratos,
+permisos de pago ni esquema PostgreSQL. La autenticación de QA se hizo por PIN.
+
+| Recorrido nativo | Resultado observado | Evidencia en `artifacts/ux-minimal-20261005/` |
+|---|---|---|
+| Viaje ES normal | Barra agrupada y selección de Carpeta/Gastos; menú sin accesos duplicados. | `trip-tabs-es-v130.png`, `trip-expenses-v130.png`, `trip-menu-v130.png`. |
+| Documentos pendientes | Triángulo suave; adjuntar un PNG cambia a documento, borrar el último devuelve el aviso; declaración fuera de la app también restaura el icono. | `folder-pending-es-v130.png`, `folder-file-saved-v130.png`, `folder-return-pending-v130.png`. |
+| Álbum desde la lista y lector | Abanico abre portada 3/3; navegación hasta 2/3 y 1/3; cerrar vuelve directamente a la lista. El lector muestra una miniatura y abre las tres fotos. | `journal-fan-modal-v130.png`, `journal-modal-second-v130.png`, `journal-modal-first-v130.png`, `journal-reader-single-es-v130.png`. |
+| EN al 200 % | Barra horizontal hasta Expenses, selección funcional; lector con una miniatura y controles visibles. | `trip-en-200-scroll-v130.png`, `trip-expenses-en-200-v130.png`, `journal-reader-en-200-v130.png`. |
+| Abanico final y una foto | Márgenes evitan recorte de esquinas; una foto se muestra sola. Apertura rápida, cierre a la lista y nueva apertura funcionan. | `journal-fan-en-200-v131.png`, `journal-one-modal-v131.png`, `journal-after-fast-taps-v131.png`, `journal-reopen-v131.png`. |
+| Recuperación cifrada en Release | QA132 recupera Transporte «No lo necesito» de EN y Alojamiento «Fuera de la app» de ES: 2/4 organizadas. | `folder-recovered-es-v132.png`. |
+| Decisión posterior y reinicio | Cambiar Alojamiento a pendiente en ES y reiniciar en EN mantiene 1/4, Transporte organizado y Alojamiento pendiente; la copia antigua ES no resucita la declaración. | `folder-new-pending-es-v132.png`, `folder-new-pending-en-restart-v132.png`. |
+| Dos y tres fotos en Release | Añadir la segunda foto desde el lector vuelve a él, con una sola miniatura. La lista muestra los dos abanicos y mantiene la portada seleccionada. | `journal-reader-two-v132.png`, `journal-fans-two-three-v132.png`. |
+| Sin backend en Release | API local detenida y puerto 5188 sin listener: desde Carpeta se abre Journal con dos recuerdos y cinco fotos; el abanico abre el visor y el texto abre el lector con una sola miniatura. | `journal-offline-list-en-v132.png`, `journal-offline-modal-en-v132.png`, `journal-offline-reader-en-v132.png`. |
+
+Las compilaciones Android Debug de QA130 y QA131 terminaron sin advertencias ni
+errores. No se acredita TalkBack hablado ni otras plataformas; la revisión con
+datos personales se limita a instalación y arranque de la app habitual.
+
+### Publicación de la app habitual v118
+
+QA132 y la app habitual se publicaron en Release con exit 0. Se mantienen 205
+advertencias XC0025 de bindings con `Source`, cuya compilación está deshabilitada
+por las instrucciones del proyecto; v117 tenía 203 y esta fase añade dos bindings
+de navegación del abanico. Su funcionamiento se comprobó en las APK nativas.
+Los registros son `android-publish-qa-v132.log` y `android-publish-v118.log`.
+
+QA132 usa `Yuku-Planner-QA-v132.apk`, SHA-256
+`D5B9E51DF2906F07E4413649EA6DF49251BC262DA36E698A752C613749F425AB`.
+La APK habitual `YUKU-Japan-118-ux.apk` mide 40.129.597 bytes, SHA-256
+`C57E241ABEDF51CD8CF9F38DEC2DE0BD297D3550028E64ADD29F610581346C3F`.
+Se verificaron paquete `com.yuku.travelcompanion.app`, versión 118, ARM64/x86_64,
+ausencia de marca debuggable, firma v1/v2/v3 y el mismo certificado que v117.
+El atributo de ensamblado confirma el backend habitual de Render.
+
+La instalación con `adb install --no-incremental -r` devolvió `Success`; Android
+confirma versión 118 y conserva `firstInstallTime=2026-09-25 18:48:34`.
+El arranque devolvió `Status: ok`. No se desinstaló ni se borraron datos personales.
+Se restauraron fuente 1,0, locales QA `[]` y pantalla activa original 2; se retiró
+la conexión ADB de 5188 y se detuvo solo la API local de esta revisión. No se
+requieren migraciones ni despliegue de backend para estos cambios.

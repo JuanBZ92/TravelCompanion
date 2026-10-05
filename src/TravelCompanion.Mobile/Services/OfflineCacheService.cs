@@ -124,6 +124,39 @@ public sealed class OfflineCacheService
         CancellationToken cancellationToken) =>
         GetAsync<T>(key, maxAge: null, cancellationToken);
 
+    // Read-only recovery for personal data that older versions stored per language.
+    // The owning store decides how to merge it and saves the neutral replacement.
+    public async Task<IReadOnlyList<OfflineCacheResult<T>>> GetLocalizedCopiesAsync<T>(
+        string key, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var fileName = SanitizeKey(key) + ".json";
+        var copies = new List<OfflineCacheResult<T>>();
+        foreach (var path in GetKnownCachePaths().Where(path =>
+                     Path.GetFileName(path) == fileName
+                     && Path.GetFileName(Path.GetDirectoryName(path)) != "neutral")
+                 .Order(StringComparer.Ordinal))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!File.Exists(path)) continue;
+            try
+            {
+                var json = await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false);
+                var entry = await TryReadEncryptedEntryAsync<T>(json, cancellationToken).ConfigureAwait(false)
+                    ?? JsonSerializer.Deserialize<OfflineCacheEntry<T>>(json, JsonOptions);
+                cancellationToken.ThrowIfCancellationRequested();
+                if (entry is not null && entry.Value is not null && entry.FormatVersion is 1 or CurrentCacheFormatVersion)
+                    copies.Add(new(entry.Value, entry.SavedAt, entry.Metadata));
+            }
+            catch (OperationCanceledException) { throw; }
+            catch
+            {
+                // A missing or unreadable copy must not hide another valid language.
+            }
+        }
+        return copies;
+    }
+
     public Task DeleteAsync(string key)
     {
         return DeletePathAsync(GetPath(key));
@@ -178,6 +211,7 @@ public sealed class OfflineCacheService
             || key.StartsWith("personal-expenses-", StringComparison.Ordinal)
             || key.StartsWith("personal-documents-", StringComparison.Ordinal)
             || key.StartsWith("personal-document-file-", StringComparison.Ordinal)
+            || key.StartsWith("preparation-organizer-", StringComparison.Ordinal)
             ? "neutral" : System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
         return Path.Combine(key.StartsWith("personal-expenses-", StringComparison.Ordinal) ? ExpensesRoot : key.StartsWith("personal-journal-", StringComparison.Ordinal) ? JournalRoot : CacheRoot,
             locale, $"{safeKey}.json");

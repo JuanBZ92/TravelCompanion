@@ -57,9 +57,20 @@
          <Label Text="{Binding PhotoCount}" IsVisible="{Binding HasPhotos}" FontSize="11" TextColor="#765831"/>
          <Label Text="{Binding Status}" IsVisible="{Binding HasStatus}" FontSize="11" TextColor="#9A693F"/>
         </VerticalStackLayout>
-        <Image Grid.Column="2" Source="{Binding Cover.Source}" IsVisible="{Binding HasPhotos}" Aspect="AspectFill" WidthRequest="78" HeightRequest="78" VerticalOptions="Center" AutomationProperties.IsInAccessibleTree="False"/>
-        <Label Grid.Column="2" Text="›" IsVisible="{Binding HasNoPhotos}" MinimumWidthRequest="48" TextColor="#765831" FontSize="30" HorizontalTextAlignment="Center" VerticalTextAlignment="Center" AutomationProperties.IsInAccessibleTree="False"/>
-        <Button Grid.ColumnSpan="3" SemanticProperties.Description="{Binding OpenDescription}" Command="{Binding BindingContext.OpenEntryCommand, Source={x:Reference JournalRoot}}" CommandParameter="{Binding .}" Padding="0" MinimumHeightRequest="92" BackgroundColor="Transparent"/>
+        <Button Grid.ColumnSpan="2" SemanticProperties.Description="{Binding OpenDescription}" Command="{Binding BindingContext.OpenEntryCommand, Source={x:Reference JournalRoot}}" CommandParameter="{Binding .}" Padding="0" MinimumHeightRequest="92" BackgroundColor="Transparent"/>
+        <Grid Grid.Column="2" IsVisible="{Binding HasPhotos}" WidthRequest="96" HeightRequest="96" VerticalOptions="Center">
+         <Border IsVisible="{Binding HasSecondPhoto}" WidthRequest="58" HeightRequest="72" Margin="8,0,0,0" Padding="3" Stroke="#D6C5AE" StrokeShape="RoundRectangle 5" BackgroundColor="#FFFCF8" HorizontalOptions="Start" VerticalOptions="Center" TranslationY="6" Rotation="-12" InputTransparent="True">
+          <Image Source="{Binding SecondPhoto.Source}" Aspect="AspectFill" AutomationProperties.IsInAccessibleTree="False"/>
+         </Border>
+         <Border IsVisible="{Binding HasThirdPhoto}" WidthRequest="58" HeightRequest="72" Margin="0,0,8,0" Padding="3" Stroke="#D6C5AE" StrokeShape="RoundRectangle 5" BackgroundColor="#FFFCF8" HorizontalOptions="End" VerticalOptions="Center" TranslationY="6" Rotation="12" InputTransparent="True">
+          <Image Source="{Binding ThirdPhoto.Source}" Aspect="AspectFill" AutomationProperties.IsInAccessibleTree="False"/>
+         </Border>
+         <Border ZIndex="1" WidthRequest="68" HeightRequest="78" Padding="3" Stroke="#E5DDD3" StrokeShape="RoundRectangle 5" BackgroundColor="#FFFCF8" HorizontalOptions="Center" VerticalOptions="Center" TranslationY="-5" InputTransparent="True">
+          <Image Source="{Binding Cover.Source}" Aspect="AspectFill" AutomationProperties.IsInAccessibleTree="False"/>
+         </Border>
+         <Button ZIndex="2" SemanticProperties.Description="{Binding OpenPhotosDescription}" Command="{Binding BindingContext.OpenPhotoCommand, Source={x:Reference JournalRoot}}" CommandParameter="{Binding Cover}" Padding="0" MinimumHeightRequest="48" MinimumWidthRequest="48" BorderWidth="0" BackgroundColor="Transparent"/>
+        </Grid>
+        <Button Grid.Column="2" Text="›" IsVisible="{Binding HasNoPhotos}" SemanticProperties.Description="{Binding OpenDescription}" Command="{Binding BindingContext.OpenEntryCommand, Source={x:Reference JournalRoot}}" CommandParameter="{Binding .}" MinimumWidthRequest="48" MinimumHeightRequest="48" Padding="0" BackgroundColor="Transparent" TextColor="#765831" FontSize="30"/>
        </Grid>
       </Border>
      </DataTemplate>

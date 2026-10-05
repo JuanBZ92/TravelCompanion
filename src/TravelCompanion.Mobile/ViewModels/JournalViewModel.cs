@@ -31,12 +31,19 @@ public sealed record JournalRow(JournalMemory Memory, IReadOnlyList<JournalThumb
     public bool HasPhotos => Photos.Count > 0;
     public bool HasNoPhotos => !HasPhotos;
     public JournalThumbnail? Cover => Photos.FirstOrDefault();
+    public JournalThumbnail? SecondPhoto => Photos.ElementAtOrDefault(1);
+    public JournalThumbnail? ThirdPhoto => Photos.ElementAtOrDefault(2);
+    public bool HasSecondPhoto => SecondPhoto is not null;
+    public bool HasThirdPhoto => ThirdPhoto is not null;
     public string PhotoCount => JournalText.Photos(Memory.Images.Length);
+    public string OpenPhotosDescription => $"{JournalText.Get("JournalOpenPhotos")} · {PhotoCount} · {Title}";
     public string OpenDescription => JournalText.Format("JournalRead", Title);
 }
 public sealed partial class JournalViewModel(MobileBootstrapStore bootstrapStore, AuthSessionService sessions,
     JournalStore store) : ViewModelBase, ISessionStateResettable
 {
+    private JournalScope? renderedScope;
+    private bool opening;
     public ObservableCollection<JournalRow> Entries { get; } = [];
     public string TripTitle { get; private set; } = "";
     public string Heading => JournalText.Get("JournalHeading");
@@ -118,7 +125,7 @@ public sealed partial class JournalViewModel(MobileBootstrapStore bootstrapStore
         foreach (var memory in memories.Where(x => !x.IsDraft && !x.Deleted && x.HasContent))
         {
             var photos = new List<JournalThumbnail>();
-            var indices = Enumerable.Range(0, memory.Images.Length).OrderByDescending(i => memory.Images[i].Id == memory.CoverId).Take(3);
+            var indices = JournalEntries.PhotoPreviewIndices(memory);
             foreach (var i in indices)
             {
                 ct.ThrowIfCancellationRequested();
@@ -130,6 +137,7 @@ public sealed partial class JournalViewModel(MobileBootstrapStore bootstrapStore
         }
         ct.ThrowIfCancellationRequested();
         if (!store.IsCurrent(scope)) return;
+        renderedScope = scope;
         Memories = memories; Drafts = drafts;
         Entries.Clear(); foreach (var row in rows) Entries.Add(row);
         NotifyContentChanged();
@@ -160,14 +168,30 @@ public sealed partial class JournalViewModel(MobileBootstrapStore bootstrapStore
     }
     [RelayCommand] private Task OpenAccountAsync() => sessions.IsFreeMapPreview
         ? BuilderSetupNavigation.OpenAsync() : Shell.Current.GoToAsync("//main/account");
-    [RelayCommand] private Task OpenPhotoAsync(JournalThumbnail? photo) => photo is null ? Task.CompletedTask :
-        Shell.Current.Navigation.PushModalAsync(new JournalPhotoPage(store.Scope(), photo.Memory, photo.Index));
-    [RelayCommand] private Task OpenEntryAsync(JournalRow? row)
+    [RelayCommand] private async Task OpenPhotoAsync(JournalThumbnail? photo)
     {
-        if (row is null) return Task.CompletedTask;
-        CancelLoading();
-        return Shell.Current.Navigation.PushModalAsync(new JournalReadingPage(store.Scope(), row.Memory,
-            row.Memory.IsFree ? null : Activities.FirstOrDefault(x => x.Id == row.Memory.Id)));
+        if (opening || photo is null || renderedScope is not { } scope || !store.IsCurrent(scope)
+            || !Entries.Any(row => row.Photos.Any(thumbnail => ReferenceEquals(thumbnail, photo)))) return;
+        opening = true;
+        try
+        {
+            CancelLoading();
+            await Shell.Current.Navigation.PushModalAsync(new JournalPhotoPage(scope, photo.Memory, photo.Index));
+        }
+        finally { opening = false; }
+    }
+    [RelayCommand] private async Task OpenEntryAsync(JournalRow? row)
+    {
+        if (opening || row is null || renderedScope is not { } scope || !store.IsCurrent(scope)
+            || !Entries.Any(entry => ReferenceEquals(entry, row))) return;
+        opening = true;
+        try
+        {
+            CancelLoading();
+            await Shell.Current.Navigation.PushModalAsync(new JournalReadingPage(scope, row.Memory,
+                row.Memory.IsFree ? null : Activities.FirstOrDefault(x => x.Id == row.Memory.Id)));
+        }
+        finally { opening = false; }
     }
     [RelayCommand(CanExecute = nameof(CanAddMemory))] private Task AddMemoryAsync()
     {
@@ -202,6 +226,6 @@ public sealed partial class JournalViewModel(MobileBootstrapStore bootstrapStore
         if (choice == activity) await Shell.Current.Navigation.PushModalAsync(new JournalActivityPickerPage(Activities, Memories));
         if (choice == export) await Shell.Current.Navigation.PushModalAsync(new JournalExportPage(scope, TripTitle, Memories.Where(x => !x.IsDraft && !x.Deleted && x.HasContent).ToArray()));
     }
-    private void Clear() { Entries.Clear(); Activities = []; Memories = []; Drafts = []; TripTitle = ""; NotifyContentChanged(); }
+    private void Clear() { renderedScope = null; Entries.Clear(); Activities = []; Memories = []; Drafts = []; TripTitle = ""; NotifyContentChanged(); }
     public void ResetForNewSession() { ResetLoadState(); Clear(); }
 }

@@ -89,26 +89,17 @@ public sealed class JournalReadingPage(JournalScope scope, JournalMemory origina
             if (memory.Images.Length > 0)
             {
                 body.Add(JournalUi.Text(JournalText.Format("JournalPhotosLimit", memory.Images.Length), 12));
-                var gallery = new FlexLayout { Wrap = Microsoft.Maui.Layouts.FlexWrap.Wrap,
-                    AlignItems = Microsoft.Maui.Layouts.FlexAlignItems.Start,
-                    AlignContent = Microsoft.Maui.Layouts.FlexAlignContent.Start };
-                for (var i = 0; i < memory.Images.Length; i++)
-                {
-                    var index = i;
-                    var bytes = await store.PhotoAsync(scope, memory.Images[i].Id, true);
-                    if (!CanDisplay(version)) return;
-                    var image = JournalUi.Icon("journal_photo.svg",
-                        JournalText.Format("JournalPhotoNumber", i + 1, memory.Images.Length), () => OpenPhotosAsync(index));
-                    image.WidthRequest = 100; image.HeightRequest = 100; image.Padding = 0; image.Aspect = Aspect.AspectFill;
-                    if (bytes is not null) image.Source = ImageSource.FromStream(() => new MemoryStream(bytes));
-                    var tile = new Border { WidthRequest = 100, HeightRequest = 100, Padding = 0,
-                        Margin = new Thickness(0, 0, 8, 8), StrokeThickness = 0,
-                        StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = new CornerRadius(10) },
-                        Content = image };
-                    FlexLayout.SetAlignSelf(tile, Microsoft.Maui.Layouts.FlexAlignSelf.Start);
-                    gallery.Children.Add(tile);
-                }
-                body.Add(gallery);
+                var index = JournalEntries.PhotoPreviewIndices(memory, 1)[0];
+                var bytes = await store.PhotoAsync(scope, memory.Images[index].Id, true);
+                if (!CanDisplay(version)) return;
+                var image = JournalUi.Icon("journal_photo.svg",
+                    $"{JournalText.Get("JournalOpenPhotos")} · {JournalText.Photos(memory.Images.Length)}", () => OpenPhotosAsync(index));
+                image.WidthRequest = 100; image.HeightRequest = 100; image.Padding = 0; image.Aspect = Aspect.AspectFill;
+                if (bytes is not null) image.Source = ImageSource.FromStream(() => new MemoryStream(bytes));
+                body.Add(new Border { WidthRequest = 100, HeightRequest = 100, Padding = 0,
+                    HorizontalOptions = LayoutOptions.Start, StrokeThickness = 0,
+                    StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = new CornerRadius(10) },
+                    Content = image });
             }
             if (memory.Status.Length > 0)
             {

@@ -38,10 +38,12 @@ public sealed class TravelCompanionApiClient
 public sealed class OfflineCacheService
 {
     public readonly Dictionary<string, object> Entries = [];
+    public readonly Dictionary<(string Language, string Key), object> LocalizedEntries = [];
     public int Reads;
     public int Writes;
     public Func<Task>? BeforeRead;
     public Func<Task>? BeforeSave;
+    public Func<Task>? BeforeLocalizedRead;
     public async Task<OfflineCacheResult<T>?> GetAsync<T>(string key, TimeSpan? maxAge = null, CancellationToken cancellationToken = default)
     {
         Reads++;
@@ -50,6 +52,14 @@ public sealed class OfflineCacheService
         return Entries.GetValueOrDefault(key) as OfflineCacheResult<T>;
     }
     public Task<OfflineCacheResult<T>?> GetAsync<T>(string key, CancellationToken ct) => GetAsync<T>(key, null, ct);
+    public async Task<IReadOnlyList<OfflineCacheResult<T>>> GetLocalizedCopiesAsync<T>(string key, CancellationToken ct = default)
+    {
+        if (BeforeLocalizedRead is not null) await BeforeLocalizedRead();
+        ct.ThrowIfCancellationRequested();
+        return LocalizedEntries.Where(entry => entry.Key.Key == key)
+            .OrderBy(entry => entry.Key.Language, StringComparer.Ordinal)
+            .Select(entry => entry.Value).OfType<OfflineCacheResult<T>>().ToList();
+    }
     public Task SaveAsync<T>(string key, T value, CancellationToken ct = default) => SaveAsync(key, value, new OfflineCacheMetadata(), ct);
     public async Task SaveAsync<T>(string key, T value, OfflineCacheMetadata metadata, CancellationToken ct = default)
     {
@@ -62,6 +72,7 @@ public sealed class OfflineCacheService
     public Task DeleteByPrefixAsync(params string[] prefixes)
     {
         foreach (var key in Entries.Keys.Where(key => prefixes.Any(prefix => key.StartsWith(prefix, StringComparison.Ordinal))).ToArray()) Entries.Remove(key);
+        foreach (var key in LocalizedEntries.Keys.Where(key => prefixes.Any(prefix => key.Key.StartsWith(prefix, StringComparison.Ordinal))).ToArray()) LocalizedEntries.Remove(key);
         return Task.CompletedTask;
     }
 }

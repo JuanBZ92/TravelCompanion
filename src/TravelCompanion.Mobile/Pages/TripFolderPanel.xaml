@@ -15,7 +15,13 @@
       <Border Padding="10" BackgroundColor="#FFFCF8" Stroke="#E5DDD3" StrokeShape="RoundRectangle 14">
        <Grid ColumnDefinitions="*,48,48" ColumnSpacing="2" MinimumHeightRequest="68">
         <Grid ColumnDefinitions="32,*" ColumnSpacing="10" Padding="4,6" InputTransparent="True">
-         <Image Source="tab_docs.svg" WidthRequest="24" HeightRequest="24" AutomationProperties.IsInAccessibleTree="False"/>
+         <Image Source="tab_docs.svg" WidthRequest="24" HeightRequest="24" AutomationProperties.IsInAccessibleTree="False">
+          <Image.Triggers>
+           <DataTrigger TargetType="Image" Binding="{Binding IsOrganized}" Value="False">
+            <Setter Property="Source" Value="preparation_pending.svg"/>
+           </DataTrigger>
+          </Image.Triggers>
+         </Image>
          <VerticalStackLayout Grid.Column="1" Spacing="5" VerticalOptions="Center">
           <Label Text="{Binding Label}" FontSize="16" TextColor="#302920"/>
           <Label Text="{Binding StateText}" FontSize="12" TextColor="#71675D"/>

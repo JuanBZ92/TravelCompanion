@@ -48,9 +48,8 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
         };
         foreach (var (button, selected) in sections)
         {
-            button.BackgroundColor = selected ? EditorialUi.Accent : EditorialUi.Surface;
-            button.TextColor = selected ? EditorialUi.Paper : EditorialUi.Ink;
-            button.BorderColor = selected ? EditorialUi.Accent : EditorialUi.Line;
+            button.BackgroundColor = selected ? EditorialUi.Surface : Colors.Transparent;
+            button.TextColor = selected ? EditorialUi.Ink : EditorialUi.Muted;
             button.FontAttributes = selected ? FontAttributes.Bold : FontAttributes.None;
             SemanticProperties.SetHint(button, selected ? EditorialUi.TextResource("UxCurrentSection") : null);
         }
@@ -60,7 +59,6 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
         if (!ExpensesPanelView.IsVisible && !FolderPanelView.IsVisible) return base.OnBackButtonPressed();
         OnItinerarySectionClicked(this, EventArgs.Empty); return true;
     }
-    private async void OnDocumentsClicked(object? sender, EventArgs e) => await Shell.Current.GoToAsync(nameof(DocsPage));
     private readonly ScheduleViewModel _viewModel;
     private readonly ILogger<SchedulePage> _logger;
     private bool _isHandlingAppearance;
@@ -281,7 +279,6 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
     private async void OnItineraryMenuClicked(object? sender, EventArgs e)
     {
         var resources = TravelCompanion.Mobile.Services.LocalizationResourceManager.Instance;
-        var documentsLabel = resources["UXAuditTripDocuments"];
         var reviewDayLabel = resources["UXAuditReviewDay"];
         var reviewTripLabel = resources["ReviewTrip"];
         var downloadLabel = resources["DownloadTrip"];
@@ -289,17 +286,14 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
         var editLabel = resources["UXAuditEditItinerary"];
         var deleteLabel = resources["DeleteTripTitle"];
         var remindersLabel = resources["UXAuditReservationReminders"];
-        var preparationLabel = resources["PreparationTitle"];
         var actions = new List<string>
         {
-            documentsLabel,
             reviewDayLabel,
             reviewTripLabel,
             downloadLabel,
             shareLabel
         };
         actions.Add(remindersLabel);
-        actions.Insert(0, preparationLabel);
         if (_viewModel.CanManageItinerary)
         {
             actions.Insert(0, editLabel);
@@ -310,11 +304,7 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
             resources["CommonCancel"],
             null,
             actions.ToArray());
-        if (action == preparationLabel)
-            await Shell.Current.GoToAsync(nameof(TripPreparationPage));
-        else if (action == documentsLabel)
-            await Shell.Current.GoToAsync(nameof(DocsPage));
-        else if (action == reviewDayLabel)
+        if (action == reviewDayLabel)
             await _viewModel.ReviewSelectedDayCommand.ExecuteAsync(null);
         else if (action == reviewTripLabel)
             await _viewModel.ReviewTripCommand.ExecuteAsync(null);
