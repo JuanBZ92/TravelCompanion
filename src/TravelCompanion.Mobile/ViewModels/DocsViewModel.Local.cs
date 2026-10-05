@@ -28,9 +28,16 @@ public sealed partial class DocsViewModel
     {
         var user = sessionService.CurrentUserId;
         var trip = sessionService.CurrentTripId;
-        if (!user.HasValue || !trip.HasValue) return;
+        var contextVersion = sessionService.ContextVersion;
+        var selectedCategory = SelectedCategory;
+        if (!sessionService.HasSession || !user.HasValue || !trip.HasValue)
+        {
+            LocalDocumentGroups.Clear();
+            RebuildDocumentGroups();
+            return;
+        }
         var documents = await documentStore.ListAsync(ct);
-        if (user != sessionService.CurrentUserId || trip != sessionService.CurrentTripId) return;
+        if (!IsCurrentDocumentContext(contextVersion, user, trip) || selectedCategory != SelectedCategory) return;
         LocalDocumentGroups.Clear();
         var personal = LocalDocumentPolicy.PersonalDocuments(documents, SelectedCategory).ToList();
         StatusMessage = SelectedCategory.HasValue && personal.Count == 0 ? Text("NoDocuments") : null;
@@ -42,6 +49,7 @@ public sealed partial class DocsViewModel
                     () => RefreshLocalDocumentsAsync(default), SelectCategoryAsync)).ToList();
             if (rows.Count > 0) LocalDocumentGroups.Add(new(CategoryName(category), rows));
         }
+        RebuildDocumentGroups();
     }
 
     private async Task<LocalDocumentCategory?> SelectCategoryAsync(LocalDocumentCategory? current = null)

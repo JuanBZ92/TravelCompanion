@@ -4,12 +4,13 @@
  xmlns:vm="clr-namespace:TravelCompanion.Mobile.ViewModels" x:Class="TravelCompanion.Mobile.Pages.ImproveDayPage"
  x:Name="PlannerRoot" x:DataType="vm:DayPlannerViewModel" Shell.NavBarIsVisible="False" Shell.TabBarIsVisible="False"
  BackgroundColor="{StaticResource Mist}" SafeAreaEdges="All">
- <Grid RowDefinitions="Auto,*,Auto" Padding="24,8,24,16" RowSpacing="12">
+ <Grid RowDefinitions="Auto,Auto,*,Auto" Padding="24,8,24,16" RowSpacing="12">
   <Grid ColumnDefinitions="48,*,48">
    <ImageButton Source="planner_back.svg" Clicked="OnBackClicked" Style="{StaticResource EditorialIconButton}" SemanticProperties.Description="{Binding BackLabel}"/>
    <Label Grid.Column="1" Text="{Binding Destination}" FontSize="13" TextColor="{StaticResource Muted}" VerticalTextAlignment="Center" HorizontalTextAlignment="Center"/>
   </Grid>
-  <ScrollView Grid.Row="1">
+  <Label x:Name="PlannerError" Grid.Row="1" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" TextColor="#9A493F" FontSize="14" LineBreakMode="WordWrap"/>
+  <ScrollView Grid.Row="2">
    <VerticalStackLayout Spacing="20" Padding="0,0,0,16">
     <VerticalStackLayout Spacing="8">
      <Label Text="{Binding Title}" Style="{StaticResource EditorialHeading}" SemanticProperties.HeadingLevel="Level1"/>
@@ -20,19 +21,32 @@
       <Label Text="{Binding DateLabel}" FontSize="13" TextColor="{StaticResource Muted}"/>
       <DatePicker Date="{Binding SelectedDate}" MinimumDate="{Binding MinimumDate}" MaximumDate="{Binding MaximumDate}" Format="dddd d MMMM" IsEnabled="{Binding IsNotBusy}" MinimumHeightRequest="48"/>
       <Label Text="{Binding DurationLabel}" FontSize="13" TextColor="{StaticResource Muted}"/>
-      <FlexLayout Wrap="Wrap" BindableLayout.ItemsSource="{Binding Durations}">
+      <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="6" BindableLayout.ItemsSource="{Binding Durations}">
        <BindableLayout.ItemTemplate>
         <DataTemplate x:DataType="vm:PlannerDurationOption">
-         <VerticalStackLayout Margin="0,0,8,4" Spacing="4">
-          <Button Text="{Binding Label}" Command="{Binding BindingContext.SelectDurationCommand, Source={x:Reference PlannerRoot}}" CommandParameter="{Binding .}"
+          <Button Grid.Column="{Binding ColumnIndex}" Text="{Binding Label}"
+           Command="{Binding BindingContext.SelectDurationCommand, Source={x:Reference PlannerRoot}}" CommandParameter="{Binding .}"
            IsEnabled="{Binding WithinTrip}" BackgroundColor="{Binding Background}" TextColor="{Binding Foreground}"
-           BorderColor="{StaticResource EditorialLine}" BorderWidth="1" CornerRadius="12" MinimumHeightRequest="48" Padding="14,10" FontSize="14"/>
-          <Label Text="{Binding Hint}" FontSize="10" TextColor="{StaticResource Muted}" HorizontalTextAlignment="Center"/>
-         </VerticalStackLayout>
+           BorderColor="{StaticResource EditorialLine}" BorderWidth="1" CornerRadius="10"
+           MinimumHeightRequest="48" Padding="4,8" FontSize="13" LineBreakMode="WordWrap"
+           SemanticProperties.Description="{Binding AccessibilityLabel}">
+           <Button.Triggers>
+            <DataTrigger TargetType="Button" Binding="{Binding BindingContext.IsBusy, Source={x:Reference PlannerRoot}}" Value="True">
+             <Setter Property="IsEnabled" Value="False"/>
+            </DataTrigger>
+            <DataTrigger TargetType="Button" Binding="{Binding WithinTrip}" Value="False">
+             <Setter Property="Opacity" Value="0.4"/>
+            </DataTrigger>
+           </Button.Triggers>
+          </Button>
         </DataTemplate>
        </BindableLayout.ItemTemplate>
-      </FlexLayout>
+      </Grid>
+      <Label Text="{Binding DurationPassHint}" IsVisible="{Binding HasDurationPassHint}" FontSize="11"
+       TextColor="{StaticResource Muted}" LineBreakMode="WordWrap"/>
       <Label Text="{Binding RangeSummary}" FontSize="14" TextColor="{StaticResource Ink}"/>
+      <Label Text="{Binding RangeCities}" IsVisible="{Binding HasRangeCities}" FontSize="14" TextColor="{StaticResource EditorialMuted}" LineBreakMode="WordWrap"/>
+      <Label Text="{Binding ExistingPlansSummary}" IsVisible="{Binding HasExistingPlansSummary}" FontSize="13" TextColor="{StaticResource EditorialMuted}" LineBreakMode="WordWrap"/>
      </VerticalStackLayout>
     </Border>
     <Border Style="{StaticResource EditorialCard}">
@@ -46,9 +60,9 @@
       </Grid>
       <VerticalStackLayout IsVisible="{Binding ShowPreferences}" IsEnabled="{Binding IsNotBusy}" Spacing="12">
        <Label Text="{Binding PaceLabel}" FontSize="13" TextColor="{StaticResource Muted}"/>
-       <Picker ItemsSource="{Binding Paces}" SelectedIndex="{Binding PaceIndex}" MinimumHeightRequest="48"/>
+       <Picker Title="{Binding PaceLabel}" ItemsSource="{Binding Paces}" SelectedIndex="{Binding PaceIndex}" MinimumHeightRequest="48"/>
        <Label Text="{Binding BudgetLabel}" FontSize="13" TextColor="{StaticResource Muted}"/>
-       <Picker ItemsSource="{Binding Budgets}" SelectedIndex="{Binding BudgetIndex}" MinimumHeightRequest="48"/>
+       <Picker Title="{Binding BudgetLabel}" ItemsSource="{Binding Budgets}" SelectedIndex="{Binding BudgetIndex}" MinimumHeightRequest="48"/>
        <Label Text="{Binding InterestsLabel}" FontSize="13" TextColor="{StaticResource Muted}"/>
        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Interests}" Spacing="0">
         <BindableLayout.ItemTemplate>
@@ -65,12 +79,11 @@
     </Border>
     <Button Text="{Binding ContinueLabel}" Command="{Binding ContinueProposalCommand}" IsVisible="{Binding HasProposal}" Style="{StaticResource EditorialSecondaryButton}"/>
     <Button Text="{Binding ReviewLabel}" Command="{Binding ReviewCommand}" Style="{StaticResource EditorialSecondaryButton}"/>
-    <Label Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" TextColor="#9A493F" FontSize="14"/>
     <Button Text="{Binding RetryLabel}" Command="{Binding RefreshOptionsCommand}" IsVisible="{Binding ShowRetry}" IsEnabled="{Binding IsNotBusy}" Style="{StaticResource EditorialSecondaryButton}"/>
     <Label Text="{Binding StatusMessage}" IsVisible="{Binding HasStatus}" TextColor="{StaticResource Muted}" FontSize="14"/>
    </VerticalStackLayout>
   </ScrollView>
-  <VerticalStackLayout Grid.Row="2" Spacing="8">
+  <VerticalStackLayout Grid.Row="3" Spacing="8">
    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" IsVisible="{Binding IsBusy}">
     <ActivityIndicator IsRunning="{Binding IsBusy}" WidthRequest="24"/>
     <Label Grid.Column="1" Text="{Binding BusyMessage}" FontSize="13" TextColor="{StaticResource Muted}" VerticalTextAlignment="Center"/>

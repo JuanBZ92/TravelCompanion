@@ -21,6 +21,7 @@ public sealed partial class DayPlannerViewModel(AuthSessionService sessions, Day
     private DayPlanRequest? request;
     private DayPlanResponse? proposal;
     private DayPlanApplyRequest? pendingApplication;
+    private TripScheduleDto? schedule;
     private bool initializing;
     private bool suppressSelectionSave;
     private int dayCount = 1;
@@ -48,6 +49,9 @@ public sealed partial class DayPlannerViewModel(AuthSessionService sessions, Day
     public string Intro => Text("PlannerIntro");
     public string DateLabel => Text("PlannerStartDate");
     public string DurationLabel => Text("PlannerDuration");
+    public string DurationPassHint => Text("PlannerDurationPassHint");
+    public bool HasDurationPassHint => HasOptions && options is not null
+        && (!options.DayCounts.Contains(5) || !options.DayCounts.Contains(7));
     public string PreferencesLabel => Text("PlannerPreferences");
     public string AdjustLabel => Text("PlannerAdjust");
     public string PaceLabel => Text("PlannerPace");
@@ -61,18 +65,37 @@ public sealed partial class DayPlannerViewModel(AuthSessionService sessions, Day
     public string ViewTripLabel => Text("PlannerViewTrip");
     public string ResultTitle => Text("PlannerResult");
     public string ResultIntro => proposal?.Message ?? Text("PlannerResultIntro");
+    public string RangeCities => string.Join(" · ", ConfiguredCities().Select(city => city.Trim()).Where(city => city.Length > 0)
+        .Distinct(StringComparer.OrdinalIgnoreCase));
+    public bool HasRangeCities => !string.IsNullOrWhiteSpace(RangeCities);
+    public bool HasExistingPlansSummary => schedule is not null;
+    public string ExistingPlansSummary => FormatExistingPlansSummary(DateOnly.FromDateTime(SelectedDate),
+        DateOnly.FromDateTime(SelectedDate).AddDays(dayCount - 1));
+    public bool HasResultExistingPlansSummary => schedule is not null && proposal?.Days.Count > 0;
+    public string ResultExistingPlansSummary => proposal?.Days.Count > 0
+        ? FormatExistingPlansSummary(proposal.Days.Min(day => day.Date), proposal.Days.Max(day => day.Date)) : "";
     public string UnavailableDays => proposal is null ? "" : string.Join("\n", proposal.Days
         .Where(day => day.Stops.Count == 0).Select(day => $"{day.Date:d MMM}: {Text("PlannerEmptyDay")}"));
     public bool HasUnavailableDays => !string.IsNullOrWhiteSpace(UnavailableDays);
     public string NewProposalLabel => Text("PlannerAnother");
     public string BackLabel => Text("PaywallBack");
-    public string SelectionNotice => pendingApplication is not null ? Text("PlannerPendingSave") : Text("PlannerSelectionHelp");
-    public string PreferencesSummary => $"{Paces[Math.Clamp(PaceIndex, 0, 2)]} · {Budgets[Math.Clamp(BudgetIndex, 0, 2)]}";
+    public string SelectionNotice => pendingApplication is not null ? Text("PlannerPendingSave")
+        : pendingReplacement is not null ? Text("PlannerReplacementPending") : Text("PlannerSelectionHelp");
+    public string PreferencesSummary
+    {
+        get
+        {
+            var selected = Interests.Where(item => item.IsSelected).Select(item => item.Label).Take(4).ToArray();
+            var interests = string.Join(", ", selected.Take(3)) + (selected.Length > 3 ? "…" : "");
+            var summary = $"{Paces[Math.Clamp(PaceIndex, 0, 2)]} · {Budgets[Math.Clamp(BudgetIndex, 0, 2)]}";
+            return interests.Length == 0 ? summary : $"{summary} · {interests}";
+        }
+    }
     public IReadOnlyList<string> Paces => [Text("PlannerRelaxed"), Text("PlannerBalanced"), Text("PlannerActive")];
     public IReadOnlyList<string> Budgets => [Text("PlannerLow"), Text("PlannerMedium"), Text("PlannerHigh")];
-    public bool CanGenerate => IsNotBusy && HasOptions && options?.Enabled == true && pendingApplication is null && Online;
-    public bool CanApply => IsNotBusy && HasOptions && options?.Enabled == true && HasProposal && SelectedCount > 0 && !Stale && Online;
-    public bool CanSelect => IsNotBusy && pendingApplication is null;
+    public bool CanGenerate => IsNotBusy && HasOptions && options?.Enabled == true && pendingApplication is null && pendingReplacement is null && Online;
+    public bool CanApply => IsNotBusy && HasOptions && options?.Enabled == true && HasProposal && SelectedCount > 0 && pendingReplacement is null && !Stale && Online;
+    public bool CanSelect => IsNotBusy && pendingApplication is null && pendingReplacement is null;
     public bool ShowRetry => HasError || !HasOptions || !Online;
     public bool ShowOpenTrip => SelectedCount == 0 && Days.SelectMany(day => day).Any(stop => stop.IsSaved);
     public bool ShowApply => !ShowOpenTrip;
@@ -100,6 +123,9 @@ public sealed partial class DayPlannerViewModel(AuthSessionService sessions, Day
                 options = cached.Options; request = cached.Request; proposal = cached.Proposal;
                 if (date.HasValue && request is not null && date.Value != request.StartDate) request = null;
                 pendingApplication = cached.PendingApplication;
+                pendingReplacement = cached.PendingReplacement;
+                proposalRequest = cached.ProposalRequest ?? (cached.Request?.OperationId == cached.Proposal?.OperationId ? cached.Request : null);
+                seenRecommendations.UnionWith(cached.SeenRecommendationIds ?? []);
                 if (options is not null) ApplyOptions(options, date ?? cached.SelectedDate ?? request?.StartDate, useProfile: true);
                 if ((cached.Preferences ?? request?.Preferences) is { } preferences) ApplyPreferences(preferences);
                 dayCount = cached.SelectedDate.HasValue ? cached.DayCount : request?.DayCount ?? 1;
@@ -114,12 +140,13 @@ public sealed partial class DayPlannerViewModel(AuthSessionService sessions, Day
             }
             var snapshot = await bootstrap.GetCachedAsync(cancellationToken: ct);
             if (!current) return;
-            Destination = snapshot?.Value.Schedule?.DestinationName ?? "";
-            await RefreshOptionsCoreAsync(date ?? DateOnly.FromDateTime(SelectedDate), ct, useProfile: cached is null);
+            ApplySchedule(snapshot?.Value.Schedule);
+            await RefreshOptionsCoreAsync(date ?? DateOnly.FromDateTime(SelectedDate), ct,
+                useProfile: cached is null, refreshSchedule: false);
         }, "PlannerChecking");
     }
 
-    private async Task RefreshOptionsCoreAsync(DateOnly? date, CancellationToken ct, bool useProfile = false)
+    private async Task RefreshOptionsCoreAsync(DateOnly? date, CancellationToken ct, bool useProfile = false, bool refreshSchedule = true)
     {
         if (!Online) { StatusMessage = Text("PlannerOffline"); NotifyActions(); return; }
         var token = await sessions.GetTokenAsync();
@@ -134,8 +161,46 @@ public sealed partial class DayPlannerViewModel(AuthSessionService sessions, Day
         // A save whose response was lost must replay its receipt even if it advanced the revision.
         if (proposal is not null && pendingApplication is null && fresh.Revision != proposalRevision) Stale = true;
         ApplyOptions(fresh, date, useProfile);
+        if (refreshSchedule)
+        {
+            var snapshot = await bootstrap.GetCachedAsync(cancellationToken: ct);
+            if (!current) return;
+            ApplySchedule(snapshot?.Value.Schedule);
+        }
         if (pendingApplication is not null) StatusMessage = Text("PlannerPendingSave");
+        else if (pendingReplacement is not null) StatusMessage = Text("PlannerReplacementPending");
         await PersistAsync(ct);
+    }
+    private void ApplySchedule(TripScheduleDto? value)
+    {
+        // An invalidated bootstrap can still contain the snapshot before our confirmed save.
+        if (value is not null && value.TripId == trip && (schedule is null || value.Revision >= schedule.Revision)) schedule = value;
+        Destination = schedule?.DestinationName ?? "";
+        NotifyRangeContext();
+    }
+    private IEnumerable<string> ConfiguredCities()
+    {
+        var start = DateOnly.FromDateTime(SelectedDate);
+        var end = start.AddDays(dayCount - 1);
+        if (options?.CityDays is { Count: > 0 } cities)
+            return cities.Where(day => day.Date >= start && day.Date <= end).OrderBy(day => day.Date).SelectMany(day => day.Cities);
+        return ExistingRangeItems(start, end).OrderBy(item => item.Date).ThenBy(item => item.StartsAt).Select(item => item.City);
+    }
+    private IEnumerable<ScheduleItemDto> ExistingRangeItems(DateOnly start, DateOnly end) =>
+        schedule?.Items.Where(item => item.Date <= end && (item.EndsOn ?? item.Date) >= start)
+            ?? Enumerable.Empty<ScheduleItemDto>();
+    private string FormatExistingPlansSummary(DateOnly start, DateOnly end) => schedule is null ? ""
+        : ExistingRangeItems(start, end).Select(item => item.Id).Distinct().Count() switch
+    {
+        0 => Text("PlannerNoExistingPlans"),
+        1 => Text("PlannerExistingPlan"),
+        var count => string.Format(Text("PlannerExistingPlans"), count)
+    };
+    private void NotifyRangeContext()
+    {
+        OnPropertyChanged(nameof(RangeCities)); OnPropertyChanged(nameof(HasRangeCities));
+        OnPropertyChanged(nameof(ExistingPlansSummary)); OnPropertyChanged(nameof(HasExistingPlansSummary));
+        OnPropertyChanged(nameof(ResultExistingPlansSummary)); OnPropertyChanged(nameof(HasResultExistingPlansSummary));
     }
     private void ApplyOptions(DayPlanOptionsDto value, DateOnly? date, bool useProfile)
     {
@@ -161,8 +226,10 @@ public sealed partial class DayPlannerViewModel(AuthSessionService sessions, Day
         BudgetIndex = preferences.Budget switch { "low" => 0, "high" => 2, _ => 1 };
         Interests.Clear();
         foreach (var key in new[] { "food", "culture", "nature", "history", "art", "shopping", "gardens", "nightlife" })
-            Interests.Add(new(key, Text("PlannerInterest_" + key), preferences.Interests.Contains(key, StringComparer.OrdinalIgnoreCase), () => request = null));
+            Interests.Add(new(key, Text("PlannerInterest_" + key), preferences.Interests.Contains(key, StringComparer.OrdinalIgnoreCase), () =>
+            { request = null; OnPropertyChanged(nameof(PreferencesSummary)); }));
         initializing = prior;
+        OnPropertyChanged(nameof(PreferencesSummary));
     }
     private void UpdateRange()
     {
@@ -179,6 +246,7 @@ public sealed partial class DayPlannerViewModel(AuthSessionService sessions, Day
         foreach (var duration in Durations) duration.IsSelected = duration.Count == dayCount;
         var end = SelectedDate.AddDays(dayCount - 1);
         RangeSummary = dayCount == 1 ? SelectedDate.ToString("ddd d MMM") : $"{SelectedDate:d MMM} — {end:d MMM}";
+        NotifyRangeContext();
     }
     [RelayCommand] private void TogglePreferences() => ShowPreferences = !ShowPreferences;
     [RelayCommand] private async Task SelectDurationAsync(PlannerDurationOption? duration)
@@ -196,7 +264,7 @@ public sealed partial class DayPlannerViewModel(AuthSessionService sessions, Day
         Interests.Where(item => item.IsSelected).Select(item => item.Key).ToArray());
     [RelayCommand] private Task GenerateAsync() => RunAsync(async ct =>
     {
-        if (options?.Enabled != true || trip is null || !Online || pendingApplication is not null) return;
+        if (options?.Enabled != true || trip is null || !Online || pendingApplication is not null || pendingReplacement is not null) return;
         if (Interests.Count(item => item.IsSelected) > 3) { ErrorMessage = Text("PlannerInterestLimit"); return; }
         if (proposal?.OperationId == request?.OperationId) request = null;
         request ??= new(trip.Value, options.Revision, DateOnly.FromDateTime(SelectedDate), dayCount,
@@ -207,6 +275,7 @@ public sealed partial class DayPlannerViewModel(AuthSessionService sessions, Day
         var response = await client.GenerateAsync(token, request, ct);
         if (!current || response.TripId != trip || response.OperationId != request.OperationId) return;
         pendingApplication = null; Stale = false;
+        proposalRequest = request; seenRecommendations.Clear();
         ApplyProposal(response, response.Days.SelectMany(day => day.Stops).Select(stop => stop.Id).ToArray());
         if (options is not null && response.TrialAccess is not null)
         {
@@ -220,11 +289,12 @@ public sealed partial class DayPlannerViewModel(AuthSessionService sessions, Day
     private void ApplyProposal(DayPlanResponse response, IReadOnlyList<Guid> selected)
     {
         proposal = response; proposalRevision = response.BasedOnRevision;
+        RememberRecommendations(response);
         Days.Clear();
         foreach (var day in response.Days)
             Days.Add(new(day, selected, SelectionChanged));
         HasProposal = true; OnPropertyChanged(nameof(ResultSummary)); OnPropertyChanged(nameof(ResultIntro));
-        OnPropertyChanged(nameof(UnavailableDays)); OnPropertyChanged(nameof(HasUnavailableDays)); NotifySelection();
+        OnPropertyChanged(nameof(UnavailableDays)); OnPropertyChanged(nameof(HasUnavailableDays)); NotifyRangeContext(); NotifySelection();
     }
     private void SelectionChanged()
     {
@@ -275,7 +345,7 @@ public sealed partial class DayPlannerViewModel(AuthSessionService sessions, Day
     }
     [RelayCommand] private Task ApplyAsync() => RunAsync(async ct =>
     {
-        if (proposal is null || trip is null || SelectedCount == 0 || Stale || !Online) return;
+        if (proposal is null || trip is null || SelectedCount == 0 || pendingReplacement is not null || Stale || !Online) return;
         pendingApplication ??= new(proposal.OperationId, trip.Value, proposalRevision, Guid.NewGuid(),
             Days.SelectMany(day => day).Where(stop => stop.IsSelected && !stop.IsSaved).Select(stop => stop.Value.Id).ToArray(),
             CultureInfo.CurrentUICulture.Name);
@@ -295,6 +365,13 @@ public sealed partial class DayPlannerViewModel(AuthSessionService sessions, Day
         finally { suppressSelectionSave = false; }
         proposalRevision = result.Revision; pendingApplication = null;
         if (options is not null) options = options with { Revision = result.Revision, TrialAccess = result.TrialAccess ?? options.TrialAccess };
+        if (schedule is not null)
+        {
+            var returnedIds = result.Items.Select(item => item.Id).ToHashSet();
+            schedule = schedule with { Revision = result.Revision,
+                Items = schedule.Items.Where(item => !returnedIds.Contains(item.Id)).Concat(result.Items).ToArray() };
+            NotifyRangeContext();
+        }
         UpdateQuota();
         StatusMessage = result.Message; bootstrap.Invalidate();
         await PersistAsync(ct); NotifySelection();
@@ -309,7 +386,8 @@ public sealed partial class DayPlannerViewModel(AuthSessionService sessions, Day
         ? store.SaveAsync(userId, tripId, new(options, request, proposal,
             Days.SelectMany(day => day).Where(stop => stop.IsSelected && !stop.IsSaved).Select(stop => stop.Value.Id).ToArray(), pendingApplication,
             Days.SelectMany(day => day).Where(stop => stop.IsSaved).Select(stop => stop.Value.Id).ToArray(), proposalRevision,
-            DateOnly.FromDateTime(SelectedDate), dayCount, CurrentPreferences()), ct)
+            DateOnly.FromDateTime(SelectedDate), dayCount, CurrentPreferences(), pendingReplacement,
+            seenRecommendations.ToArray(), proposalRequest), ct)
         : Task.CompletedTask;
     private async Task RunAsync(Func<CancellationToken, Task> action, string message)
     {
@@ -324,11 +402,16 @@ public sealed partial class DayPlannerViewModel(AuthSessionService sessions, Day
         {
             if (!current) return;
             if (error.Code == "stale") { Stale = true; request = null; pendingApplication = null; await PersistSelectionAsync(); }
-            if (error.Code is "selection" or "operation") { request = null; pendingApplication = null; await PersistSelectionAsync(); }
+            if (error.Code is "selection" or "operation") { request = null; pendingApplication = null; pendingReplacement = null; await PersistSelectionAsync(); }
             if (error.Code == "access") HasOptions = false;
             ErrorMessage = error.Code is "stale" or "quota" or "upgrade" or "selection" or "access" or "operation"
                 ? error.Message : Text("PlannerConnectionError");
             if (error.Code is "quota" or "upgrade") await PaywallNavigation.OpenAsync(PaywallEntryPoint.Today, limitReached: true);
+        }
+        catch (DayPlannerStorageException error)
+        {
+            logger.LogWarning("Planner preview could not be saved. FailureType={FailureType}", error.InnerException?.GetType().Name);
+            if (current) ErrorMessage = Text("PlannerLocalSaveFailed");
         }
         catch (OperationCanceledException)
         {
@@ -357,7 +440,14 @@ public sealed partial class DayPlannerViewModel(AuthSessionService sessions, Day
         OnPropertyChanged(nameof(CanGenerate)); OnPropertyChanged(nameof(CanApply));
         OnPropertyChanged(nameof(CanSelect)); OnPropertyChanged(nameof(SelectionNotice));
         OnPropertyChanged(nameof(ShowRetry));
-        foreach (var stop in Days.SelectMany(day => day)) stop.SetSelectable(CanSelect);
+        OnPropertyChanged(nameof(DurationPassHint)); OnPropertyChanged(nameof(HasDurationPassHint));
+        foreach (var stop in Days.SelectMany(day => day))
+        {
+            stop.SetSelectable(CanSelect);
+            stop.SetReplaceable(CanReplace(stop));
+            if (!IsBusy && pendingReplacement?.StopId == stop.Value.Id)
+                stop.ReplacementNotice = Text("PlannerReplacementPending");
+        }
     }
     private void UpdateQuota() => Quota = options?.TrialAccess is { IsTrial: true } access
         ? string.Format(Text("PlannerFreeUses"), access.DayImprovementsRemaining) : Text("PlannerPassUses");
@@ -375,11 +465,16 @@ public sealed partial class PlannerDurationOption(int count, string label, bool 
     public string Label { get; } = label;
     public bool Available { get; } = available;
     public bool WithinTrip { get; } = withinTrip;
+    public int ColumnIndex => Count switch { 1 => 0, 3 => 1, 5 => 2, 7 => 3, _ => 0 };
     public string Hint => Available ? "" : DayPlannerViewModel.Text(WithinTrip ? "PlannerWithPass" : "PlannerOutsideTrip");
+    public string AccessibilityLabel => IsSelected
+        ? string.Format(DayPlannerViewModel.Text("PlannerDurationSelected"), PlainAccessibilityLabel)
+        : PlainAccessibilityLabel;
+    private string PlainAccessibilityLabel => string.IsNullOrWhiteSpace(Hint) ? Label : $"{Label}. {Hint}";
     [ObservableProperty] private bool isSelected = selected;
     public Color Background => IsSelected ? Color.FromArgb("#3D3329") : Color.FromArgb("#FFFCF8");
     public Color Foreground => IsSelected ? Colors.White : Color.FromArgb("#302920");
-    partial void OnIsSelectedChanged(bool value) { OnPropertyChanged(nameof(Background)); OnPropertyChanged(nameof(Foreground)); }
+    partial void OnIsSelectedChanged(bool value) { OnPropertyChanged(nameof(Background)); OnPropertyChanged(nameof(Foreground)); OnPropertyChanged(nameof(AccessibilityLabel)); }
 }
 public sealed partial class PlannerInterestOption(string key, string label, bool selected, Action changed) : ObservableObject
 {
@@ -400,14 +495,16 @@ public sealed class PlannerDayGroup : ObservableCollection<PlannerStopRow>
         Title = day.Date.ToString("dddd d MMMM"); Cities = string.Join(" · ", day.Cities);
         EmptyMessage = day.Stops.Count == 0 ? DayPlannerViewModel.Text("PlannerEmptyDay")
             : day.MissingMoments.Count == 0 ? "" : DayPlannerViewModel.Text("PlannerPartialDay");
-        foreach (var stop in day.Stops) Add(new(stop, selected.Contains(stop.Id), changed));
+        foreach (var stop in day.Stops) Add(new(stop, selected.Contains(stop.Id), changed, Cities));
     }
 }
-public sealed partial class PlannerStopRow(DayPlanStopDto value, bool selected, Action changed) : ObservableObject
+public sealed partial class PlannerStopRow(DayPlanStopDto value, bool selected, Action changed, string? fallbackPlace = null) : ObservableObject
 {
     public DayPlanStopDto Value { get; } = value;
     public string Title => Value.Card.Title;
     public string Description => Value.Card.Description ?? "";
+    public string Place => string.IsNullOrWhiteSpace(Value.Place) ? fallbackPlace ?? "" : Value.Place;
+    public bool HasPlace => !string.IsNullOrWhiteSpace(Place);
     public string Moment => DayPlannerViewModel.Text("AssistantProposal" + (Value.PeriodKey switch
     { "morning" => "Morning", "midday" => "Midday", "afternoon" => "Afternoon", "night" => "Night", _ => "Flexible" }));
     public string Reason => Value.Card.WhyItFits.FirstOrDefault() ?? "";
@@ -416,11 +513,21 @@ public sealed partial class PlannerStopRow(DayPlanStopDto value, bool selected, 
     public string OpenDescription => string.Format(DayPlannerViewModel.Text("PlannerOpenIdea"), Title);
     public string SelectDescription => string.Format(DayPlannerViewModel.Text("PlannerSelectIdea"), Title);
     public string SavedLabel => DayPlannerViewModel.Text("AssistantProposalSaved");
+    public string ReplaceDescription => string.Format(DayPlannerViewModel.Text("PlannerReplaceIdea"), Title);
+    public string ReplacingLabel => DayPlannerViewModel.Text("PlannerReplacingIdea");
+    public bool HasReplacementNotice => !string.IsNullOrWhiteSpace(ReplacementNotice);
+    [ObservableProperty] private string replacementNotice = "";
+    partial void OnReplacementNoticeChanged(string value) => OnPropertyChanged(nameof(HasReplacementNotice));
+    [ObservableProperty] private bool isReplacing;
     [ObservableProperty] private bool isSelected = selected;
     [ObservableProperty] private bool isSaved;
     private bool selectable = true;
+    private bool replaceable;
+    public bool CanReplaceRow => replaceable && !IsSaved && !IsReplacing;
+    public void SetReplaceable(bool value) { replaceable = value; OnPropertyChanged(nameof(CanReplaceRow)); }
     public bool CanSelectRow => selectable && !IsSaved;
     public void SetSelectable(bool value) { selectable = value; OnPropertyChanged(nameof(CanSelectRow)); }
-    partial void OnIsSavedChanged(bool value) => OnPropertyChanged(nameof(CanSelectRow));
+    partial void OnIsSavedChanged(bool value) { OnPropertyChanged(nameof(CanSelectRow)); OnPropertyChanged(nameof(CanReplaceRow)); }
+    partial void OnIsReplacingChanged(bool value) => OnPropertyChanged(nameof(CanReplaceRow));
     partial void OnIsSelectedChanged(bool value) => changed();
 }

@@ -5,7 +5,9 @@ namespace TravelCompanion.Mobile.Services;
 public sealed record DayPlannerDraft(DayPlanOptionsDto? Options, DayPlanRequest? Request,
     DayPlanResponse? Proposal, IReadOnlyList<Guid> SelectedStopIds, DayPlanApplyRequest? PendingApplication = null,
     IReadOnlyList<Guid>? SavedStopIds = null, int? AppliedRevision = null,
-    DateOnly? SelectedDate = null, int DayCount = 1, DayPlanPreferencesDto? Preferences = null);
+    DateOnly? SelectedDate = null, int DayCount = 1, DayPlanPreferencesDto? Preferences = null,
+    DayPlanReplaceRequest? PendingReplacement = null, IReadOnlyList<Guid>? SeenRecommendationIds = null,
+    DayPlanRequest? ProposalRequest = null);
 
 // Scope keys and the existing encrypted atomic writer keep previews private/offline.
 public sealed class DayPlannerStore(OfflineCacheService cache, AuthSessionService sessions)
@@ -14,27 +16,31 @@ public sealed class DayPlannerStore(OfflineCacheService cache, AuthSessionServic
     private readonly HashSet<Guid> deletedUsers = [];
     private readonly HashSet<(Guid, Guid)> deletedTrips = [];
     private static string Key(Guid user, Guid trip) => $"personal-planner-{user}-{trip}";
-    private void Check(Guid user, Guid trip)
+    private void Check(Guid user, Guid trip, long contextVersion)
     {
-        if (!sessions.HasSession || sessions.CurrentUserId != user || sessions.CurrentTripId != trip
+        if (!sessions.HasSession || sessions.ContextVersion != contextVersion || sessions.CurrentUserId != user || sessions.CurrentTripId != trip
             || deletedUsers.Contains(user) || deletedTrips.Contains((user, trip))) throw new OperationCanceledException();
     }
     public async Task<DayPlannerDraft?> ReadAsync(Guid user, Guid trip, CancellationToken ct = default)
     {
+        var contextVersion = sessions.ContextVersion;
         await gate.WaitAsync(ct);
         try
         {
-            Check(user, trip);
+            Check(user, trip, contextVersion);
             var value = (await cache.GetAsync<DayPlannerDraft>(Key(user, trip), cancellationToken: ct))?.Value;
-            Check(user, trip);
+            Check(user, trip, contextVersion);
             return value;
         }
         finally { gate.Release(); }
     }
     public async Task SaveAsync(Guid user, Guid trip, DayPlannerDraft draft, CancellationToken ct = default)
     {
+        var contextVersion = sessions.ContextVersion;
         await gate.WaitAsync(ct);
-        try { Check(user, trip); await cache.SaveAsync(Key(user, trip), draft, ct); Check(user, trip); }
+        try { Check(user, trip, contextVersion); await cache.SaveAsync(Key(user, trip), draft, ct); Check(user, trip, contextVersion); }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.Security.Cryptography.CryptographicException)
+        { throw new DayPlannerStorageException(error); }
         finally { gate.Release(); }
     }
     public async Task DeleteAccountAsync(Guid user)
@@ -64,3 +70,6 @@ public sealed class DayPlannerStore(OfflineCacheService cache, AuthSessionServic
         finally { gate.Release(); }
     }
 }
+
+internal sealed class DayPlannerStorageException(Exception innerException)
+    : Exception("The planner could not be saved on this device.", innerException);

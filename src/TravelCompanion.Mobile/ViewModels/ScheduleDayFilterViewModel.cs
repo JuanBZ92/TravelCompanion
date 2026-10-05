@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using TravelCompanion.Mobile.Services;
 
 namespace TravelCompanion.Mobile.ViewModels;
 
@@ -36,6 +37,16 @@ public sealed partial class ScheduleDayFilterViewModel : ObservableObject
     public bool IsLocked { get; }
     public string DayLabel => $"{(IsLocked ? "🔒 " : "")}D{TripDayNumber}";
     public string DateLabel => $"{(IsLocked ? "🔒 " : "")}{Date.Day}/{Date.Month}";
+    public string FullDateLabel => (IsLocked ? "🔒 " : string.Empty)
+        + Date.ToString("D", LocalizationResourceManager.Instance.CurrentCulture);
+    public string SelectedLabel(string? hotel) => WithPlace(DateLabel, hotel);
+    public string SelectedDescription(string? hotel) => WithPlace(FullDateLabel, hotel);
+
+    private string WithPlace(string date, string? hotel)
+    {
+        var place = string.IsNullOrWhiteSpace(hotel) ? City : hotel.Trim();
+        return string.IsNullOrWhiteSpace(place) ? date : $"{date} · {place}";
+    }
 
     public bool IsSelected
     {
@@ -63,5 +74,21 @@ public sealed partial class ScheduleDayFilterViewModel : ObservableObject
         {
             City = city;
         }
+    }
+}
+
+internal static class ScheduleDayNavigation
+{
+    public static ScheduleDayFilterViewModel? Find(
+        IReadOnlyList<ScheduleDayFilterViewModel> days, DateOnly? selectedDate, int offset = 0)
+    {
+        if (selectedDate is null) return null;
+        for (var index = 0; index < days.Count; index++)
+        {
+            if (days[index].Date != selectedDate) continue;
+            var target = index + offset;
+            return target >= 0 && target < days.Count ? days[target] : null;
+        }
+        return null;
     }
 }

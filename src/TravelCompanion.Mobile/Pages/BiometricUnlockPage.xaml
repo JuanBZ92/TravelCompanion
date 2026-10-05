@@ -2,43 +2,51 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:viewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
+             xmlns:services="clr-namespace:TravelCompanion.Mobile.Services"
              x:Class="TravelCompanion.Mobile.Pages.BiometricUnlockPage"
              x:DataType="viewModels:BiometricUnlockViewModel"
-             Title="Desbloquear"
+             Title="{Binding [BiometricPageTitle], Source={x:Static services:LocalizationResourceManager.Instance}}"
              Shell.NavBarIsVisible="False"
+             SafeAreaEdges="All"
              BackgroundColor="{StaticResource Mist}">
-    <Grid Padding="28" RowDefinitions="*,Auto,*" BackgroundColor="{StaticResource Mist}">
-        <VerticalStackLayout Grid.Row="1" Spacing="20">
+    <ScrollView x:Name="UnlockScroll">
+        <VerticalStackLayout Padding="24,40" Spacing="24" MaximumWidthRequest="480" HorizontalOptions="Center">
             <VerticalStackLayout Spacing="10">
                 <Label Text="YUKU JAPAN"
                        CharacterSpacing="6"
                        FontSize="11"
                        FontAttributes="Bold"
-                       TextColor="#8E867D" />
-                <Label Text="Bienvenido"
-                       FontFamily="serif"
-                       FontSize="34"
-                       TextColor="#1A1714" />
-                <Label Text="{Binding DisplayName, StringFormat='Desbloquea la sesion de {0}.'}"
+                       TextColor="{StaticResource EditorialMuted}" />
+                <Label Text="{Binding [BiometricWelcome], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                       Style="{StaticResource EditorialHeading}" SemanticProperties.HeadingLevel="Level1" />
+                <Label Text="{Binding SessionDescription}"
                        FontSize="16"
-                       TextColor="#6E675F" />
+                       LineHeight="1.3" TextColor="{StaticResource EditorialMuted}" />
             </VerticalStackLayout>
 
-            <Border Style="{StaticResource Card}">
-                <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="0" />
-                </Border.StrokeShape>
-                <VerticalStackLayout Spacing="14">
-                    <Label Text="{Binding UnlockStatusMessage}" FontSize="14" />
-                    <Button Text="Desbloquear con biometria"
+            <Border Style="{StaticResource EditorialCard}">
+                <VerticalStackLayout Spacing="16">
+                    <Label Text="{Binding UnlockStatusMessage}" FontSize="15" LineHeight="1.3" TextColor="{StaticResource Ink}" />
+                    <Border Style="{StaticResource ErrorPanel}" IsVisible="{Binding HasError}">
+                        <Label x:Name="UnlockError" Text="{Binding ErrorMessage}" TextColor="{StaticResource Rose}" />
+                    </Border>
+                    <Button Text="{Binding [BiometricUnlockAction], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                            Style="{StaticResource EditorialPrimaryButton}"
+                            MinimumHeightRequest="48" MinimumWidthRequest="48"
                             Command="{Binding UnlockCommand}"
                             IsEnabled="{Binding IsNotBusy}" />
-                    <Button Text="Usar password"
-                            Style="{StaticResource GhostButton}"
-                            Command="{Binding UsePasswordCommand}" />
-                    <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
+                    <Button Text="{Binding [BiometricPasswordAction], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                            Style="{StaticResource EditorialSecondaryButton}"
+                            MinimumHeightRequest="48" MinimumWidthRequest="48"
+                            Command="{Binding UsePasswordCommand}"
+                            IsEnabled="{Binding IsNotBusy}" />
+                    <Grid IsVisible="{Binding IsBusy}" ColumnDefinitions="24,*" ColumnSpacing="10">
+                        <ActivityIndicator IsRunning="{Binding IsBusy}" WidthRequest="24" AutomationProperties.IsInAccessibleTree="False" />
+                        <Label Grid.Column="1" Text="{Binding [BiometricWaiting], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                               FontSize="13" TextColor="{StaticResource EditorialMuted}" VerticalOptions="Center" />
+                    </Grid>
                 </VerticalStackLayout>
             </Border>
         </VerticalStackLayout>
-    </Grid>
+    </ScrollView>
 </ContentPage>

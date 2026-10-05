@@ -78,6 +78,15 @@ internal static class EditorialUi
         });
     }
 
+    public static void RevealError(Label message)
+    {
+        message.Dispatcher.DispatchDelayed(TimeSpan.FromMilliseconds(100), () =>
+        {
+            if (message.Handler is not null && message.IsVisible && !string.IsNullOrWhiteSpace(message.Text))
+                message.SetSemanticFocus();
+        });
+    }
+
     private static async Task RunAsync(VisualElement control, Func<Task> action)
     {
         if (!control.IsEnabled) return;

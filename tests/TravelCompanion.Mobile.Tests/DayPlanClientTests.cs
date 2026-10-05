@@ -80,6 +80,45 @@ public sealed class DayPlanClientTests
     private static DayPlanClient Create(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> response) =>
         new(new HttpClient(new Handler(response)) { BaseAddress = new("https://example.invalid/") });
 
+    [Fact]
+    public async Task Replacement_sends_both_revisions_stable_mutation_and_original_generation_snapshot()
+    {
+        var original = new DayPlanRequest(Guid.NewGuid(), 3, new(2026, 10, 20), 3, Guid.NewGuid(), new("efficient", "low", ["culture"]), "es");
+        var request = new DayPlanReplaceRequest(original.OperationId, original.TripId, 7, Guid.NewGuid(), Guid.NewGuid(), "es")
+        { ExpectedProposalRevision = 2, OriginalRequest = original };
+        using var client = Create(async (message, ct) =>
+        {
+            Assert.Equal("/api/ai/day-plans/replace", message.RequestUri!.AbsolutePath);
+            Assert.Equal(HttpMethod.Post, message.Method);
+            Assert.Equal("test-token", message.Headers.Authorization!.Parameter);
+            Assert.Contains(message.Headers.AcceptLanguage, language => language.Value == System.Globalization.CultureInfo.CurrentUICulture.Name);
+            var sent = (await message.Content!.ReadFromJsonAsync<DayPlanReplaceRequest>(cancellationToken: ct))!;
+            Assert.Equal(request.MutationId, sent.MutationId);
+            Assert.Equal(request.StopId, sent.StopId);
+            Assert.Equal(7, sent.ExpectedRevision);
+            Assert.Equal(2, sent.ExpectedProposalRevision);
+            Assert.Equal("es", sent.Locale);
+            Assert.Equal(3, sent.OriginalRequest!.ExpectedRevision);
+            Assert.Equal(original.Preferences!.Interests, sent.OriginalRequest.Preferences!.Interests);
+            return new(HttpStatusCode.OK) { Content = JsonContent.Create(new DayPlanReplaceResponse(false, "no_alternative", "Kept", new(original.OperationId, original.TripId, 3, [], "Proposal") { ProposalRevision = 2 })) };
+        });
+        var result = await client.ReplaceAsync("test-token", request, default);
+        Assert.False(result.Replaced);
+        Assert.Equal("no_alternative", result.Code);
+        Assert.Equal(2, result.Proposal.ProposalRevision);
+    }
+
+    [Fact]
+    public async Task Replacement_conflict_preserves_structured_code_for_canonical_recovery()
+    {
+        using var client = Create((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.Conflict)
+        { Content = JsonContent.Create(new DayPlanErrorDto("stale", "Proposal changed")) }));
+        var error = await Assert.ThrowsAsync<DayPlanApiException>(() => client.ReplaceAsync("token",
+            new(Guid.NewGuid(), Guid.NewGuid(), 0, Guid.NewGuid(), Guid.NewGuid()), default));
+        Assert.Equal(HttpStatusCode.Conflict, error.Status);
+        Assert.Equal("stale", error.Code);
+    }
+
     private sealed class Handler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> response) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct) => response(request, ct);

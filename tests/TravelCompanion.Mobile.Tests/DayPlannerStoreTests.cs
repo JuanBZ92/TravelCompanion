@@ -153,6 +153,59 @@ public sealed class DayPlannerStoreTests
             Assert.Equal(1, restored!.DayCount);
             Assert.Null(restored.SelectedDate);
             Assert.Null(restored.Preferences);
+            Assert.Null(restored.PendingReplacement);
+            Assert.Null(restored.SeenRecommendationIds);
+            Assert.Null(restored.ProposalRequest);
+        }
+        finally { sessions.Clear(); }
+    }
+
+    [Fact]
+    public async Task Replacement_retry_history_and_original_request_survive_restart_and_serialization()
+    {
+        var sessions = new AuthSessionService();
+        var session = Session();
+        var cache = new OfflineCacheService();
+        try
+        {
+            await sessions.SaveAsync(session);
+            var original = Draft(session.TripId!.Value);
+            var pending = new DayPlanReplaceRequest(original.Proposal!.OperationId, session.TripId.Value, 6,
+                original.SelectedStopIds[0], Guid.NewGuid(), "es")
+            { ExpectedProposalRevision = 4, OriginalRequest = original.Request };
+            var draft = original with { Proposal = original.Proposal with { ProposalRevision = 4 }, PendingApplication = null,
+                PendingReplacement = pending, SeenRecommendationIds = [original.Proposal.Days[0].Stops[0].RecommendationId, Guid.NewGuid()],
+                ProposalRequest = original.Request };
+            var serialized = System.Text.Json.JsonSerializer.Serialize(draft);
+            var compatible = System.Text.Json.JsonSerializer.Deserialize<DayPlannerDraft>(serialized)!;
+            await new DayPlannerStore(cache, sessions).SaveAsync(session.UserId, session.TripId.Value, compatible);
+            var restored = (await new DayPlannerStore(cache, sessions).ReadAsync(session.UserId, session.TripId.Value))!;
+            Assert.Equal(pending.MutationId, restored.PendingReplacement!.MutationId);
+            Assert.Equal(4, restored.Proposal!.ProposalRevision);
+            Assert.Equal(draft.SeenRecommendationIds, restored.SeenRecommendationIds);
+            Assert.Equal(original.Request!.OperationId, restored.ProposalRequest!.OperationId);
+            Assert.Equal(original.Request.Preferences!.Interests, restored.ProposalRequest.Preferences!.Interests);
+        }
+        finally { sessions.Clear(); }
+    }
+
+    [Fact]
+    public async Task Leaving_and_returning_to_same_context_while_reading_still_discards_the_operation()
+    {
+        var sessions = new AuthSessionService();
+        var original = Session();
+        var cache = new OfflineCacheService();
+        var store = new DayPlannerStore(cache, sessions);
+        try
+        {
+            await sessions.SaveAsync(original);
+            await store.SaveAsync(original.UserId, original.TripId!.Value, Draft(original.TripId.Value));
+            cache.BeforeRead = async () =>
+            {
+                await sessions.SaveAsync(original with { TripId = Guid.NewGuid() });
+                await sessions.SaveAsync(original);
+            };
+            await Assert.ThrowsAsync<OperationCanceledException>(() => store.ReadAsync(original.UserId, original.TripId.Value));
         }
         finally { sessions.Clear(); }
     }

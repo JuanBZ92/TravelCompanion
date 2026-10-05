@@ -195,7 +195,7 @@ public sealed class ScheduleTodayPresentationTests
             []);
 
         Assert.False(section.HasContent);
-        Assert.Equal("Libre", section.Description);
+        Assert.Equal(LocalizationResourceManager.Instance["UXAuditFreeBlock"], section.Description);
         Assert.True(section.HasDescription);
     }
 

@@ -1,10 +1,14 @@
+using TravelCompanion.Mobile.Services;
 using TravelCompanion.Mobile.ViewModels;
 using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Mobile.Tests;
 
-public sealed class ItineraryRouteViewModelTests
+[Collection("Schedule localization")]
+public sealed class ItineraryRouteViewModelTests : IDisposable
 {
+    private readonly string _originalCulture = LocalizationResourceManager.Instance.CurrentCulture.Name;
+
     [Fact]
     public void Reservation_hides_place_when_it_repeats_the_title()
     {
@@ -37,6 +41,7 @@ public sealed class ItineraryRouteViewModelTests
     [Fact]
     public void Shows_departure_origin_and_partial_failure_without_old_times()
     {
+        LocalizationResourceManager.Instance.SetCulture("es");
         var route = new ItineraryRouteViewModel("WALK", "A pie", "route_walk.svg");
         route.Apply(new("WALK", "Available", "Hotel", 12, DepartureLabel: "19:38", OriginKind: "Hotel"));
         Assert.Equal("12 min (H)", route.Duration);
@@ -49,4 +54,6 @@ public sealed class ItineraryRouteViewModelTests
         Assert.Equal("No disponible", route.Duration);
         Assert.Empty(route.Departure);
     }
+
+    public void Dispose() => LocalizationResourceManager.Instance.SetCulture(_originalCulture);
 }

@@ -17,11 +17,11 @@ public sealed class BiometricUnlockService(IBiometricAuthentication biometricAut
     {
         var result = await biometricAuthentication.AuthenticateAsync(
             new AuthenticationRequest(
-                "Desbloquear Travel Companion",
-                "Usa tu huella, Face ID o la biometria disponible en este dispositivo.")
+                LocalizationResourceManager.Instance["BiometricPromptTitle"],
+                LocalizationResourceManager.Instance["BiometricPromptDescription"])
             {
-                CancelTitle = "Usar password",
-                FallbackTitle = "Usar password",
+                CancelTitle = LocalizationResourceManager.Instance["BiometricPasswordAction"],
+                FallbackTitle = LocalizationResourceManager.Instance["BiometricPasswordAction"],
                 Authenticators = Authenticator.Biometric
             },
             cancellationToken).ConfigureAwait(false);

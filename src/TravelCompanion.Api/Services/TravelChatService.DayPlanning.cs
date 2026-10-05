@@ -108,6 +108,11 @@ public sealed partial class TravelChatService
             timeline.Insert(0, (new TimeOnly(8, 0), hotel.Title,
                 hotel.Latitude ?? hotel.Recommendation?.Latitude,
                 hotel.Longitude ?? hotel.Recommendation?.Longitude));
+        if (loaded?.ReplacementSlot is not null)
+            foreach (var stop in loaded.VisibleStops)
+                if (loaded.FindRecommendation(stop.RecommendationId) is { } place
+                    && TimeOnly.TryParse(stop.Card.StartTime, out var start))
+                    timeline.Add((start, place.Title, place.Latitude, place.Longitude));
         // New proposals add ideas for the day, regardless of how many plans are saved.
         // Explicit replacements and adaptations retain their targeted behavior.
         var additiveProposal = adaptation is null && selected.Count == 0 && !isDraftChange;
@@ -125,6 +130,8 @@ public sealed partial class TravelChatService
             };
             slots = slots.Where(item => preferredSlots.Contains(item.Slot)).ToList();
         }
+        if (loaded?.ReplacementSlot is { } replacementSlot)
+            slots = [(replacementSlot, null)];
 
         var city = ResolveCity(request.City, existing, trips);
         var cities = loaded?.Cities(date).ToList() ?? trips.Where(trip => !string.IsNullOrWhiteSpace(trip.BuilderSegmentsJson))
@@ -219,6 +226,9 @@ public sealed partial class TravelChatService
                 && item.Recommendation is not null)
             .Select(item => item.Recommendation!.Category)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (loaded?.ReplacementSlot is not null)
+            usedCategories.UnionWith(loaded.VisibleStops.Select(stop => loaded.FindRecommendation(stop.RecommendationId)?.Category)
+                .OfType<string>());
         foreach (var (slot, original) in slots.OrderBy(item => item.Original?.StartsAt ?? DayStopTimes[item.Slot]))
         {
             var time = original?.StartsAt ?? DayStopTimes[slot];
@@ -243,6 +253,7 @@ public sealed partial class TravelChatService
             }
             IEnumerable<ScoredRecommendation> options = ranked
                 .Where(item => !used.Contains(item.Recommendation.Id)
+                    && (loaded is null || !loaded.IsExcludedPlace(item.Recommendation))
                     && !drafts.Any(draft => draft.RecommendationId == item.Recommendation.Id)
                     && (slot is 1 or 3 || MatchesDaySlot(item.Recommendation, slot))
                     && (slot >= 3 || !IsNightlifeDayCandidate(item.Recommendation))
@@ -287,6 +298,7 @@ public sealed partial class TravelChatService
             if (candidate is null) continue;
             var recommendation = candidate.Recommendation;
             used.Add(recommendation.Id);
+            loaded?.ExcludePlace(recommendation);
             usedCategories.Add(recommendation.Category);
             var dto = RecommendationPresentation.ToDto(recommendation, locale: locale);
             var reasons = personalized

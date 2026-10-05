@@ -3,12 +3,12 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:services="clr-namespace:TravelCompanion.Mobile.Services"
              xmlns:viewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
+             xmlns:pages="clr-namespace:TravelCompanion.Mobile.Pages"
              x:Class="TravelCompanion.Mobile.Pages.DocsPage"
              x:DataType="viewModels:DocsViewModel"
-             Title="Documentos"
-             Shell.NavBarIsVisible="True"
+             Title="{Binding [TabDocs], Source={x:Static services:LocalizationResourceManager.Instance}}"
+             Shell.NavBarIsVisible="True" SafeAreaEdges="All"
              BackgroundColor="{StaticResource Mist}">
-
     <ContentPage.Resources>
         <Style x:Key="DocumentAction" TargetType="ImageButton">
             <Setter Property="BackgroundColor" Value="Transparent" />
@@ -17,296 +17,139 @@
             <Setter Property="Padding" Value="11" />
             <Setter Property="CornerRadius" Value="12" />
         </Style>
+        <DataTemplate x:Key="PersonalDocumentRow" x:DataType="viewModels:LocalDocumentItemViewModel">
+            <Border Margin="24,0,24,10" Padding="12" Stroke="#E5DED5" BackgroundColor="#FFFDF8" StrokeShape="RoundRectangle 14">
+                <Grid ColumnDefinitions="44,*,48" ColumnSpacing="12" MinimumHeightRequest="56">
+                    <Border BackgroundColor="#F1EBE2" StrokeThickness="0" StrokeShape="RoundRectangle 12"
+                            WidthRequest="44" HeightRequest="48" VerticalOptions="Center" InputTransparent="True">
+                        <Image Source="tab_docs.svg" WidthRequest="22" HeightRequest="22" Opacity="0.7" AutomationProperties.IsInAccessibleTree="False" />
+                    </Border>
+                    <VerticalStackLayout Grid.Column="1" Spacing="5" VerticalOptions="Center" InputTransparent="True">
+                        <Label Text="{Binding Title}" FontSize="15" TextColor="#393229" MaxLines="2" LineBreakMode="TailTruncation" AutomationProperties.IsInAccessibleTree="False" />
+                        <Label Text="{Binding Details}" FontSize="11" TextColor="#8E867D" AutomationProperties.IsInAccessibleTree="False" />
+                    </VerticalStackLayout>
+                    <Button Grid.ColumnSpan="2" Command="{Binding OpenCommand}" BackgroundColor="Transparent"
+                            BorderWidth="0" Padding="0" MinimumHeightRequest="56" SemanticProperties.Description="{Binding OpenDescription}" />
+                    <ImageButton Grid.Column="2" Source="itinerary_menu.svg" Command="{Binding MoreCommand}"
+                                 Style="{StaticResource DocumentAction}" VerticalOptions="Center"
+                                 SemanticProperties.Description="{Binding MoreDescription}" />
+                </Grid>
+            </Border>
+        </DataTemplate>
+        <DataTemplate x:Key="IncludedDocumentRow" x:DataType="viewModels:DocumentItemViewModel">
+            <Border Margin="24,0,24,12" Padding="16" Stroke="#E5DED5" BackgroundColor="#FFFDF8" StrokeShape="RoundRectangle 16">
+                <Grid ColumnDefinitions="*,48" ColumnSpacing="14">
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="{Binding Title}" FontSize="16" TextColor="{StaticResource Ink}" LineBreakMode="WordWrap" />
+                        <Label Text="{Binding Subtitle}" Style="{StaticResource Body}" />
+                        <Label Text="{Binding Availability}" FontSize="12" />
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                        <ImageButton Source="doc_open.svg" Command="{Binding OpenCommand}" Style="{StaticResource DocumentAction}" SemanticProperties.Description="{Binding Title}" />
+                        <ImageButton Source="doc_download.svg" Command="{Binding DownloadCommand}" Style="{StaticResource DocumentAction}" SemanticProperties.Description="{Binding DownloadText}" />
+                    </VerticalStackLayout>
+                </Grid>
+            </Border>
+        </DataTemplate>
+        <DataTemplate x:Key="FlightSummaryRow" x:DataType="viewModels:FlightSummaryItemViewModel">
+            <Border Margin="24,0,24,10" Padding="16" BackgroundColor="{StaticResource AccentSoft}" Stroke="#D8CFC4" StrokeShape="RoundRectangle 18">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="{Binding Airline}" FontSize="22" FontFamily="serif" TextColor="{StaticResource Ink}" LineBreakMode="WordWrap" />
+                    <Label Text="{Binding Passenger}" Style="{StaticResource Metadata}" />
+                    <Grid ColumnDefinitions="Auto,*,48" ColumnSpacing="12" IsVisible="{Binding HasConfirmationCode}">
+                        <Label Text="PNR" FontSize="10" CharacterSpacing="3" TextColor="{StaticResource Muted}" VerticalOptions="Center" />
+                        <Label Grid.Column="1" Text="{Binding ConfirmationCode}" FontSize="12" TextColor="#393229" VerticalOptions="Center" LineBreakMode="WordWrap" />
+                        <ImageButton Grid.Column="2" Source="doc_copy.svg" Command="{Binding CopyCommand}"
+                                     CommandParameter="{Binding ConfirmationCode}" Style="{StaticResource DocumentAction}"
+                                     SemanticProperties.Description="{Binding CopyCodeText}" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+        </DataTemplate>
+        <DataTemplate x:Key="FlightJourneyRow" x:DataType="viewModels:FlightJourneyItemViewModel">
+            <Button Margin="24,0,24,8" Text="{Binding Label}" Command="{Binding SelectCommand}"
+                    FontSize="12" CharacterSpacing="2" CornerRadius="12" MinimumHeightRequest="48"
+                    Padding="16,10" BackgroundColor="{StaticResource AccentSoft}" TextColor="{StaticResource Muted}">
+                <Button.Triggers>
+                    <DataTrigger TargetType="Button" Binding="{Binding IsSelected}" Value="True">
+                        <Setter Property="BackgroundColor" Value="#3D3329" />
+                        <Setter Property="TextColor" Value="{StaticResource Paper}" />
+                    </DataTrigger>
+                </Button.Triggers>
+            </Button>
+        </DataTemplate>
+        <DataTemplate x:Key="FlightLegRow" x:DataType="viewModels:FlightLegItemViewModel">
+            <Border Margin="24,0,24,10" Padding="16" BackgroundColor="{StaticResource AccentSoft}" Stroke="#D8CFC4" StrokeShape="RoundRectangle 16">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="{Binding ConnectionNote}" IsVisible="{Binding HasConnectionNote}" FontSize="12" CharacterSpacing="1" TextColor="{StaticResource Rose}" />
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <Label Text="{Binding FlightNumber}" FontSize="21" FontFamily="serif" TextColor="{StaticResource Ink}" LineBreakMode="WordWrap" />
+                        <Label Grid.Column="1" Text="{Binding Duration}" Style="{StaticResource Metadata}" />
+                    </Grid>
+                    <Label Text="{Binding DateLabel}" FontSize="12" TextColor="{StaticResource Muted}" />
+                    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="8">
+                        <Label Text="{Binding DepartTime}" FontSize="20" TextColor="{StaticResource Ink}" />
+                        <Label Grid.Column="1" Text="{Binding From}" HorizontalTextAlignment="End" Style="{StaticResource Body}" />
+                        <Label Grid.Row="1" Text="{Binding ArriveTime}" FontSize="20" TextColor="{StaticResource Muted}" />
+                        <Label Grid.Row="1" Grid.Column="1" Text="{Binding To}" HorizontalTextAlignment="End" Style="{StaticResource Body}" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+        </DataTemplate>
+        <DataTemplate x:Key="HotelRow" x:DataType="viewModels:HotelItemViewModel">
+            <VerticalStackLayout Margin="24,0,24,12" Spacing="6" Padding="0,16">
+                <BoxView HeightRequest="1" Color="{StaticResource Line}" Margin="0,0,0,10" />
+                <Label Text="{Binding City}" FontSize="11" CharacterSpacing="3" TextColor="#9B9288" />
+                <Label Text="{Binding Name}" FontSize="21" FontFamily="serif" TextColor="{StaticResource Ink}" LineBreakMode="WordWrap" />
+                <Label Text="{Binding DateRange}" Style="{StaticResource Metadata}" />
+            </VerticalStackLayout>
+        </DataTemplate>
+        <pages:DocumentRowTemplateSelector x:Key="DocumentRowSelector"
+            PersonalDocument="{StaticResource PersonalDocumentRow}" IncludedDocument="{StaticResource IncludedDocumentRow}"
+            FlightSummary="{StaticResource FlightSummaryRow}" FlightJourney="{StaticResource FlightJourneyRow}"
+            FlightLeg="{StaticResource FlightLegRow}" Hotel="{StaticResource HotelRow}" />
     </ContentPage.Resources>
-    <RefreshView Command="{Binding RefreshCommand}"
-                 IsRefreshing="{Binding IsRefreshing, Mode=TwoWay}">
-        <ScrollView>
-            <VerticalStackLayout Padding="24,20,24,32" Spacing="18">
-                <Grid ColumnDefinitions="*" ColumnSpacing="12">
+    <Grid RowDefinitions="Auto,*">
+        <Border Grid.Row="0" Margin="24,12,24,0" Style="{StaticResource ErrorPanel}" IsVisible="{Binding HasError}">
+            <VerticalStackLayout Spacing="8">
+                <Label x:Name="DocumentError" Text="{Binding ErrorMessage}" Style="{StaticResource Body}" />
+                <Button Text="{Binding [UxRetry], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                        Command="{Binding LoadCommand}" IsEnabled="{Binding IsNotBusy}"
+                        Style="{StaticResource EditorialSecondaryButton}" />
+            </VerticalStackLayout>
+        </Border>
+    <RefreshView Grid.Row="1" Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsRefreshing, Mode=TwoWay}">
+        <CollectionView x:Name="DocumentList" ItemsSource="{Binding DocumentGroups}" IsGrouped="True"
+                        SelectionMode="None" ItemSizingStrategy="MeasureAllItems" ItemsUpdatingScrollMode="KeepScrollOffset"
+                        ItemTemplate="{StaticResource DocumentRowSelector}" VerticalScrollBarVisibility="Never">
+            <CollectionView.ItemsLayout><LinearItemsLayout Orientation="Vertical" /></CollectionView.ItemsLayout>
+            <CollectionView.Header>
+                <VerticalStackLayout Padding="24,20,24,12" Spacing="18">
                     <VerticalStackLayout Spacing="6">
                         <Label Text="YUKU · JAPAN" CharacterSpacing="3" FontSize="10" TextColor="#8E867D" />
-                        <Label Text="{Binding Title}" FontFamily="serif" FontSize="32" TextColor="#1A1714" SemanticProperties.HeadingLevel="Level1" />
+                        <Label Text="{Binding Title}" FontFamily="serif" FontSize="32" TextColor="{StaticResource Ink}" SemanticProperties.HeadingLevel="Level1" />
                     </VerticalStackLayout>
-
-                </Grid>
-                <VerticalStackLayout Spacing="6" IsVisible="{Binding CanAttachDocument}">
-                    <Button Text="{Binding AddDocumentText}" Command="{Binding AttachDocumentCommand}"
-                            IsEnabled="{Binding IsNotBusy}" BackgroundColor="#3D3329" TextColor="#FFFDF8"
-                            CornerRadius="14" MinimumHeightRequest="48" FontSize="15" FontAttributes="Bold" />
-                    <Label Text="{Binding DocumentLimitText}" FontSize="11" TextColor="#8E867D" HorizontalTextAlignment="Center" />
-                </VerticalStackLayout>
-                <Label Text="{Binding LocalDocumentsNotice}" IsVisible="{Binding ShowLocalNotice}" FontSize="13" TextColor="#8E867D" />
-                <VerticalStackLayout BindableLayout.ItemsSource="{Binding LocalDocumentGroups}" Spacing="16">
-                    <BindableLayout.ItemTemplate>
-                        <DataTemplate x:DataType="viewModels:LocalDocumentGroupViewModel">
-                            <VerticalStackLayout Spacing="10">
-                                <Label Text="{Binding Name}" Style="{StaticResource Eyebrow}"
-                                       CharacterSpacing="3" SemanticProperties.HeadingLevel="Level2" />
-                                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Documents}" Spacing="10">
-                                    <BindableLayout.ItemTemplate>
-                                        <DataTemplate x:DataType="viewModels:LocalDocumentItemViewModel">
-                            <Border Padding="12" Stroke="#E5DED5" BackgroundColor="#FFFDF8" StrokeShape="RoundRectangle 14">
-                                <Grid ColumnDefinitions="44,*,48" ColumnSpacing="12" MinimumHeightRequest="56">
-                                    <Border BackgroundColor="#F1EBE2" StrokeThickness="0" StrokeShape="RoundRectangle 12"
-                                            WidthRequest="44" HeightRequest="48" VerticalOptions="Center" InputTransparent="True">
-                                        <Image Source="tab_docs.svg" WidthRequest="22" HeightRequest="22" Opacity="0.7" AutomationProperties.IsInAccessibleTree="False" />
-                                    </Border>
-                                    <VerticalStackLayout Grid.Column="1" Spacing="5" VerticalOptions="Center" InputTransparent="True">
-                                        <Label Text="{Binding Title}" FontSize="15" TextColor="#393229" MaxLines="2" LineBreakMode="TailTruncation" AutomationProperties.IsInAccessibleTree="False" />
-                                        <Label Text="{Binding Details}" FontSize="11" TextColor="#8E867D" AutomationProperties.IsInAccessibleTree="False" />
-                                    </VerticalStackLayout>
-                                    <Button Grid.ColumnSpan="2" Command="{Binding OpenCommand}" BackgroundColor="Transparent"
-                                            BorderWidth="0" Padding="0" MinimumHeightRequest="56" SemanticProperties.Description="{Binding OpenDescription}" />
-                                    <ImageButton Grid.Column="2" Source="itinerary_menu.svg" Command="{Binding MoreCommand}"
-                                                 Style="{StaticResource DocumentAction}" VerticalOptions="Center"
-                                                 SemanticProperties.Description="{Binding MoreDescription}" />
-                                </Grid>
-                            </Border>
-                                        </DataTemplate>
-                                    </BindableLayout.ItemTemplate>
-                                </VerticalStackLayout>
-                            </VerticalStackLayout>
-                        </DataTemplate>
-                    </BindableLayout.ItemTemplate>
-                </VerticalStackLayout>
-                <Border Style="{StaticResource NoticePanel}"
-                        IsVisible="{Binding HasStatus}">
-                    <Label Text="{Binding StatusMessage}"
-                           FontSize="13"
-                           TextColor="#3D3329" />
-                </Border>
-
-                <Border Style="{StaticResource ErrorPanel}"
-                        IsVisible="{Binding HasError}">
-                    <VerticalStackLayout Spacing="8">
-                        <Label Text="{Binding ErrorMessage}" Style="{StaticResource Body}" />
-                        <Button Text="{Binding [UxRetry], Source={x:Static services:LocalizationResourceManager.Instance}}" Command="{Binding LoadCommand}" IsEnabled="{Binding IsNotBusy}" Style="{StaticResource EditorialSecondaryButton}" />
+                    <VerticalStackLayout Spacing="6" IsVisible="{Binding CanAttachDocument}">
+                        <Button Text="{Binding AddDocumentText}" Command="{Binding AttachDocumentCommand}"
+                                IsEnabled="{Binding IsNotBusy}" BackgroundColor="#3D3329" TextColor="#FFFDF8"
+                                CornerRadius="14" MinimumHeightRequest="48" FontSize="15" FontAttributes="Bold" />
+                        <Label Text="{Binding DocumentLimitText}" FontSize="11" TextColor="#8E867D" HorizontalTextAlignment="Center" />
                     </VerticalStackLayout>
-                </Border>
-                <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" HorizontalOptions="Start" />
-
-                <VerticalStackLayout Spacing="14"
-                                     IsVisible="{Binding HasFlights}">
-                    <Label Text="{Binding [UxFlightHeading], Source={x:Static services:LocalizationResourceManager.Instance}}"
-                           Style="{StaticResource Eyebrow}"
-                           CharacterSpacing="5" />
-
-                    <Border BackgroundColor="{StaticResource AccentSoft}"
-                            Stroke="#D8CFC4"
-                            StrokeThickness="1" StrokeShape="RoundRectangle 18"
-                            Padding="0">
-                        <Grid RowDefinitions="Auto,1,Auto,1,Auto,Auto">
-                            <Grid Padding="16,16,16,14"
-                                  ColumnDefinitions="*,Auto"
-                                  ColumnSpacing="12">
-                                <VerticalStackLayout Spacing="6">
-                                    <Label Text="{Binding FlightAirline}"
-                                           FontSize="22"
-                                           FontFamily="serif"
-                                           TextColor="#1A1714" />
-                                    <Label Text="{Binding FlightPassenger}"
-                                           Style="{StaticResource Metadata}" />
-                                </VerticalStackLayout>
-                                <VerticalStackLayout Grid.Column="1"
-                                                     Spacing="4"
-                                                     WidthRequest="116">
-                                    <Label Text="PNR"
-                                           FontSize="10"
-                                           HorizontalTextAlignment="End"
-                                           CharacterSpacing="3"
-                                           TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
-                                    <Grid ColumnDefinitions="*,48">
-                                        <Label Text="{Binding FlightConfirmationCode}" FontSize="12" TextColor="#393229" VerticalOptions="Center" />
-                                        <ImageButton Grid.Column="1" Source="doc_copy.svg" Command="{Binding CopyCommand}"
-                                                     CommandParameter="{Binding FlightConfirmationCode}" Style="{StaticResource DocumentAction}"
-                                                     SemanticProperties.Description="{Binding CopyCodeText}" />
-                                    </Grid>
-                                </VerticalStackLayout>
-                            </Grid>
-
-                            <BoxView Grid.Row="1"
-                                     HeightRequest="1"
-                                     Color="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}" />
-
-                            <CollectionView Grid.Row="2"
-                                            ItemsSource="{Binding Journeys}"
-                                            SelectionMode="None">
-                                <CollectionView.ItemsLayout>
-                                    <LinearItemsLayout Orientation="Horizontal" />
-                                </CollectionView.ItemsLayout>
-                                <CollectionView.ItemTemplate>
-                                    <DataTemplate x:DataType="viewModels:FlightJourneyItemViewModel">
-                                        <Button Text="{Binding Label}"
-                                                Command="{Binding SelectCommand}"
-                                                FontSize="12"
-                                                CharacterSpacing="2"
-                                                CornerRadius="0"
-                                                MinimumHeightRequest="48"
-                                               Padding="28,10"
-                                                BackgroundColor="{StaticResource AccentSoft}"
-                                                TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}">
-                                            <Button.Triggers>
-                                                <DataTrigger TargetType="Button"
-                                                             Binding="{Binding IsSelected}"
-                                                             Value="True">
-                                                    <Setter Property="BackgroundColor" Value="#3D3329" />
-                                                    <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Paper}, Dark={StaticResource Night}}" />
-                                                </DataTrigger>
-                                            </Button.Triggers>
-                                        </Button>
-                                    </DataTemplate>
-                                </CollectionView.ItemTemplate>
-                            </CollectionView>
-
-                            <BoxView Grid.Row="3"
-                                     HeightRequest="1"
-                                     Color="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}" />
-
-                            <VerticalStackLayout Grid.Row="4"
-                                                 Padding="16,18"
-                                                 Spacing="16"
-                                                 BindableLayout.ItemsSource="{Binding SelectedJourney.Legs}">
-                                <BindableLayout.ItemTemplate>
-                                    <DataTemplate x:DataType="viewModels:FlightLegItemViewModel">
-                                        <VerticalStackLayout Spacing="10">
-                                            <Label Text="{Binding ConnectionNote}"
-                                                   IsVisible="{Binding HasConnectionNote}"
-                                                   FontSize="12"
-                                                   CharacterSpacing="1"
-                                                   TextColor="{StaticResource Rose}" />
-                                            <Grid ColumnDefinitions="*,Auto">
-                                                <Label Text="{Binding FlightNumber}"
-                                                       FontSize="21"
-                                                       FontFamily="serif"
-                                                       TextColor="#1A1714" />
-                                                <Label Grid.Column="1"
-                                                       Text="{Binding Duration}"
-                                                       Style="{StaticResource Metadata}" />
-                                            </Grid>
-                                            <Label Text="{Binding DateLabel}"
-                                                   FontSize="12"
-                                                   TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
-                                            <Grid ColumnDefinitions="70,*"
-                                                  RowDefinitions="Auto,Auto"
-                                                  RowSpacing="8">
-                                                <Label Text="{Binding DepartTime}"
-                                                       FontSize="20"
-                                                       TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
-                                                <Label Grid.Column="1"
-                                                       Text="{Binding From}"
-                                                       HorizontalTextAlignment="End"
-                                                       Style="{StaticResource Body}" />
-                                                <Label Grid.Row="1"
-                                                       Text="{Binding ArriveTime}"
-                                                       FontSize="20"
-                                                       TextColor="{AppThemeBinding Light={StaticResource Muted}, Dark={StaticResource NightMuted}}" />
-                                                <Label Grid.Row="1"
-                                                       Grid.Column="1"
-                                                       Text="{Binding To}"
-                                                       HorizontalTextAlignment="End"
-                                                       Style="{StaticResource Body}" />
-                                            </Grid>
-                                            <BoxView HeightRequest="1"
-                                                     Color="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
-                                                     Margin="0,4,0,0" />
-                                        </VerticalStackLayout>
-                                    </DataTemplate>
-                                </BindableLayout.ItemTemplate>
-                            </VerticalStackLayout>
-                        </Grid>
+                    <Label Text="{Binding LocalDocumentsNotice}" IsVisible="{Binding ShowLocalNotice}" FontSize="13" TextColor="#8E867D" />
+                    <Border Style="{StaticResource NoticePanel}" IsVisible="{Binding HasStatus}">
+                        <Label Text="{Binding StatusMessage}" FontSize="13" TextColor="#3D3329" />
                     </Border>
+                    <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" HorizontalOptions="Start" />
                 </VerticalStackLayout>
-
-                <VerticalStackLayout Spacing="12"
-                                     IsVisible="{Binding HasHotelDocuments}">
-                    <Label Text="{Binding [UxHotelDocumentsHeading], Source={x:Static services:LocalizationResourceManager.Instance}}"
-                           Style="{StaticResource Eyebrow}"
-                           CharacterSpacing="4" />
-                    <VerticalStackLayout Spacing="12"
-                                         BindableLayout.ItemsSource="{Binding HotelDocuments}">
-                        <BindableLayout.ItemTemplate>
-                            <DataTemplate x:DataType="viewModels:DocumentItemViewModel">
-                                <Border Padding="16" Stroke="#E5DED5" BackgroundColor="#FFFDF8" StrokeShape="RoundRectangle 16">
-                                    <Grid ColumnDefinitions="*,Auto"
-                                          ColumnSpacing="14">
-                                        <VerticalStackLayout Spacing="6">
-                                            <Label Text="{Binding Title}"
-                                                   FontSize="16"
-                                                   TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
-                                            <Label Text="{Binding Subtitle}" Style="{StaticResource Body}" />
-                                            <Label Text="{Binding Availability}" FontSize="12" />
-                                        </VerticalStackLayout>
-                                        <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
-                                            <ImageButton Source="doc_open.svg" Command="{Binding OpenCommand}" Style="{StaticResource DocumentAction}" SemanticProperties.Description="{Binding Title}" />
-                                            <ImageButton Source="doc_download.svg" Command="{Binding DownloadCommand}" Style="{StaticResource DocumentAction}" SemanticProperties.Description="{Binding DownloadText}" />
-                                        </VerticalStackLayout>
-                                    </Grid>
-                                </Border>
-                            </DataTemplate>
-                        </BindableLayout.ItemTemplate>
-                    </VerticalStackLayout>
-                </VerticalStackLayout>
-
-                <VerticalStackLayout Spacing="12"
-                                     IsVisible="{Binding HasOtherDocuments}">
-                    <Label Text="{Binding [UxOtherDocumentsHeading], Source={x:Static services:LocalizationResourceManager.Instance}}"
-                           Style="{StaticResource Eyebrow}"
-                           CharacterSpacing="4" />
-                    <VerticalStackLayout Spacing="12"
-                                         BindableLayout.ItemsSource="{Binding OtherDocuments}">
-                        <BindableLayout.ItemTemplate>
-                            <DataTemplate x:DataType="viewModels:DocumentItemViewModel">
-                                <Border Padding="16" Stroke="#E5DED5" BackgroundColor="#FFFDF8" StrokeShape="RoundRectangle 16">
-                                    <Grid ColumnDefinitions="*,Auto"
-                                          ColumnSpacing="14">
-                                        <VerticalStackLayout Spacing="6">
-                                            <Label Text="{Binding Title}"
-                                                   FontSize="16"
-                                                   TextColor="{AppThemeBinding Light={StaticResource Ink}, Dark={StaticResource Paper}}" />
-                                            <Label Text="{Binding Subtitle}" Style="{StaticResource Body}" />
-                                            <Label Text="{Binding Availability}" FontSize="12" />
-                                        </VerticalStackLayout>
-                                        <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
-                                            <ImageButton Source="doc_open.svg" Command="{Binding OpenCommand}" Style="{StaticResource DocumentAction}" SemanticProperties.Description="{Binding Title}" />
-                                            <ImageButton Source="doc_download.svg" Command="{Binding DownloadCommand}" Style="{StaticResource DocumentAction}" SemanticProperties.Description="{Binding DownloadText}" />
-                                        </VerticalStackLayout>
-                                    </Grid>
-                                </Border>
-                            </DataTemplate>
-                        </BindableLayout.ItemTemplate>
-                    </VerticalStackLayout>
-                </VerticalStackLayout>
-
-                <VerticalStackLayout Spacing="14"
-                                     IsVisible="{Binding HasHotels}">
-                    <Label Text="{Binding [UxHotelsHeading], Source={x:Static services:LocalizationResourceManager.Instance}}"
-                           Style="{StaticResource Eyebrow}"
-                           CharacterSpacing="4" />
-                    <VerticalStackLayout Spacing="0"
-                                         BindableLayout.ItemsSource="{Binding Hotels}">
-                        <BindableLayout.ItemTemplate>
-                            <DataTemplate x:DataType="viewModels:HotelItemViewModel">
-                                <VerticalStackLayout Spacing="6"
-                                                     Padding="0,16">
-                                    <BoxView HeightRequest="1"
-                                             Color="{AppThemeBinding Light={StaticResource Line}, Dark={StaticResource NightLine}}"
-                                             Margin="0,0,0,10" />
-                                            <Label Text="{Binding City}"
-                                                   FontSize="11"
-                                                   CharacterSpacing="3"
-                                                   TextColor="#9B9288" />
-                                    <Label Text="{Binding Name}"
-                                           FontSize="21"
-                                           FontFamily="serif"
-                                           TextColor="#1A1714" />
-                                    <Label Text="{Binding DateRange}"
-                                           Style="{StaticResource Metadata}" />
-                                </VerticalStackLayout>
-                            </DataTemplate>
-                        </BindableLayout.ItemTemplate>
-                    </VerticalStackLayout>
-                </VerticalStackLayout>
-            </VerticalStackLayout>
-        </ScrollView>
+            </CollectionView.Header>
+            <CollectionView.GroupHeaderTemplate>
+                <DataTemplate x:DataType="viewModels:DocumentListGroup">
+                    <Label Text="{Binding Name}" Margin="24,16,24,12" Style="{StaticResource Eyebrow}"
+                           CharacterSpacing="3" SemanticProperties.HeadingLevel="Level2" />
+                </DataTemplate>
+            </CollectionView.GroupHeaderTemplate>
+            <CollectionView.Footer><BoxView HeightRequest="24" Color="Transparent" /></CollectionView.Footer>
+        </CollectionView>
     </RefreshView>
+    </Grid>
 </ContentPage>

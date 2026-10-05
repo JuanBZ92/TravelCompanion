@@ -26,6 +26,8 @@ public sealed class DayPlanClient : IDisposable
         SendAsync<DayPlanResponse>(HttpMethod.Post, "api/ai/day-plans", token, request, ct);
     public Task<DayPlanApplyResponse> ApplyAsync(string token, DayPlanApplyRequest request, CancellationToken ct) =>
         SendAsync<DayPlanApplyResponse>(HttpMethod.Post, "api/ai/day-plans/apply", token, request, ct);
+    public Task<DayPlanReplaceResponse> ReplaceAsync(string token, DayPlanReplaceRequest request, CancellationToken ct) =>
+        SendAsync<DayPlanReplaceResponse>(HttpMethod.Post, "api/ai/day-plans/replace", token, request, ct);
 
     private async Task<T> SendAsync<T>(HttpMethod method, string path, string token, object? body, CancellationToken ct)
     {

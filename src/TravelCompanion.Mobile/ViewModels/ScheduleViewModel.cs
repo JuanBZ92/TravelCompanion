@@ -129,6 +129,24 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     public ObservableCollection<ScheduleTypeFilterViewModel> TypeFilters { get; } = [];
     public ObservableCollection<CityFilterViewModel> CityFilters { get; } = [];
     public ObservableCollection<ScheduleDayFilterViewModel> DayFilters { get; } = [];
+    public ScheduleDayFilterViewModel? SelectedDayFilter => ScheduleDayNavigation.Find(DayFilters, _selectedDate);
+    public ScheduleDayFilterViewModel? PreviousDayFilter => ScheduleDayNavigation.Find(DayFilters, _selectedDate, -1);
+    public ScheduleDayFilterViewModel? NextDayFilter => ScheduleDayNavigation.Find(DayFilters, _selectedDate, 1);
+    public bool HasDaySelector => SelectedDayFilter is not null;
+    public bool HasPreviousDay => PreviousDayFilter is not null;
+    public bool HasNextDay => NextDayFilter is not null;
+    public string DaySelectorLabel => SelectedDayFilter?.SelectedLabel(StayTitle) ?? string.Empty;
+    public string DaySelectorDescription => SelectedDayFilter?.SelectedDescription(StayTitle) ?? string.Empty;
+    public bool IsDaySelectorReadOnly => !CanOpenStayMap;
+    public string DaySelectorMapDescription => string.Format(LocalizationResourceManager.Instance.CurrentCulture,
+        LocalizationResourceManager.Instance["UXAuditOpenStayForDate"], SelectedDayFilter?.FullDateLabel, StayTitle);
+    public string PreviousDayDescription => string.Format(LocalizationResourceManager.Instance.CurrentCulture,
+        LocalizationResourceManager.Instance["UXAuditPreviousDay"], PreviousDayFilter?.FullDateLabel);
+    public string NextDayDescription => string.Format(LocalizationResourceManager.Instance.CurrentCulture,
+        LocalizationResourceManager.Instance["UXAuditNextDay"], NextDayFilter?.FullDateLabel);
+    public Task MoveSelectedDayAsync(int offset) => offset is -1 or 1
+        ? SelectDayAsync(ScheduleDayNavigation.Find(DayFilters, _selectedDate, offset))
+        : Task.CompletedTask;
     public IReadOnlyList<ScheduleDayViewModel> ActiveDays
     {
         get => _activeDays;
@@ -777,14 +795,20 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         await _syncStateStore.AcknowledgeItineraryVersionAsync(result.Revision);
     }
 
-    [RelayCommand]
+    [RelayCommand(AllowConcurrentExecutions = true)]
     private async Task SelectDayAsync(ScheduleDayFilterViewModel? day)
     {
-        if (day is null || _selectedDate == day.Date)
+        day = ScheduleDayNavigation.Find(DayFilters, day?.Date);
+        if (day is null || _selectedDate == day.Date || !_sessionService.HasSession)
         {
             return;
         }
 
+        CancelSelectedDayLoading();
+        var loadCancellation = new CancellationTokenSource();
+        _selectedDayLoadCancellation = loadCancellation;
+        var contextVersion = _sessionService.ContextVersion;
+        var tripId = _tripId;
         var stopwatch = Stopwatch.StartNew();
         _selectedDate = day.Date;
         _today = _todayByDate.GetValueOrDefault(day.Date);
@@ -798,28 +822,30 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
             day.Date,
             SelectedTimelineItems.Count);
 
-        var token = await _sessionService.GetTokenAsync();
-        if (!string.IsNullOrWhiteSpace(token))
+        try
         {
-            CancelSelectedDayLoading();
-            var loadCancellation = new CancellationTokenSource();
-            _selectedDayLoadCancellation = loadCancellation;
-            try
+            var token = await _sessionService.GetTokenAsync();
+            if (!string.IsNullOrWhiteSpace(token) && !loadCancellation.IsCancellationRequested
+                && contextVersion == _sessionService.ContextVersion && tripId == _tripId
+                && _selectedDate == day.Date)
             {
                 await LoadTodayForSelectedDateAsync(token, forceRefresh: false, loadCancellation.Token);
             }
-            catch (OperationCanceledException)
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected when another date is selected or the page is closed.
+        }
+        finally
+        {
+            if (ReferenceEquals(_selectedDayLoadCancellation, loadCancellation))
             {
-                // Expected when another date is selected or the page is closed.
+                _selectedDayLoadCancellation = null;
+                if (contextVersion == _sessionService.ContextVersion && tripId == _tripId
+                    && _selectedDate == day.Date && ShowTodayLoading)
+                    CompleteTodayLoadingWithScheduleFallback();
             }
-            finally
-            {
-                if (ReferenceEquals(_selectedDayLoadCancellation, loadCancellation))
-                {
-                    _selectedDayLoadCancellation = null;
-                }
-                loadCancellation.Dispose();
-            }
+            loadCancellation.Dispose();
         }
     }
 
@@ -957,7 +983,12 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         }
 
         var selectedDate = _selectedDate.Value;
+        var contextVersion = _sessionService.ContextVersion;
+        var tripId = _tripId;
+        bool IsCurrentSelection() => !cancellationToken.IsCancellationRequested
+            && contextVersion == _sessionService.ContextVersion && tripId == _tripId && _selectedDate == selectedDate;
         var cached = await _todayStore.GetCachedAsync(selectedDate, cancellationToken);
+        if (!IsCurrentSelection()) return;
         var canShowCached = cached is not null;
         if (canShowCached && _selectedDate == selectedDate)
         {
@@ -984,6 +1015,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
                 selectedDate,
                 null,
                 cancellationToken);
+            if (!IsCurrentSelection()) return;
             if (result.IsUnauthorized)
             {
                 _sessionService.Clear();
@@ -1008,7 +1040,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
         {
-            if (_selectedDate != selectedDate)
+            if (!IsCurrentSelection())
             {
                 return;
             }
@@ -1458,7 +1490,9 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
 
     private static IReadOnlyList<ScheduleTodayLoadingSectionViewModel> BuildTodayLoadingSections(int dayNumber) =>
         TodayPeriod.All
-            .Select(period => new ScheduleTodayLoadingSectionViewModel($"Dia {dayNumber}", period.Label))
+            .Select(period => new ScheduleTodayLoadingSectionViewModel(
+                ScheduleTodaySectionViewModel.FormatDayTitle(dayNumber),
+                ScheduleTodaySectionViewModel.ResolvePeriodLabel(PeriodKey(period.Label), period.Label)))
             .ToList();
 
     private IReadOnlyList<ScheduleTodaySectionViewModel> BuildTodaySections(
@@ -1702,7 +1736,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     {
         return _allItems
             .Where(item => item.Type == ReservationType.Lodging)
-            .Where(item => item.Date == date)
+            .Where(item => item.Date <= date && (item.EndsOn is { } checkout ? checkout >= date : item.Date == date))
             .OrderByDescending(item => item.Date)
             .Select(item => string.IsNullOrWhiteSpace(item.LocationName) ? item.Title : item.LocationName)
             .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
@@ -2059,6 +2093,18 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
 
     private void NotifySelectedDayChanged()
     {
+        OnPropertyChanged(nameof(SelectedDayFilter));
+        OnPropertyChanged(nameof(PreviousDayFilter));
+        OnPropertyChanged(nameof(NextDayFilter));
+        OnPropertyChanged(nameof(HasDaySelector));
+        OnPropertyChanged(nameof(HasPreviousDay));
+        OnPropertyChanged(nameof(HasNextDay));
+        OnPropertyChanged(nameof(DaySelectorLabel));
+        OnPropertyChanged(nameof(DaySelectorDescription));
+        OnPropertyChanged(nameof(DaySelectorMapDescription));
+        OnPropertyChanged(nameof(IsDaySelectorReadOnly));
+        OnPropertyChanged(nameof(PreviousDayDescription));
+        OnPropertyChanged(nameof(NextDayDescription));
         OnPropertyChanged(nameof(DayEyebrow));
         OnPropertyChanged(nameof(HasFocusItem));
         OnPropertyChanged(nameof(ShowFinishedToday));

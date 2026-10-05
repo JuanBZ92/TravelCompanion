@@ -19,13 +19,13 @@ public sealed partial class DocsViewModel(
     TripDocumentAttachmentService attachmentService) : ViewModelBase, ISessionStateResettable
 {
     [ObservableProperty]
-    private string title = "Documentos";
+    private string title = Text("TabDocs");
 
     [ObservableProperty]
-    private string subtitle = "Vuelos, hoteles, trenes y guias. Todo en un solo lugar.";
+    private string subtitle = Text("LocalDocumentsNotice");
 
     [ObservableProperty]
-    private string flightAirline = "Vuelos";
+    private string flightAirline = Text("UxFlightHeading");
 
     [ObservableProperty]
     private string flightPassenger = string.Empty;
@@ -51,6 +51,7 @@ public sealed partial class DocsViewModel(
         {
             journey.IsSelected = ReferenceEquals(journey, value);
         }
+        RebuildDocumentGroups();
     }
 
     [RelayCommand]
@@ -64,19 +65,21 @@ public sealed partial class DocsViewModel(
             await Shell.Current.GoToAsync("//login");
             return;
         }
-        Title = SelectedCategory is { } category ? CategoryName(category) : Text("TabDocs");
-        Subtitle = Text("LocalDocumentsNotice");
-        await RefreshLocalDocumentsAsync(cancellationToken);
-        OnPropertyChanged(nameof(CanAttachDocument));
-        OnPropertyChanged(nameof(ShowLocalNotice));
-        if (SelectedCategory.HasValue || !sessionService.HasCuratedDocs || !sessionService.HasKnownValidAccess) return;
         var contextVersion = sessionService.ContextVersion;
         var userId = sessionService.CurrentUserId;
         var tripId = sessionService.CurrentTripId;
+        Title = SelectedCategory is { } category ? CategoryName(category) : Text("TabDocs");
+        Subtitle = Text("LocalDocumentsNotice");
+        await RefreshLocalDocumentsAsync(cancellationToken);
+        if (!IsCurrentDocumentContext(contextVersion, userId, tripId)) return;
+        OnPropertyChanged(nameof(CanAttachDocument));
+        OnPropertyChanged(nameof(ShowLocalNotice));
+        if (SelectedCategory.HasValue || !sessionService.HasCuratedDocs || !sessionService.HasKnownValidAccess) return;
         var token = await sessionService.GetTokenAsync();
+        if (!CanShowIncludedDocuments(contextVersion, userId, tripId)) return;
         if (string.IsNullOrWhiteSpace(token))
         {
-            ErrorMessage = "Inicia sesion para ver tus documentos.";
+            ErrorMessage = Text("UXAuditDocumentsSignIn");
             return;
         }
 
@@ -84,10 +87,12 @@ public sealed partial class DocsViewModel(
         {
             var cacheKey = GetCacheKey(userId, tripId);
             var cached = await offlineCacheService.GetAsync<TravelDocsDto>(cacheKey, maxAge: null, cancellationToken);
+            if (!CanShowIncludedDocuments(contextVersion, userId, tripId)) return;
             if (cached is not null)
             {
                 ApplyDocs(cached.Value);
                 await RefreshDocumentAvailabilityAsync(cancellationToken);
+                if (!CanShowIncludedDocuments(contextVersion, userId, tripId)) return;
                 MarkLastUpdated(cached.SavedAt);
                 StatusMessage = null;
                 var versions = await syncStateStore.GetCachedStateAsync(cancellationToken);
@@ -97,9 +102,7 @@ public sealed partial class DocsViewModel(
             }
 
             var result = await apiClient.GetTravelDocsResultAsync(token, cancellationToken);
-            if (contextVersion != sessionService.ContextVersion
-                || userId != sessionService.CurrentUserId
-                || tripId != sessionService.CurrentTripId)
+            if (!CanShowIncludedDocuments(contextVersion, userId, tripId))
             {
                 return;
             }
@@ -125,11 +128,14 @@ public sealed partial class DocsViewModel(
             {
                 ApplyDocs(docs);
                 await RefreshDocumentAvailabilityAsync(cancellationToken);
+                if (!CanShowIncludedDocuments(contextVersion, userId, tripId)) return;
                 var metadata = await syncStateStore.CreateCacheMetadataAsync(
                     "documents",
                     $"downloaded:{DateTimeOffset.UtcNow.UtcTicks}",
                     cancellationToken: cancellationToken);
+                if (!CanShowIncludedDocuments(contextVersion, userId, tripId)) return;
                 await offlineCacheService.SaveAsync(cacheKey, docs, metadata, cancellationToken);
+                if (!CanShowIncludedDocuments(contextVersion, userId, tripId)) return;
                 MarkLastUpdated(DateTimeOffset.UtcNow);
                 StatusMessage = null;
             }
@@ -140,12 +146,15 @@ public sealed partial class DocsViewModel(
         }
         catch
         {
-            var cacheKey = GetCacheKey(sessionService.CurrentUserId, sessionService.CurrentTripId);
+            if (!CanShowIncludedDocuments(contextVersion, userId, tripId)) return;
+            var cacheKey = GetCacheKey(userId, tripId);
             var cached = await offlineCacheService.GetAsync<TravelDocsDto>(cacheKey, maxAge: null, cancellationToken);
+            if (!CanShowIncludedDocuments(contextVersion, userId, tripId)) return;
             if (cached is not null)
             {
                 ApplyDocs(cached.Value);
                 await RefreshDocumentAvailabilityAsync(cancellationToken);
+                if (!CanShowIncludedDocuments(contextVersion, userId, tripId)) return;
                 MarkLastUpdated(cached.SavedAt);
                 StatusMessage = null;
             }
@@ -157,6 +166,14 @@ public sealed partial class DocsViewModel(
             ErrorMessage = null;
         }
     }
+
+    private bool IsCurrentDocumentContext(long version, Guid? userId, Guid? tripId) =>
+        sessionService.HasSession && version == sessionService.ContextVersion
+        && userId == sessionService.CurrentUserId && tripId == sessionService.CurrentTripId;
+
+    private bool CanShowIncludedDocuments(long version, Guid? userId, Guid? tripId) =>
+        IsCurrentDocumentContext(version, userId, tripId) && !SelectedCategory.HasValue
+        && sessionService.HasCuratedDocs && sessionService.HasKnownValidAccess;
 
     [RelayCommand]
     private Task RefreshAsync() => base.LoadAsync(async cancellationToken =>
@@ -189,6 +206,7 @@ public sealed partial class DocsViewModel(
         HasLoaded = false;
         SelectedCategory = null;
         LocalDocumentGroups.Clear();
+        DocumentGroups.Clear();
         OnPropertyChanged(nameof(CanAttachDocument));
         OnPropertyChanged(nameof(ShowLocalNotice));
         ErrorMessage = null;
@@ -212,14 +230,14 @@ public sealed partial class DocsViewModel(
 
         if (docs is null)
         {
-            ErrorMessage = "No hay documentos cargados para este viaje.";
+            ErrorMessage = Text("NoDocuments");
             NotifySectionsChanged();
             return;
         }
 
         Title = Text("TabDocs");
         Subtitle = $"{docs.DestinationName} · {docs.StartsOn:dd/MM} - {docs.EndsOn:dd/MM}";
-        FlightAirline = docs.Flights?.Airline ?? "Vuelos";
+        FlightAirline = docs.Flights?.Airline ?? Text("UxFlightHeading");
         FlightPassenger = docs.Flights?.PassengerName ?? docs.TravelerName;
         FlightConfirmationCode = docs.Flights?.ConfirmationCode;
 
@@ -250,6 +268,7 @@ public sealed partial class DocsViewModel(
 
     private void NotifySectionsChanged()
     {
+        RebuildDocumentGroups();
         OnPropertyChanged(nameof(HasFlights));
         OnPropertyChanged(nameof(HasHotelDocuments));
         OnPropertyChanged(nameof(HasOtherDocuments));
@@ -290,9 +309,13 @@ public sealed partial class FlightJourneyItemViewModel : ObservableObject
 
 public sealed class FlightLegItemViewModel(FlightLegDto leg, int index)
 {
-    public string FlightNumber => string.IsNullOrWhiteSpace(leg.FlightNumber) ? "Vuelo" : leg.FlightNumber;
+    public string FlightNumber => string.IsNullOrWhiteSpace(leg.FlightNumber)
+        ? LocalizationResourceManager.Instance["UXAuditDocumentFlight"] : leg.FlightNumber;
     public string Duration => leg.Duration ?? string.Empty;
-    public string DateLabel => leg.Date.ToString("dddd · dd 'de' MMMM", new CultureInfo("es-ES"));
+    public string DateLabel => leg.Date.ToString(
+        LocalizationResourceManager.Instance.CurrentCulture.TwoLetterISOLanguageName == "es"
+            ? "dddd · dd 'de' MMMM" : "dddd · MMMM d",
+        LocalizationResourceManager.Instance.CurrentCulture);
     public string DepartTime => leg.DepartTime.ToString("HH\\:mm");
     public string ArriveTime => leg.ArriveTime?.ToString("HH\\:mm") ?? "--:--";
     public string From => leg.From;

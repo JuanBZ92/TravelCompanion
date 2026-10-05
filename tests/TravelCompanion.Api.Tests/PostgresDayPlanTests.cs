@@ -308,6 +308,101 @@ public sealed class PostgresDayPlanTests
         Assert.Single(await verify.PlanningApplicationReceipts.ToListAsync());
     }
 
+    [PostgresItineraryIdempotencyTests.PostgresFact]
+    public async Task Generation_completion_rechecks_trip_and_account_access_before_persisting_or_replaying()
+    {
+        await using var database = new PerformanceDatabase();
+        await database.InitializeAsync();
+        foreach (var completed in new[] { false, true })
+        foreach (var change in new[] { "unpublished", "deleted-account", "revoked-grant" })
+        {
+            await using var db = database.Open();
+            var world = await DayPlanTestWorld.SeedAsync(db, trial: true, perCity: 0);
+            var usage = new AssistantUsageService(db,
+                Microsoft.Extensions.Options.Options.Create(new TravelCompanion.Api.Options.FreePreviewOptions()),
+                Microsoft.Extensions.Options.Options.Create(new TravelCompanion.Api.Options.StorePurchaseOptions()));
+            var lease = await usage.ReserveAsync(world.User.Id, world.Trip.Id,
+                AssistantUsageService.PlannerPrefix + Guid.NewGuid().ToString("N"), default);
+            var json = JsonSerializer.Serialize(new DayPlanResponse(Guid.NewGuid(), world.Trip.Id, 0, [], "Synthetic result"));
+            if (completed) await usage.CompletePlanAsync(lease.LeaseId, world.Trip.Id, 0, json, default);
+
+            // A different request changes access while generation is in flight.
+            await using (var changed = database.Open())
+            {
+                if (change == "unpublished")
+                    await changed.Trips.Where(item => item.Id == world.Trip.Id)
+                        .ExecuteUpdateAsync(update => update.SetProperty(item => item.PublicationStatus, TripPublicationStatus.Draft));
+                else if (change == "deleted-account")
+                    await changed.AppUsers.Where(item => item.Id == world.User.Id)
+                        .ExecuteUpdateAsync(update => update.SetProperty(item => item.DeletedAtUtc, DateTimeOffset.UtcNow));
+                else
+                    await changed.BuilderAccessGrants.Where(item => item.Id == world.Grant.Id)
+                        .ExecuteUpdateAsync(update => update.SetProperty(item => item.Status, BuilderAccessStatus.Revoked));
+            }
+
+            await Assert.ThrowsAsync<DayPlanException>(() =>
+                usage.CompletePlanAsync(lease.LeaseId, world.Trip.Id, 0, json, default));
+            await using var verify = database.Open();
+            var persisted = await verify.AssistantUsageLeases.SingleAsync(item => item.Id == lease.LeaseId);
+            Assert.Equal(completed, persisted.CompletedAtUtc.HasValue);
+            if (completed)
+                Assert.Equal(json, JsonSerializer.Serialize(JsonSerializer.Deserialize<DayPlanResponse>(persisted.ResponseJson!)));
+            else
+                Assert.Null(persisted.ResponseJson);
+            Assert.Empty(await verify.Reservations.Where(item => item.TripId == world.Trip.Id).ToListAsync());
+        }
+    }
+
+    [PostgresItineraryIdempotencyTests.PostgresFact]
+    public async Task Completion_replay_keeps_canonical_result_after_itinerary_revision_changes()
+    {
+        await using var database = new PerformanceDatabase();
+        await database.InitializeAsync();
+        await using var db = database.Open();
+        var world = await DayPlanTestWorld.SeedAsync(db, trial: true, perCity: 0);
+        var usage = new AssistantUsageService(db,
+            Microsoft.Extensions.Options.Options.Create(new TravelCompanion.Api.Options.FreePreviewOptions()),
+            Microsoft.Extensions.Options.Options.Create(new TravelCompanion.Api.Options.StorePurchaseOptions()));
+        var lease = await usage.ReserveAsync(world.User.Id, world.Trip.Id,
+            AssistantUsageService.PlannerPrefix + Guid.NewGuid().ToString("N"), default);
+        var json = JsonSerializer.Serialize(new DayPlanResponse(Guid.NewGuid(), world.Trip.Id, 0, [], "Canonical result"));
+        await usage.CompletePlanAsync(lease.LeaseId, world.Trip.Id, 0, json, default);
+        await using (var changed = database.Open())
+            await changed.Trips.Where(item => item.Id == world.Trip.Id)
+                .ExecuteUpdateAsync(update => update.SetProperty(item => item.PlanRevision, 1));
+
+        var replay = await usage.CompletePlanAsync(lease.LeaseId, world.Trip.Id, 0, "Different result", default);
+
+        Assert.Equal(json, JsonSerializer.Serialize(JsonSerializer.Deserialize<DayPlanResponse>(replay)));
+        Assert.Single(await db.AssistantUsageLeases.Where(item => item.BuilderAccessGrantId == world.Grant.Id
+            && item.CompletedAtUtc != null).ToListAsync());
+    }
+
+    [PostgresItineraryIdempotencyTests.PostgresFact]
+    public async Task Options_load_city_context_without_materializing_reservation_content()
+    {
+        await using var database = new PerformanceDatabase();
+        await database.InitializeAsync();
+        await using var db = database.Open();
+        var world = await DayPlanTestWorld.SeedAsync(db, existing: 3);
+        world.Trip.BuilderSegmentsJson = null;
+        var reservation = await db.Reservations.FirstAsync();
+        reservation.Notes = new string('x', 2000);
+        await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
+        database.Counter.Reset();
+
+        var options = await DayPlanTestWorld.Service(db).OptionsAsync(world.Access(), default);
+
+        Assert.Equal(7, options.CityDays.Count);
+        Assert.Equal(["Tokyo"], options.CityDays[0].Cities);
+        Assert.Equal(["Japan"], options.CityDays[1].Cities);
+        var cityQuery = Assert.Single(database.Counter.Commands, command => command.Contains("FROM \"Reservations\""));
+        Assert.DoesNotContain("\"Notes\"", cityQuery);
+        Assert.DoesNotContain("\"ConfirmationCode\"", cityQuery);
+        Assert.Empty(db.ChangeTracker.Entries<Reservation>());
+    }
+
     private static DayPlanApplyRequest Selection(DayPlanTestWorld world, DayPlanResponse proposal) =>
         new(proposal.OperationId, world.Trip.Id, 0, Guid.NewGuid(), proposal.Days.Select(day => day.Stops[0].Id).ToList());
 

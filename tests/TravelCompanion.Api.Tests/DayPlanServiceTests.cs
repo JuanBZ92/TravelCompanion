@@ -36,6 +36,7 @@ public sealed class DayPlanServiceTests
             var city = day.Date < DayPlanTestWorld.Start.AddDays(4) ? "Tokyo" : "Kyoto";
             Assert.Contains(city, day.Cities);
             Assert.All(day.Stops, stop => Assert.StartsWith(city, stop.Card.Title));
+            Assert.All(day.Stops, stop => Assert.Equal($"{city}, Japan", stop.Place));
         });
         var stops = response.Days.SelectMany(day => day.Stops).ToList();
         Assert.Equal(stops.Count, stops.Select(stop => stop.RecommendationId).Distinct().Count());
@@ -44,6 +45,111 @@ public sealed class DayPlanServiceTests
         Assert.Equal(25, await db.Reservations.CountAsync());
         Assert.Equal(0, (await db.Trips.SingleAsync()).PlanRevision);
         Assert.Single(await db.AssistantUsageLeases.Where(lease => lease.CompletedAtUtc != null).ToListAsync());
+    }
+
+    [Theory]
+    [InlineData("en", 1, 1, "1 idea for 1 day. Choose what to add.")]
+    [InlineData("en", 1, 60, "4 ideas for 1 day. Choose what to add.")]
+    [InlineData("en", 3, 1, "1 idea for 3 days. Choose what to add.")]
+    [InlineData("en", 3, 60, "12 ideas for 3 days. Choose what to add.")]
+    [InlineData("es", 1, 1, "1 idea para 1 día. Elegí qué añadir.")]
+    [InlineData("es", 1, 60, "4 ideas para 1 día. Elegí qué añadir.")]
+    [InlineData("es", 3, 1, "1 idea para 3 días. Elegí qué añadir.")]
+    [InlineData("es", 3, 60, "12 ideas para 3 días. Elegí qué añadir.")]
+    public async Task Proposal_summary_localizes_singular_and_plural_ideas_and_days(
+        string locale, int days, int perCity, string expected)
+    {
+        await using var db = CreateDb();
+        var world = await DayPlanTestWorld.SeedAsync(db, perCity: perCity);
+
+        var response = await DayPlanTestWorld.Service(db).GenerateAsync(world.Access(),
+            world.Request(days) with { Locale = locale }, default);
+
+        Assert.Equal(expected, response.Message);
+    }
+
+    [Fact]
+    public async Task Options_show_all_configured_city_days_before_generation_even_without_itinerary_items()
+    {
+        await using var db = CreateDb();
+        var world = await DayPlanTestWorld.SeedAsync(db);
+        var service = DayPlanTestWorld.Service(db);
+
+        var options = await service.OptionsAsync(world.Access(), default);
+
+        Assert.True(options.Enabled);
+        Assert.Equal(7, options.CityDays.Count);
+        Assert.Equal(Enumerable.Range(0, 7).Select(DayPlanTestWorld.Start.AddDays), options.CityDays.Select(day => day.Date));
+        Assert.All(options.CityDays.Take(4), day => Assert.Equal(["Tokyo"], day.Cities));
+        Assert.All(options.CityDays.Skip(4), day => Assert.Equal(["Kyoto"], day.Cities));
+        Assert.Empty(await db.Reservations.ToListAsync());
+        Assert.Empty(await db.AssistantUsageLeases.ToListAsync());
+        var generated = await service.GenerateAsync(world.Access(), world.Request(7), default);
+        Assert.All(generated.Days, day => Assert.Equal(
+            options.CityDays.Single(context => context.Date == day.Date).Cities, day.Cities));
+    }
+
+    [Fact]
+    public async Task Options_and_generation_share_both_cities_for_a_transfer_day()
+    {
+        await using var db = CreateDb();
+        var world = await DayPlanTestWorld.SeedAsync(db);
+        var transfer = DayPlanTestWorld.Start.AddDays(3);
+        world.Trip.BuilderSegmentsJson = JsonSerializer.Serialize(new BuilderTripSetupSegmentDto[]
+        {
+            new("Tokyo", DayPlanTestWorld.Start, transfer),
+            new("Kyoto", transfer, world.Trip.EndsOn)
+        });
+        await db.SaveChangesAsync();
+        var service = DayPlanTestWorld.Service(db);
+
+        var options = await service.OptionsAsync(world.Access(), default);
+        var generated = await service.GenerateAsync(world.Access(), world.Request() with { StartDate = transfer }, default);
+
+        Assert.Equal(["Tokyo", "Kyoto"], options.CityDays.Single(day => day.Date == transfer).Cities);
+        Assert.Equal(options.CityDays.Single(day => day.Date == transfer).Cities, Assert.Single(generated.Days).Cities);
+    }
+
+    [Fact]
+    public async Task Legacy_city_days_use_an_ongoing_reservation_and_then_the_destination_fallback()
+    {
+        await using var db = CreateDb();
+        var world = await DayPlanTestWorld.SeedAsync(db, perCity: 0);
+        world.Trip.BuilderSegmentsJson = null;
+        db.Reservations.Add(new()
+        {
+            Id = Guid.NewGuid(), TripId = world.Trip.Id, Type = ReservationType.Lodging,
+            Date = DayPlanTestWorld.Start, EndsOn = DayPlanTestWorld.Start.AddDays(2),
+            City = "Osaka", Title = "Synthetic hotel", LocationName = "Hotel", Address = "",
+            ConfirmationCode = "", Notes = ""
+        });
+        await db.SaveChangesAsync();
+        var service = DayPlanTestWorld.Service(db);
+
+        var options = await service.OptionsAsync(world.Access(), default);
+        var generated = await service.GenerateAsync(world.Access(), world.Request(7), default);
+
+        Assert.All(options.CityDays.Take(3), day => Assert.Equal(["Osaka"], day.Cities));
+        Assert.All(options.CityDays.Skip(3), day => Assert.Equal(["Japan"], day.Cities));
+        Assert.All(generated.Days, day => Assert.Equal(
+            options.CityDays.Single(context => context.Date == day.Date).Cities, day.Cities));
+    }
+
+    [Fact]
+    public async Task Proposal_place_uses_day_city_when_the_catalog_has_no_neighborhood()
+    {
+        await using var db = CreateDb();
+        var world = await DayPlanTestWorld.SeedAsync(db);
+        foreach (var recommendation in await db.Recommendations.ToListAsync())
+            recommendation.Neighborhood = " ";
+        await db.SaveChangesAsync();
+
+        var proposal = await DayPlanTestWorld.Service(db).GenerateAsync(world.Access(), world.Request(), default);
+
+        var day = Assert.Single(proposal.Days);
+        Assert.Equal(4, day.Stops.Count);
+        Assert.All(day.Stops, stop => Assert.Equal("Tokyo", stop.Place));
+        Assert.All(day.Stops, stop => Assert.NotEqual(stop.Card.Subtitle, stop.Place));
     }
 
     [Theory]

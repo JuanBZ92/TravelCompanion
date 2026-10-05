@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
+using TravelCompanion.Mobile.Services;
 using TravelCompanion.Mobile.ViewModels;
 using TravelCompanion.Shared.Dtos;
 
@@ -8,13 +9,20 @@ namespace TravelCompanion.Mobile.Pages;
 
 public partial class SchedulePage : ContentPage, IQueryAttributable
 {
+    private bool _openingTodayDetail;
     private async void OnExpensesSectionClicked(object? sender, EventArgs e) => await ShowExpensesAsync();
-    private void OnItinerarySectionClicked(object? sender, EventArgs e)
+    private async void OnItinerarySectionClicked(object? sender, EventArgs e)
     {
         FolderPanelView.Deactivate(); FolderPanelView.IsVisible = false;
         FolderSectionButton.TextColor = ExpenseUi.Muted;
         ExpensesPanelView.Deactivate(); ExpensesPanelView.IsVisible = false; ItineraryContent.IsVisible = true;
         ItinerarySectionButton.TextColor = ExpenseUi.Ink; ExpensesSectionButton.TextColor = ExpenseUi.Muted;
+        // A panel can stay selected while session reset clears the itinerary behind it.
+        if (!_viewModel.HasLoaded && !_isHandlingAppearance)
+        {
+            _isHandlingAppearance = true;
+            await Dispatcher.DispatchAsync(HandleAppearingAsync);
+        }
     }
     private async Task ShowExpensesAsync()
     {
@@ -67,14 +75,21 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
         _viewModel = viewModel;
         _logger = logger;
         InitializeComponent();
+        // Native buttons handle their own touches, so recognize swipes on each card.
+        foreach (var view in new View[] { PreviousDayButton, SelectedDayCaption, StayMapButton, NextDayButton })
+        {
+            foreach (var direction in new[] { SwipeDirection.Left, SwipeDirection.Right })
+            {
+                var swipe = new SwipeGestureRecognizer { Direction = direction };
+                swipe.Swiped += OnDaySelectorSwiped;
+                view.GestureRecognizers.Add(swipe);
+            }
+        }
 #if ANDROID
         Platforms.Android.TopInsetCorrection.Observe(ScheduleRoot, ScheduleHeader);
 #endif
         stopwatch.Stop();
         BindingContext = viewModel;
-        ItinerarySectionButton.Text = ExpenseUi.T("Itinerario", "Itinerary");
-        ExpensesSectionButton.Text = ExpenseUi.T("Gastos", "Expenses");
-        FolderSectionButton.Text = ExpenseUi.T("Carpeta", "Folder");
 
         _logger.LogInformation(
             "Schedule page initialized in {ElapsedMs}ms. HasLoaded={HasLoaded}.",
@@ -161,8 +176,8 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
         {
             _logger.LogError(ex, "Schedule appearance flow failed.");
             _viewModel.ErrorMessage = sessionService.RequiresTripSetup
-                ? "No pudimos abrir la configuración del viaje. Intenta nuevamente."
-                : "No pudimos cargar Today. Intenta nuevamente.";
+                ? LocalizationResourceManager.Instance["UXAuditTripSetupError"]
+                : LocalizationResourceManager.Instance["UXAuditScheduleLoadError"];
         }
         finally
         {
@@ -176,60 +191,87 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
         }
     }
 
-    private void OnDayFilterTapped(object? sender, TappedEventArgs e)
+    private async void OnPreviousDayClicked(object? sender, EventArgs e) => await ChangeSelectedDayAsync(-1);
+    private async void OnNextDayClicked(object? sender, EventArgs e) => await ChangeSelectedDayAsync(1);
+    private async void OnDaySelectorSwiped(object? sender, SwipedEventArgs e)
     {
-        if ((sender as BindableObject)?.BindingContext is ScheduleDayFilterViewModel day)
+        var offset = e.Direction switch { SwipeDirection.Left => 1, SwipeDirection.Right => -1, _ => 0 };
+        await ChangeSelectedDayAsync(offset);
+    }
+
+    private async Task ChangeSelectedDayAsync(int offset)
+    {
+        var session = MauiProgram.Services.GetRequiredService<AuthSessionService>();
+        var contextVersion = session.ContextVersion;
+        try
         {
-            _viewModel.SelectDayCommand.ExecuteAsync(day);
+            await _viewModel.MoveSelectedDayAsync(offset);
+        }
+        catch (OperationCanceledException)
+        {
+            // Another day selection or leaving the page cancels the old request.
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not change the selected itinerary day.");
+            if (contextVersion == session.ContextVersion)
+                _viewModel.ErrorMessage = LocalizationResourceManager.Instance["UXAuditScheduleLoadError"];
         }
     }
 
     private async void OnItineraryMenuClicked(object? sender, EventArgs e)
     {
+        var resources = TravelCompanion.Mobile.Services.LocalizationResourceManager.Instance;
+        var documentsLabel = resources["UXAuditTripDocuments"];
+        var reviewDayLabel = resources["UXAuditReviewDay"];
+        var reviewTripLabel = resources["ReviewTrip"];
+        var downloadLabel = resources["DownloadTrip"];
+        var shareLabel = resources["UXAuditShareItinerary"];
+        var editLabel = resources["UXAuditEditItinerary"];
+        var deleteLabel = resources["DeleteTripTitle"];
+        var remindersLabel = resources["UXAuditReservationReminders"];
+        var preparationLabel = resources["PreparationTitle"];
         var actions = new List<string>
         {
-            "Documentos del viaje",
-            "Revisar este día",
-            "Revisar mi viaje",
-            "Guardar para usar sin conexión",
-            "Compartir itinerario"
+            documentsLabel,
+            reviewDayLabel,
+            reviewTripLabel,
+            downloadLabel,
+            shareLabel
         };
-        var remindersLabel = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "en"
-            ? "Reservation reminders" : "Recordatorios de reservas";
         actions.Add(remindersLabel);
-        var preparationLabel = TravelCompanion.Mobile.Services.LocalizationResourceManager.Instance["PreparationTitle"];
         actions.Insert(0, preparationLabel);
         if (_viewModel.CanManageItinerary)
         {
-            actions.Insert(0, "Editar itinerario");
-            actions.Add("Eliminar itinerario");
+            actions.Insert(0, editLabel);
+            actions.Add(deleteLabel);
         }
         var action = await DisplayActionSheetAsync(
-            "Mi itinerario",
-            "Cancelar",
+            resources["UXAuditItineraryMenuTitle"],
+            resources["CommonCancel"],
             null,
             actions.ToArray());
         if (action == preparationLabel)
             await Shell.Current.GoToAsync(nameof(TripPreparationPage));
-        else if (action == "Documentos del viaje")
+        else if (action == documentsLabel)
             await Shell.Current.GoToAsync(nameof(DocsPage));
-        else if (action == "Revisar este día")
+        else if (action == reviewDayLabel)
             await _viewModel.ReviewSelectedDayCommand.ExecuteAsync(null);
-        else if (action == "Revisar mi viaje")
+        else if (action == reviewTripLabel)
             await _viewModel.ReviewTripCommand.ExecuteAsync(null);
-        else if (action == "Editar itinerario")
+        else if (action == editLabel)
         {
             await _viewModel.EditItineraryCommand.ExecuteAsync(null);
         }
-        else if (action == "Eliminar itinerario")
+        else if (action == deleteLabel)
         {
             await _viewModel.DeleteItineraryCommand.ExecuteAsync(null);
         }
-        else if (action == "Guardar para usar sin conexión")
+        else if (action == downloadLabel)
         {
             await _viewModel.DownloadOfflineCommand.ExecuteAsync(null);
         }
-        else if (action == "Compartir itinerario")
+        else if (action == shareLabel)
         {
             await _viewModel.ShareItineraryCommand.ExecuteAsync(null);
         }
@@ -237,23 +279,32 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
             await MauiProgram.Services.GetRequiredService<TravelCompanion.Mobile.Services.ReservationReminderService>().ConfigureAsync();
     }
 
-    private async void OnTodayLocationTapped(object? sender, TappedEventArgs e)
+    private async void OnTodayLocationTapped(object? sender, TappedEventArgs e) => await OpenTodayLocationAsync(sender);
+    private async void OnTodayLocationOpenClicked(object? sender, EventArgs e) => await OpenTodayLocationAsync(sender);
+
+    private async Task OpenTodayLocationAsync(object? sender)
     {
-        if ((sender as BindableObject)?.BindingContext is TodayLocationViewModel location)
+        if (_openingTodayDetail || (sender as BindableObject)?.BindingContext is not TodayLocationViewModel location) return;
+        _openingTodayDetail = true;
+        try
         {
             if (location.AssignedItem is { } item)
                 await Shell.Current.GoToAsync(nameof(ScheduleItemDetailPage), new Dictionary<string, object> { ["ScheduleItem"] = item });
             else
                 await _viewModel.OpenRecommendationCommand.ExecuteAsync(location.Recommendation);
         }
+        finally { _openingTodayDetail = false; }
     }
 
-    private async void OnTodayReservationTapped(object? sender, TappedEventArgs e)
+    private async void OnTodayReservationTapped(object? sender, TappedEventArgs e) => await OpenTodayReservationAsync(sender);
+    private async void OnTodayReservationOpenClicked(object? sender, EventArgs e) => await OpenTodayReservationAsync(sender);
+
+    private async Task OpenTodayReservationAsync(object? sender)
     {
-        if ((sender as BindableObject)?.BindingContext is TodayReservationViewModel reservation)
-        {
-            await _viewModel.OpenScheduleItemCommand.ExecuteAsync(reservation.Item);
-        }
+        if (_openingTodayDetail || (sender as BindableObject)?.BindingContext is not TodayReservationViewModel reservation) return;
+        _openingTodayDetail = true;
+        try { await _viewModel.OpenScheduleItemCommand.ExecuteAsync(reservation.Item); }
+        finally { _openingTodayDetail = false; }
     }
 
     private async void OnEditPersonalItemClicked(object? sender, EventArgs e)

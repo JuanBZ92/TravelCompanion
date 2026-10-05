@@ -12,6 +12,10 @@ using TravelCompanion.Shared.Dtos;
 const string databaseName = "tc_dayplanner_review";
 const string password = "JournalReview2026!";
 const string paidPin = "700701";
+const string largeDocsPin = "600702";
+var largeLists = args.Contains("--large-lists", StringComparer.Ordinal);
+if (args.Any(argument => argument != "--large-lists"))
+    throw new ArgumentException("Only --large-lists is supported by this synthetic review tool.");
 var connection = new NpgsqlConnectionStringBuilder(
     Environment.GetEnvironmentVariable("TRAVELCOMPANION_REVIEW_POSTGRES")
     ?? "Host=127.0.0.1;Port=55439;Database=tc_dayplanner_review;Username=postgres;Pooling=false");
@@ -31,6 +35,7 @@ var start = new DateOnly(2026, 10, 20);
 await SeedTravelerAsync(db, japan.Id, "planner-free@example.test", "Lucía · viaje gratuito", 7, true);
 await SeedTravelerAsync(db, japan.Id, "planner-pass@example.test", "Mateo · viaje con pase", 10, false);
 await db.SaveChangesAsync();
+if (largeLists) await SeedLargeListsAsync(db, japan.Id);
 Console.WriteLine($"Local synthetic review database ready: 127.0.0.1:55439/{databaseName}");
 Console.WriteLine($"Review accounts: planner-free@example.test / planner-pass@example.test; password: {password}");
 Console.WriteLine($"Paid account PIN: {paidPin}. Free account uses email/password and Select trip (no custom trial PIN).");
@@ -41,7 +46,8 @@ async Task SeedTravelerAsync(TravelCompanionDbContext context, Guid destinationI
     var existing = await context.AppUsers.AsNoTracking().SingleOrDefaultAsync(item => item.Email == email);
     if (existing is not null)
     {
-        var existingTrip = await context.Trips.AsNoTracking().FirstOrDefaultAsync(item => item.AppUserId == existing.Id);
+        var existingTrip = await context.Trips.AsNoTracking().FirstOrDefaultAsync(item => item.AppUserId == existing.Id
+            && item.ExperienceMode == ExperienceMode.SelfServiceBuilder);
         Console.WriteLine($"Reused {email}; trip: {existingTrip?.Id}");
         return;
     }
@@ -157,4 +163,80 @@ static async Task SeedCatalogAsync(TravelCompanionDbContext context, Guid destin
             AccessLevel = i % 10 == 9 ? ContentAccessLevel.Subscription : ContentAccessLevel.Free
         });
     }
+}
+
+async Task SeedLargeListsAsync(TravelCompanionDbContext context, Guid destinationId)
+{
+    var pdfPath = Path.GetFullPath(Path.Combine("src", "TravelCompanion.Api", "wwwroot", "demo-documents", "guide.pdf"));
+    var pdf = await File.ReadAllBytesAsync(pdfPath);
+    if (!pdf.AsSpan().StartsWith("%PDF-"u8)
+        || !System.Text.Encoding.ASCII.GetString(pdf.AsSpan(Math.Max(0, pdf.Length - 128))).Contains("%%EOF", StringComparison.Ordinal))
+        throw new InvalidDataException("The existing local synthetic guide must be a complete PDF.");
+    var user = await context.AppUsers.SingleAsync(item => item.Email == "planner-pass@example.test" && item.DeletedAtUtc == null);
+    var trip = await context.Trips.SingleAsync(item => item.AppUserId == user.Id
+        && item.ExperienceMode == ExperienceMode.SelfServiceBuilder && !item.IsArchived);
+    var day = await context.TripDayPlans.Include(item => item.Blocks)
+        .SingleAsync(item => item.TripId == trip.Id && item.Date == start);
+    const string planPrefix = "local-large-list-plan-";
+    var knownPlans = (await context.Reservations.AsNoTracking().Where(item => item.TripId == trip.Id
+        && item.ExternalId != null && item.ExternalId.StartsWith(planPrefix)).Select(item => item.ExternalId!).ToListAsync()).ToHashSet();
+    var addedPlans = 0;
+    for (var index = 0; index < 100; index++)
+    {
+        var key = $"{planPrefix}{index:000}";
+        if (knownPlans.Contains(key)) continue;
+        var period = TripPlanPeriods.All[index % TripPlanPeriods.All.Count];
+        var block = day.Blocks.Single(item => item.PeriodKey == period.Key);
+        context.Reservations.Add(new Reservation
+        {
+            Id = Guid.NewGuid(), ExternalId = key, TripId = trip.Id, TripDayBlockId = block.Id,
+            Date = start, StartsAt = period.StartsAt, City = "Tokyo", Title = $"Plan de revisión {index + 1:000} · Cafeterías, jardines y pequeñas historias de Tokyo",
+            LocationName = $"Lugar sintético {index + 1:000}", Address = "Tokyo, Japan", ConfirmationCode = "",
+            Notes = "Plan manual sintético para revisar listas largas, desplazamiento y textos ampliados. No representa una reserva real.",
+            Type = ReservationType.Event, PlanningKind = ScheduleItemKind.ManualEvent,
+            Owner = ItineraryItemOwner.Traveler, ItemSource = ItineraryItemSource.Manual,
+            TimePrecision = ItineraryTimePrecision.PeriodOnly, Flexibility = ItineraryFlexibility.Flexible,
+            DurationMinutes = 60, SortOrder = 1000 + index / TripPlanPeriods.All.Count, TimeZoneId = trip.TimeZoneId
+        });
+        addedPlans++;
+    }
+    if (addedPlans > 0) { trip.PlanRevision++; trip.UpdatedAtUtc = DateTimeOffset.UtcNow; }
+
+    // Builder sessions cannot open curated documents. A separate synthetic curated trip keeps those rules intact.
+    const string docsTripKey = "local-day-planner-review-large-documents";
+    var docsTrip = await context.Trips.SingleOrDefaultAsync(item => item.AppUserId == user.Id && item.ExternalId == docsTripKey);
+    if (docsTrip is null)
+    {
+        docsTrip = new Trip
+        {
+            Id = Guid.NewGuid(), ExternalId = docsTripKey, AppUserId = user.Id, DestinationId = destinationId,
+            TravelerName = "Mateo · revisión de 100 documentos", StartsOn = start, EndsOn = start.AddDays(9),
+            TimeZoneId = "Asia/Tokyo", ExperienceMode = ExperienceMode.CuratedPremium,
+            PublicationStatus = TripPublicationStatus.Published, PublishedAtUtc = DateTimeOffset.UtcNow
+        };
+        docsTrip.AccessPinHash = new PasswordHasher<Trip>().HashPassword(docsTrip, largeDocsPin);
+        docsTrip.AccessPinUpdatedAt = DateTimeOffset.UtcNow;
+        context.Trips.Add(docsTrip);
+    }
+    const string documentPrefix = "local-large-list-document-";
+    var knownDocuments = (await context.TravelDocuments.AsNoTracking().Where(item => item.TripId == docsTrip.Id
+        && item.ExternalId != null && item.ExternalId.StartsWith(documentPrefix)).Select(item => item.ExternalId!).ToListAsync()).ToHashSet();
+    var addedDocuments = 0;
+    for (var index = 0; index < 100; index++)
+    {
+        var key = $"{documentPrefix}{index:000}";
+        if (knownDocuments.Contains(key)) continue;
+        context.TravelDocuments.Add(new TravelDocument
+        {
+            Id = Guid.NewGuid(), ExternalId = key, TripId = docsTrip.Id, Category = TravelDocumentCategory.Other,
+            Title = $"Documento de revisión {index + 1:000} · Información útil para disfrutar del viaje por Japón",
+            Subtitle = "Guía PDF sintética local para revisar listas largas y accesibilidad.",
+            FileUrl = $"/demo-documents/guide.pdf?synthetic={index + 1:000}", SortOrder = index
+        });
+        addedDocuments++;
+    }
+    await context.SaveChangesAsync();
+    Console.WriteLine($"Large-list review: added {addedPlans} manual plans on {start:yyyy-MM-dd}; added {addedDocuments} curated documents.");
+    Console.WriteLine($"Builder trip: {trip.Id}; curated document trip: {docsTrip.Id}; curated PIN: {largeDocsPin}.");
+    Console.WriteLine("Both lists retain their identifiers on repeat runs. Existing accounts, grants and quotas are preserved.");
 }

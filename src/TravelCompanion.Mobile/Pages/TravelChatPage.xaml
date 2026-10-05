@@ -7,7 +7,7 @@
              x:Class="TravelCompanion.Mobile.Pages.TravelChatPage"
              x:Name="PageRoot"
              x:DataType="viewModels:TravelChatViewModel"
-             Title="Assistant"
+             Title="{Binding AssistantTitle}"
              Shell.NavBarIsVisible="False"
              BackgroundColor="{StaticResource Mist}">
 
@@ -30,7 +30,7 @@
     <Grid Padding="28,26,28,0" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="8"
           InputTransparent="{Binding HasSelectedDetailCard}"
           IsVisible="{Binding ShowAssistantConversation}">
-        <Grid ColumnDefinitions="48,*,118" ColumnSpacing="8">
+        <Grid ColumnDefinitions="48,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="4">
             <Button Text="‹" Command="{Binding ReturnAssistantHomeCommand}"
                     BackgroundColor="Transparent" TextColor="{StaticResource Ink}" FontSize="28"
                     SemanticProperties.Description="{Binding AssistantBackHome}"
@@ -42,17 +42,18 @@
                 <Label Text="{Binding AssistantTitle}" FontFamily="serif" FontSize="34"
                        SemanticProperties.HeadingLevel="Level1" TextColor="#1A1714" />
             </VerticalStackLayout>
-            <VerticalStackLayout Grid.Column="2" Spacing="2" HorizontalOptions="End">
+            <VerticalStackLayout Grid.Row="1" Grid.Column="1" Spacing="2">
                 <DatePicker Date="{Binding PlanningDate}"
                             DateSelected="OnAssistantDateSelected"
                             MinimumDate="{Binding AssistantMinimumDate}"
                             MaximumDate="{Binding AssistantMaximumDate}"
                             IsEnabled="{Binding IsNotBusy}"
-                            FontSize="13" TextColor="#1A1714"
-                            HorizontalOptions="End" WidthRequest="116" />
+                            FontSize="14" TextColor="{StaticResource Ink}"
+                            MinimumHeightRequest="48" HorizontalOptions="Fill"
+                            SemanticProperties.Description="{Binding AssistantChooseDate}" />
                 <Label Text="{Binding LastUpdatedMessage}"
                        IsVisible="{Binding HasLastUpdated}"
-                       HorizontalTextAlignment="End" FontSize="10"
+                       FontSize="11"
                        TextColor="{StaticResource Muted}" />
             </VerticalStackLayout>
         </Grid>
@@ -77,20 +78,11 @@
                                 BindableLayout.ItemsSource="{Binding MissingContextSuggestions}">
                         <BindableLayout.ItemTemplate>
                             <DataTemplate x:DataType="system:String">
-                                <Border Style="{StaticResource Chip}"
-                                        Margin="0,0,8,6"
-                                        BackgroundColor="{StaticResource AccentSoft}"
-                                        Stroke="#D8CFC4"
-                                        MaximumWidthRequest="220">
-                                    <Border.GestureRecognizers>
-                                        <TapGestureRecognizer Tapped="OnSuggestedReplyTapped" />
-                                    </Border.GestureRecognizers>
-                                    <Label Text="{Binding .}"
-                                           FontSize="12"
-                                           TextColor="{StaticResource Ink}"
-                                           LineBreakMode="TailTruncation"
-                                           MaxLines="1" />
-                                </Border>
+                                <Button Text="{Binding .}" Clicked="OnSuggestedReplyClicked"
+                                        Margin="0,0,8,6" Padding="12,10"
+                                        BackgroundColor="{StaticResource AccentSoft}" BorderColor="{StaticResource Line}"
+                                        BorderWidth="1" CornerRadius="12" FontSize="13" TextColor="{StaticResource Ink}"
+                                        MinimumHeightRequest="48" MinimumWidthRequest="48" />
                             </DataTemplate>
                         </BindableLayout.ItemTemplate>
                     </FlexLayout>
@@ -149,7 +141,7 @@
                             </DataTemplate>
                         </BindableLayout.ItemTemplate>
                     </FlexLayout>
-                    <HorizontalStackLayout Spacing="4">
+                    <FlexLayout Direction="Row" Wrap="Wrap" AlignItems="Start">
                         <Button Text="{Binding BackText, StringFormat='←  {0}'}"
                                 Command="{Binding GoBackGuidedCommand}"
                                 IsVisible="{Binding CanGoBack}"
@@ -159,7 +151,7 @@
                                 BorderWidth="0"
                                 FontSize="12"
                                 Padding="8,6"
-                                MinimumHeightRequest="44" />
+                                MinimumHeightRequest="48" />
                         <Button Text="{Binding RestartText, StringFormat='↺  {0}'}"
                                 Command="{Binding RestartGuidedCommand}"
                                 IsVisible="{Binding CanRestartGuided}"
@@ -169,8 +161,8 @@
                                 BorderWidth="0"
                                 FontSize="12"
                                 Padding="8,6"
-                                MinimumHeightRequest="44" />
-                    </HorizontalStackLayout>
+                                MinimumHeightRequest="48" />
+                    </FlexLayout>
                 </VerticalStackLayout>
             </Grid>
 
@@ -383,7 +375,7 @@
                         BorderWidth="0"
                         FontSize="13"
                         Padding="8,6"
-                        MinimumHeightRequest="44" Margin="0,0,8,6" />
+                        MinimumHeightRequest="48" Margin="0,0,8,6" />
                 <Button Text="{Binding MenuText, StringFormat='•••  {0}'}"
                         Command="{Binding ToggleSecondaryMenuCommand}"
                         SemanticProperties.Description="{Binding MenuText}"
@@ -392,7 +384,7 @@
                         BorderWidth="0"
                         FontSize="13"
                         Padding="8,6"
-                        MinimumHeightRequest="44" Margin="0,0,8,6" />
+                        MinimumHeightRequest="48" Margin="0,0,8,6" />
             </FlexLayout>
 
             <FlexLayout Direction="Row"
@@ -407,7 +399,7 @@
                                 TextColor="{StaticResource Ink}"
                                 FontSize="12"
                                 Padding="12,8"
-                                MinimumHeightRequest="44"
+                                MinimumHeightRequest="48"
                                 Margin="0,0,8,6" />
                     </DataTemplate>
                 </BindableLayout.ItemTemplate>
@@ -429,7 +421,7 @@
                         TextColor="{StaticResource Paper}"
                         BackgroundColor="{StaticResource Accent}"
                         FontSize="14" Padding="16,10"
-                        MinimumWidthRequest="74" MinimumHeightRequest="44" />
+                        MinimumWidthRequest="74" MinimumHeightRequest="48" />
             </Grid>
         </VerticalStackLayout>
     </Grid>
@@ -669,7 +661,7 @@
                 <ScrollView Grid.Row="1" MaximumHeightRequest="430" VerticalOptions="Start"
                             VerticalScrollBarVisibility="Never">
                 <VerticalStackLayout Spacing="0">
-                    <Grid ColumnDefinitions="*,44" ColumnSpacing="8">
+                    <Grid ColumnDefinitions="*,48" ColumnSpacing="8">
                         <Label Text="{Binding Title}" FontFamily="serif" FontSize="26"
                                VerticalTextAlignment="Center" LineHeight="1.05"
                                SemanticProperties.HeadingLevel="Level2" TextColor="{StaticResource Ink}" />

@@ -26,6 +26,7 @@
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\DayPlannerStore.cs" Link="DayPlannerStore.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\DayPlanClient.cs" Link="DayPlanClient.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\ViewModels\DayPlannerViewModel.cs" Link="DayPlannerViewModel.cs" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\ViewModels\DayPlannerViewModel.Replacement.cs" Link="DayPlannerViewModel.Replacement.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\ExpenseStore.cs" Link="ExpenseStore.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\DiagnosticJournal.cs" Link="DiagnosticJournal.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\JournalEntries.cs" Link="JournalEntries.cs" />
@@ -75,6 +76,13 @@
     <Compile Include="..\..\src\TravelCompanion.Mobile\ViewModels\TravelChatMessageViewModel.cs" Link="TravelChatMessageViewModel.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\ScheduleActivityLookup.cs" Link="ScheduleActivityLookup.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\ViewModels\ScheduleTodaySectionViewModel.cs" Link="ScheduleTodaySectionViewModel.cs" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\ViewModels\ScheduleDayFilterViewModel.cs" Link="ScheduleDayFilterViewModel.cs" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\ViewModels\DocumentListPresentation.cs" Link="DocumentListPresentation.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\src\TravelCompanion.Mobile\Localization\AppResources.resx" Link="Localization\AppResources.resx" LogicalName="TravelCompanion.Mobile.Localization.AppResources.resources" />
+    <EmbeddedResource Include="..\..\src\TravelCompanion.Mobile\Localization\AppResources.es.resx" Link="Localization\AppResources.es.resx" LogicalName="TravelCompanion.Mobile.Localization.AppResources.es.resources" />
   </ItemGroup>
 
 </Project>

@@ -1,558 +1,662 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:shapes="clr-namespace:Microsoft.Maui.Controls.Shapes;assembly=Microsoft.Maui.Controls"
-             xmlns:viewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
-             xmlns:services="clr-namespace:TravelCompanion.Mobile.Services"
-             xmlns:pages="clr-namespace:TravelCompanion.Mobile.Pages"
-             x:Class="TravelCompanion.Mobile.Pages.SchedulePage"
-             x:Name="PageRoot"
-             x:DataType="viewModels:ScheduleViewModel"
-             Title="Today"
-             Shell.NavBarIsVisible="False"
-             SafeAreaEdges="All"
-             BackgroundColor="{StaticResource Mist}">
-
+<ContentPage
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:shapes="clr-namespace:Microsoft.Maui.Controls.Shapes;assembly=Microsoft.Maui.Controls"
+    xmlns:viewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
+    xmlns:services="clr-namespace:TravelCompanion.Mobile.Services"
+    xmlns:pages="clr-namespace:TravelCompanion.Mobile.Pages"
+    x:Class="TravelCompanion.Mobile.Pages.SchedulePage"
+    x:Name="PageRoot"
+    x:DataType="viewModels:ScheduleViewModel"
+    Title="{Binding [TabToday], Source={x:Static services:LocalizationResourceManager.Instance}}"
+    Shell.NavBarIsVisible="False"
+    SafeAreaEdges="All"
+    BackgroundColor="{StaticResource Mist}">
+    <ContentPage.Resources>
+        <DataTemplate x:Key="TodayLocationTemplate" x:DataType="viewModels:TodayLocationViewModel">
+            <Grid ColumnDefinitions="26,*" Margin="0,0,0,9">
+                <BoxView WidthRequest="1" HorizontalOptions="Center" VerticalOptions="Fill" BackgroundColor="#1A171426" />
+                <Grid ColumnDefinitions="*,48" ColumnSpacing="12" Padding="0,2" Grid.Column="1" Margin="12,0,0,0">
+                    <VerticalStackLayout Spacing="3">
+                        <Label
+                            Text="{Binding AssignmentLabel}"
+                            FontSize="10"
+                            FontAttributes="Bold"
+                            CharacterSpacing="2"
+                            TextColor="#8A6F43"
+                            IsVisible="{Binding HasAssignmentLabel}" />
+                        <Label Text="{Binding Title}" FontFamily="serif" FontSize="21" TextColor="#1A1714" LineBreakMode="WordWrap" MaxLines="2" />
+                        <Label Text="{Binding Notes}" IsVisible="{Binding HasNotes}" FontSize="13" TextColor="#6E675F" LineBreakMode="WordWrap" />
+                        <Label
+                            Text="{Binding VisitStatusLabel}"
+                            FontSize="11"
+                            FontAttributes="Bold"
+                            CharacterSpacing="2"
+                            TextColor="#8A6F43"
+                            IsVisible="{Binding HasVisitStatus}" />
+                        <FlexLayout Direction="Row" Wrap="Wrap" AlignItems="Start" Margin="0,4,0,0">
+                            <Button
+                                Text="{Binding [UXAuditVisited], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                                Clicked="OnTodayLocationVisitedClicked"
+                                Style="{StaticResource GhostButton}"
+                                FontSize="11"
+                                Padding="10,6"
+                                Margin="0,0,8,0"
+                                MinimumHeightRequest="48"
+                                IsVisible="{Binding CanMarkVisited}" />
+                            <Button
+                                Text="{Binding [UXAuditDismissToday], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                                Clicked="OnTodayLocationDismissClicked"
+                                Style="{StaticResource GhostButton}"
+                                FontSize="11"
+                                Padding="10,6"
+                                MinimumHeightRequest="48"
+                                IsVisible="{Binding CanDismiss}" />
+                        </FlexLayout>
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Start" HorizontalOptions="Center">
+                        <ImageButton
+                            Source="tab_map.svg"
+                            Clicked="OnTodayLocationOpenClicked"
+                            WidthRequest="48"
+                            HeightRequest="48"
+                            Padding="12"
+                            BackgroundColor="Transparent"
+                            Opacity="0.78"
+                            SemanticProperties.Description="{Binding Title}" />
+                        <ImageButton
+                            Source="action_edit.svg"
+                            Clicked="OnEditPersonalItemClicked"
+                            BackgroundColor="Transparent"
+                            WidthRequest="48"
+                            HeightRequest="48"
+                            Padding="10"
+                            IsVisible="{Binding CanEdit}"
+                            SemanticProperties.Description="{Binding [UXAuditEditEvent], Source={x:Static services:LocalizationResourceManager.Instance}}" />
+                        <ImageButton
+                            Source="action_delete.svg"
+                            Clicked="OnRemovePersonalRecommendationClicked"
+                            BackgroundColor="Transparent"
+                            WidthRequest="48"
+                            HeightRequest="48"
+                            Padding="10"
+                            IsVisible="{Binding CanRemove}"
+                            SemanticProperties.Description="{Binding [UXAuditRemovePlan], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                            ToolTipProperties.Text="{Binding [UXAuditRemovePlan], Source={x:Static services:LocalizationResourceManager.Instance}}" />
+                    </VerticalStackLayout>
+                    <Grid.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnTodayLocationTapped" />
+                    </Grid.GestureRecognizers>
+                </Grid>
+            </Grid>
+        </DataTemplate>
+        <DataTemplate x:Key="TodayReservationTemplate" x:DataType="viewModels:TodayReservationViewModel">
+            <Grid ColumnDefinitions="26,*" Margin="0,0,0,9">
+                <BoxView WidthRequest="1" HorizontalOptions="Center" VerticalOptions="Fill" BackgroundColor="#1A171426" />
+                <Border Padding="12,10" BackgroundColor="{StaticResource AccentSoft}" Stroke="#D8CFC4" StrokeThickness="1" Grid.Column="1" Margin="12,0,0,0">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="0" />
+                    </Border.StrokeShape>
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="{Binding TimeLabel}" FontSize="12" TextColor="#8A8078" />
+                        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="4">
+                            <Grid>
+                                <Label
+                                    Text="{Binding DisplayTitle}"
+                                    InputTransparent="True"
+                                    AutomationProperties.IsInAccessibleTree="False"
+                                    FontFamily="serif"
+                                    FontSize="{Binding DisplayTitleFontSize}"
+                                    TextColor="#1A1714"
+                                    LineBreakMode="WordWrap"
+                                    MaxLines="3"
+                                    VerticalOptions="Center" />
+                                <Button
+                                    BackgroundColor="Transparent"
+                                    Padding="0"
+                                    MinimumHeightRequest="48"
+                                    Clicked="OnTodayReservationOpenClicked"
+                                    SemanticProperties.Description="{Binding DisplayTitle}" />
+                            </Grid>
+                            <ImageButton
+                                Grid.Column="1"
+                                Source="action_edit.svg"
+                                Clicked="OnEditPersonalItemClicked"
+                                IsVisible="{Binding CanEdit}"
+                                BackgroundColor="Transparent"
+                                WidthRequest="48"
+                                HeightRequest="48"
+                                Padding="10"
+                                VerticalOptions="Start"
+                                SemanticProperties.Description="{Binding [UXAuditEditReservation], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                                ToolTipProperties.Text="{Binding [UXAuditEditReservation], Source={x:Static services:LocalizationResourceManager.Instance}}" />
+                            <ImageButton
+                                Grid.Column="2"
+                                Source="action_delete.svg"
+                                Clicked="OnDeletePersonalItemClicked"
+                                IsVisible="{Binding CanEdit}"
+                                BackgroundColor="Transparent"
+                                WidthRequest="48"
+                                HeightRequest="48"
+                                Padding="10"
+                                VerticalOptions="Start"
+                                SemanticProperties.Description="{Binding [UXAuditDeleteReservation], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                                ToolTipProperties.Text="{Binding [UXAuditDeleteReservation], Source={x:Static services:LocalizationResourceManager.Instance}}" />
+                        </Grid>
+                        <VerticalStackLayout Spacing="4" IsVisible="{Binding ShowSupplementalContent}">
+                            <Label Text="{Binding Notes}" IsVisible="{Binding HasNotes}" FontSize="13" TextColor="#6E675F" LineBreakMode="WordWrap" />
+                            <Label
+                                Text="{Binding Confirmation}"
+                                FontSize="12"
+                                TextColor="#8A8078"
+                                IsVisible="{Binding HasConfirmation}"
+                                LineBreakMode="TailTruncation"
+                                MaxLines="1" />
+                            <FlexLayout
+                                Direction="Row"
+                                Wrap="NoWrap"
+                                AlignItems="Start"
+                                IsVisible="{Binding HasRoutes}"
+                                BindableLayout.ItemsSource="{Binding Routes}"
+                                Margin="0,10,0,0">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="viewModels:ItineraryRouteViewModel">
+                                        <VerticalStackLayout FlexLayout.Basis="33.33%" Padding="3,0" Spacing="4">
+                                            <VerticalStackLayout.GestureRecognizers>
+                                                <TapGestureRecognizer
+                                                    Command="{Binding ViewModel.CalculateRouteCommand, Source={x:Reference PageRoot}, x:DataType={x:Type pages:SchedulePage}}"
+                                                    CommandParameter="{Binding .}" />
+                                            </VerticalStackLayout.GestureRecognizers>
+                                            <Image
+                                                Source="{Binding Icon}"
+                                                WidthRequest="22"
+                                                HeightRequest="22"
+                                                HorizontalOptions="Start"
+                                                SemanticProperties.Description="{Binding Label}" />
+                                            <Label Text="{Binding Label}" FontSize="11" TextColor="#6E675F" />
+                                            <Label Text="{Binding Duration}" FontSize="12" TextColor="#1A1714" />
+                                            <Label Text="{Binding Departure}" FontSize="11" TextColor="#1A1714" />
+                                        </VerticalStackLayout>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </FlexLayout>
+                            <Button
+                                IsVisible="{Binding HasRoutes}"
+                                MinimumHeightRequest="48"
+                                Padding="10,8"
+                                Margin="0,8,0,0"
+                                FontSize="11"
+                                BackgroundColor="Transparent"
+                                TextColor="#6E675F"
+                                BorderColor="#D8CFC4"
+                                BorderWidth="1"
+                                CornerRadius="10"
+                                Command="{Binding ViewModel.CalculateRouteCommand, Source={x:Reference PageRoot}, x:DataType={x:Type pages:SchedulePage}}"
+                                CommandParameter="{Binding CurrentLocationRoute}">
+                                <Button.Text>
+                                    <MultiBinding StringFormat="{}{0} · {1}">
+                                        <Binding Path="[UXAuditRouteFromCurrent]" Source="{x:Static services:LocalizationResourceManager.Instance}" />
+                                        <Binding Path="CurrentLocationRoute.Duration" />
+                                    </MultiBinding>
+                                </Button.Text>
+                            </Button>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnTodayReservationTapped" />
+                    </Border.GestureRecognizers>
+                </Border>
+            </Grid>
+        </DataTemplate>
+        <DataTemplate x:Key="TodayReservationHeadingTemplate" x:DataType="viewModels:TodayReservationHeadingViewModel">
+            <Grid ColumnDefinitions="26,*" Margin="0,0,0,8">
+                <BoxView WidthRequest="1" HorizontalOptions="Center" VerticalOptions="Fill" BackgroundColor="#1A171426" />
+                <Label
+                    Text="{Binding [UXAuditReservationsHeading], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                    CharacterSpacing="3"
+                    FontSize="10"
+                    FontAttributes="Bold"
+                    TextColor="#9B9288"
+                    Grid.Column="1"
+                    Margin="12,0,0,0" />
+            </Grid>
+        </DataTemplate>
+        <pages:ScheduleTodayTemplateSelector
+            x:Key="TodayTimelineTemplateSelector"
+            LocationTemplate="{StaticResource TodayLocationTemplate}"
+            ReservationTemplate="{StaticResource TodayReservationTemplate}"
+            ReservationHeadingTemplate="{StaticResource TodayReservationHeadingTemplate}" />
+    </ContentPage.Resources>
     <Grid x:Name="ScheduleRoot" RowDefinitions="Auto,*">
         <Grid x:Name="ScheduleHeader" ColumnDefinitions="*,*,*,48" Padding="12,4" ColumnSpacing="0">
-            <Button x:Name="ItinerarySectionButton" Text="Itinerario" Clicked="OnItinerarySectionClicked" BackgroundColor="Transparent" TextColor="#393226" MinimumHeightRequest="48" FontSize="13" Padding="0" />
-            <Button x:Name="FolderSectionButton" Grid.Column="1" Text="Carpeta" Clicked="OnFolderSectionClicked" BackgroundColor="Transparent" TextColor="#8E867D" MinimumHeightRequest="48" FontSize="13" Padding="0" />
-            <Button x:Name="ExpensesSectionButton" Grid.Column="2" Text="Gastos" Clicked="OnExpensesSectionClicked" BackgroundColor="Transparent" TextColor="#8E867D" MinimumHeightRequest="48" FontSize="13" Padding="0" />
-            <ImageButton Grid.Column="3" Source="itinerary_menu.svg" Clicked="OnItineraryMenuClicked" WidthRequest="48" HeightRequest="48" Padding="12" BackgroundColor="Transparent" SemanticProperties.Description="Opciones del viaje" />
+            <Button
+                x:Name="ItinerarySectionButton"
+                Text="{Binding [TabToday], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                Clicked="OnItinerarySectionClicked"
+                BackgroundColor="Transparent"
+                TextColor="#393226"
+                MinimumHeightRequest="48"
+                FontSize="13"
+                Padding="0" />
+            <Button
+                x:Name="FolderSectionButton"
+                Grid.Column="1"
+                Text="{Binding [UXAuditFolderSection], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                Clicked="OnFolderSectionClicked"
+                BackgroundColor="Transparent"
+                TextColor="#8E867D"
+                MinimumHeightRequest="48"
+                FontSize="13"
+                Padding="0" />
+            <Button
+                x:Name="ExpensesSectionButton"
+                Grid.Column="2"
+                Text="{Binding [UXAuditExpensesSection], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                Clicked="OnExpensesSectionClicked"
+                BackgroundColor="Transparent"
+                TextColor="#8E867D"
+                MinimumHeightRequest="48"
+                FontSize="13"
+                Padding="0" />
+            <ImageButton
+                Grid.Column="3"
+                Source="itinerary_menu.svg"
+                Clicked="OnItineraryMenuClicked"
+                WidthRequest="48"
+                HeightRequest="48"
+                Padding="12"
+                BackgroundColor="Transparent"
+                SemanticProperties.Description="{Binding [UXAuditTripOptions], Source={x:Static services:LocalizationResourceManager.Instance}}" />
         </Grid>
         <pages:TripFolderPanel x:Name="FolderPanelView" Grid.Row="1" IsVisible="False" />
         <pages:ExpensesPanel x:Name="ExpensesPanelView" Grid.Row="1" IsVisible="False" />
-    <Grid x:Name="ItineraryContent" Grid.Row="1" RowDefinitions="*">
-        <RefreshView IsRefreshing="{Binding IsRefreshing}"
-                     Command="{Binding RefreshScheduleCommand}">
-            <ScrollView VerticalScrollBarVisibility="Never">
-                <VerticalStackLayout Padding="24,12,24,28"
-                                     Spacing="16">
-
-                    <CollectionView ItemsSource="{Binding DayFilters}"
-                                    SelectionMode="None"
-                                    HeightRequest="68"
-                                    HorizontalScrollBarVisibility="Never">
-                        <CollectionView.ItemsLayout>
-                            <LinearItemsLayout Orientation="Horizontal"
-                                               ItemSpacing="10" />
-                        </CollectionView.ItemsLayout>
-                        <CollectionView.ItemTemplate>
-                            <DataTemplate x:DataType="viewModels:ScheduleDayFilterViewModel">
-                                <Border WidthRequest="96"
-                                        HeightRequest="64"
-                                        Padding="10,9"
-                                        BackgroundColor="{Binding BackgroundColor}"
-                                        Stroke="{Binding BorderColor}"
-                                        StrokeThickness="1">
-                                    <Border.StrokeShape>
-                                        <RoundRectangle CornerRadius="10" />
-                                    </Border.StrokeShape>
-                                    <Border.GestureRecognizers>
-                                        <TapGestureRecognizer Tapped="OnDayFilterTapped" />
-                                    </Border.GestureRecognizers>
-                                    <VerticalStackLayout Spacing="4">
-                                        <Label Text="{Binding DateLabel}"
+        <Grid x:Name="ItineraryContent" Grid.Row="1" RowDefinitions="*">
+            <RefreshView IsRefreshing="{Binding IsRefreshing}" Command="{Binding RefreshScheduleCommand}">
+                <CollectionView
+                    ItemsSource="{Binding TodaySections}"
+                    IsGrouped="True"
+                    SelectionMode="None"
+                    ItemSizingStrategy="MeasureAllItems"
+                    VerticalScrollBarVisibility="Never"
+                    Margin="24,0,24,0"
+                    ItemTemplate="{StaticResource TodayTimelineTemplateSelector}"
+                    x:Name="DayTimeline">
+                    <CollectionView.ItemsLayout>
+                        <LinearItemsLayout Orientation="Vertical" />
+                    </CollectionView.ItemsLayout>
+                    <CollectionView.Triggers>
+                        <DataTrigger TargetType="CollectionView" Binding="{Binding ShowTodayContent}" Value="False">
+                            <Setter Property="ItemsSource" Value="{x:Null}" />
+                        </DataTrigger>
+                    </CollectionView.Triggers>
+                    <CollectionView.Header>
+                        <VerticalStackLayout Padding="0,12,0,16" Spacing="16">
+                            <Grid x:Name="DaySelector"
+                                  ColumnDefinitions="64,*,64"
+                                  ColumnSpacing="8"
+                                  MinimumHeightRequest="56"
+                                  IsVisible="{Binding HasDaySelector}">
+                                <Button x:Name="PreviousDayButton"
+                                        Grid.Column="0"
+                                        Text="{Binding PreviousDayFilter.DateLabel}"
+                                        Clicked="OnPreviousDayClicked"
+                                        IsVisible="{Binding HasPreviousDay}"
+                                        BackgroundColor="#FAF6F0"
+                                        TextColor="#8A8078"
+                                        BorderColor="#1A171414"
+                                        BorderWidth="1"
+                                        CornerRadius="10"
+                                        FontSize="14"
+                                        LineBreakMode="WordWrap"
+                                        Padding="8,10"
+                                        MinimumHeightRequest="48"
+                                        VerticalOptions="Fill"
+                                        SemanticProperties.Description="{Binding PreviousDayDescription}" />
+                                <Border Grid.Column="1"
+                                        Padding="12,4"
+                                        BackgroundColor="#1A1714"
+                                        Stroke="#1A1714"
+                                        StrokeThickness="1"
+                                        StrokeShape="RoundRectangle 10">
+                                    <Grid MinimumHeightRequest="48">
+                                        <Label x:Name="SelectedDayCaption"
+                                               Text="{Binding DaySelectorLabel}"
                                                FontSize="14"
-                                               TextColor="{Binding SecondaryTextColor}" />
-                                        <Label Text="{Binding City}"
-                                               FontSize="12"
-                                               TextColor="{Binding SecondaryTextColor}"
+                                               TextColor="#FAF6F0"
+                                               Padding="0,8"
                                                LineBreakMode="TailTruncation"
-                                               MaxLines="1" />
-                                    </VerticalStackLayout>
+                                               MaxLines="2"
+                                               HorizontalTextAlignment="Center"
+                                               VerticalOptions="Center"
+                                               AutomationProperties.IsInAccessibleTree="{Binding IsDaySelectorReadOnly}">
+                                            <SemanticProperties.Hint>
+                                                <MultiBinding StringFormat="{}{0}. {1}">
+                                                    <Binding Path="DaySelectorDescription" />
+                                                    <Binding Path="[UXAuditDaySelectorSwipeHint]" Source="{x:Static services:LocalizationResourceManager.Instance}" />
+                                                </MultiBinding>
+                                            </SemanticProperties.Hint>
+                                        </Label>
+                                        <Button x:Name="StayMapButton"
+                                                Text=""
+                                                Command="{Binding OpenStayMapCommand}"
+                                                IsVisible="{Binding CanOpenStayMap}"
+                                                BackgroundColor="Transparent"
+                                                BorderWidth="0"
+                                                Padding="0"
+                                                MinimumHeightRequest="48"
+                                                SemanticProperties.Description="{Binding DaySelectorMapDescription}"
+                                                SemanticProperties.Hint="{Binding [UXAuditDaySelectorSwipeHint], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                                                ToolTipProperties.Text="{Binding [UxOpenMaps], Source={x:Static services:LocalizationResourceManager.Instance}}" />
+                                    </Grid>
                                 </Border>
-                            </DataTemplate>
-                        </CollectionView.ItemTemplate>
-                    </CollectionView>
-
-                    <Label Text="{Binding PreviewMessage}" IsVisible="{Binding HasPreviewMessage}" FontSize="13" TextColor="#6A625B" />
-
-                    <Border Padding="14,12" BackgroundColor="#FFFCF8" Stroke="#DDD4C9"
-                            StrokeThickness="1" IsVisible="{Binding HasFocusItem}">
-                        <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
-                        <Grid ColumnDefinitions="*,48" ColumnSpacing="12">
-                            <VerticalStackLayout Spacing="4" VerticalOptions="Center">
-                                <Label Text="A CONTINUACIÓN" CharacterSpacing="2" FontSize="10"
-                                       FontAttributes="Bold" TextColor="#9D794F" />
-                                <Label Text="{Binding FocusTitle}" FontFamily="serif" FontSize="21"
-                                       TextColor="#1A1714" MaxLines="2" LineBreakMode="TailTruncation" />
-                                <Label Text="{Binding FocusMeta}" FontSize="13" TextColor="#6E675F" />
-                                <Label Text="{Binding FocusPlace}" FontSize="13" TextColor="#6E675F"
-                                       MaxLines="1" LineBreakMode="TailTruncation" />
-                            </VerticalStackLayout>
-                            <VerticalStackLayout Grid.Column="1" Spacing="6" VerticalOptions="Center">
-                                <ImageButton Source="tab_map.svg" Command="{Binding OpenFocusMapCommand}"
-                                             IsVisible="{Binding CanOpenFocusMap}" Style="{StaticResource ContextIconButton}"
-                                             SemanticProperties.Description="Cómo llegar en Google Maps"
-                                             ToolTipProperties.Text="Cómo llegar" />
-                                <ImageButton Source="action_info.svg" Command="{Binding OpenFocusDetailCommand}"
-                                             Style="{StaticResource ContextIconButton}"
-                                             SemanticProperties.Description="Ver detalle de la actividad"
-                                             ToolTipProperties.Text="Ver detalle" />
-                                <ImageButton Source="tab_docs.svg" Command="{Binding OpenFocusDocumentCommand}"
-                                             IsVisible="{Binding HasFocusDocument}" Style="{StaticResource ContextIconButton}"
-                                             SemanticProperties.Description="Ver documento asociado"
-                                             ToolTipProperties.Text="Ver documento" />
-                            </VerticalStackLayout>
-                        </Grid>
-                    </Border>
-                    <Label Text="Por hoy, todo listo." IsVisible="{Binding ShowFinishedToday}"
-                           FontSize="12" TextColor="#8E867D" />
-
-                    <Border Padding="14,10"
-                            BackgroundColor="#FAF6F0"
-                            Stroke="#E5DED5"
-                            StrokeThickness="1"
-                            IsVisible="{Binding HasStayCard}">
-                        <Border.StrokeShape>
-                            <RoundRectangle CornerRadius="10" />
-                        </Border.StrokeShape>
-                        <Grid ColumnDefinitions="24,*,48" ColumnSpacing="10" MinimumHeightRequest="44">
-                            <Image Source="today_hotel.svg" WidthRequest="22" HeightRequest="22"
-                                   VerticalOptions="Center" />
-                            <Label Grid.Column="1" Text="{Binding StayTitle}" FontSize="14"
-                                   FontAttributes="Bold" TextColor="#1A1714" MaxLines="1"
-                                   LineBreakMode="TailTruncation" VerticalOptions="Center" />
-                            <ImageButton Grid.Column="2" Source="tab_map.svg" Command="{Binding OpenStayMapCommand}"
-                                         IsVisible="{Binding CanOpenStayMap}"
-                                         Style="{StaticResource ContextIconButton}"
-                                         SemanticProperties.Description="Abrir hotel en Google Maps"
-                                         ToolTipProperties.Text="Cómo llegar al hotel" />
-                        </Grid>
-                    </Border>
-
-
-
-                    <Border IsVisible="{Binding IsSelectedDayLocked}" Style="{StaticResource NoticePanel}">
-                        <Label Text="{Binding LockedDayMessage}" TextColor="#5F4B25" />
-                    </Border>
-                    <Grid IsVisible="{Binding ShowImproveDay}" MinimumHeightRequest="60">
-                    <Button Text=""
-                            Command="{Binding ImproveDayCommand}"
-                            IsVisible="{Binding ShowImproveDay}"
-                            SemanticProperties.Description="{Binding ImproveDayLabel}"
-                            HorizontalOptions="Fill"
-                            BackgroundColor="{StaticResource Gold}"
-                            TextColor="White"
-                            CornerRadius="20"
-                            FontSize="14"
-                            Padding="16,12"
-                            MinimumHeightRequest="68">
-                        <Button.Shadow><Shadow Brush="#BD9568" Offset="0,3" Radius="8" Opacity="0.18" /></Button.Shadow>
-                    </Button>
-                    <Grid ColumnDefinitions="28,*,32" ColumnSpacing="10" Padding="16,10" InputTransparent="True">
-                        <Image Source="today_sparkles.svg" HeightRequest="26" WidthRequest="26" />
-                        <VerticalStackLayout Grid.Column="1" Spacing="3" VerticalOptions="Center">
-                            <Label Text="{Binding ImproveDayLabel}" TextColor="White" FontSize="16" />
-                            <Label Text="{Binding ImproveDaySubtitle}" TextColor="#F1E5D5" FontSize="10" />
-                        </VerticalStackLayout>
-                        <Border Grid.Column="2" BackgroundColor="#30FFFFFF" StrokeThickness="0"
-                                StrokeShape="RoundRectangle 16" WidthRequest="32" HeightRequest="32"
-                                VerticalOptions="Center">
-                            <Image Source="today_arrow.svg" WidthRequest="20" HeightRequest="20"
-                                   HorizontalOptions="Center" VerticalOptions="Center" />
-                        </Border>
-                    </Grid>
-                    </Grid>
-
-                    <Grid IsVisible="{Binding ShowAdaptDay}" MinimumHeightRequest="60">
-                        <Button Text="" Command="{Binding AdaptDayCommand}"
-                                IsEnabled="{Binding IsNotBusy}"
-                                SemanticProperties.Description="Adaptar mi día. Reorganiza actividades flexibles."
-                                HorizontalOptions="Fill" BackgroundColor="#F8F4EE"
-                                BorderColor="#D8C7B2" BorderWidth="1"
-                                CornerRadius="20" Padding="16,10"
-                                MinimumHeightRequest="60" />
-                        <Grid ColumnDefinitions="28,*,24" ColumnSpacing="10" Padding="16,10" InputTransparent="True">
-                            <Image Source="today_adjust.svg" HeightRequest="24" WidthRequest="24"
-                                   VerticalOptions="Center" />
-                            <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
-                                <Label Text="Adaptar mi día" TextColor="#3D3329" FontSize="15"
-                                       FontAttributes="Bold" />
-                                <Label Text="Reorganiza actividades flexibles" TextColor="#786C5E" FontSize="10" />
-                            </VerticalStackLayout>
-                            <Image Grid.Column="2" Source="today_arrow_dark.svg" HeightRequest="20"
-                                   WidthRequest="20" VerticalOptions="Center" />
-                        </Grid>
-                    </Grid>
-
-                    <Border Padding="14,12" BackgroundColor="{Binding SelectedDayReview.BackgroundColor}" Stroke="{Binding SelectedDayReview.AccentColor}" StrokeShape="RoundRectangle 14" IsVisible="{Binding ShowDayReview}">
-                        <Border.GestureRecognizers><TapGestureRecognizer Command="{Binding ReviewSelectedDayCommand}" /></Border.GestureRecognizers>
-                        <Grid ColumnDefinitions="28,*,48" ColumnSpacing="10">
-                            <Label Text="!" FontSize="24" TextColor="{Binding SelectedDayReview.AccentColor}" VerticalOptions="Center" />
-                            <VerticalStackLayout Grid.Column="1" Spacing="4" VerticalOptions="Center">
-                                <Label Text="{Binding SelectedDayReview.Title}" FontFamily="serif" FontSize="20" TextColor="#1A1714" />
-                                <Label Text="{Binding SelectedDayReview.Summary}" FontSize="12" TextColor="#6A625B" />
-                            </VerticalStackLayout>
-                            <ImageButton Grid.Column="2" Source="today_arrow_dark.svg" Command="{Binding ReviewSelectedDayCommand}" WidthRequest="48" HeightRequest="48" Padding="12" BackgroundColor="Transparent" SemanticProperties.Description="Revisar conflictos" />
-                        </Grid>
-                    </Border>
-
-                    <Border Style="{StaticResource NoticePanel}"
-                            IsVisible="{Binding HasStatus}">
-                        <Label Text="{Binding StatusMessage}"
-                               FontSize="13"
-                               TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}" />
-                    </Border>
-
-                    <Border Style="{StaticResource ErrorPanel}"
-                            IsVisible="{Binding HasError}">
-                        <Grid ColumnDefinitions="*,Auto"
-                              ColumnSpacing="12">
-                            <Label Text="{Binding ErrorMessage}"
-                                   FontSize="13"
-                                   TextColor="{AppThemeBinding Light={StaticResource Rose}, Dark={StaticResource Paper}}"
-                                   VerticalOptions="Center" />
-                            <Button Grid.Column="1"
-                                    Text="Reintentar"
-                                    Command="{Binding LoadScheduleCommand}"
-                                    Style="{StaticResource GhostButton}"
-                                    FontSize="12"
-                                    Padding="12,8"
-                                    MinimumHeightRequest="44" />
-                        </Grid>
-                    </Border>
-
-                    <VerticalStackLayout Spacing="0"
-                                         IsVisible="{Binding ShowTodayLoading}"
-                                         BindableLayout.ItemsSource="{Binding TodayLoadingSections}">
-                        <BindableLayout.ItemTemplate>
-                            <DataTemplate x:DataType="viewModels:ScheduleTodayLoadingSectionViewModel">
-                                <Grid ColumnDefinitions="26,*"
-                                      Margin="0,0,0,26"
-                                      Opacity="0.72">
-                                    <Grid>
-                                        <BoxView WidthRequest="1"
-                                                 HorizontalOptions="Center"
-                                                 VerticalOptions="Fill"
-                                                 BackgroundColor="#1A17141A" />
-                                        <shapes:Ellipse WidthRequest="10"
-                                                        HeightRequest="10"
-                                                        Stroke="#C9C1B8"
-                                                        StrokeThickness="2"
-                                                        Fill="#F8F3ED"
-                                                        HorizontalOptions="Center"
-                                                        VerticalOptions="Start"
-                                                        Margin="0,6,0,0" />
-                                    </Grid>
-
-                                    <VerticalStackLayout Grid.Column="1"
-                                                         Spacing="14"
-                                                         Padding="12,0,0,8">
-                                        <Grid ColumnDefinitions="*"
-                                              ColumnSpacing="8"
-                                              HeightRequest="36">
-
-                                            <Label Grid.Column="0"
-                                                   Text="{Binding PeriodLabel}"
-                                                   CharacterSpacing="1"
-                                                   FontSize="16"
-                                                   FontAttributes="Bold"
-                                                   TextColor="#AAA198"
-                                                   VerticalOptions="Center" />
-                                        </Grid>
-                                        <BoxView HeightRequest="13"
-                                                 HorizontalOptions="Fill"
-                                                 BackgroundColor="#E8E1D9" />
-                                        <BoxView HeightRequest="13"
-                                                 WidthRequest="190"
-                                                 HorizontalOptions="Start"
-                                                 BackgroundColor="#EEE8E1" />
+                                <Button x:Name="NextDayButton"
+                                        Grid.Column="2"
+                                        Text="{Binding NextDayFilter.DateLabel}"
+                                        Clicked="OnNextDayClicked"
+                                        IsVisible="{Binding HasNextDay}"
+                                        BackgroundColor="#FAF6F0"
+                                        TextColor="#8A8078"
+                                        BorderColor="#1A171414"
+                                        BorderWidth="1"
+                                        CornerRadius="10"
+                                        FontSize="14"
+                                        LineBreakMode="WordWrap"
+                                        Padding="8,10"
+                                        MinimumHeightRequest="48"
+                                        VerticalOptions="Fill"
+                                        SemanticProperties.Description="{Binding NextDayDescription}" />
+                            </Grid>
+                            <Label Text="{Binding PreviewMessage}" IsVisible="{Binding HasPreviewMessage}" FontSize="13" TextColor="#6A625B" />
+                            <Border Padding="14,12" BackgroundColor="#FFFCF8" Stroke="#DDD4C9" StrokeThickness="1" IsVisible="{Binding HasFocusItem}">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="14" />
+                                </Border.StrokeShape>
+                                <Grid ColumnDefinitions="*,48" ColumnSpacing="12">
+                                    <VerticalStackLayout Spacing="4" VerticalOptions="Center">
+                                        <Label
+                                            Text="{Binding [UXAuditNextUp], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                                            CharacterSpacing="2"
+                                            FontSize="10"
+                                            FontAttributes="Bold"
+                                            TextColor="#9D794F" />
+                                        <Label Text="{Binding FocusTitle}" FontFamily="serif" FontSize="21" TextColor="#1A1714" MaxLines="2" LineBreakMode="TailTruncation" />
+                                        <Label Text="{Binding FocusMeta}" FontSize="13" TextColor="#6E675F" />
+                                        <Label Text="{Binding FocusPlace}" FontSize="13" TextColor="#6E675F" MaxLines="1" LineBreakMode="TailTruncation" />
+                                    </VerticalStackLayout>
+                                    <VerticalStackLayout Grid.Column="1" Spacing="6" VerticalOptions="Center">
+                                        <ImageButton
+                                            Source="tab_map.svg"
+                                            Command="{Binding OpenFocusMapCommand}"
+                                            IsVisible="{Binding CanOpenFocusMap}"
+                                            Style="{StaticResource ContextIconButton}"
+                                            SemanticProperties.Description="{Binding [UxOpenMaps], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                                            ToolTipProperties.Text="{Binding [UxOpenMaps], Source={x:Static services:LocalizationResourceManager.Instance}}" />
+                                        <ImageButton
+                                            Source="action_info.svg"
+                                            Command="{Binding OpenFocusDetailCommand}"
+                                            Style="{StaticResource ContextIconButton}"
+                                            SemanticProperties.Description="{Binding [UXAuditOpenActivity], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                                            ToolTipProperties.Text="{Binding [UXAuditOpenActivity], Source={x:Static services:LocalizationResourceManager.Instance}}" />
+                                        <ImageButton
+                                            Source="tab_docs.svg"
+                                            Command="{Binding OpenFocusDocumentCommand}"
+                                            IsVisible="{Binding HasFocusDocument}"
+                                            Style="{StaticResource ContextIconButton}"
+                                            SemanticProperties.Description="{Binding [UxOpenDocument], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                                            ToolTipProperties.Text="{Binding [UxOpenDocument], Source={x:Static services:LocalizationResourceManager.Instance}}" />
                                     </VerticalStackLayout>
                                 </Grid>
-                            </DataTemplate>
-                        </BindableLayout.ItemTemplate>
-                    </VerticalStackLayout>
+                            </Border>
+                            <Label
+                                Text="{Binding [UXAuditTodayFinished], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                                IsVisible="{Binding ShowFinishedToday}"
+                                FontSize="12"
+                                TextColor="#8E867D" />
 
-                    <VerticalStackLayout Spacing="0"
-                                         IsVisible="{Binding ShowTodayContent}"
-                                         BindableLayout.ItemsSource="{Binding TodaySections}">
-                        <BindableLayout.ItemTemplate>
-                            <DataTemplate x:DataType="viewModels:ScheduleTodaySectionViewModel">
-                                <Grid ColumnDefinitions="26,*"
-                                      Margin="0,0,0,26">
-                                    <Grid>
-                                        <BoxView WidthRequest="1"
-                                                 HorizontalOptions="Center"
-                                                 VerticalOptions="Fill"
-                                                 BackgroundColor="#1A171426" />
-                                        <shapes:Ellipse WidthRequest="10"
-                                                        HeightRequest="10"
-                                                        Stroke="#B9B1A8"
-                                                        StrokeThickness="2"
-                                                        Fill="#F8F3ED"
-                                                        HorizontalOptions="Center"
-                                                        VerticalOptions="Start"
-                                                        Margin="0,6,0,0" />
-                                    </Grid>
-
-                                    <VerticalStackLayout Grid.Column="1"
-                                                         Spacing="13"
-                                                         Padding="12,0,0,8">
-                                        <Grid ColumnDefinitions="*,48"
-                                              ColumnSpacing="8"
-                                              HeightRequest="44">
-
-                                            <Label Grid.Column="0" Text="{Binding PeriodLabel}"
-                                                   CharacterSpacing="1"
-                                                   FontSize="16"
-                                                   FontAttributes="Bold"
-                                                   TextColor="#9B9288"
-                                                   VerticalOptions="Center"
-                                                   VerticalTextAlignment="Center"
-                                                   LineBreakMode="NoWrap" />
-                                            <Button Grid.Column="1" Text="+" ToolTipProperties.Text="Agregar plan personal"
-                                                    Command="{Binding AddPersonalItemCommand, Source={RelativeSource AncestorType={x:Type viewModels:ScheduleViewModel}}, x:DataType=viewModels:ScheduleViewModel}"
-                                                    CommandParameter="{Binding .}" IsVisible="{Binding CanAddItem}"
-                                                    Style="{StaticResource GhostButton}" BorderWidth="0" BackgroundColor="Transparent"
-                                                    WidthRequest="44" HeightRequest="44" Padding="0" />
-                                        </Grid>
-
-                                        <Label Text="{Binding Description}"
-                                               FontSize="16"
-                                               LineHeight="1.35"
-                                               TextColor="#4D4741"
-                                               IsVisible="{Binding ShowDescription}" />
-
-                                        <VerticalStackLayout IsVisible="{Binding IsEmpty}" Spacing="14">
-                                            <Border Padding="16,18" Stroke="#E4DCD1" StrokeDashArray="4,3" StrokeShape="RoundRectangle 8" BackgroundColor="#FAF6F0">
-                                                <Grid ColumnDefinitions="34,*" ColumnSpacing="14">
-                                                    <Image Source="today_folded_map.svg" WidthRequest="26" HeightRequest="26" />
-                                                    <VerticalStackLayout Grid.Column="1" Spacing="4">
-                                                        <Label Text="{Binding EmptyTitle}" FontFamily="serif" FontSize="20" TextColor="#1A1714" />
-                                                        <Label Text="{Binding EmptySubtitle}" FontSize="12" TextColor="#8E867D" />
-                                                    </VerticalStackLayout>
-                                                </Grid>
-                                            </Border>
-                                            <Grid ColumnDefinitions="24,*" ColumnSpacing="10" IsVisible="{Binding CanAddItem}">
-                                                <Image Source="today_bulb.svg" HeightRequest="24" WidthRequest="24" VerticalOptions="Start" />
-                                                <Label Grid.Column="1" Text="{Binding EmptyHint}" FontSize="12" TextColor="#8E867D" />
+                            <Border IsVisible="{Binding IsSelectedDayLocked}" Style="{StaticResource NoticePanel}">
+                                <Label Text="{Binding LockedDayMessage}" TextColor="#5F4B25" />
+                            </Border>
+                            <Grid IsVisible="{Binding ShowImproveDay}" MinimumHeightRequest="60">
+                                <Button
+                                    Text=""
+                                    Command="{Binding ImproveDayCommand}"
+                                    IsVisible="{Binding ShowImproveDay}"
+                                    SemanticProperties.Description="{Binding ImproveDayLabel}"
+                                    HorizontalOptions="Fill"
+                                    BackgroundColor="{StaticResource Gold}"
+                                    TextColor="White"
+                                    CornerRadius="20"
+                                    FontSize="14"
+                                    Padding="16,12"
+                                    MinimumHeightRequest="68">
+                                    <Button.Shadow>
+                                        <Shadow Brush="#BD9568" Offset="0,3" Radius="8" Opacity="0.18" />
+                                    </Button.Shadow>
+                                </Button>
+                                <Grid ColumnDefinitions="28,*,32" ColumnSpacing="10" Padding="16,10" InputTransparent="True">
+                                    <Image Source="today_sparkles.svg" HeightRequest="26" WidthRequest="26" />
+                                    <VerticalStackLayout Grid.Column="1" Spacing="3" VerticalOptions="Center">
+                                        <Label Text="{Binding ImproveDayLabel}" TextColor="White" FontSize="16" />
+                                        <Label Text="{Binding ImproveDaySubtitle}" TextColor="#F1E5D5" FontSize="10" />
+                                    </VerticalStackLayout>
+                                    <Border
+                                        Grid.Column="2"
+                                        BackgroundColor="#30FFFFFF"
+                                        StrokeThickness="0"
+                                        StrokeShape="RoundRectangle 16"
+                                        WidthRequest="32"
+                                        HeightRequest="32"
+                                        VerticalOptions="Center">
+                                        <Image Source="today_arrow.svg" WidthRequest="20" HeightRequest="20" HorizontalOptions="Center" VerticalOptions="Center" />
+                                    </Border>
+                                </Grid>
+                            </Grid>
+                            <Grid IsVisible="{Binding ShowAdaptDay}" MinimumHeightRequest="60">
+                                <Button
+                                    Text=""
+                                    Command="{Binding AdaptDayCommand}"
+                                    IsEnabled="{Binding IsNotBusy}"
+                                    SemanticProperties.Description="{Binding [UXAuditAdaptDayDescription], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                                    HorizontalOptions="Fill"
+                                    BackgroundColor="#F8F4EE"
+                                    BorderColor="#D8C7B2"
+                                    BorderWidth="1"
+                                    CornerRadius="20"
+                                    Padding="16,10"
+                                    MinimumHeightRequest="60" />
+                                <Grid ColumnDefinitions="28,*,24" ColumnSpacing="10" Padding="16,10" InputTransparent="True">
+                                    <Image Source="today_adjust.svg" HeightRequest="24" WidthRequest="24" VerticalOptions="Center" />
+                                    <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                                        <Label
+                                            Text="{Binding [UXAuditAdaptDay], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                                            TextColor="#3D3329"
+                                            FontSize="15"
+                                            FontAttributes="Bold" />
+                                        <Label
+                                            Text="{Binding [UXAuditAdaptDaySubtitle], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                                            TextColor="#786C5E"
+                                            FontSize="10" />
+                                    </VerticalStackLayout>
+                                    <Image Grid.Column="2" Source="today_arrow_dark.svg" HeightRequest="20" WidthRequest="20" VerticalOptions="Center" />
+                                </Grid>
+                            </Grid>
+                            <Border
+                                Padding="14,12"
+                                BackgroundColor="{Binding SelectedDayReview.BackgroundColor}"
+                                Stroke="{Binding SelectedDayReview.AccentColor}"
+                                StrokeShape="RoundRectangle 14"
+                                IsVisible="{Binding ShowDayReview}">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding ReviewSelectedDayCommand}" />
+                                </Border.GestureRecognizers>
+                                <Grid ColumnDefinitions="28,*,48" ColumnSpacing="10">
+                                    <Label Text="!" FontSize="24" TextColor="{Binding SelectedDayReview.AccentColor}" VerticalOptions="Center" />
+                                    <VerticalStackLayout Grid.Column="1" Spacing="4" VerticalOptions="Center">
+                                        <Label Text="{Binding SelectedDayReview.Title}" FontFamily="serif" FontSize="20" TextColor="#1A1714" />
+                                        <Label Text="{Binding SelectedDayReview.Summary}" FontSize="12" TextColor="#6A625B" />
+                                    </VerticalStackLayout>
+                                    <ImageButton
+                                        Grid.Column="2"
+                                        Source="today_arrow_dark.svg"
+                                        Command="{Binding ReviewSelectedDayCommand}"
+                                        WidthRequest="48"
+                                        HeightRequest="48"
+                                        Padding="12"
+                                        BackgroundColor="Transparent"
+                                        SemanticProperties.Description="{Binding [UXAuditReviewConflicts], Source={x:Static services:LocalizationResourceManager.Instance}}" />
+                                </Grid>
+                            </Border>
+                            <Border Style="{StaticResource NoticePanel}" IsVisible="{Binding HasStatus}">
+                                <Label
+                                    Text="{Binding StatusMessage}"
+                                    FontSize="13"
+                                    TextColor="{AppThemeBinding Light={StaticResource Accent}, Dark={StaticResource PrimaryDark}}" />
+                            </Border>
+                            <Border Style="{StaticResource ErrorPanel}" IsVisible="{Binding HasError}">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                    <Label
+                                        Text="{Binding ErrorMessage}"
+                                        FontSize="13"
+                                        TextColor="{AppThemeBinding Light={StaticResource Rose}, Dark={StaticResource Paper}}"
+                                        VerticalOptions="Center" />
+                                    <Button
+                                        Grid.Column="1"
+                                        Text="{Binding [UxRetry], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                                        Command="{Binding LoadScheduleCommand}"
+                                        Style="{StaticResource GhostButton}"
+                                        FontSize="12"
+                                        Padding="12,8"
+                                        MinimumHeightRequest="48" />
+                                </Grid>
+                            </Border>
+                            <VerticalStackLayout Spacing="0" IsVisible="{Binding ShowTodayLoading}" BindableLayout.ItemsSource="{Binding TodayLoadingSections}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="viewModels:ScheduleTodayLoadingSectionViewModel">
+                                        <Grid ColumnDefinitions="26,*" Margin="0,0,0,26" Opacity="0.72">
+                                            <Grid>
+                                                <BoxView WidthRequest="1" HorizontalOptions="Center" VerticalOptions="Fill" BackgroundColor="#1A17141A" />
+                                                <shapes:Ellipse
+                                                    WidthRequest="10"
+                                                    HeightRequest="10"
+                                                    Stroke="#C9C1B8"
+                                                    StrokeThickness="2"
+                                                    Fill="#F8F3ED"
+                                                    HorizontalOptions="Center"
+                                                    VerticalOptions="Start"
+                                                    Margin="0,6,0,0" />
                                             </Grid>
-                                        </VerticalStackLayout>
-
-                                        <VerticalStackLayout Spacing="8"
-                                                             IsVisible="{Binding HasLocations}">
-
-                                            <VerticalStackLayout Spacing="9"
-                                                                 BindableLayout.ItemsSource="{Binding Locations}">
-                                                <BindableLayout.ItemTemplate>
-                                                    <DataTemplate x:DataType="viewModels:TodayLocationViewModel">
-                                                        <Grid ColumnDefinitions="*,48"
-                                                              ColumnSpacing="12"
-                                                              Padding="0,2">
-                                                            <VerticalStackLayout Spacing="3">
-                                                                <Label Text="{Binding AssignmentLabel}"
-                                                                       FontSize="10"
-                                                                       FontAttributes="Bold"
-                                                                       CharacterSpacing="2"
-                                                                       TextColor="#8A6F43"
-                                                                       IsVisible="{Binding HasAssignmentLabel}" />
-                                                                <Label Text="{Binding Title}"
-                                                                       FontFamily="serif"
-                                                                       FontSize="21"
-                                                                       TextColor="#1A1714"
-                                                                       LineBreakMode="WordWrap"
-                                                                       MaxLines="2" />
-                                                                <Label Text="{Binding Notes}" IsVisible="{Binding HasNotes}" FontSize="13" TextColor="#6E675F" LineBreakMode="WordWrap" />
-
-                                                                <Label Text="{Binding VisitStatusLabel}"
-                                                                       FontSize="11"
-                                                                       FontAttributes="Bold"
-                                                                       CharacterSpacing="2"
-                                                                       TextColor="#8A6F43"
-                                                                       IsVisible="{Binding HasVisitStatus}" />
-                                                                <HorizontalStackLayout Spacing="8"
-                                                                                       Margin="0,4,0,0">
-                                                                    <Button Text="Ya fui"
-                                                                            Clicked="OnTodayLocationVisitedClicked"
-                                                                            Style="{StaticResource GhostButton}"
-                                                                            FontSize="11"
-                                                                            Padding="10,6"
-                                                                            MinimumHeightRequest="44"
-                                                                            IsVisible="{Binding CanMarkVisited}" />
-                                                                    <Button Text="No mostrar hoy"
-                                                                            Clicked="OnTodayLocationDismissClicked"
-                                                                            Style="{StaticResource GhostButton}"
-                                                                            FontSize="11"
-                                                                            Padding="10,6"
-                                                                            MinimumHeightRequest="44"
-                                                                            IsVisible="{Binding CanDismiss}" />
-                                                                </HorizontalStackLayout>
-                                                            </VerticalStackLayout>
-                                                            <VerticalStackLayout Grid.Column="1"
-                                                                                 Spacing="0"
-                                                                                 VerticalOptions="Start"
-                                                                                 HorizontalOptions="Center">
-                                                                <Image Source="tab_map.svg"
-                                                                       WidthRequest="24"
-                                                                       HeightRequest="24"
-                                                                       Margin="10"
-                                                                       Opacity="0.78"
-                                                                       InputTransparent="True"
-                                                                       SemanticProperties.Description="Abrir en el mapa" />
-                                                                <ImageButton Source="action_edit.svg" Clicked="OnEditPersonalItemClicked"
-                                                                             BackgroundColor="Transparent" WidthRequest="44" HeightRequest="44" Padding="10"
-                                                                             IsVisible="{Binding CanEdit}" SemanticProperties.Description="Editar evento" />
-                                                                <ImageButton Source="action_delete.svg"
-                                                                             Clicked="OnRemovePersonalRecommendationClicked"
-                                                                             BackgroundColor="Transparent"
-                                                                             WidthRequest="44"
-                                                                             HeightRequest="44"
-                                                                             Padding="10"
-                                                                             IsVisible="{Binding CanRemove}"
-                                                                             SemanticProperties.Description="Quitar del itinerario"
-                                                                             ToolTipProperties.Text="Quitar del itinerario" />
-                                                            </VerticalStackLayout>
-                                                            <Grid.GestureRecognizers>
-                                                                <TapGestureRecognizer Tapped="OnTodayLocationTapped" />
-                                                            </Grid.GestureRecognizers>
-                                                        </Grid>
-                                                    </DataTemplate>
-                                                </BindableLayout.ItemTemplate>
+                                            <VerticalStackLayout Grid.Column="1" Spacing="14" Padding="12,0,0,8">
+                                                <Grid ColumnDefinitions="*" ColumnSpacing="8" MinimumHeightRequest="36">
+                                                    <Label
+                                                        Grid.Column="0"
+                                                        Text="{Binding PeriodLabel}"
+                                                        CharacterSpacing="1"
+                                                        FontSize="16"
+                                                        FontAttributes="Bold"
+                                                        TextColor="#AAA198"
+                                                        VerticalOptions="Center" />
+                                                </Grid>
+                                                <BoxView HeightRequest="13" HorizontalOptions="Fill" BackgroundColor="#E8E1D9" />
+                                                <BoxView HeightRequest="13" WidthRequest="190" HorizontalOptions="Start" BackgroundColor="#EEE8E1" />
                                             </VerticalStackLayout>
-                                        </VerticalStackLayout>
-
-                                        <VerticalStackLayout Spacing="8"
-                                                             IsVisible="{Binding HasReservations}">
-                                            <Label Text="RESERVAS"
-                                                   CharacterSpacing="3"
-                                                   FontSize="10"
-                                                   FontAttributes="Bold"
-                                                   TextColor="#9B9288" />
-                                            <VerticalStackLayout Spacing="9"
-                                                                 BindableLayout.ItemsSource="{Binding Reservations}">
-                                                <BindableLayout.ItemTemplate>
-                                                    <DataTemplate x:DataType="viewModels:TodayReservationViewModel">
-                                                        <Border Padding="12,10"
-                                                                BackgroundColor="{StaticResource AccentSoft}"
-                                                                Stroke="#D8CFC4"
-                                                                StrokeThickness="1">
-                                                            <Border.StrokeShape>
-                                                                <RoundRectangle CornerRadius="0" />
-                                                            </Border.StrokeShape>
-                                                            <VerticalStackLayout Spacing="4">
-                                                                <Label Text="{Binding TimeLabel}"
-                                                                       FontSize="12"
-                                                                       TextColor="#8A8078" />
-                                                                <Grid ColumnDefinitions="*,Auto,Auto"
-                                                                      ColumnSpacing="4">
-                                                                    <Label Text="{Binding DisplayTitle}"
-                                                                           FontFamily="serif"
-                                                                           FontSize="{Binding DisplayTitleFontSize}"
-                                                                           TextColor="#1A1714"
-                                                                           LineBreakMode="WordWrap"
-                                                                           MaxLines="3"
-                                                                           VerticalOptions="Center" />
-                                                                    <ImageButton Grid.Column="1"
-                                                                                 Source="action_edit.svg"
-                                                                                 Clicked="OnEditPersonalItemClicked"
-                                                                                 IsVisible="{Binding CanEdit}"
-                                                                                 BackgroundColor="Transparent"
-                                                                                 WidthRequest="44"
-                                                                                 HeightRequest="44"
-                                                                                 Padding="10"
-                                                                                 VerticalOptions="Start"
-                                                                                 SemanticProperties.Description="Editar reserva"
-                                                                                 ToolTipProperties.Text="Editar reserva" />
-                                                                    <ImageButton Grid.Column="2"
-                                                                                 Source="action_delete.svg"
-                                                                                 Clicked="OnDeletePersonalItemClicked"
-                                                                                 IsVisible="{Binding CanEdit}"
-                                                                                 BackgroundColor="Transparent"
-                                                                                 WidthRequest="44"
-                                                                                 HeightRequest="44"
-                                                                                 Padding="10"
-                                                                                 VerticalOptions="Start"
-                                                                                 SemanticProperties.Description="Eliminar reserva"
-                                                                                 ToolTipProperties.Text="Eliminar reserva" />
-                                                                </Grid>
-                                                                <VerticalStackLayout Spacing="4" IsVisible="{Binding ShowSupplementalContent}">
-                                                                    <Label Text="{Binding Notes}" IsVisible="{Binding HasNotes}" FontSize="13" TextColor="#6E675F" LineBreakMode="WordWrap" />
-                                                                    <Label Text="{Binding Confirmation}"
-                                                                           FontSize="12"
-                                                                           TextColor="#8A8078"
-                                                                           IsVisible="{Binding HasConfirmation}"
-                                                                           LineBreakMode="TailTruncation"
-                                                                           MaxLines="1" />
-                                                                    <FlexLayout Direction="Row" Wrap="NoWrap" AlignItems="Start" IsVisible="{Binding HasRoutes}" BindableLayout.ItemsSource="{Binding Routes}" Margin="0,10,0,0">
-                                                                        <BindableLayout.ItemTemplate>
-                                                                            <DataTemplate x:DataType="viewModels:ItineraryRouteViewModel">
-                                                                                <VerticalStackLayout FlexLayout.Basis="33.33%" Padding="3,0" Spacing="4">
-                                                                                    <VerticalStackLayout.GestureRecognizers>
-                                                                                        <TapGestureRecognizer Command="{Binding ViewModel.CalculateRouteCommand, Source={x:Reference PageRoot}, x:DataType={x:Type pages:SchedulePage}}"
-                                                                                                              CommandParameter="{Binding .}" />
-                                                                                    </VerticalStackLayout.GestureRecognizers>
-                                                                                    <Image Source="{Binding Icon}" WidthRequest="22" HeightRequest="22" HorizontalOptions="Start" SemanticProperties.Description="{Binding Label}" />
-                                                                                    <Label Text="{Binding Label}" FontSize="11" TextColor="#6E675F" />
-                                                                                    <Label Text="{Binding Duration}" FontSize="12" TextColor="#1A1714" />
-                                                                                    <Label Text="{Binding Departure}" FontSize="11" TextColor="#1A1714" />
-                                                                                </VerticalStackLayout>
-                                                                            </DataTemplate>
-                                                                        </BindableLayout.ItemTemplate>
-                                                                    </FlexLayout>
-                                                                    <Border IsVisible="{Binding HasRoutes}"
-                                                                            Padding="10,8"
-                                                                            Margin="0,8,0,0"
-                                                                            BackgroundColor="Transparent"
-                                                                            Stroke="#D8CFC4"
-                                                                            StrokeThickness="1">
-                                                                        <Border.GestureRecognizers>
-                                                                            <TapGestureRecognizer Command="{Binding ViewModel.CalculateRouteCommand, Source={x:Reference PageRoot}, x:DataType={x:Type pages:SchedulePage}}"
-                                                                                                  CommandParameter="{Binding CurrentLocationRoute}" />
-                                                                        </Border.GestureRecognizers>
-                                                                        <Label Text="{Binding CurrentLocationRoute.Duration, StringFormat='Desde mi ubicación · {0}'}"
-                                                                               FontSize="11"
-                                                                               TextColor="#6E675F" />
-                                                                    </Border>
-                                                                </VerticalStackLayout>
-                                                            </VerticalStackLayout>
-                                                            <Border.GestureRecognizers>
-                                                                <TapGestureRecognizer Tapped="OnTodayReservationTapped" />
-                                                            </Border.GestureRecognizers>
-                                                        </Border>
-                                                    </DataTemplate>
-                                                </BindableLayout.ItemTemplate>
-                                            </VerticalStackLayout>
-                                        </VerticalStackLayout>
-                                    </VerticalStackLayout>
+                                        </Grid>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+                        </VerticalStackLayout>
+                    </CollectionView.Header>
+                    <CollectionView.GroupHeaderTemplate>
+                        <DataTemplate x:DataType="viewModels:ScheduleTodaySectionViewModel">
+                            <Grid ColumnDefinitions="26,*" Margin="0,0,0,13">
+                                <Grid>
+                                    <BoxView WidthRequest="1" HorizontalOptions="Center" VerticalOptions="Fill" BackgroundColor="#1A171426" />
+                                    <shapes:Ellipse
+                                        WidthRequest="10"
+                                        HeightRequest="10"
+                                        Stroke="#B9B1A8"
+                                        StrokeThickness="2"
+                                        Fill="#F8F3ED"
+                                        HorizontalOptions="Center"
+                                        VerticalOptions="Start"
+                                        Margin="0,6,0,0" />
                                 </Grid>
-                            </DataTemplate>
-                        </BindableLayout.ItemTemplate>
-                    </VerticalStackLayout>
-
-                    <VerticalStackLayout HorizontalOptions="Center"
-                                         Spacing="8"
-                                         Padding="8,26"
-                                         IsVisible="{Binding ShowEmptyState}">
-                        <Label Text="No hay planes para este dia"
-                               FontFamily="serif"
-                               FontSize="22"
-                               TextColor="#1A1714"
-                               HorizontalOptions="Center" />
-                        <Label Text="Elegí otro día del viaje o tirá hacia abajo para actualizar."
-                               FontSize="13"
-                               TextColor="#8A8078"
-                               HorizontalTextAlignment="Center"
-                               HorizontalOptions="Center" />
-                    </VerticalStackLayout>
-                </VerticalStackLayout>
-            </ScrollView>
-        </RefreshView>
-
-        <VerticalStackLayout Spacing="12"
-                             HorizontalOptions="Center"
-                             VerticalOptions="Center"
-                             IsVisible="{Binding ShowInitialLoading}">
-            <ActivityIndicator IsRunning="{Binding ShowInitialLoading}"
-                               WidthRequest="28"
-                               HeightRequest="28" />
-            <Label Text="Cargando reservas"
-                   FontSize="13"
-                   TextColor="#8A8078" />
-        </VerticalStackLayout>
-
-
-    </Grid>
+                                <VerticalStackLayout Grid.Column="1" Spacing="13" Padding="12,0,0,8">
+                                    <Grid ColumnDefinitions="*,48" ColumnSpacing="8" MinimumHeightRequest="48">
+                                        <Label
+                                            Grid.Column="0"
+                                            Text="{Binding PeriodLabel}"
+                                            CharacterSpacing="1"
+                                            FontSize="16"
+                                            FontAttributes="Bold"
+                                            TextColor="#9B9288"
+                                            VerticalOptions="Center"
+                                            VerticalTextAlignment="Center"
+                                            LineBreakMode="WordWrap" />
+                                        <Button
+                                            Grid.Column="1"
+                                            Text="+"
+                                            SemanticProperties.Description="{Binding [UXAuditAddPersonalPlan], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                                            ToolTipProperties.Text="{Binding [UXAuditAddPersonalPlan], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                                            Command="{Binding AddPersonalItemCommand, Source={RelativeSource AncestorType={x:Type viewModels:ScheduleViewModel}}, x:DataType=viewModels:ScheduleViewModel}"
+                                            CommandParameter="{Binding .}"
+                                            IsVisible="{Binding CanAddItem}"
+                                            Style="{StaticResource GhostButton}"
+                                            BorderWidth="0"
+                                            BackgroundColor="Transparent"
+                                            WidthRequest="48"
+                                            HeightRequest="48"
+                                            Padding="0" />
+                                    </Grid>
+                                    <Label Text="{Binding Description}" FontSize="16" LineHeight="1.35" TextColor="#4D4741" IsVisible="{Binding ShowDescription}" />
+                                    <VerticalStackLayout IsVisible="{Binding IsEmpty}" Spacing="14">
+                                        <Border Padding="16,18" Stroke="#E4DCD1" StrokeDashArray="4,3" StrokeShape="RoundRectangle 8" BackgroundColor="#FAF6F0">
+                                            <Grid ColumnDefinitions="34,*" ColumnSpacing="14">
+                                                <Image Source="today_folded_map.svg" WidthRequest="26" HeightRequest="26" />
+                                                <VerticalStackLayout Grid.Column="1" Spacing="4">
+                                                    <Label Text="{Binding EmptyTitle}" FontFamily="serif" FontSize="20" TextColor="#1A1714" />
+                                                    <Label Text="{Binding EmptySubtitle}" FontSize="12" TextColor="#8E867D" />
+                                                </VerticalStackLayout>
+                                            </Grid>
+                                        </Border>
+                                        <Grid ColumnDefinitions="24,*" ColumnSpacing="10" IsVisible="{Binding CanAddItem}">
+                                            <Image Source="today_bulb.svg" HeightRequest="24" WidthRequest="24" VerticalOptions="Start" />
+                                            <Label Grid.Column="1" Text="{Binding EmptyHint}" FontSize="12" TextColor="#8E867D" />
+                                        </Grid>
+                                    </VerticalStackLayout>
+                                </VerticalStackLayout>
+                            </Grid>
+                        </DataTemplate>
+                    </CollectionView.GroupHeaderTemplate>
+                    <CollectionView.GroupFooterTemplate>
+                        <DataTemplate x:DataType="viewModels:ScheduleTodaySectionViewModel">
+                            <Grid HeightRequest="26" InputTransparent="True" />
+                        </DataTemplate>
+                    </CollectionView.GroupFooterTemplate>
+                    <CollectionView.Footer>
+                        <VerticalStackLayout Padding="0,0,0,28" Spacing="16">
+                            <VerticalStackLayout HorizontalOptions="Center" Spacing="8" Padding="8,26" IsVisible="{Binding ShowEmptyState}">
+                                <Label
+                                    Text="{Binding [UXAuditNoPlans], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                                    FontFamily="serif"
+                                    FontSize="22"
+                                    TextColor="#1A1714"
+                                    HorizontalOptions="Center" />
+                                <Label
+                                    Text="{Binding [UXAuditNoPlansHelp], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                                    FontSize="13"
+                                    TextColor="#8A8078"
+                                    HorizontalTextAlignment="Center"
+                                    HorizontalOptions="Center" />
+                            </VerticalStackLayout>
+                        </VerticalStackLayout>
+                    </CollectionView.Footer>
+                </CollectionView>
+            </RefreshView>
+            <VerticalStackLayout Spacing="12" HorizontalOptions="Center" VerticalOptions="Center" IsVisible="{Binding ShowInitialLoading}">
+                <ActivityIndicator IsRunning="{Binding ShowInitialLoading}" WidthRequest="28" HeightRequest="28" />
+                <Label Text="{Binding [UXAuditLoadingReservations], Source={x:Static services:LocalizationResourceManager.Instance}}" FontSize="13" TextColor="#8A8078" />
+            </VerticalStackLayout>
+        </Grid>
     </Grid>
 </ContentPage>

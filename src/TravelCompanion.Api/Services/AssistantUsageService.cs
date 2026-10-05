@@ -184,11 +184,6 @@ public sealed class AssistantUsageService(
         var lease = await dbContext.AssistantUsageLeases.Include(item => item.BuilderAccessGrant).SingleAsync(item => item.Id == leaseId, ct);
         await LockGrantAsync(lease.BuilderAccessGrantId, ct);
         await dbContext.Entry(lease).ReloadAsync(ct);
-        if (lease.ResponseJson is not null)
-        {
-            if (transaction is not null) await transaction.CommitAsync(ct);
-            return lease.ResponseJson;
-        }
         await dbContext.Entry(lease.BuilderAccessGrant!).ReloadAsync(ct);
         var grant = lease.BuilderAccessGrant!;
         if (grant.TripId != tripId || AccessGrantPolicy.ResolveState(grant, DateTimeOffset.UtcNow)
@@ -196,8 +191,16 @@ public sealed class AssistantUsageService(
             throw new DayPlanException(403, "upgrade", "El acceso al viaje cambió. Actualizá la sesión para continuar.");
         await TripConcurrencyLock.LockAsync(dbContext, tripId, ct);
         var current = await dbContext.Trips.AsNoTracking().FirstOrDefaultAsync(item => item.Id == tripId
-            && item.AppUserId == lease.BuilderAccessGrant!.AppUserId && !item.IsArchived, ct);
-        if (current is null || current.PlanRevision != expectedRevision)
+            && item.AppUserId == grant.AppUserId && item.AppUser!.DeletedAtUtc == null
+            && !item.IsArchived && item.PublicationStatus == TripPublicationStatus.Published, ct);
+        if (current is null)
+            throw new DayPlanException(409, "stale", "El viaje ya no está disponible. Actualizá la sesión.");
+        if (lease.ResponseJson is not null)
+        {
+            if (transaction is not null) await transaction.CommitAsync(ct);
+            return lease.ResponseJson;
+        }
+        if (current.PlanRevision != expectedRevision)
             throw new DayPlanException(409, "stale", "El itinerario cambió. Actualizá el viaje antes de generar otra propuesta.");
         if (lease.CancelledAtUtc.HasValue || lease.ExpiresAtUtc <= DateTimeOffset.UtcNow)
             throw new DayPlanException(409, "operation", "La generación caducó. Volvé a intentarlo.");

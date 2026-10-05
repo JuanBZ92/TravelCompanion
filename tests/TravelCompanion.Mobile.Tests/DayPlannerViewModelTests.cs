@@ -11,7 +11,7 @@ using TravelCompanion.Shared.Dtos;
 namespace TravelCompanion.Mobile.Tests;
 
 [Collection("Free map session")]
-public sealed class DayPlannerViewModelTests
+public sealed partial class DayPlannerViewModelTests
 {
     private static readonly DateOnly Start = new(2026, 10, 20);
 
@@ -58,6 +58,48 @@ public sealed class DayPlannerViewModelTests
         Assert.Equal(settings.TravelPace, request.Preferences!.TravelPace);
         Assert.Equal(settings.Budget, request.Preferences.Budget);
         Assert.Equal(settings.Interests, request.Preferences.Interests);
+    }
+
+    [Fact]
+    public async Task Preferences_summary_restores_interests_and_updates_when_temporary_choices_change()
+    {
+        using var fixture = await Fixture.CreateAsync();
+        await fixture.Store.SaveAsync(fixture.Session.UserId, fixture.Trip,
+            new(fixture.Options(), null, null, [], SelectedDate: Start,
+                Preferences: new("efficient", "high", ["culture", "nature"])));
+        await fixture.ViewModel.InitializeAsync(null);
+        var vm = fixture.ViewModel;
+        var culture = vm.Interests.Single(item => item.Key == "culture");
+        var nature = vm.Interests.Single(item => item.Key == "nature");
+        var food = vm.Interests.Single(item => item.Key == "food");
+        var basic = $"{vm.Paces[2]} · {vm.Budgets[2]}";
+        Assert.Equal($"{basic} · {culture.Label}, {nature.Label}", vm.PreferencesSummary);
+        var changes = new List<string?>();
+        vm.PropertyChanged += (_, args) => changes.Add(args.PropertyName);
+
+        nature.IsSelected = false;
+        food.IsSelected = true;
+
+        Assert.Contains(nameof(vm.PreferencesSummary), changes);
+        Assert.Equal($"{basic} · {food.Label}, {culture.Label}", vm.PreferencesSummary);
+        await vm.SaveDraftAsync();
+        var restarted = fixture.NewViewModel();
+        await restarted.InitializeAsync(null);
+        Assert.Equal(vm.PreferencesSummary, restarted.PreferencesSummary);
+        food.IsSelected = false;
+        culture.IsSelected = false;
+        Assert.Equal(basic, vm.PreferencesSummary);
+    }
+
+    [Fact]
+    public async Task Preferences_summary_remains_compact_with_more_than_three_selected_interests()
+    {
+        using var fixture = await Fixture.CreateAsync();
+        await fixture.ViewModel.InitializeAsync(Start);
+        foreach (var item in fixture.ViewModel.Interests) item.IsSelected = true;
+        var expected = string.Join(", ", fixture.ViewModel.Interests.Take(3).Select(item => item.Label));
+        Assert.EndsWith(expected + "…", fixture.ViewModel.PreferencesSummary);
+        Assert.DoesNotContain(fixture.ViewModel.Interests[3].Label, fixture.ViewModel.PreferencesSummary);
     }
 
     [Fact]
@@ -314,6 +356,214 @@ public sealed class DayPlannerViewModelTests
         Assert.Equal(selected, (await fixture.Store.ReadAsync(fixture.Session.UserId, fixture.Trip))!.SelectedStopIds);
     }
 
+    [Theory]
+    [InlineData("io", false)]
+    [InlineData("permission", false)]
+    [InlineData("encryption", false)]
+    [InlineData("io", true)]
+    [InlineData("permission", true)]
+    [InlineData("encryption", true)]
+    public async Task A_local_failure_after_the_server_response_reports_storage_and_retains_the_operation(string failure, bool applying)
+    {
+        using var fixture = await Fixture.CreateAsync();
+        await fixture.ViewModel.InitializeAsync(Start);
+        if (applying) await fixture.ViewModel.GenerateCommand.ExecuteAsync(null);
+        var writes = 0;
+        fixture.Cache.BeforeSave = () =>
+        {
+            if (++writes == 2) throw failure switch
+            {
+                "io" => new IOException("Synthetic storage failure"),
+                "permission" => new UnauthorizedAccessException("Synthetic storage failure"),
+                _ => new System.Security.Cryptography.CryptographicException("Synthetic storage failure")
+            };
+            return Task.CompletedTask;
+        };
+
+        if (applying) await fixture.ViewModel.ApplyCommand.ExecuteAsync(null);
+        else await fixture.ViewModel.GenerateCommand.ExecuteAsync(null);
+
+        Assert.Equal(DayPlannerViewModel.Text("PlannerLocalSaveFailed"), fixture.ViewModel.ErrorMessage);
+        Assert.True(fixture.ViewModel.HasProposal);
+        Assert.False(fixture.ViewModel.IsBusy);
+        var persisted = await fixture.Store.ReadAsync(fixture.Session.UserId, fixture.Trip);
+        Assert.NotNull(persisted!.Request);
+        if (applying)
+        {
+            Assert.All(fixture.ViewModel.Days.SelectMany(day => day), row => Assert.True(row.IsSaved));
+            Assert.NotNull(persisted.PendingApplication);
+            fixture.Cache.BeforeSave = null;
+            fixture.Revision = 6;
+            var restarted = fixture.NewViewModel();
+            await restarted.InitializeAsync(null);
+            await restarted.ApplyCommand.ExecuteAsync(null);
+            Assert.Equal(fixture.ApplicationRequests[0].MutationId, fixture.ApplicationRequests[1].MutationId);
+            Assert.All(restarted.Days.SelectMany(day => day), row => Assert.True(row.IsSaved));
+        }
+        else
+        {
+            Assert.All(fixture.ViewModel.Days.SelectMany(day => day), row => Assert.True(row.IsSelected));
+            fixture.Cache.BeforeSave = null;
+            await fixture.ViewModel.SaveDraftAsync();
+            var restarted = fixture.NewViewModel();
+            await restarted.InitializeAsync(null);
+            Assert.True(restarted.HasProposal);
+            Assert.Equal(fixture.ViewModel.SelectedCount, restarted.SelectedCount);
+        }
+    }
+
+    [Theory]
+    [InlineData("access", HttpStatusCode.Forbidden)]
+    [InlineData("stale", HttpStatusCode.Conflict)]
+    public async Task Access_and_revision_failures_preserve_the_proposal_and_selected_ids(string code, HttpStatusCode status)
+    {
+        using var fixture = await Fixture.CreateAsync();
+        await fixture.ViewModel.InitializeAsync(Start);
+        await fixture.ViewModel.GenerateCommand.ExecuteAsync(null);
+        fixture.ViewModel.Days[0][1].IsSelected = false;
+        var selected = fixture.ViewModel.Days.SelectMany(day => day).Where(row => row.IsSelected).Select(row => row.Value.Id).ToArray();
+        fixture.Apply = (_, _, _) => throw new DayPlanApiException(status, code, "Synthetic access or revision conflict");
+
+        await fixture.ViewModel.ApplyCommand.ExecuteAsync(null);
+
+        Assert.True(fixture.ViewModel.HasProposal);
+        Assert.False(fixture.ViewModel.CanApply);
+        Assert.Equal(selected, fixture.ViewModel.Days.SelectMany(day => day).Where(row => row.IsSelected).Select(row => row.Value.Id));
+        Assert.All(fixture.ViewModel.Days.SelectMany(day => day), row => Assert.False(row.IsSaved));
+        Assert.Equal(selected, (await fixture.Store.ReadAsync(fixture.Session.UserId, fixture.Trip))!.SelectedStopIds);
+        Assert.Equal("Synthetic access or revision conflict", fixture.ViewModel.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task Cancelling_a_save_preserves_its_mutation_and_replays_it_without_changing_selection()
+    {
+        using var fixture = await Fixture.CreateAsync();
+        await fixture.ViewModel.InitializeAsync(Start);
+        await fixture.ViewModel.GenerateCommand.ExecuteAsync(null);
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        fixture.Apply = async (_, _, ct) =>
+        {
+            started.SetResult();
+            await Task.Delay(Timeout.InfiniteTimeSpan, ct);
+            throw new InvalidOperationException("Unreachable");
+        };
+        var pending = fixture.ViewModel.ApplyCommand.ExecuteAsync(null);
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        fixture.ViewModel.CancelCommand.Execute(null);
+        await pending;
+
+        Assert.Equal(DayPlannerViewModel.Text("PlannerCancelled"), fixture.ViewModel.StatusMessage);
+        Assert.Null(fixture.ViewModel.ErrorMessage);
+        Assert.False(fixture.ViewModel.CanSelect);
+        var original = Assert.Single(fixture.ApplicationRequests);
+        fixture.Apply = (request, _, _) => Task.FromResult(new DayPlanApplyResponse(true, "Saved", request.TripId, 6, []));
+        await fixture.ViewModel.ApplyCommand.ExecuteAsync(null);
+        Assert.Equal(original.MutationId, fixture.ApplicationRequests[1].MutationId);
+        Assert.Equal(original.SelectedStopIds, fixture.ApplicationRequests[1].SelectedStopIds);
+        Assert.All(fixture.ViewModel.Days.SelectMany(day => day), row => Assert.True(row.IsSaved));
+    }
+
+    [Fact]
+    public async Task Configured_range_shows_cities_from_city_days_even_without_saved_plans()
+    {
+        using var fixture = await Fixture.CreateAsync();
+        fixture.CityDays = [new(Start, [" Tokyo "]), new(Start.AddDays(1), ["Tokyo", "Kyoto"]),
+            new(Start.AddDays(2), ["kyoto"]), new(Start.AddDays(3), ["Osaka"])];
+        fixture.SetSchedule([]);
+        await fixture.ViewModel.InitializeAsync(Start);
+        await fixture.ViewModel.SelectDurationCommand.ExecuteAsync(fixture.ViewModel.Durations.Single(item => item.Count == 3));
+
+        Assert.Equal("Tokyo · Kyoto", fixture.ViewModel.RangeCities);
+        Assert.True(fixture.ViewModel.HasRangeCities);
+        Assert.Equal(DayPlannerViewModel.Text("PlannerNoExistingPlans"), fixture.ViewModel.ExistingPlansSummary);
+        fixture.ViewModel.SelectedDate = Start.AddDays(3).ToDateTime(TimeOnly.MinValue);
+        Assert.Equal("Osaka", fixture.ViewModel.RangeCities);
+    }
+
+    [Fact]
+    public async Task Range_context_counts_each_saved_event_once_and_includes_lodging_that_overlaps_it()
+    {
+        using var fixture = await Fixture.CreateAsync();
+        var lodging = Item(Start.AddDays(-1), " Tokyo ", Start.AddDays(1), ReservationType.Lodging);
+        var eventItem = Item(Start.AddDays(2), "Kyoto");
+        fixture.SetSchedule([lodging, eventItem, eventItem, Item(Start.AddDays(3), "Osaka")]);
+        fixture.Generate = (request, _, _) => Task.FromResult(Proposal(request) with
+        {
+            Days = Enumerable.Range(0, request.DayCount)
+                .Select(day => Proposal(request with { StartDate = request.StartDate.AddDays(day) }).Days[0]).ToArray()
+        });
+        await fixture.ViewModel.InitializeAsync(Start);
+        await fixture.ViewModel.SelectDurationCommand.ExecuteAsync(fixture.ViewModel.Durations.Single(item => item.Count == 3));
+        Assert.Equal("Tokyo · Kyoto", fixture.ViewModel.RangeCities);
+        Assert.Equal(string.Format(DayPlannerViewModel.Text("PlannerExistingPlans"), 2), fixture.ViewModel.ExistingPlansSummary);
+
+        await fixture.ViewModel.GenerateCommand.ExecuteAsync(null);
+        fixture.ViewModel.SelectedDate = Start.AddDays(3).ToDateTime(TimeOnly.MinValue);
+        Assert.Equal(DayPlannerViewModel.Text("PlannerExistingPlan"), fixture.ViewModel.ExistingPlansSummary);
+        Assert.Equal(string.Format(DayPlannerViewModel.Text("PlannerExistingPlans"), 2), fixture.ViewModel.ResultExistingPlansSummary);
+    }
+
+    [Fact]
+    public async Task Unknown_or_other_trip_snapshot_does_not_claim_zero_plans_or_expose_its_cities()
+    {
+        using var fixture = await Fixture.CreateAsync();
+        fixture.SetSchedule([Item(Start, "Private city")], Guid.NewGuid());
+        await fixture.ViewModel.InitializeAsync(Start);
+        Assert.False(fixture.ViewModel.HasExistingPlansSummary);
+        Assert.False(fixture.ViewModel.HasRangeCities);
+        Assert.Empty(fixture.ViewModel.ExistingPlansSummary);
+        Assert.Empty(fixture.ViewModel.Destination);
+    }
+
+    [Fact]
+    public async Task Saving_updates_range_context_and_an_older_bootstrap_does_not_undo_the_confirmed_count()
+    {
+        using var fixture = await Fixture.CreateAsync();
+        fixture.SetSchedule([]);
+        await fixture.ViewModel.InitializeAsync(Start);
+        await fixture.ViewModel.GenerateCommand.ExecuteAsync(null);
+        fixture.Apply = (request, _, _) => Task.FromResult(new DayPlanApplyResponse(true, "Saved", request.TripId, 6, [Item(Start, "Tokyo")]));
+        await fixture.ViewModel.ApplyCommand.ExecuteAsync(null);
+        Assert.Equal(DayPlannerViewModel.Text("PlannerExistingPlan"), fixture.ViewModel.ExistingPlansSummary);
+        fixture.Revision = 6;
+        await fixture.ViewModel.RefreshAsync();
+        Assert.Equal(DayPlannerViewModel.Text("PlannerExistingPlan"), fixture.ViewModel.ExistingPlansSummary);
+    }
+
+    [Fact]
+    public void Idea_row_exposes_its_place_and_hides_a_missing_place()
+    {
+        var response = Proposal(new(Guid.NewGuid(), 0, Start, 1, Guid.NewGuid()));
+        var original = response.Days[0].Stops[0];
+        var stop = original with { Place = "Tokyo · 1 Chiyoda", Card = original.Card with { Subtitle = "Morning visit" } };
+        var row = new PlannerStopRow(stop, true, () => { });
+        Assert.Equal("Tokyo · 1 Chiyoda", row.Place);
+        Assert.True(row.HasPlace);
+        var missing = new PlannerStopRow(stop with { Place = null }, true, () => { });
+        Assert.Empty(missing.Place);
+        Assert.False(missing.HasPlace);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData(" ")]
+    public void Legacy_idea_without_a_place_uses_day_cities_instead_of_the_temporal_subtitle(string? place)
+    {
+        var response = Proposal(new(Guid.NewGuid(), 0, Start, 1, Guid.NewGuid()));
+        var original = response.Days[0].Stops[0];
+        var stop = original with { Place = place, Card = original.Card with { Subtitle = "Morning visit" } };
+        var group = new PlannerDayGroup(new(Start, ["Tokyo", "Kyoto"], [stop], []), [stop.Id], () => { });
+        var row = Assert.Single(group);
+        Assert.Equal("Tokyo · Kyoto", row.Place);
+        Assert.True(row.HasPlace);
+        Assert.True(row.IsSelected);
+    }
+
+    private static ScheduleItemDto Item(DateOnly date, string city, DateOnly? endsOn = null, ReservationType type = ReservationType.Event) =>
+        new(Guid.NewGuid(), null, type, date, new(10, 0), endsOn, null, "Saved plan", city,
+            "Place", "", "", "", null, null, null, null, null, null);
+
     private static DayPlanResponse Proposal(DayPlanRequest request)
     {
         DayPlanStopDto Stop(string period, string title) => new(Guid.NewGuid(), Guid.NewGuid(), period,
@@ -333,9 +583,13 @@ public sealed class DayPlannerViewModelTests
         public Guid Trip => Session.TripId!.Value;
         public int Revision { get; set; } = 5;
         public TrialAccessStatusDto? TrialAccess { get; set; }
+        public IReadOnlyList<DayPlanCityDayDto> CityDays { get; set; } = [];
         public int HttpRequests { get; private set; }
         public List<DayPlanRequest> GenerationRequests { get; } = [];
         public List<DayPlanApplyRequest> ApplicationRequests { get; } = [];
+        public List<DayPlanReplaceRequest> ReplacementRequests { get; } = [];
+        public Func<DayPlanReplaceRequest, int, CancellationToken, Task<DayPlanReplaceResponse>> Replace { get; set; }
+            = (_, _, _) => throw new HttpRequestException("No synthetic replacement configured.");
         public Func<DayPlanRequest, int, CancellationToken, Task<DayPlanResponse>> Generate { get; set; } = (request, _, _) => Task.FromResult(Proposal(request));
         public Func<DayPlanApplyRequest, int, CancellationToken, Task<DayPlanApplyResponse>> Apply { get; set; } = (request, _, _) =>
             Task.FromResult(new DayPlanApplyResponse(true, "Saved", request.TripId, request.ExpectedRevision + 1, []));
@@ -361,7 +615,11 @@ public sealed class DayPlannerViewModelTests
         }
         public DayPlannerViewModel NewViewModel() => new(Sessions, client, Store, Bootstrap, api, NullLogger<DayPlannerViewModel>.Instance);
         public DayPlanOptionsDto Options() => new(true, Trip, Revision, Start, Start.AddDays(9), [1, 3, 5, 7],
-            new(Session.UserId, [], [], "medium", "balanced", ["food"], [], false, 30, true, [], null), TrialAccess);
+            new(Session.UserId, [], [], "medium", "balanced", ["food"], [], false, 30, true, [], null), TrialAccess) { CityDays = CityDays };
+        public void SetSchedule(IReadOnlyList<ScheduleItemDto> items, Guid? trip = null) => Bootstrap.Value = new(DateTimeOffset.UtcNow,
+            new(Guid.NewGuid(), "Japan", "japan", "Japan", "", ""),
+            new(Session.UserId, Session.Email, Session.DisplayName, [], [], [], []), [], [],
+            new(trip ?? Trip, "Planner", "Japan", Start, Start.AddDays(9), items, Revision));
         private async Task<HttpResponseMessage> SendAsync(HttpRequestMessage message, CancellationToken ct)
         {
             HttpRequests++;
@@ -372,6 +630,12 @@ public sealed class DayPlannerViewModelTests
                 var request = (await message.Content!.ReadFromJsonAsync<DayPlanApplyRequest>(Json, ct))!;
                 ApplicationRequests.Add(request);
                 result = await Apply(request, ApplicationRequests.Count, ct);
+            }
+            else if (message.RequestUri!.AbsolutePath.EndsWith("/replace", StringComparison.Ordinal))
+            {
+                var request = (await message.Content!.ReadFromJsonAsync<DayPlanReplaceRequest>(Json, ct))!;
+                ReplacementRequests.Add(request);
+                result = await Replace(request, ReplacementRequests.Count, ct);
             }
             else
             {

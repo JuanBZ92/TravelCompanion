@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using TravelCompanion.Mobile.ViewModels;
 
 namespace TravelCompanion.Mobile.Pages;
@@ -14,6 +15,8 @@ public partial class ImproveDayPage : TripScopedPage, IQueryAttributable
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        viewModel.PropertyChanged += OnPlannerStateChanged;
+        if (viewModel.HasError) EditorialUi.RevealError(PlannerError);
         Connectivity.Current.ConnectivityChanged += OnConnectivityChanged;
         if (!loaded) { loaded = true; await viewModel.InitializeAsync(date); }
         else await viewModel.RefreshAsync();
@@ -21,9 +24,15 @@ public partial class ImproveDayPage : TripScopedPage, IQueryAttributable
     protected override async void OnDisappearing()
     {
         Connectivity.Current.ConnectivityChanged -= OnConnectivityChanged;
+        viewModel.PropertyChanged -= OnPlannerStateChanged;
         viewModel.CancelLoadingOperation(); await viewModel.SaveDraftAsync(); base.OnDisappearing();
     }
     private void OnConnectivityChanged(object? sender, ConnectivityChangedEventArgs e) =>
         Dispatcher.Dispatch(viewModel.NotifyNetworkState);
+    private void OnPlannerStateChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(viewModel.HasError) && viewModel.HasError)
+            EditorialUi.RevealError(PlannerError);
+    }
     private async void OnBackClicked(object? sender, EventArgs e) => await Shell.Current.GoToAsync("..");
 }

@@ -39,11 +39,12 @@ namespace TravelCompanion.Mobile.Services
     public sealed class MobileBootstrapStore
     {
         public int InvalidationCount { get; private set; }
+        public MobileBootstrapDto? Value { get; set; }
         public Task<OfflineCacheResult<MobileBootstrapDto>?> GetCachedAsync(
             string? destinationSlug = null, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Task.FromResult<OfflineCacheResult<MobileBootstrapDto>?>(null);
+            return Task.FromResult(Value is null ? null : new OfflineCacheResult<MobileBootstrapDto>(Value, DateTimeOffset.UtcNow));
         }
         public void Invalidate() => InvalidationCount++;
     }

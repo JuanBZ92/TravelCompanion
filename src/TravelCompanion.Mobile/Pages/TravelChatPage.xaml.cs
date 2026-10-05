@@ -73,7 +73,7 @@ public partial class TravelChatPage : ContentPage, IQueryAttributable
         }
         catch
         {
-            _viewModel.ErrorMessage = "No pudimos preparar la mejora del día. Intenta nuevamente.";
+            _viewModel.ErrorMessage = LocalizationResourceManager.Instance["UXAuditAssistantLoadError"];
         }
     }
 
@@ -174,7 +174,7 @@ public partial class TravelChatPage : ContentPage, IQueryAttributable
         view.TranslationY = 0;
     }
 
-    private async void OnSuggestedReplyTapped(object? sender, TappedEventArgs e)
+    private async void OnSuggestedReplyClicked(object? sender, EventArgs e)
     {
         if ((sender as BindableObject)?.BindingContext is string reply)
         {

@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Globalization;
 using TravelCompanion.Shared.Dtos;
 using TravelCompanion.Mobile.Services;
@@ -77,10 +78,14 @@ public sealed class ScheduleTodaySectionViewModel(
     string description,
     IReadOnlyList<TodayLocationViewModel> locations,
     IReadOnlyList<TodayReservationViewModel> reservations,
-    bool canAddItem = false)
+    bool canAddItem = false) : ReadOnlyCollection<object>(
+        locations.Cast<object>()
+            .Concat(reservations.Count > 0 ? [new TodayReservationHeadingViewModel()] : Array.Empty<object>())
+            .Concat(reservations)
+            .ToArray())
 {
-    public string Title => $"Dia {dayNumber}";
-    public string PeriodLabel { get; } = periodLabel;
+    public string Title => FormatDayTitle(dayNumber);
+    public string PeriodLabel => ResolvePeriodLabel(PeriodKey, periodLabel);
     public DateOnly Date { get; } = date;
     public string PeriodKey { get; } = periodKey;
     public bool CanAddItem { get; } = canAddItem;
@@ -94,17 +99,34 @@ public sealed class ScheduleTodaySectionViewModel(
     public string EmptyTitle => LocalizationResourceManager.Instance["TodayEmptyTitle"];
     public string EmptySubtitle => LocalizationResourceManager.Instance["TodayEmptySubtitle"];
     public string EmptyHint => LocalizationResourceManager.Instance["TodayEmptyHint"];
-    public string Description { get; } = NormalizeDescription(
+    public string Description => NormalizeDescription(
         periodLabel,
         description,
-        locations.Count > 0 || reservations.Count > 0);
+        HasContent);
     public bool HasDescription => !string.IsNullOrWhiteSpace(Description);
+
+    internal static string FormatDayTitle(int dayNumber) => string.Format(
+        LocalizationResourceManager.Instance.CurrentCulture,
+        LocalizationResourceManager.Instance["UXAuditDayNumber"], dayNumber);
+
+    internal static string ResolvePeriodLabel(string periodKey, string fallback)
+    {
+        var resourceKey = periodKey.Trim().ToLowerInvariant() switch
+        {
+            "morning" => "UXAuditPeriodMorning",
+            "midday" => "UXAuditPeriodMidday",
+            "afternoon" => "UXAuditPeriodAfternoon",
+            "night" => "UXAuditPeriodNight",
+            _ => null
+        };
+        return resourceKey is null ? fallback : LocalizationResourceManager.Instance[resourceKey];
+    }
 
     private static string NormalizeDescription(string periodLabel, string description, bool hasContent)
     {
         if (!hasContent)
         {
-            return "Libre";
+            return LocalizationResourceManager.Instance["UXAuditFreeBlock"];
         }
 
         var value = description?.Trim() ?? string.Empty;
@@ -126,6 +148,8 @@ public sealed class ScheduleTodaySectionViewModel(
         return isGeneratedLoadedMessage || isGenericDayCaption ? string.Empty : value;
     }
 }
+
+public sealed class TodayReservationHeadingViewModel;
 
 public sealed class TodayLocationViewModel
 {
@@ -283,17 +307,19 @@ public sealed class TodayReservationViewModel
         };
         Confirmation = string.IsNullOrWhiteSpace(item.ConfirmationCode)
             ? string.Empty
-            : $"Codigo: {item.ConfirmationCode}";
+            : string.Format(LocalizationResourceManager.Instance.CurrentCulture,
+                LocalizationResourceManager.Instance["UXAuditConfirmationCode"], item.ConfirmationCode);
         DistanceFromHotelLabel = CalculateDistanceLabel(hotelBase, item);
         HasRoutes = canCalculateRoutes && item.HasExactTime
             && (!string.IsNullOrWhiteSpace(item.ProviderPlaceId) || item.Latitude.HasValue && item.Longitude.HasValue);
         Routes =
         [
-            new("WALK", "A pie", "route_walk.svg", item.Id),
-            new("TRANSIT", "Transporte", "route_bus.svg", item.Id),
-            new("DRIVE", "Auto", "route_car.svg", item.Id)
+            new("WALK", LocalizationResourceManager.Instance["UXAuditRouteWalk"], "route_walk.svg", item.Id),
+            new("TRANSIT", LocalizationResourceManager.Instance["UXAuditRouteTransit"], "route_bus.svg", item.Id),
+            new("DRIVE", LocalizationResourceManager.Instance["UXAuditRouteDrive"], "route_car.svg", item.Id)
         ];
-        CurrentLocationRoute = new("WALK", "Desde mi ubicación", "route_walk.svg", item.Id, useCurrentLocation: true);
+        CurrentLocationRoute = new("WALK", LocalizationResourceManager.Instance["UXAuditRouteFromCurrent"],
+            "route_walk.svg", item.Id, useCurrentLocation: true);
     }
 
     public ScheduleItemDto Item { get; }
@@ -348,7 +374,7 @@ public sealed class ItineraryRouteViewModel(
     public string Mode { get; } = mode;
     public string Label { get; } = label;
     public string Icon { get; } = icon;
-    private string _duration = "Tocar para calcular";
+    private string _duration = LocalizationResourceManager.Instance["UXAuditRouteCalculate"];
     private string _departure = "";
     private string _origin = "";
     public string Duration { get => _duration; private set => SetProperty(ref _duration, value); }
@@ -356,7 +382,7 @@ public sealed class ItineraryRouteViewModel(
     public string Origin { get => _origin; private set => SetProperty(ref _origin, value); }
     public void MarkLoading()
     {
-        Duration = "Calculando...";
+        Duration = LocalizationResourceManager.Instance["UXAuditRouteCalculating"];
         Departure = string.Empty;
         Origin = string.Empty;
     }
@@ -370,14 +396,16 @@ public sealed class ItineraryRouteViewModel(
         };
         Duration = route?.Status == "Available" ? $"{route.Minutes} min{originMarker}" : route?.Status switch
         {
-            "TooEarly" => "Aun no disponible",
-            "NoLocation" => "Sin ubicacion",
-            "Past" => "Horario pasado",
-            _ => "No disponible"
+            "TooEarly" => LocalizationResourceManager.Instance["UXAuditRouteTooEarly"],
+            "NoLocation" => LocalizationResourceManager.Instance["UXAuditRouteNoLocation"],
+            "Past" => LocalizationResourceManager.Instance["UXAuditRoutePast"],
+            _ => LocalizationResourceManager.Instance["UXAuditRouteUnavailable"]
         };
         Departure = route?.Status == "Available"
-            ? $"{(route.DeparturePassed ? "Salida pasada" : "Salir")} {route.DepartureLabel}" : "";
-        Origin = string.IsNullOrWhiteSpace(route?.Origin) ? "" : $"Desde {route.Origin}";
+            ? $"{LocalizationResourceManager.Instance[route.DeparturePassed ? "UXAuditRouteDeparturePast" : "UXAuditRouteLeave"]} {route.DepartureLabel}" : "";
+        Origin = string.IsNullOrWhiteSpace(route?.Origin) ? "" : string.Format(
+            LocalizationResourceManager.Instance.CurrentCulture,
+            LocalizationResourceManager.Instance["UXAuditRouteOrigin"], route.Origin);
     }
 }
 

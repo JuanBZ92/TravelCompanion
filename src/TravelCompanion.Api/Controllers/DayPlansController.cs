@@ -37,6 +37,16 @@ public sealed class DayPlansController(TravelerAccessService accessService, DayP
         catch (TrialUpgradeRequiredException) { return Error(new(403, "upgrade", "Activá el pase para guardar estos planes."), request.Locale); }
     }
 
+    [HttpPost("replace")]
+    public async Task<ActionResult<DayPlanReplaceResponse>> Replace(DayPlanReplaceRequest request, CancellationToken ct)
+    {
+        var access = await accessService.GetAsync(HttpContext, ct);
+        if (access is null) return Unauthorized();
+        try { return Ok(await plans.ReplaceAsync(access, request, ct)); }
+        catch (DayPlanException exception) { return Error(exception, request.Locale); }
+        catch (TrialUpgradeRequiredException) { return Error(new(403, "upgrade", "Activá el pase para continuar planificando."), request.Locale); }
+    }
+
     private ObjectResult Error(DayPlanException exception, string? locale)
     {
         var message = locale?.StartsWith("en", StringComparison.OrdinalIgnoreCase) == true ? exception.Code switch

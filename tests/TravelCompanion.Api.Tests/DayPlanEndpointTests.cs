@@ -24,6 +24,7 @@ public sealed class DayPlanEndpointTests
     [InlineData("options")]
     [InlineData("generate")]
     [InlineData("apply")]
+    [InlineData("replace")]
     public async Task Every_planner_endpoint_requires_a_bearer_session(string endpoint)
     {
         await using var factory = new PlannerFactory();
@@ -33,10 +34,49 @@ public sealed class DayPlanEndpointTests
             "options" => await client.GetAsync("/api/ai/day-plans/options"),
             "generate" => await client.PostAsJsonAsync("/api/ai/day-plans",
                 new DayPlanRequest(Guid.NewGuid(), 0, DayPlanTestWorld.Start, 1, Guid.NewGuid())),
-            _ => await client.PostAsJsonAsync("/api/ai/day-plans/apply",
-                new DayPlanApplyRequest(Guid.NewGuid(), Guid.NewGuid(), 0, Guid.NewGuid(), [Guid.NewGuid()]))
+            "apply" => await client.PostAsJsonAsync("/api/ai/day-plans/apply",
+                new DayPlanApplyRequest(Guid.NewGuid(), Guid.NewGuid(), 0, Guid.NewGuid(), [Guid.NewGuid()])),
+            _ => await client.PostAsJsonAsync("/api/ai/day-plans/replace",
+                new DayPlanReplaceRequest(Guid.NewGuid(), Guid.NewGuid(), 0, Guid.NewGuid(), Guid.NewGuid()))
         };
         Assert.Equal(HttpStatusCode.Unauthorized, result.StatusCode);
+    }
+
+    [Fact]
+    public async Task Free_session_replaces_a_card_and_replays_the_canonical_proposal_without_extra_quota_or_private_metadata()
+    {
+        await using var factory = new PlannerFactory();
+        var (world, token) = await factory.SeedAsync(trial: true);
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var generation = world.Request(3);
+        var generated = await client.PostAsJsonAsync("/api/ai/day-plans", generation);
+        generated.EnsureSuccessStatusCode();
+        var proposal = (await generated.Content.ReadFromJsonAsync<DayPlanResponse>(Json))!;
+        var request = new DayPlanReplaceRequest(proposal.OperationId, proposal.TripId, 0,
+            proposal.Days[0].Stops[0].Id, Guid.NewGuid(), "en") { OriginalRequest = generation };
+
+        var response = await client.PostAsJsonAsync("/api/ai/day-plans/replace", request);
+        response.EnsureSuccessStatusCode();
+        var replacement = (await response.Content.ReadFromJsonAsync<DayPlanReplaceResponse>(Json))!;
+        Assert.True(replacement.Replaced);
+        Assert.Equal(1, replacement.Proposal.ProposalRevision);
+        Assert.Equal(2, replacement.Proposal.TrialAccess!.DayImprovementsRemaining);
+        Assert.DoesNotContain("_planningState", await response.Content.ReadAsStringAsync());
+        var replay = await client.PostAsJsonAsync("/api/ai/day-plans/replace", request);
+        replay.EnsureSuccessStatusCode();
+        Assert.Equal(await response.Content.ReadAsStringAsync(), await replay.Content.ReadAsStringAsync());
+        var canonical = await client.PostAsJsonAsync("/api/ai/day-plans", generation);
+        canonical.EnsureSuccessStatusCode();
+        var current = (await canonical.Content.ReadFromJsonAsync<DayPlanResponse>(Json))!;
+        Assert.Equal(replacement.Proposal.Days[0].Stops[0].Id, current.Days[0].Stops[0].Id);
+        Assert.Equal(1, current.ProposalRevision);
+        Assert.DoesNotContain("_planningState", await canonical.Content.ReadAsStringAsync());
+        var saved = await client.PostAsJsonAsync("/api/ai/day-plans/apply", new DayPlanApplyRequest(current.OperationId,
+            current.TripId, 0, Guid.NewGuid(), [current.Days[0].Stops[0].Id]));
+        saved.EnsureSuccessStatusCode();
+        Assert.Equal(current.Days[0].Stops[0].RecommendationId,
+            (await saved.Content.ReadFromJsonAsync<DayPlanApplyResponse>(Json))!.Items[0].RecommendationId);
     }
 
     [Fact]
@@ -52,10 +92,14 @@ public sealed class DayPlanEndpointTests
         Assert.True(options!.Enabled);
         Assert.Equal([1, 3], options.DayCounts);
         Assert.Equal(world.Trip.EndsOn, options.EndsOn);
+        Assert.Equal(7, options.CityDays.Count);
+        Assert.Equal(["Tokyo"], options.CityDays[0].Cities);
+        Assert.Equal(["Kyoto"], options.CityDays[^1].Cities);
         var response = await client.PostAsJsonAsync("/api/ai/day-plans", world.Request(3, "efficient"));
         response.EnsureSuccessStatusCode();
         var proposal = await response.Content.ReadFromJsonAsync<DayPlanResponse>(Json);
         Assert.Equal(3, proposal!.Days.Count);
+        Assert.All(proposal.Days.SelectMany(day => day.Stops), stop => Assert.Equal("Tokyo, Japan", stop.Place));
         Assert.Equal(2, proposal.TrialAccess!.DayImprovementsRemaining);
         var save = await client.PostAsJsonAsync("/api/ai/day-plans/apply",
             new DayPlanApplyRequest(proposal.OperationId, world.Trip.Id, 0, Guid.NewGuid(),

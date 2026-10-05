@@ -4,20 +4,21 @@
  xmlns:vm="clr-namespace:TravelCompanion.Mobile.ViewModels" x:Class="TravelCompanion.Mobile.Pages.DayPlanProposalPage"
  x:Name="ProposalRoot" x:DataType="vm:DayPlannerViewModel" Shell.NavBarIsVisible="False" Shell.TabBarIsVisible="False"
  BackgroundColor="{StaticResource Mist}" SafeAreaEdges="All">
- <Grid Padding="24,8,24,16" RowDefinitions="Auto,*,Auto" RowSpacing="12">
+ <Grid Padding="24,8,24,16" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="12">
   <Grid ColumnDefinitions="48,*" ColumnSpacing="8">
     <ImageButton Source="planner_back.svg" Clicked="OnBackClicked" Style="{StaticResource EditorialIconButton}" SemanticProperties.Description="{Binding BackLabel}"/>
     <Label Grid.Column="1" Text="{Binding ResultTitle}" Style="{StaticResource EditorialHeading}" FontSize="25" VerticalTextAlignment="Center"/>
   </Grid>
-  <CollectionView Grid.Row="1" ItemsSource="{Binding Days}" IsGrouped="True" SelectionMode="None">
+  <Label x:Name="PlannerError" Grid.Row="1" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" TextColor="#9A493F" FontSize="14" LineBreakMode="WordWrap"/>
+  <CollectionView Grid.Row="2" ItemsSource="{Binding Days}" IsGrouped="True" SelectionMode="None">
    <CollectionView.Header>
     <VerticalStackLayout Padding="0,4,0,8" Spacing="10">
      <Label Text="{Binding Destination}" FontSize="14" TextColor="{StaticResource Gold}"/>
      <Label Text="{Binding ResultSummary}" FontSize="13" TextColor="{StaticResource Muted}" LineBreakMode="WordWrap"/>
      <Label Text="{Binding ResultIntro}" Style="{StaticResource EditorialBody}"/>
+     <Label Text="{Binding ResultExistingPlansSummary}" IsVisible="{Binding HasResultExistingPlansSummary}" FontSize="13" TextColor="{StaticResource EditorialMuted}" LineBreakMode="WordWrap"/>
      <Label Text="{Binding UnavailableDays}" IsVisible="{Binding HasUnavailableDays}" FontSize="13" TextColor="{StaticResource Muted}"/>
      <Label Text="{Binding SelectionNotice}" FontSize="13" TextColor="{StaticResource Muted}"/>
-     <Label Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" TextColor="#9A493F" FontSize="14"/>
      <Label Text="{Binding StatusMessage}" IsVisible="{Binding HasStatus}" TextColor="#49634D" FontSize="14"/>
      <Button Text="{Binding NewProposalLabel}" Clicked="OnBackClicked" Style="{StaticResource EditorialSecondaryButton}" IsEnabled="{Binding IsNotBusy}" HorizontalOptions="Start" Padding="0,10"/>
     </VerticalStackLayout>
@@ -50,17 +51,45 @@
        <VerticalStackLayout Grid.Column="1" Spacing="6">
         <Label Text="{Binding Moment}" FontSize="11" TextColor="{StaticResource Gold}"/>
         <Label Text="{Binding Title}" FontFamily="serif" FontSize="21" TextColor="{StaticResource Ink}"/>
+        <Label Text="{Binding Place}" IsVisible="{Binding HasPlace}" FontSize="13" TextColor="{StaticResource EditorialMuted}" LineBreakMode="WordWrap"/>
         <Label Text="{Binding Reason}" FontSize="13" TextColor="{StaticResource Muted}"/>
         <Label Text="{Binding Warnings}" IsVisible="{Binding HasWarnings}" FontSize="12" TextColor="#9A693F"/>
         <Label Text="{Binding SavedLabel}" IsVisible="{Binding IsSaved}" TextColor="#49634D" FontSize="12"/>
+        <Label Text="{Binding ReplacingLabel}" IsVisible="{Binding IsReplacing}" TextColor="{StaticResource EditorialMuted}" FontSize="12"/>
+        <Label Text="{Binding ReplacementNotice}" IsVisible="{Binding HasReplacementNotice}" TextColor="{StaticResource EditorialMuted}" FontSize="12" LineBreakMode="WordWrap"/>
        </VerticalStackLayout>
-       <ImageButton Grid.Column="2" Source="action_info.svg" Command="{Binding BindingContext.OpenStopCommand, Source={x:Reference ProposalRoot}}" CommandParameter="{Binding .}" Style="{StaticResource EditorialIconButton}" SemanticProperties.Description="{Binding OpenDescription}" VerticalOptions="Start"/>
+       <VerticalStackLayout Grid.Column="2" Spacing="6" VerticalOptions="Start">
+        <ImageButton Source="action_info.svg" Command="{Binding BindingContext.OpenStopCommand, Source={x:Reference ProposalRoot}}"
+         CommandParameter="{Binding .}" Style="{StaticResource EditorialIconButton}" SemanticProperties.Description="{Binding OpenDescription}"/>
+        <Grid WidthRequest="48" HeightRequest="48">
+         <Grid.Triggers>
+          <DataTrigger TargetType="Grid" Binding="{Binding IsSaved}" Value="True">
+           <Setter Property="IsVisible" Value="False"/>
+          </DataTrigger>
+         </Grid.Triggers>
+         <ImageButton Source="action_alternative.svg"
+          Command="{Binding BindingContext.ReplaceStopCommand, Source={x:Reference ProposalRoot}}" CommandParameter="{Binding .}"
+          IsEnabled="{Binding CanReplaceRow}" Style="{StaticResource EditorialIconButton}"
+          SemanticProperties.Description="{Binding ReplaceDescription}">
+          <ImageButton.Triggers>
+           <DataTrigger TargetType="ImageButton" Binding="{Binding IsReplacing}" Value="True">
+            <Setter Property="IsVisible" Value="False"/>
+           </DataTrigger>
+           <DataTrigger TargetType="ImageButton" Binding="{Binding BindingContext.IsBusy, Source={x:Reference ProposalRoot}}" Value="True">
+            <Setter Property="IsEnabled" Value="False"/>
+           </DataTrigger>
+          </ImageButton.Triggers>
+         </ImageButton>
+         <ActivityIndicator IsRunning="{Binding IsReplacing}" IsVisible="{Binding IsReplacing}"
+          WidthRequest="24" HeightRequest="24" Color="{StaticResource Gold}"/>
+        </Grid>
+       </VerticalStackLayout>
       </Grid>
      </Border>
     </DataTemplate>
    </CollectionView.ItemTemplate>
   </CollectionView>
-  <VerticalStackLayout Grid.Row="2" Spacing="8">
+  <VerticalStackLayout Grid.Row="3" Spacing="8">
    <Grid ColumnDefinitions="24,*,Auto" ColumnSpacing="8" IsVisible="{Binding IsBusy}">
     <ActivityIndicator IsRunning="{Binding IsBusy}" WidthRequest="24"/>
     <Label Grid.Column="1" Text="{Binding BusyMessage}" FontSize="13" TextColor="{StaticResource Muted}" VerticalTextAlignment="Center" LineBreakMode="WordWrap"/>

@@ -217,8 +217,8 @@
   <data name="CommonContinue" xml:space="preserve"><value>Continue</value></data>
   <data name="AssistantFullDaySaved" xml:space="preserve"><value>{0} plans were added directly to this day.</value></data>
   <data name="AssistantFullDayPartiallySaved" xml:space="preserve"><value>{0} of {1} plans were added. Try again to complete the day without duplicates.</value></data>
-  <data name="TodayImproveDay" xml:space="preserve"><value>Improve my day with AI</value></data>
-  <data name="TodayImproveSubtitle" xml:space="preserve"><value>Get personalized recommendations</value></data>
+  <data name="TodayImproveDay" xml:space="preserve"><value>Plan your days</value></data>
+  <data name="TodayImproveSubtitle" xml:space="preserve"><value>Personalized ideas for one or several days</value></data>
   <data name="TodayEmptyTitle" xml:space="preserve"><value>Free time</value></data>
   <data name="TodayEmptySubtitle" xml:space="preserve"><value>No plans for this time of day yet</value></data>
   <data name="TodayEmptyHint" xml:space="preserve"><value>Tap “Plan” to discover ideas for one or several days.</value></data>
@@ -777,4 +777,83 @@ Your way.</value></data>
   <data name="PlannerInterest_gardens" xml:space="preserve"><value>Gardens</value></data>
   <data name="PlannerInterest_nightlife" xml:space="preserve"><value>Nightlife</value></data>
   <data name="PlannerViewTrip" xml:space="preserve"><value>View my trip</value></data>
+  <data name="BiometricPageTitle" xml:space="preserve"><value>Unlock</value></data>
+  <data name="BiometricWelcome" xml:space="preserve"><value>Your trip awaits</value></data>
+  <data name="BiometricSessionFormat" xml:space="preserve"><value>Unlock the session for {0}.</value></data>
+  <data name="BiometricAccountFallback" xml:space="preserve"><value>your account</value></data>
+  <data name="BiometricStatusDefault" xml:space="preserve"><value>Unlock with your fingerprint or this device’s biometrics.</value></data>
+  <data name="BiometricUnlockAction" xml:space="preserve"><value>Unlock</value></data>
+  <data name="BiometricPasswordAction" xml:space="preserve"><value>Sign in with password</value></data>
+  <data name="BiometricWaiting" xml:space="preserve"><value>Waiting for confirmation…</value></data>
+  <data name="BiometricUnavailable" xml:space="preserve"><value>Biometrics are unavailable. Sign in with your password.</value></data>
+  <data name="BiometricRejected" xml:space="preserve"><value>We could not unlock. Try again or sign in with your password.</value></data>
+  <data name="BiometricUnlockError" xml:space="preserve"><value>We could not start unlocking. Try again or sign in with your password.</value></data>
+  <data name="BiometricPromptTitle" xml:space="preserve"><value>Unlock Yuku</value></data>
+  <data name="BiometricPromptDescription" xml:space="preserve"><value>Use your fingerprint, Face ID or this device’s biometrics.</value></data>
+  <data name="UXAuditAssistantLoadError" xml:space="preserve"><value>We could not prepare the assistant. Try again.</value></data>
+  <data name="UXAuditAddPersonalPlan" xml:space="preserve"><value>Add personal plan</value></data>
+  <data name="UXAuditVisited" xml:space="preserve"><value>I visited</value></data>
+  <data name="UXAuditDismissToday" xml:space="preserve"><value>Hide today</value></data>
+  <data name="UXAuditEditEvent" xml:space="preserve"><value>Edit event</value></data>
+  <data name="UXAuditRemovePlan" xml:space="preserve"><value>Remove from itinerary</value></data>
+  <data name="UXAuditEditReservation" xml:space="preserve"><value>Edit reservation</value></data>
+  <data name="UXAuditDeleteReservation" xml:space="preserve"><value>Delete reservation</value></data>
+  <data name="PlannerExistingPlan" xml:space="preserve"><value>You already have 1 saved plan on these dates. It will be kept.</value></data>
+  <data name="PlannerExistingPlans" xml:space="preserve"><value>You already have {0} saved plans on these dates. They will be kept.</value></data>
+  <data name="PlannerNoExistingPlans" xml:space="preserve"><value>You have no saved plans on these dates yet.</value></data>
+  <data name="UXAuditFolderSection" xml:space="preserve"><value>Folder</value></data>
+  <data name="UXAuditExpensesSection" xml:space="preserve"><value>Expenses</value></data>
+  <data name="UXAuditTripOptions" xml:space="preserve"><value>Trip options</value></data>
+  <data name="UXAuditReviewConflicts" xml:space="preserve"><value>Review conflicts</value></data>
+  <data name="UXAuditRouteFromCurrent" xml:space="preserve"><value>From my location</value></data>
+  <data name="UXAuditTripDocuments" xml:space="preserve"><value>Travel documents</value></data>
+  <data name="UXAuditReviewDay" xml:space="preserve"><value>Review this day</value></data>
+  <data name="UXAuditShareItinerary" xml:space="preserve"><value>Share itinerary</value></data>
+  <data name="UXAuditEditItinerary" xml:space="preserve"><value>Edit itinerary</value></data>
+  <data name="UXAuditReservationReminders" xml:space="preserve"><value>Reservation reminders</value></data>
+  <data name="UXAuditItineraryMenuTitle" xml:space="preserve"><value>My itinerary</value></data>
+  <data name="UXAuditDayNumber" xml:space="preserve"><value>Day {0}</value></data>
+  <data name="UXAuditPeriodMorning" xml:space="preserve"><value>Morning</value></data>
+  <data name="UXAuditPeriodMidday" xml:space="preserve"><value>Midday</value></data>
+  <data name="UXAuditPeriodAfternoon" xml:space="preserve"><value>Afternoon</value></data>
+  <data name="UXAuditPeriodNight" xml:space="preserve"><value>Evening</value></data>
+  <data name="UXAuditFreeBlock" xml:space="preserve"><value>Free</value></data>
+  <data name="UXAuditReservationsHeading" xml:space="preserve"><value>BOOKINGS</value></data>
+  <data name="UXAuditDocumentsSignIn" xml:space="preserve"><value>Sign in to view your documents.</value></data>
+  <data name="UXAuditDocumentFlight" xml:space="preserve"><value>Flight</value></data>
+  <data name="UXAuditNextUp" xml:space="preserve"><value>UP NEXT</value></data>
+  <data name="UXAuditOpenActivity" xml:space="preserve"><value>View activity details</value></data>
+  <data name="UXAuditTodayFinished" xml:space="preserve"><value>All done for today.</value></data>
+  <data name="UXAuditAdaptDay" xml:space="preserve"><value>Adapt my day</value></data>
+  <data name="UXAuditAdaptDaySubtitle" xml:space="preserve"><value>Reorganize flexible activities</value></data>
+  <data name="UXAuditAdaptDayDescription" xml:space="preserve"><value>Adapt my day. Reorganize flexible activities.</value></data>
+  <data name="UXAuditNoPlans" xml:space="preserve"><value>No plans for this day</value></data>
+  <data name="UXAuditNoPlansHelp" xml:space="preserve"><value>Choose another trip day or pull down to refresh.</value></data>
+  <data name="UXAuditLoadingReservations" xml:space="preserve"><value>Loading reservations</value></data>
+  <data name="UXAuditTripSetupError" xml:space="preserve"><value>We could not open trip setup. Please try again.</value></data>
+  <data name="UXAuditScheduleLoadError" xml:space="preserve"><value>We could not load your itinerary. Please try again.</value></data>
+  <data name="UXAuditConfirmationCode" xml:space="preserve"><value>Code: {0}</value></data>
+  <data name="UXAuditRouteWalk" xml:space="preserve"><value>Walk</value></data>
+  <data name="UXAuditRouteTransit" xml:space="preserve"><value>Transit</value></data>
+  <data name="UXAuditRouteDrive" xml:space="preserve"><value>Drive</value></data>
+  <data name="UXAuditRouteCalculate" xml:space="preserve"><value>Tap to calculate</value></data>
+  <data name="UXAuditRouteCalculating" xml:space="preserve"><value>Calculating...</value></data>
+  <data name="UXAuditRouteTooEarly" xml:space="preserve"><value>Not available yet</value></data>
+  <data name="UXAuditRouteNoLocation" xml:space="preserve"><value>No location</value></data>
+  <data name="UXAuditRoutePast" xml:space="preserve"><value>Time has passed</value></data>
+  <data name="UXAuditRouteUnavailable" xml:space="preserve"><value>Unavailable</value></data>
+  <data name="UXAuditRouteDeparturePast" xml:space="preserve"><value>Departure has passed</value></data>
+  <data name="UXAuditRouteLeave" xml:space="preserve"><value>Leave</value></data>
+  <data name="UXAuditRouteOrigin" xml:space="preserve"><value>From {0}</value></data>
+  <data name="PlannerReplaceIdea" xml:space="preserve"><value>Replace {0} with another idea</value></data>
+  <data name="PlannerReplacingIdea" xml:space="preserve"><value>Finding another idea…</value></data>
+  <data name="PlannerReplacementPending" xml:space="preserve"><value>Replacement pending. Use the arrows to retry before saving.</value></data>
+  <data name="PlannerNoAlternative" xml:space="preserve"><value>No more different ideas fit here. Your current idea is kept.</value></data>
+  <data name="PlannerDurationPassHint" xml:space="preserve"><value>5 and 7 days available with the pass.</value></data>
+  <data name="UXAuditPreviousDay" xml:space="preserve"><value>Previous day: {0}</value></data>
+  <data name="UXAuditNextDay" xml:space="preserve"><value>Next day: {0}</value></data>
+  <data name="UXAuditDaySelectorSwipeHint" xml:space="preserve"><value>Swipe left or right to change the day.</value></data>
+  <data name="UXAuditOpenStayForDate" xml:space="preserve"><value>Open {1} in Google Maps · {0}</value></data>
+  <data name="PlannerDurationSelected" xml:space="preserve"><value>{0}, selected</value></data>
+  <data name="PlannerReplacementChanged" xml:space="preserve"><value>The proposal changed. Review the updated ideas before saving.</value></data>
 </root>
