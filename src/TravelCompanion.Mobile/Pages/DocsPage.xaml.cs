@@ -5,6 +5,34 @@ namespace TravelCompanion.Mobile.Pages;
 public partial class DocsPage : ContentPage, IQueryAttributable
 {
     private readonly ViewModels.DocsViewModel _viewModel;
+    private bool _openingSearch;
+
+    private async void OnSearchClicked(object? sender, EventArgs e)
+    {
+        var sessions = MauiProgram.Services.GetRequiredService<Services.AuthSessionService>();
+        if (_openingSearch || !sessions.HasSession || sessions.CurrentUserId is null || sessions.CurrentTripId is null) return;
+        var user = sessions.CurrentUserId;
+        var trip = sessions.CurrentTripId;
+        var version = sessions.ContextVersion;
+        bool IsCurrent() => sessions.HasSession && sessions.CurrentUserId == user
+            && sessions.CurrentTripId == trip && sessions.ContextVersion == version;
+        _openingSearch = true;
+        try
+        {
+            var search = new TripSearchPage(Services.TripSearchKind.Document);
+            if (!IsCurrent()) return;
+            // TripScopedPage also hides and dismisses the modal if this context changes after navigation.
+            await Navigation.PushModalAsync(search);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception error)
+        {
+            Services.ClientDiagnostics.Record("documents_search_open_failed", exception: error);
+            if (IsCurrent())
+                await DisplayAlertAsync("YUKU", Services.LocalizationResourceManager.Instance["UxActionFailed"], "OK");
+        }
+        finally { _openingSearch = false; }
+    }
 
     public DocsPage()
         : this(MauiProgram.Services.GetRequiredService<ViewModels.DocsViewModel>())

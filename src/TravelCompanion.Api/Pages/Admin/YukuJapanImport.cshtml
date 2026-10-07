@@ -1,12 +1,12 @@
 @page "/admin/import/yuku-japan"
 @model TravelCompanion.Api.Pages.Admin.YukuJapanImportModel
 @{
-    ViewData["Title"] = "Import YUKU Japan";
+    ViewData["Title"] = "Importar catálogo YUKU Japan";
 }
 
 <div class="page-heading">
     <div>
-        <h1>Import YUKU Japan</h1>
+        <h1>Importar catálogo YUKU Japan</h1>
         <p class="lede">Carga el Excel verificado y converti cada fila en una recomendacion Free para Japon.</p>
     </div>
     <span class="eyebrow">Contenido</span>
@@ -25,7 +25,7 @@
             <h2>Excel verificado</h2>
             <p class="form-hint">Compatible con FINAL bilingue: Place ID, coordenadas verificadas, textos ES/EN y datos de verificacion. Tambien admite el formato v1.</p>
         </div>
-        <span class="badge">AccessLevel Free</span>
+        <span class="badge">Acceso gratuito</span>
     </div>
 
     <form method="post" enctype="multipart/form-data" data-progress-form>
@@ -40,10 +40,10 @@
             </div>
         </div>
         <div class="actions">
-            <button type="submit" asp-page-handler="Preview" data-loading-message="Analizando el Excel YUKU...">Preview</button>
+            <button type="submit" asp-page-handler="Preview" data-loading-message="Analizando el Excel YUKU...">Vista previa</button>
             @if (Model.ImportResult?.CanImport == true || !string.IsNullOrWhiteSpace(Model.PreviewWorkbookBase64))
             {
-                <button type="submit" asp-page-handler="Import" class="secondary" data-loading-message="Importando recomendaciones...">Confirmar import</button>
+                <button type="submit" asp-page-handler="Import" class="secondary" data-loading-message="Importando recomendaciones...">Confirmar importación</button>
             }
         </div>
         <div class="submit-progress" data-submit-progress role="status" aria-live="polite" hidden>

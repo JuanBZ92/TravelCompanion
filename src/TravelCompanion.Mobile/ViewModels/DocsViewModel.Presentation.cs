@@ -34,6 +34,10 @@ public sealed partial class DocsViewModel
         // Hundreds of documents do not generate hundreds of layout updates.
         DocumentGroups = new(DocumentListPresentation.Build(personal, included,
             SelectedCategory.HasValue, sessionService.HasCuratedDocs, sessionService.HasKnownValidAccess));
+        OnPropertyChanged(nameof(HasDocuments));
+        OnPropertyChanged(nameof(ShowEmptyState));
+        OnPropertyChanged(nameof(EmptyTitle));
+        OnPropertyChanged(nameof(EmptyBody));
     }
 }
 

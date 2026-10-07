@@ -1,26 +1,48 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <pages:TripScopedPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
  xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml" xmlns:pages="clr-namespace:TravelCompanion.Mobile.Pages"
- xmlns:vm="clr-namespace:TravelCompanion.Mobile.ViewModels" x:Class="TravelCompanion.Mobile.Pages.DayPlanProposalPage"
+ xmlns:vm="clr-namespace:TravelCompanion.Mobile.ViewModels" xmlns:services="clr-namespace:TravelCompanion.Mobile.Services" x:Class="TravelCompanion.Mobile.Pages.DayPlanProposalPage"
  x:Name="ProposalRoot" x:DataType="vm:DayPlannerViewModel" Shell.NavBarIsVisible="False" Shell.TabBarIsVisible="False"
  BackgroundColor="{StaticResource Mist}" SafeAreaEdges="All">
  <Grid Padding="24,8,24,16" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="12">
-  <Grid ColumnDefinitions="48,*" ColumnSpacing="8">
+  <Grid ColumnDefinitions="48,*,48" ColumnSpacing="8">
     <ImageButton Source="planner_back.svg" Clicked="OnBackClicked" Style="{StaticResource EditorialIconButton}" SemanticProperties.Description="{Binding BackLabel}"/>
     <Label Grid.Column="1" Text="{Binding ResultTitle}" Style="{StaticResource EditorialHeading}" FontSize="25" VerticalTextAlignment="Center"/>
+    <ImageButton Grid.Column="2" Source="itinerary_menu.svg" Clicked="OnMenuClicked" Style="{StaticResource EditorialIconButton}"
+        SemanticProperties.Description="{Binding [UxMoreActions], Source={x:Static services:LocalizationResourceManager.Instance}}" IsEnabled="{Binding IsNotBusy}"/>
   </Grid>
   <Label x:Name="PlannerError" Grid.Row="1" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" TextColor="#9A493F" FontSize="14" LineBreakMode="WordWrap"/>
   <CollectionView Grid.Row="2" ItemsSource="{Binding Days}" IsGrouped="True" SelectionMode="None">
    <CollectionView.Header>
     <VerticalStackLayout Padding="0,4,0,8" Spacing="10">
-     <Label Text="{Binding Destination}" FontSize="14" TextColor="{StaticResource Gold}"/>
+     <Label Text="{Binding Destination}" FontSize="14" TextColor="{StaticResource EditorialAccentText}"/>
      <Label Text="{Binding ResultSummary}" FontSize="13" TextColor="{StaticResource Muted}" LineBreakMode="WordWrap"/>
      <Label Text="{Binding ResultIntro}" Style="{StaticResource EditorialBody}"/>
      <Label Text="{Binding ResultExistingPlansSummary}" IsVisible="{Binding HasResultExistingPlansSummary}" FontSize="13" TextColor="{StaticResource EditorialMuted}" LineBreakMode="WordWrap"/>
      <Label Text="{Binding UnavailableDays}" IsVisible="{Binding HasUnavailableDays}" FontSize="13" TextColor="{StaticResource Muted}"/>
-     <Label Text="{Binding SelectionNotice}" FontSize="13" TextColor="{StaticResource Muted}"/>
+     <Label Text="{Binding SelectionNotice}" FontSize="13" TextColor="{StaticResource Muted}">
+      <Label.Triggers>
+       <DataTrigger TargetType="Label" Binding="{Binding ShowComparison}" Value="True">
+        <Setter Property="IsVisible" Value="False"/>
+       </DataTrigger>
+      </Label.Triggers>
+     </Label>
      <Label Text="{Binding StatusMessage}" IsVisible="{Binding HasStatus}" TextColor="#49634D" FontSize="14"/>
-     <Button Text="{Binding NewProposalLabel}" Clicked="OnBackClicked" Style="{StaticResource EditorialSecondaryButton}" IsEnabled="{Binding IsNotBusy}" HorizontalOptions="Start" Padding="0,10"/>
+     <VerticalStackLayout IsVisible="{Binding ShowComparison}" Spacing="12">
+      <Label Text="{Binding CompareLabel}" FontFamily="serif" FontSize="24" TextColor="{StaticResource Ink}" SemanticProperties.HeadingLevel="Level2"/>
+      <Border Style="{StaticResource EditorialCard}">
+       <VerticalStackLayout Spacing="10">
+        <Label Text="{Binding PreviousOptionLabel}" FontSize="16" TextColor="{StaticResource Ink}"/>
+        <Label Text="{Binding PreviousPreview}" Style="{StaticResource EditorialBody}"/>
+       </VerticalStackLayout>
+      </Border>
+      <Border Style="{StaticResource EditorialCard}">
+       <VerticalStackLayout Spacing="10">
+        <Label Text="{Binding CurrentOptionLabel}" FontSize="16" TextColor="{StaticResource Ink}"/>
+        <Label Text="{Binding CurrentPreview}" Style="{StaticResource EditorialBody}"/>
+       </VerticalStackLayout>
+      </Border>
+     </VerticalStackLayout>
     </VerticalStackLayout>
    </CollectionView.Header>
    <CollectionView.GroupHeaderTemplate>
@@ -29,7 +51,7 @@
       <Grid ColumnDefinitions="*,48">
        <VerticalStackLayout Spacing="4">
         <Label Text="{Binding Title}" FontFamily="serif" FontSize="22" TextColor="{StaticResource Ink}" SemanticProperties.HeadingLevel="Level2"/>
-        <Label Text="{Binding Cities}" FontSize="13" TextColor="{StaticResource Gold}"/>
+        <Label Text="{Binding Cities}" FontSize="13" TextColor="{StaticResource EditorialAccentText}"/>
        </VerticalStackLayout>
        <ImageButton Grid.Column="1" Source="planner_select.svg" Command="{Binding BindingContext.SelectDayCommand, Source={x:Reference ProposalRoot}}" CommandParameter="{Binding .}" Style="{StaticResource EditorialIconButton}" SemanticProperties.Description="{Binding SelectLabel}" IsEnabled="{Binding BindingContext.CanSelect, Source={x:Reference ProposalRoot}}"/>
       </Grid>
@@ -49,7 +71,7 @@
         </CheckBox.Triggers>
        </CheckBox>
        <VerticalStackLayout Grid.Column="1" Spacing="6">
-        <Label Text="{Binding Moment}" FontSize="11" TextColor="{StaticResource Gold}"/>
+        <Label Text="{Binding Moment}" FontSize="11" TextColor="{StaticResource EditorialAccentText}"/>
         <Label Text="{Binding Title}" FontFamily="serif" FontSize="21" TextColor="{StaticResource Ink}"/>
         <Label Text="{Binding Place}" IsVisible="{Binding HasPlace}" FontSize="13" TextColor="{StaticResource EditorialMuted}" LineBreakMode="WordWrap"/>
         <Label Text="{Binding Reason}" FontSize="13" TextColor="{StaticResource Muted}"/>
@@ -90,6 +112,16 @@
    </CollectionView.ItemTemplate>
   </CollectionView>
   <VerticalStackLayout Grid.Row="3" Spacing="8">
+   <Label Text="{Binding ApplyBlockedReason}" IsVisible="{Binding HasApplyBlockedReason}" TextColor="{StaticResource EditorialMuted}" FontSize="13" LineBreakMode="WordWrap"/>
+   <VerticalStackLayout IsVisible="{Binding ShowComparison}" Spacing="8">
+    <Button Text="{Binding ChoosePreviousLabel}" Command="{Binding ChoosePreviousCommand}"
+            IsEnabled="{Binding CanCompare}" Style="{StaticResource EditorialPrimaryButton}"
+            MinimumHeightRequest="48" MinimumWidthRequest="48"/>
+    <Button Text="{Binding KeepCurrentLabel}" Command="{Binding KeepCurrentCommand}"
+            IsEnabled="{Binding CanCompare}" Style="{StaticResource EditorialSecondaryButton}"
+            MinimumHeightRequest="48" MinimumWidthRequest="48"/>
+   </VerticalStackLayout>
+   <Button Text="{Binding RecoverProposalLabel}" Command="{Binding RecoverProposalCommand}" IsVisible="{Binding CanRecoverProposal}" Style="{StaticResource EditorialSecondaryButton}"/>
    <Grid ColumnDefinitions="24,*,Auto" ColumnSpacing="8" IsVisible="{Binding IsBusy}">
     <ActivityIndicator IsRunning="{Binding IsBusy}" WidthRequest="24"/>
     <Label Grid.Column="1" Text="{Binding BusyMessage}" FontSize="13" TextColor="{StaticResource Muted}" VerticalTextAlignment="Center" LineBreakMode="WordWrap"/>

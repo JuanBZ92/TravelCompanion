@@ -15,6 +15,12 @@ public static class UpcomingActivitySelector
         catch (InvalidTimeZoneException) { return TimeZoneInfo.ConvertTime(instant, TimeZoneInfo.FindSystemTimeZoneById("Asia/Tokyo")).DateTime; }
     }
 
+    public static bool IsInProgress(ScheduleItemDto item, string? timeZoneId, DateTimeOffset instant)
+    {
+        var now = GetTripNow(timeZoneId, instant);
+        return Start(item) <= now && End(item) >= now;
+    }
+
     public static ScheduleItemDto? Select(IReadOnlyList<ScheduleItemDto> items, DateOnly selectedDate,
         string? timeZoneId, DateTimeOffset instant)
     {
@@ -26,10 +32,11 @@ public static class UpcomingActivitySelector
                 (item.Date == selectedDate || item.Date < selectedDate && item.EndsOn >= selectedDate))
             .Where(item => End(item) >= now)
             .OrderBy(item => Start(item) <= now ? 0 : 1)
+            .ThenBy(item => Start(item))
             .ThenBy(item => item.IsConfirmedReservation
                 || item.Flexibility is ItineraryFlexibility.FixedByTraveler or ItineraryFlexibility.ConfirmedReservation
                 || item.Type == ReservationType.Flight ? 0 : 1)
-            .ThenBy(item => Start(item))
+            .ThenBy(item => item.Id)
             .FirstOrDefault();
     }
 

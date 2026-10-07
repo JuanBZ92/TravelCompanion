@@ -7,7 +7,11 @@ public sealed record DayPlannerDraft(DayPlanOptionsDto? Options, DayPlanRequest?
     IReadOnlyList<Guid>? SavedStopIds = null, int? AppliedRevision = null,
     DateOnly? SelectedDate = null, int DayCount = 1, DayPlanPreferencesDto? Preferences = null,
     DayPlanReplaceRequest? PendingReplacement = null, IReadOnlyList<Guid>? SeenRecommendationIds = null,
-    DayPlanRequest? ProposalRequest = null);
+    DayPlanRequest? ProposalRequest = null, DayPlannerAlternative? PreviousAlternative = null);
+
+public sealed record DayPlannerAlternative(DayPlanResponse Proposal, DayPlanRequest? Request,
+    IReadOnlyList<Guid> SelectedStopIds, IReadOnlyList<Guid> SavedStopIds, int AppliedRevision,
+    IReadOnlyList<Guid> SeenRecommendationIds);
 
 // Scope keys and the existing encrypted atomic writer keep previews private/offline.
 public sealed class DayPlannerStore(OfflineCacheService cache, AuthSessionService sessions)

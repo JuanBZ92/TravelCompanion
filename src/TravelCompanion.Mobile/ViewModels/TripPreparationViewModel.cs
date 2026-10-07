@@ -28,6 +28,13 @@ public sealed partial class TripPreparationViewModel(
     public string OfflineStatus { get => offlineStatus; private set => SetProperty(ref offlineStatus, value); }
     private bool canSave;
     public bool CanSave { get => canSave; private set => SetProperty(ref canSave, value); }
+    private string importNotice = "";
+    public string ImportNotice { get => importNotice; private set { SetProperty(ref importNotice, value); OnPropertyChanged(nameof(HasImportNotice)); } }
+    public bool HasImportNotice => !string.IsNullOrWhiteSpace(ImportNotice);
+    private bool legacyImported;
+    private Task? legacyImport;
+    internal Task LegacyImportCompletion => legacyImport ?? Task.CompletedTask;
+    private CancellationTokenSource? legacyImportCancellation;
     public string Title => Text("PreparationTitle");
     private string destination = "";
     public string Destination { get => destination; private set => SetProperty(ref destination, value); }
@@ -43,7 +50,26 @@ public sealed partial class TripPreparationViewModel(
         && sessions.ContextVersion == contextVersion;
     public static string Text(string key) => LocalizationResourceManager.Instance[key];
 
-    [RelayCommand] private Task LoadPreparationAsync() => LoadAsync(RefreshAsync);
+    [RelayCommand]
+    private async Task LoadPreparationAsync()
+    {
+        await LoadAsync(RefreshAsync);
+        if (IsCurrent && CanSave) _ = TrackPreparationAsync("trip_preparation_viewed", "preparation");
+        // Legacy migration is optional network work; local actions are ready before it begins.
+        if (!IsCurrent || !CanSave || legacyImported || legacyImport is { IsCompleted: false }
+            || Connectivity.Current.NetworkAccess != NetworkAccess.Internet) return;
+        legacyImportCancellation = new();
+        legacyImport = ImportLegacyAsync(legacyImportCancellation.Token);
+    }
+
+    public void CancelLegacyImport() => legacyImportCancellation?.Cancel();
+
+    private async Task TrackPreparationAsync(string name, string source)
+    {
+        if (!IsCurrent) return;
+        try { await analytics.TrackAsync(name, source, tripId: trip); }
+        catch (Exception exception) { ClientDiagnostics.Record("preparation_analytics_failed", exception: exception); }
+    }
 
     private async Task RefreshAsync(CancellationToken ct)
     {
@@ -56,37 +82,65 @@ public sealed partial class TripPreparationViewModel(
             return;
         }
         var cachedLegacy = await cache.GetAsync<List<TripPreparationItemDto>>(CacheKey, cancellationToken: ct);
-        if (cachedLegacy is not null) await organizer.ImportLegacyOnceAsync(cachedLegacy.Value, ct);
-        var localDocuments = (await documents.ListAsync(ct)).Where(item => item.SourceUrl is null).ToList();
+        if (!IsCurrent) return;
         var state = await organizer.GetAsync(ct);
+        if (!IsCurrent) return;
+        if (!state.LegacyImported && cachedLegacy is not null)
+            state = await organizer.ImportLegacyOnceAsync(cachedLegacy.Value, ct);
+        if (!IsCurrent) return;
+        legacyImported = state.LegacyImported;
+        var localDocuments = (await documents.ListAsync(ct)).Where(item => item.SourceUrl is null).ToList();
+        if (!IsCurrent) return;
         Apply(state, localDocuments);
 
         var saved = await bootstrap.GetCachedAsync(cancellationToken: ct);
+        if (!IsCurrent) return;
         Destination = saved?.Value.Schedule?.DestinationName ?? "";
         var manifest = await offline.GetAsync(ct);
         var versions = await syncState.GetCachedStateAsync(ct);
+        if (!IsCurrent) return;
         var progress = TripPreparationProgress.Create(trip.Value, saved?.Value.Schedule, manifest, versions?.CatalogVersion,
             sessions.HasCuratedDocs ? versions?.DocumentsVersion : null);
         Summary = string.Format(Text("PreparationOrganizerSummary"), Items.Count(item => item.IsOrganized), Items.Count);
         OfflineStatus = Text(progress.OfflineStatusKey) + "\n"
             + string.Format(Text("PreparationResources"), progress.DownloadedResources, progress.DownloadableResources);
         CanSave = IsCurrent;
+    }
 
-        if (Connectivity.Current.NetworkAccess != NetworkAccess.Internet) return;
-        var token = await sessions.GetTokenAsync();
-        if (token is null || !IsCurrent) return;
-        var latest = await api.GetPreparationAsync(token, trip.Value, ct);
-        if (!IsCurrent || latest is null) return;
-        await cache.SaveAsync(CacheKey, latest, ct);
-        await organizer.ImportLegacyOnceAsync(latest, ct);
-        state = await organizer.GetAsync(ct);
-        if (!IsCurrent) return;
-        Apply(state, localDocuments);
-        Summary = string.Format(Text("PreparationOrganizerSummary"), Items.Count(item => item.IsOrganized), Items.Count);
-        OfflineStatus = Text(progress.OfflineStatusKey) + "\n"
-            + string.Format(Text("PreparationResources"), progress.DownloadedResources, progress.DownloadableResources);
-        CanSave = true;
-        await analytics.TrackAsync("trip_preparation_viewed", "preparation", tripId: trip, cancellationToken: ct);
+    private async Task ImportLegacyAsync(CancellationToken ct)
+    {
+        try
+        {
+            var token = await sessions.GetTokenAsync();
+            if (token is null || !IsCurrent || trip is null) return;
+            var latest = await api.GetPreparationAsync(token, trip.Value, ct);
+            ct.ThrowIfCancellationRequested();
+            if (!IsCurrent) return;
+            if (latest is null) { ImportNotice = Text("PreparationLegacyUnavailable"); return; }
+            var state = await organizer.ImportLegacyOnceAsync(latest, ct);
+            if (!IsCurrent) return;
+            legacyImported = state.LegacyImported;
+            await cache.SaveAsync(CacheKey, latest, ct);
+            if (!IsCurrent) return;
+            // Read again: an attachment or manual decision may have finished during the request.
+            var localDocuments = (await documents.ListAsync(ct)).Where(item => item.SourceUrl is null).ToList();
+            state = await organizer.GetAsync(ct);
+            if (!IsCurrent) return;
+            Apply(state, localDocuments);
+            Summary = string.Format(Text("PreparationOrganizerSummary"), Items.Count(item => item.IsOrganized), Items.Count);
+            ImportNotice = "";
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested || !IsCurrent) { }
+        catch (Exception exception)
+        {
+            ClientDiagnostics.Record("preparation_legacy_import_failed", exception: exception);
+            if (IsCurrent) ImportNotice = Text("PreparationLegacyUnavailable");
+        }
+        finally
+        {
+            legacyImportCancellation?.Dispose();
+            legacyImportCancellation = null;
+        }
     }
 
     private void Apply(PreparationOrganizerState state, IReadOnlyList<LocalTripDocument> localDocuments)
@@ -115,11 +169,11 @@ public sealed partial class TripPreparationViewModel(
             ErrorMessage = Text("DocumentError") + " " + Text("DocumentLimit");
             return;
         }
-        if (saved is null) return;
+        if (saved is null || !IsCurrent) return;
         StatusMessage = string.Format(Text("DocumentSavedInCategory"), row.Label);
         SemanticScreenReader.Default.Announce(StatusMessage);
         await RefreshAsync(ct);
-        await analytics.TrackAsync("trip_preparation_updated", "document_added", tripId: trip, cancellationToken: ct);
+        _ = TrackPreparationAsync("trip_preparation_updated", "document_added");
     });
 
     [RelayCommand]
@@ -138,10 +192,11 @@ public sealed partial class TripPreparationViewModel(
         var state = selected == outside ? PreparationManualState.OutsideApp
             : selected == notNeeded ? PreparationManualState.NotNeeded
             : selected == pending ? PreparationManualState.Pending : (PreparationManualState?)null;
-        if (!state.HasValue) return;
+        if (!state.HasValue || !IsCurrent) return;
+        ct.ThrowIfCancellationRequested();
         await organizer.SetManualStateAsync(row.Key, state.Value, ct);
         await RefreshAsync(ct);
-        await analytics.TrackAsync("trip_preparation_updated", "manual_state", tripId: trip, cancellationToken: ct);
+        _ = TrackPreparationAsync("trip_preparation_updated", "manual_state");
     });
 
     [RelayCommand] private Task ReviewAsync() => IsCurrent ? Shell.Current.GoToAsync(nameof(TripReviewPage)) : Task.CompletedTask;

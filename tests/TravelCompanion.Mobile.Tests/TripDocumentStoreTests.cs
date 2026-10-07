@@ -124,6 +124,87 @@ public sealed class TripDocumentStoreTests
         finally { sessions.Clear(); }
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Downloaded_curated_document_requires_current_access_but_personal_document_remains_free(bool curated)
+    {
+        var sessions = new AuthSessionService();
+        var account = Session() with { AccessMode = SessionAccessMode.FreeMapPreview, Capabilities = new(false, false, false, false, false) };
+        var disk = new OfflineCacheService(); var store = CreateStore(disk, sessions);
+        try
+        {
+            await sessions.SaveAsync(account);
+            var document = await store.AttachAsync(new MemoryStream("%PDF-1.7 test"u8.ToArray()), "ticket.pdf");
+            if (curated) MarkAsCurated(disk, account, document);
+            var opens = Launcher.OpenFileCalls;
+            if (curated)
+            {
+                await Assert.ThrowsAsync<UnauthorizedAccessException>(() => store.OpenAsync(document.Id));
+                Assert.Equal(opens, Launcher.OpenFileCalls);
+            }
+            else
+            {
+                await store.OpenAsync(document.Id);
+                Assert.Equal(opens + 1, Launcher.OpenFileCalls);
+            }
+        }
+        finally { sessions.Clear(); await TripDocumentStore.ClearPreviewsAsync(); }
+    }
+
+    [Fact]
+    public async Task Downloaded_curated_document_can_open_with_current_permission()
+    {
+        var sessions = new AuthSessionService(); var account = Session() with { Capabilities = new(true, true, true, true, false) };
+        var disk = new OfflineCacheService(); var store = CreateStore(disk, sessions);
+        try
+        {
+            await sessions.SaveAsync(account);
+            var document = await store.AttachAsync(new MemoryStream("%PDF-1.7 test"u8.ToArray()), "ticket.pdf");
+            MarkAsCurated(disk, account, document);
+            var opens = Launcher.OpenFileCalls;
+            await store.OpenAsync(document.Id);
+            Assert.Equal(opens + 1, Launcher.OpenFileCalls);
+        }
+        finally { sessions.Clear(); await TripDocumentStore.ClearPreviewsAsync(); }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Revoking_curated_permission_or_expiring_access_during_payload_read_does_not_open_or_leave_a_preview(bool expireAccess)
+    {
+        var sessions = new AuthSessionService(); var account = Session() with { Capabilities = new(true, true, true, true, false) };
+        var disk = new OfflineCacheService(); var store = CreateStore(disk, sessions);
+        try
+        {
+            await sessions.SaveAsync(account);
+            var document = await store.AttachAsync(new MemoryStream("%PDF-1.7 test"u8.ToArray()), "ticket.pdf");
+            MarkAsCurated(disk, account, document);
+            var reads = 0;
+            disk.BeforeRead = () =>
+            {
+                if (++reads == 2)
+                {
+                    if (expireAccess) sessions.ApplySyncState(new(account.Capabilities!, DateTimeOffset.UtcNow.AddMinutes(-1),
+                        account.TripId, null, null, 0, 0, 0, 0, 0));
+                    else sessions.ApplyCapabilities(new(true, true, true, false, false));
+                }
+                return Task.CompletedTask;
+            };
+            var opens = Launcher.OpenFileCalls;
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(() => store.OpenAsync(document.Id));
+            Assert.Equal(2, reads);
+            Assert.Equal(opens, Launcher.OpenFileCalls);
+            Assert.False(File.Exists(Path.Combine(FileSystem.CacheDirectory, "document-preview", document.Id.ToString("N") + ".pdf")));
+        }
+        finally { sessions.Clear(); await TripDocumentStore.ClearPreviewsAsync(); }
+    }
+
+    private static void MarkAsCurated(OfflineCacheService disk, AuthSessionDto account, LocalTripDocument document) =>
+        disk.Entries[$"personal-documents-{account.UserId:N}-{account.TripId:N}"] =
+            new OfflineCacheResult<List<LocalTripDocument>>([document with { SourceUrl = "/trip-files/ticket.pdf" }], DateTimeOffset.UtcNow);
+
     [Fact]
     public async Task Deletion_during_a_read_cannot_recreate_the_deleted_trip_files()
     {

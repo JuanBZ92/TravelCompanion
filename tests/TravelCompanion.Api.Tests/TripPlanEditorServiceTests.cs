@@ -18,6 +18,158 @@ public sealed class TripPlanEditorServiceTests
     };
 
     [Fact]
+    public async Task List_limits_each_page_to_fifty_with_stable_order_and_total_counts()
+    {
+        await using var db = CreateDbContext();
+        var destination = await SeedDestinationAsync(db);
+        db.Trips.AddRange(Enumerable.Range(0, 101).Select(index => new Trip
+        {
+            Id = Guid.NewGuid(), DestinationId = destination.Id, TravelerName = "Same client",
+            StartsOn = new DateOnly(2026, 10, 1), EndsOn = new DateOnly(2026, 10, 2)
+        }));
+        await db.SaveChangesAsync();
+        var service = CreateService(db);
+
+        var first = await service.ListTripsAsync(null, 1, null);
+        var second = await service.ListTripsAsync(null, 2, null);
+        var last = await service.ListTripsAsync(null, int.MaxValue, null);
+
+        Assert.Equal(101, first.TotalCount);
+        Assert.Equal(101, first.FilteredCount);
+        Assert.Equal(50, first.Items.Count);
+        Assert.Equal(50, second.Items.Count);
+        Assert.Single(last.Items);
+        Assert.Equal(3, last.Page);
+        Assert.Empty(first.Items.Select(item => item.Id).Intersect(second.Items.Select(item => item.Id)));
+        Assert.Equal(101, first.Items.Concat(second.Items).Concat(last.Items).Select(item => item.Id).Distinct().Count());
+        Assert.Equal(first.Items.Select(item => item.Id), (await service.ListTripsAsync(null, -1, null)).Items.Select(item => item.Id));
+    }
+
+    [Theory]
+    [InlineData("draft", 2)]
+    [InlineData("published", 1)]
+    public async Task List_applies_search_and_status_before_paging_and_keeps_total_count(string status, int expected)
+    {
+        await using var db = CreateDbContext();
+        var destination = await SeedDestinationAsync(db);
+        var publishedWithDraft = new Trip { Id = Guid.NewGuid(), DestinationId = destination.Id, TravelerName = "Tokyo client",
+            StartsOn = new(2026, 10, 1), EndsOn = new(2026, 10, 2), PublicationStatus = TripPublicationStatus.Published };
+        publishedWithDraft.PlanDraft = new() { TripId = publishedWithDraft.Id, PayloadJson = "{}" };
+        db.Trips.AddRange(publishedWithDraft,
+            new Trip { Id = Guid.NewGuid(), DestinationId = destination.Id, TravelerName = "Tokyo draft", StartsOn = new(2026, 10, 1),
+                EndsOn = new(2026, 10, 2), PublicationStatus = TripPublicationStatus.Draft },
+            new Trip { Id = Guid.NewGuid(), DestinationId = destination.Id, TravelerName = "Osaka", StartsOn = new(2026, 10, 1), EndsOn = new(2026, 10, 2) });
+        await db.SaveChangesAsync();
+
+        var result = await CreateService(db).ListTripsAsync("  TOKYO  ", 8, status);
+
+        Assert.Equal(3, result.TotalCount);
+        Assert.Equal(expected, result.FilteredCount);
+        Assert.Equal(expected, result.Items.Count);
+        Assert.Equal(1, result.Page);
+        Assert.All(result.Items, item => Assert.True(item.HasDraft));
+    }
+
+    [Fact]
+    public async Task Invalid_publish_stays_on_editor_with_submitted_content_without_publishing()
+    {
+        await using var db = CreateDbContext();
+        var destination = await SeedDestinationAsync(db);
+        var service = CreateService(db);
+        var id = await service.CreateTripAsync(new("Client", "731095", destination.Id, new(2026, 10, 1), new(2026, 10, 1), "Asia/Tokyo"));
+        var editor = (await service.GetEditorAsync(id))!;
+        editor.Payload.TravelerName = "Edited but not saved";
+        var json = JsonSerializer.Serialize(editor.Payload, JsonOptions);
+        var page = new TravelCompanion.Api.Pages.Admin.TripsModel(db, service)
+        {
+            PageContext = new Microsoft.AspNetCore.Mvc.RazorPages.PageContext { HttpContext = new Microsoft.AspNetCore.Http.DefaultHttpContext() },
+            TripId = id, DraftJson = json, BasePlanRevision = 0, NewAccessPin = "abc"
+        };
+        page.ModelState.AddModelError(nameof(page.NewAccessPin), "El PIN debe tener exactamente 6 números.");
+
+        var result = await page.OnPostPublishAsync();
+
+        Assert.IsType<Microsoft.AspNetCore.Mvc.RazorPages.PageResult>(result);
+        Assert.Equal(json, page.DraftJson);
+        Assert.Contains("Edited but not saved", page.EditorStateJson);
+        Assert.Equal(TripPublicationStatus.Draft, (await db.Trips.SingleAsync()).PublicationStatus);
+        Assert.Empty(await db.Reservations.ToListAsync());
+    }
+
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task Invalid_create_dates_keep_the_form_and_report_each_affected_field_without_creating_a_trip(
+        bool invalidStart, bool invalidEnd)
+    {
+        await using var db = CreateDbContext();
+        var destination = await SeedDestinationAsync(db);
+        var page = new TravelCompanion.Api.Pages.Admin.TripsModel(db, CreateService(db))
+        {
+            PageContext = new Microsoft.AspNetCore.Mvc.RazorPages.PageContext { HttpContext = new Microsoft.AspNetCore.Http.DefaultHttpContext() },
+            CreateInput = new()
+            {
+                TravelerName = "Unsaved client", AccessPin = "731095", DestinationId = destination.Id,
+                CitySegments = [new() { City = "Tokyo", HotelBase = "Unsaved hotel",
+                    StartsOn = invalidStart ? default : new(2026, 10, 1),
+                    EndsOn = invalidEnd ? default : new(2026, 10, 3) }]
+            }
+        };
+        const string startKey = "CreateInput.CitySegments[0].StartsOn";
+        const string endKey = "CreateInput.CitySegments[0].EndsOn";
+        if (invalidStart)
+        {
+            page.ModelState.SetModelValue(startKey, "invalid-date", "invalid-date");
+            page.ModelState.AddModelError(startKey, "The value is invalid.");
+        }
+        if (invalidEnd)
+        {
+            page.ModelState.SetModelValue(endKey, "", "");
+            page.ModelState.AddModelError(endKey, "The value is invalid.");
+        }
+
+        var result = await page.OnPostCreateAsync();
+
+        Assert.IsType<Microsoft.AspNetCore.Mvc.RazorPages.PageResult>(result);
+        Assert.Equal("Unsaved client", page.CreateInput.TravelerName);
+        Assert.Equal("Unsaved hotel", Assert.Single(page.CreateInput.CitySegments).HotelBase);
+        if (invalidStart)
+        {
+            Assert.Equal("Indica una fecha de inicio válida.", Assert.Single(page.ModelState[startKey]!.Errors).ErrorMessage);
+            Assert.Equal("invalid-date", page.ModelState[startKey]!.AttemptedValue);
+        }
+        if (invalidEnd)
+        {
+            Assert.Equal("Indica una fecha de fin válida.", Assert.Single(page.ModelState[endKey]!.Errors).ErrorMessage);
+            Assert.Equal("", page.ModelState[endKey]!.AttemptedValue);
+        }
+        Assert.Empty(await db.Trips.ToListAsync());
+        Assert.Empty(await db.Reservations.ToListAsync());
+    }
+
+    [Fact]
+    public async Task Editor_preview_preserves_validation_failure_without_allowing_script_injection_or_revision_change()
+    {
+        await using var db = CreateDbContext();
+        var destination = await SeedDestinationAsync(db);
+        var service = CreateService(db);
+        var id = await service.CreateTripAsync(new("Client", "753109", destination.Id, new(2026, 10, 1), new(2026, 10, 1), "Asia/Tokyo"));
+        var state = (await service.GetEditorAsync(id))!;
+        var submitted = JsonSerializer.Deserialize<TripPlanEditorPayload>(JsonSerializer.Serialize(state.Payload, JsonOptions), JsonOptions)!;
+        submitted.TravelerName = "</script><script>alert('test')</script>";
+
+        var safeJson = service.SerializeForPage(state, JsonSerializer.Serialize(submitted, JsonOptions));
+
+        Assert.DoesNotContain("</script>", safeJson, StringComparison.OrdinalIgnoreCase);
+        var recovered = JsonSerializer.Deserialize<TripPlanEditorState>(safeJson, JsonOptions)!;
+        Assert.Equal(submitted.TravelerName, recovered.Payload.TravelerName);
+        Assert.Equal(state.BasePlanRevision, recovered.BasePlanRevision);
+        Assert.Equal("Client", (await db.Trips.SingleAsync()).TravelerName);
+        Assert.Equal(service.SerializeForPage(state), service.SerializeForPage(state, "{invalid"));
+    }
+
+    [Fact]
     public async Task Create_prefills_city_segments_and_inherits_hotel_base()
     {
         await using var dbContext = CreateDbContext();

@@ -93,6 +93,50 @@ public sealed class ExpenseServiceTests
         Assert.Contains("'=HYPERLINK", await f.Service.ExportAsync(f.Context, f.Trip.Id, default));
         Assert.Single((await f.Service.BreakdownAsync(f.Context, f.Trip.Id, default)).Categories);
     }
+    [Fact]
+    public async Task BreakdownUsesSettingsCurrencyAndSharedPolicyForStaleAndMissingRates()
+    {
+        await using var f = await Fixture.Create();
+        f.Trip.ExperienceMode = ExperienceMode.CuratedPremium;
+        await f.Db.SaveChangesAsync();
+        await f.Service.SaveSettingsAsync(f.Context, f.Trip.Id, new("USD", null, 0, Guid.NewGuid()), default);
+        var date = new DateOnly(2026, 9, 29);
+        TripExpense Entry(string baseCurrency, decimal? rate, bool deleted = false) => new()
+        {
+            Id = Guid.NewGuid(), TripId = f.Trip.Id, UserId = f.Trip.AppUserId!.Value,
+            Amount = 1000, Currency = "JPY", BaseCurrency = baseCurrency, Rate = rate,
+            Date = date, Category = ExpenseCategory.Food, Deleted = deleted
+        };
+        f.Db.TripExpenses.AddRange(Entry("USD", .02m), Entry("EUR", .006m), Entry("USD", null), Entry("USD", 1, true));
+        var otherAccount = Entry("USD", 1); otherAccount.UserId = Guid.NewGuid();
+        f.Db.TripExpenses.Add(otherAccount);
+        await f.Db.SaveChangesAsync();
+
+        var data = await f.Service.GetAsync(f.Context, f.Trip.Id, default);
+        var expected = ExpensePolicy.Breakdown(data.Items, data.Settings.Currency);
+        var breakdown = await f.Service.BreakdownAsync(f.Context, f.Trip.Id, default);
+        Assert.Equal("USD", breakdown.Currency);
+        Assert.Equal(expected.Categories, breakdown.Categories);
+        Assert.Equal(expected.Days, breakdown.Days);
+        var category = Assert.Single(breakdown.Categories);
+        Assert.Equal(20m, category.Total);
+        Assert.Equal(2, category.Pending);
+        Assert.Equal(20m, Assert.Single(breakdown.Days).Total);
+    }
+
+    [Fact]
+    public async Task EmptyBreakdownKeepsTheConfiguredCurrency()
+    {
+        await using var f = await Fixture.Create();
+        f.Trip.ExperienceMode = ExperienceMode.CuratedPremium;
+        await f.Db.SaveChangesAsync();
+        await f.Service.SaveSettingsAsync(f.Context, f.Trip.Id, new("GBP", null, 0, Guid.NewGuid()), default);
+        var breakdown = await f.Service.BreakdownAsync(f.Context, f.Trip.Id, default);
+        Assert.Equal("GBP", breakdown.Currency);
+        Assert.Empty(breakdown.Categories);
+        Assert.Empty(breakdown.Days);
+    }
+
     private sealed class Rates : IExpenseRateService
     {
         public decimal? Rate = .006m;

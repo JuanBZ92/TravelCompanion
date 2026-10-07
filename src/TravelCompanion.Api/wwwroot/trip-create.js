@@ -25,7 +25,12 @@
         rows().forEach((row, index) => {
             row.querySelectorAll("[name]").forEach((input) => {
                 input.name = input.name.replace(/CitySegments\[\d+\]/, `CitySegments[${index}]`);
+                input.id = input.name.replace(/[.\[\]]/g, "_");
             });
+            row.querySelectorAll("[data-valmsg-for]").forEach((message) => {
+                message.dataset.valmsgFor = message.dataset.valmsgFor.replace(/CitySegments\[\d+\]/, `CitySegments[${index}]`);
+            });
+            initializeAdminValidation(row);
         });
         rows().forEach((row) => {
             row.querySelector("[data-remove-city]").disabled = rows().length === 1;

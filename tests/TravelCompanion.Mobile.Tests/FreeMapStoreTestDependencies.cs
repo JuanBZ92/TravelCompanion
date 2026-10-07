@@ -5,6 +5,42 @@ namespace TravelCompanion.Mobile.Services;
 // Controlled I/O for tests that execute the production FreeMapStore.
 public sealed class TravelCompanionApiClient
 {
+    public int OfferRequests;
+    public int PurchaseIntentRequests;
+    public int VerificationRequests;
+    public int PassRestoreRequests;
+    public int SelectTripRequests;
+    public string? LastOfferToken;
+    public Func<Guid, PaywallEntryPoint, Task<PaywallOfferDto?>> FetchOffer { get; set; } = (_, _) => Task.FromResult<PaywallOfferDto?>(null);
+    public Func<CreatePurchaseIntentDto, Task<PurchaseIntentDto?>> CreateIntent { get; set; } = _ => Task.FromResult<PurchaseIntentDto?>(null);
+    public Func<VerifyPurchaseDto, Task<PassAccessDto?>> VerifyPurchase { get; set; } = _ => Task.FromResult<PassAccessDto?>(null);
+    public Func<Task<IReadOnlyList<PassAccessDto>>> RestorePasses { get; set; } = () => Task.FromResult<IReadOnlyList<PassAccessDto>>([]);
+    public Func<Guid, Task<AuthSessionDto?>> SelectTrip { get; set; } = _ => Task.FromResult<AuthSessionDto?>(null);
+    public Func<string, Task<AuthSessionDto?>> VerifyEmail { get; set; } = _ => Task.FromResult<AuthSessionDto?>(null);
+    public Task<PaywallOfferDto?> GetPaywallOfferAsync(string token, Guid trip, PaywallEntryPoint entry, string platform, CancellationToken ct)
+    { OfferRequests++; LastOfferToken = token; return FetchOffer(trip, entry); }
+    public Task<PurchaseIntentDto?> CreatePurchaseIntentAsync(string token, CreatePurchaseIntentDto request, CancellationToken ct)
+    { PurchaseIntentRequests++; return CreateIntent(request); }
+    public Task<PurchaseIntentDto?> CancelPurchaseIntentAsync(string token, Guid intent, CancellationToken ct) => Task.FromResult<PurchaseIntentDto?>(null);
+    public Task<PassAccessDto?> VerifyPurchaseAsync(string token, VerifyPurchaseDto request, CancellationToken ct)
+    { VerificationRequests++; return VerifyPurchase(request); }
+    public Task<IReadOnlyList<PassAccessDto>> RestorePassesAsync(string token, CancellationToken ct)
+    { PassRestoreRequests++; return RestorePasses(); }
+    public Task<AuthSessionDto?> SelectAccountTripAsync(string token, Guid trip, CancellationToken ct)
+    { SelectTripRequests++; return SelectTrip(trip); }
+    public Task<EmailCodeRequestedDto?> RequestEmailCodeAsync(string? token, string email, string locale, CancellationToken ct) =>
+        Task.FromResult<EmailCodeRequestedDto?>(new(DateTimeOffset.UtcNow.AddMinutes(10), DateTimeOffset.UtcNow.AddMinutes(1)));
+    public Task<AuthSessionDto?> VerifyEmailCodeAsync(string? token, string email, string code, CancellationToken ct) => VerifyEmail(email);
+    public Task<AuthSessionDto?> RedeemTravelPassAsync(string token, string pin, CancellationToken ct) => Task.FromResult<AuthSessionDto?>(null);
+    public int DocumentRequests;
+    public Func<CancellationToken, Task<ApiCallResult<TravelDocsDto>>> FetchDocuments { get; set; } = _ =>
+        Task.FromResult(ApiCallResult<TravelDocsDto>.TransientFailure());
+    public Task<ApiCallResult<TravelDocsDto>> GetTravelDocsResultAsync(string token, CancellationToken ct)
+    { DocumentRequests++; return FetchDocuments(ct); }
+    public int PreparationRequests;
+    public Func<CancellationToken, Task<List<TripPreparationItemDto>?>> FetchPreparation { get; set; } = _ => Task.FromResult<List<TripPreparationItemDto>?>([]);
+    public Task<List<TripPreparationItemDto>?> GetPreparationAsync(string token, Guid tripId, CancellationToken ct)
+    { PreparationRequests++; return FetchPreparation(ct); }
     public Task NotifyItineraryChangedAsync() => Task.CompletedTask;
     public Func<Task<ExpensesDto>> FetchExpenses = () => throw new HttpRequestException();
     public Func<Guid, SaveExpenseRequest, Task<SaveExpenseResult>> SaveExpense = (_, _) => throw new HttpRequestException();
@@ -25,14 +61,16 @@ public sealed class TravelCompanionApiClient
     public Task<JournalSaveResult> SaveJournalAsync(string token, Guid trip, Guid activity, SaveJournalNoteRequest request, CancellationToken ct) => SaveJournal(request);
     public Uri BaseAddress { get; } = new("https://example.invalid/");
     public int CityRequests;
+    public int CitiesRequests;
     public Func<Task<FreeMapPreviewDto?>> FetchCity = () => Task.FromResult<FreeMapPreviewDto?>(null);
+    public Func<Task<IReadOnlyList<FreeMapCityDto>?>> FetchCities = () => Task.FromResult<IReadOnlyList<FreeMapCityDto>?>([]);
     public Task<FreeMapPreviewDto?> GetFreeMapCityAsync(string token, string city, CancellationToken ct)
     {
         Interlocked.Increment(ref CityRequests);
         return FetchCity();
     }
-    public Task<IReadOnlyList<FreeMapCityDto>?> GetFreeMapCitiesAsync(string token, CancellationToken ct) =>
-        Task.FromResult<IReadOnlyList<FreeMapCityDto>?>([]);
+    public Task<IReadOnlyList<FreeMapCityDto>?> GetFreeMapCitiesAsync(string token, CancellationToken ct)
+    { CitiesRequests++; return FetchCities(); }
 }
 
 public sealed class OfflineCacheService
@@ -77,9 +115,11 @@ public sealed class OfflineCacheService
     }
 }
 public sealed record OfflineCacheResult<T>(T Value, DateTimeOffset SavedAt, OfflineCacheMetadata? Metadata = null);
-public sealed record OfflineCacheMetadata;
+public sealed record OfflineCacheMetadata(string? DataVersion = null);
 public sealed class MobileSyncStateStore
 {
+    public MobileSyncStateDto? CachedState { get; set; }
+    public Task<MobileSyncStateDto?> GetCachedStateAsync(CancellationToken ct = default) => Task.FromResult(CachedState);
     public Task<OfflineCacheMetadata> CreateCacheMetadataAsync(string scope, string version,
         Guid? destinationId = null, string? destinationSlug = null, CancellationToken cancellationToken = default) => Task.FromResult(new OfflineCacheMetadata());
 }

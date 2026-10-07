@@ -51,6 +51,41 @@ nav a {
     text-decoration: none;
 }
 
+.topbar { flex-wrap: wrap; gap: 16px; }
+.admin-navigation { align-items: center; flex-wrap: wrap; gap: 8px; }
+.admin-navigation > a, .nav-group summary, .nav-group-links a {
+    box-sizing: border-box; min-height: 48px; padding: 14px 16px;
+}
+.nav-group { position: relative; }
+.nav-group summary { cursor: pointer; border-radius: 8px; color: var(--muted); font-weight: 600; }
+.nav-group.is-active summary, .nav-group-links a[aria-current="page"] {
+    color: var(--accent); background: var(--accent-soft);
+}
+.nav-group-links {
+    position: absolute; top: 100%; right: 0; z-index: 20; display: grid; min-width: 220px;
+    padding: 6px; border: 1px solid var(--line); border-radius: 10px;
+    background: var(--surface); box-shadow: 0 6px 20px rgba(23, 33, 43, .12);
+}
+.nav-group-links a { display: block; border-radius: 6px; }
+.nav-group-links a:hover { background: var(--surface-soft); }
+a:focus-visible, button:focus-visible, summary:focus-visible {
+    outline: 3px solid var(--accent); outline-offset: 3px;
+}
+.pagination { align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
+.pagination .button { min-height: 44px; box-sizing: border-box; }
+.trip-search { flex-wrap: wrap; }
+.trip-search select { width: auto; min-width: 160px; }
+@media (max-width: 800px) {
+    .topbar { padding: 12px 16px; }
+    .admin-navigation { width: 100%; position: relative; }
+    .nav-group { flex: 1; min-width: 130px; position: static; }
+    .nav-group-links {
+        left: 0; right: 0; min-width: 0; box-sizing: border-box;
+        max-height: 60vh; overflow-y: auto; overflow-wrap: anywhere;
+    }
+    .shell { padding: 20px 16px; }
+}
+
 .shell {
     margin: 0 auto;
     max-width: 1220px;
@@ -131,10 +166,13 @@ label {
 input,
 select,
 textarea {
+    background: var(--surface);
     border: 1px solid var(--line);
     border-radius: 6px;
     box-sizing: border-box;
+    color: var(--text);
     font: inherit;
+    min-width: 0;
     padding: 9px 10px;
     width: 100%;
 }
@@ -465,5 +503,28 @@ th {
         --success-bg: #0f2418;
         --success-line: #1f6b3b;
         --success-text: #abefc6;
+    }
+}
+
+@media (max-width: 700px) {
+    .shell {
+        padding: 20px 16px;
+    }
+
+    .page-heading,
+    .section-header,
+    .actions {
+        flex-wrap: wrap;
+    }
+
+    .page-heading > *,
+    .section-header > *,
+    .pagination > * {
+        min-width: 0;
+        overflow-wrap: anywhere;
+    }
+
+    .pagination {
+        max-width: 100%;
     }
 }

@@ -87,23 +87,69 @@ document.querySelectorAll("[data-progress-form]").forEach((form) => {
     const message = form.querySelector("[data-submit-progress-message]");
 
     form.addEventListener("submit", (event) => {
-        if (!progress) {
+        if (!progress || event.defaultPrevented || !form.checkValidity()) {
             return;
         }
 
         const submitter = event.submitter;
         const loadingMessage = submitter?.dataset.loadingMessage ?? "Procesando...";
 
-        progress.hidden = false;
-        form.setAttribute("aria-busy", "true");
-        if (message) {
-            message.textContent = loadingMessage;
-        }
-
+        // Page-specific publish/discard confirmations run before progress disables any controls.
         requestAnimationFrame(() => {
+            if (event.defaultPrevented) return;
+            progress.hidden = false;
+            form.setAttribute("aria-busy", "true");
+            if (message) message.textContent = loadingMessage;
             form.querySelectorAll("button[type='submit']").forEach((button) => {
                 button.disabled = true;
             });
         });
     });
 });
+
+// Native HTML validation augments server validation; the server remains authoritative.
+function initializeAdminValidation(root = document) {
+    root.querySelectorAll("input[data-val], select[data-val], textarea[data-val]").forEach((control) => {
+        if (!control.form) return;
+        // Non-nullable booleans receive data-val-required even though false is valid.
+        if (control.dataset.valRequired && !["hidden", "checkbox", "radio"].includes(control.type)) control.required = true;
+        if (control.dataset.valRegexPattern && !control.pattern) control.pattern = control.dataset.valRegexPattern;
+        if (control.dataset.valLengthMax && !control.hasAttribute("maxlength"))
+            control.maxLength = Number(control.dataset.valLengthMax);
+        const message = [...control.form.querySelectorAll("[data-valmsg-for]")]
+            .find((candidate) => candidate.dataset.valmsgFor === control.name);
+        if (message) {
+            const previousMessageId = message.id;
+            message.id = `${control.id || control.name}-validation`;
+            const describedBy = (control.getAttribute("aria-describedby") ?? "").split(/\s+/)
+                .filter((id) => id && id !== previousMessageId && id !== message.id);
+            control.setAttribute("aria-describedby", [...describedBy, message.id].join(" "));
+        }
+        if (control.dataset.adminValidationBound) return;
+        control.dataset.adminValidationBound = "true";
+        control.addEventListener("invalid", () => {
+            control.setAttribute("aria-invalid", "true");
+            control.classList.add("input-validation-error");
+            if (message) {
+                message.textContent = control.validity.valueMissing ? control.dataset.valRequired
+                    : control.validity.patternMismatch ? control.dataset.valRegex : control.validationMessage;
+                message.className = "field-validation-error";
+            }
+        });
+        control.addEventListener("input", () => {
+            if (!control.validity.valid) return;
+            control.removeAttribute("aria-invalid");
+            control.classList.remove("input-validation-error");
+            if (message) { message.textContent = ""; message.className = "field-validation-valid"; }
+        });
+    });
+}
+initializeAdminValidation();
+
+const firstValidationError = document.querySelector(".input-validation-error:not([type='hidden'])")
+    ?? document.querySelector(".validation-summary-errors");
+if (firstValidationError) {
+    if (!firstValidationError.matches("input, select, textarea, button")) firstValidationError.setAttribute("tabindex", "-1");
+    firstValidationError.focus();
+    firstValidationError.scrollIntoView({ block: "center", behavior: "auto" });
+}

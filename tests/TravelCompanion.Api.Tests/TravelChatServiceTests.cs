@@ -10,7 +10,7 @@ using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Api.Tests;
 
-public sealed class TravelChatServiceTests
+public sealed partial class TravelChatServiceTests
 {
     [Fact]
     public async Task CreatePlanAsync_returns_structured_cards_from_user_reservations()

@@ -115,9 +115,7 @@ public sealed class ExpenseService(TravelCompanionDbContext db, UserSessionServi
         var trip = await Authorize(context, tripId, ct);
         if (!await Premium(trip, ct)) throw new ExpensePremiumException();
         var data = (await Items(trip).AsNoTracking().Where(x => !x.Deleted).ToListAsync(ct)).Select(ToDto).ToArray();
-        return new(data.GroupBy(x => x.Category).Select(g => new ExpenseCategoryTotal(g.Key, ExpensePolicy.Total(g), g.Count(x => x.Rate is null))).ToArray(),
-            data.GroupBy(x => x.Date).Select(g => new ExpenseDayTotal(g.Key, ExpensePolicy.Total(g), g.Count(x => x.Rate is null))).OrderBy(x => x.Date).ToArray(),
-            data.FirstOrDefault()?.BaseCurrency ?? (await Settings(trip, ct)).Currency);
+        return ExpensePolicy.Breakdown(data, (await Settings(trip, ct)).Currency);
     }
     public async Task<string> ExportAsync(HttpContext context, Guid tripId, CancellationToken ct)
     {

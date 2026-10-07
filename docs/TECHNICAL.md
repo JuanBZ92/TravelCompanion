@@ -33,7 +33,7 @@ Este documento describe como esta construido el proyecto y debe mantenerse actua
 
 ## Infraestructura target
 
-La infraestructura cloud objetivo para el MVP usa Azure y Terraform.
+El repositorio incluye una opción Azure declarada con Terraform y procedimientos Render en docs/render-deploy.md. La configuración y el runbook del entorno publicado determinan la infraestructura vigente.
 
 Recursos base:
 
@@ -71,7 +71,7 @@ Notas operativas del ambiente cloud dev:
 - La password de PostgreSQL no puede contener `;`, porque se embebe en una connection string almacenada en Key Vault.
 - La Web App usa Managed Identity para leer secretos de Key Vault.
 - El deploy manual de App Service Linux debe usar un ZIP con paths `/`; en Windows evitar `Compress-Archive` para este caso y usar el script de `infra/terraform/README.md`.
-- El primer arranque cloud sobre una DB nueva puede tardar 1 a 2 minutos por migraciones y seed.
+- Las migraciones y el seed se ejecutan explícitamente según el runbook; el arranque normal de producción no los aplica.
 
 ## Desarrollo local
 
@@ -134,7 +134,7 @@ Indices principales orientados a query:
 - `AppUserSessions`: `TokenHash` unico y compuesto `(UserId, RevokedAt)`.
 - `UserEntitlements`: compuestos `(UserId, ExpiresAt)`, `(TravelPackageId, ExpiresAt)`, `(DestinationId, ExpiresAt)`.
 
-Migraciones existentes:
+Migraciones iniciales (referencia histórica; listado completo en src/TravelCompanion.Api/Data/Migrations):
 
 - `InitialCreate`
 - `AddContentAccessLevels`
@@ -222,7 +222,7 @@ Observabilidad API:
   - `SlowRequestThresholdMs`;
   - `SlowDependencyThresholdMs`;
   - `CorrelationHeaderName`.
-- `GET /api/mobile/discover` agrega header `Server-Timing` con duraciones por fase (`session`, `destination`, `recommendations`, `total`) y un log estructurado con conteos. Es el endpoint rapido de la tab `Ideas`.
+- `GET /api/mobile/discover` agrega header `Server-Timing` con duraciones por fase (`session`, `destination`, `recommendations`, `total`) y un log estructurado con conteos. Se conserva como contrato reducido de catálogo; la antigua tab Ideas fue retirada.
 - `GET /api/mobile/bootstrap` agrega header `Server-Timing` con duraciones por fase (`session`, `destination`, `recommendations`, `packages`, `schedule`, `total`) y un log estructurado con conteos. Esto permite separar si una demora mobile viene de autenticacion/sesion, query de recomendaciones, paquetes, schedule o serializacion/respuesta completa.
 
 Los listados `destinations`, `packages` y `recommendations` aceptan paginacion simple:
@@ -283,12 +283,12 @@ Controles de acceso actuales para datos de usuario/viaje:
 - paquetes del destino con `isUnlocked`;
 - schedule vigente del usuario si existe.
 
-`GET /api/mobile/discover` es un endpoint autenticado y mas chico para la primera carga de `Ideas`. Devuelve solo:
+`GET /api/mobile/discover` conserva un contrato autenticado reducido de catálogo. Devuelve solo:
 
 - destino seleccionado;
 - recomendaciones del destino ya filtradas por acceso del usuario.
 
-La app usa este endpoint para pintar `Ideas` antes y luego precalienta `/api/mobile/bootstrap` en background para que `Mapa`, `Viaje` y `Packs` queden listos.
+La navegación actual usa el bootstrap compartido para Mapa y Viaje. Los contratos y datos de paquetes siguen incluidos para permisos y consulta offline, aunque no existe una tab Packs.
 
 `GET /api/packages` acepta token bearer opcional. Si recibe una sesion valida, devuelve cada `TravelPackageDto` con:
 
@@ -305,7 +305,8 @@ El admin vive en Razor Pages:
 - `/admin/destinations`: CRUD simple de destinos.
 - `/admin/packages`: CRUD simple de paquetes por destino y gestion de usuarios asignados al paquete seleccionado.
 - `/admin/recommendations`: CRUD simple de recomendaciones con selector de acceso `Free`, `Suscripcion` o `Paquete`; el selector multi-paquete aparece solo cuando corresponde.
-- `/admin/reservations`: gestion de viajes por usuario/destino y CRUD de reservas por viaje.
+- `/admin/trips`: editor de viaje, borrador y publicación; lista paginada de 50 con búsqueda, filtro y conteos.
+- `/admin/reservations`: CRUD de reservas filtradas por viaje.
 - `/admin/users`: gestion de usuarios y asignacion/eliminacion de entitlements.
 - `/login` y `/logout`: autenticacion por cookie.
 
@@ -334,115 +335,39 @@ Las credenciales locales estan en `src/TravelCompanion.Api/appsettings.Developme
 
 ## Mobile
 
-La app MAUI usa Shell y tabs:
+La navegación principal de Shell contiene Viaje, Mapa, Asistente, Journal y Cuenta. El pase se presenta de forma contextual. Login y desbloqueo son rutas de autenticación; Documentos, Preparación, búsqueda del viaje y resumen de mañana son flujos secundarios.
 
-- Login
-- Ideas
-- Mapa
-- Viaje
-- Packs
-- Cuenta
+Las antiguas pantallas `RecommendationsPage`/`PackagesPage`, sus ViewModels y modelos exclusivos fueron retirados tras comprobar que solo se referenciaban entre sí y desde DI. No tenían tab ni ruta registrada. Se conservan `RecommendationDetailPage`, el catálogo completo del bootstrap, los contratos de paquetes, la API y el almacenamiento offline. `MobileDiscoverStore` se conserva porque participa en la invalidación y limpieza de sesión.
 
-Servicios principales:
+### Estado, conexión y sincronización
 
-- `TravelCompanionApiClient`: cliente HTTP hacia la API.
-- `AuthSessionService`: guarda metadata de sesion en Preferences y token en SecureStorage.
-- `BiometricUnlockService`: integra autenticacion biometrica local con `Oscore.Maui.Biometric`.
-- `OfflineCacheService`: guarda snapshots offline cifrados (AES-GCM) en `FileSystem.AppDataDirectory` usando una clave simetrica por dispositivo protegida en `SecureStorage`.
-- `MobileBootstrapStore`: coordina el snapshot mobile agregado de Japon, lo expone local-first y evita que cada tab tenga que pedir endpoints separados. Tambien mantiene una ventana corta de frescura en memoria para que las tabs no vuelvan a refrescar `/api/mobile/bootstrap` inmediatamente despues de que otra tab ya lo actualizo. El snapshot en disco vence a las 6 horas.
-- `MobileBootstrapStore` coalesce refreshes concurrentes: si Discover esta precalentando bootstrap y otra tab lo pide al mismo tiempo, se reutiliza la misma request en vuelo.
-- `MobileDiscoverStore`: coordina el snapshot reducido de `Ideas` (`/api/mobile/discover`) para que la primera carga de recomendaciones no tenga que esperar schedule ni paquetes. El snapshot en disco vence a las 6 horas.
-- `FavoritesService`: favoritos locales usando Preferences.
+- `AuthSessionService` guarda metadata de sesión en Preferences y el token en SecureStorage. Captura de usuario, viaje y `ContextVersion` protege operaciones que podrían terminar después de cambiar de contexto.
+- `MobileBootstrapStore` publica primero la copia local de catálogo, accesos y agenda; comparte consultas en vuelo y una ventana de frescura en memoria. `MobileTodayStore` mantiene el estado por día. `MobileSyncStateStore` compara versiones y `OfflineSyncCoordinator` coordina actualizaciones y mutaciones pendientes.
+- `OfflineCacheService` cifra snapshots y estado local con AES-GCM; la clave del dispositivo permanece en SecureStorage. No se descargan tiles del mapa para usarlo sin conexión.
+- `DayPlannerStore` conserva las propuestas del usuario. La planificación permite añadir alternativas o reorganizar los planes elegidos, comparando agenda actual/propuesta y conservando las reservas fijas.
+- `JournalStore` conserva identidades independientes para notas de actividades y entradas libres, borradores, portadas y cambios pendientes. Sincroniza notas confirmadas; fotos y borradores permanecen locales. Las listas de Journal cargan miniaturas y usan las fotos completas al abrirlas. Un tombstone recibido por GET o Save conserva las mutaciones pendientes y sus fotos como conflicto hasta la resolución explícita, sin resucitar el registro remoto. Las migraciones canceladas y copias de vinculación fallidas conservan el origen para reintentar.
+- `ExpenseStore` mantiene gastos y moneda base localmente, recupera cargas sin desechar contenido y coalesce operaciones de sincronización. Los conflictos de ajustes o cotización mantienen los cambios pendientes. El ACK de presupuesto sólo rebasa el sucesor local de su propia mutación con la misma revisión de origen; no limpia ni cambia su identidad y no rebasa conflictos procedentes de otro dispositivo o de un editor obsoleto. `ExpensePolicy.Breakdown` es el cálculo compartido por API y móvil: excluye eliminados, cuenta cotizaciones ausentes o de otra moneda y usa la moneda configurada.
+- `TripDocumentAttachmentService` comparte el selector/validación entre Documentos y Preparación. Admite PDF, JPEG y PNG hasta 20 MB; los archivos y metadatos personales quedan cifrados por cuenta/viaje.
+- `TripPreparationOrganizerStore` mantiene documentos y decisiones manuales independientes. La importación de checks antiguos ocurre una sola vez; la petición opcional en segundo plano no bloquea adjuntos ni decisiones locales, ni se repite después de cada edición. La analítica opcional también queda fuera de la espera de la acción local.
+- Documentos distingue vacío, fallo de carga, copia conservada y desconexión. Reintentar fuerza la actualización remota cuando hay conexión; un fallo no borra el contenido ya visible. Las versiones permiten reutilizar el catálogo incluido cuando sigue vigente.
 
-`TravelCompanionApiClient` usa opciones JSON compartidas con `JsonStringEnumConverter` para leer enums serializados como strings por la API.
-En builds Debug, el cliente mobile registra tiempos de `/api/mobile/discover` y `/api/mobile/bootstrap`: tiempo hasta headers, tiempo de body/deserializacion JSON y `Server-Timing` recibido desde la API. `MobileDiscoverStore` y `MobileBootstrapStore` registran hit/miss de cache en memoria/disco y tiempo de refresh/cacheado. `RecommendationsViewModel` registra tiempo de aplicar discover, filtros y cambios de pagina. Estos logs se ven en Output/Logcat y sirven para diagnosticar si una carga lenta viene de red/API, cache cifrado o render/aplicacion de UI.
-En Android Debug, `MobileDiagnosticsLoggerProvider` escribe logs con tag `TravelCompanion` y prefijo `TCMOBILE`, ademas de `Debug.WriteLine`, para que sean faciles de filtrar desde Visual Studio o `adb logcat`.
+El logout marca la sesión cerrada antes de navegar o limpiar servicios, revoca/elimina credenciales y resetea estados visibles. La eliminación de cuenta/viaje limpia sus datos locales y metadatos. El contenido privado de otro usuario no puede reutilizarse como fallback.
 
-El flujo mobile actual:
+### Desbloqueo y permisos
 
-1. La app abre en `LoginPage` si no hay sesion local.
-2. El usuario ingresa email y password temporal de una cuenta creada en `/admin/users`.
-3. La app guarda `AuthSessionDto` localmente.
-4. Si `mustChangePassword = true`, navega a `ChangePasswordPage`.
-5. Si hay sesion valida y biometria habilitada, el arranque navega a `BiometricUnlockPage`.
-6. Si la biometria pasa, entra a la app; si falla/cancela, puede volver a login con password.
-7. Ideas usa `MobileDiscoverStore`, que lee primero el snapshot reducido local y luego refresca `/api/mobile/discover`.
-8. Despues de cargar Ideas, la app precalienta `/api/mobile/bootstrap` en background para Mapa, Viaje y Packs.
-9. Mapa, Viaje y Packs usan `MobileBootstrapStore`, que lee primero el snapshot local y luego refresca `/api/mobile/bootstrap` cuando hace falta.
-10. Ideas y Mapa aplican paginacion local sobre las recomendaciones desbloqueadas para limitar el trabajo de render y mejorar scroll. El refresh conserva la pagina actual cuando los datos refrescados siguen teniendo esa pagina disponible.
-11. Mapa calcula distancia localmente desde las recomendaciones del bootstrap y pasa el estado de acceso al detalle.
-12. Viaje permite alternar por tipo de reserva (`Eventos`, `Vuelos`, `Hospedajes`) y luego filtrar por ciudad dentro del tipo seleccionado.
-13. Cuenta permite activar/desactivar biometria.
-14. `Bloquear app` conserva token local y navega al desbloqueo biometrico/password.
-15. `Cerrar sesion` revoca la sesion en API, borra token local, limpia snapshots offline del usuario y exige login con password.
+`BiometricUnlockService` usa `Oscore.Maui.Biometric` con los permisos nativos de Android y el texto de Face ID en iOS. Cuenta permite elegir biometría o PIN/código por correo. La preferencia es local por usuario y sobrevive a nuevas sesiones, cambio de viaje y cambio de contraseña; eliminar la cuenta elimina su preferencia.
 
-Las pantallas principales usan estrategia offline `local first`:
+`LocalUnlockRouting` mantiene la pantalla de verificación al elegir PIN. `BiometricUnlockViewModel` envía esa elección al login existente; nunca abre la agenda por haber deshabilitado biometría. El PIN/código requiere backend y conexión. La biometría puede desbloquear una sesión guardada sin conexión. Se conserva el comportamiento previo de cuentas gratuitas que todavía no han hecho una elección explícita. Un cambio de cuenta o método durante el diálogo nativo invalida su resultado.
 
-- leen primero el ultimo snapshot disponible y lo renderizan inmediatamente;
-- despues intentan descargar datos frescos;
-- si otra tab ya refresco el bootstrap recientemente, reutilizan ese snapshot fresco y evitan una segunda llamada de red inmediata;
-- si la descarga funciona, actualizan pantalla y snapshot local;
-- si falla la red/API, conservan la pantalla local y muestran `StatusMessage`;
-- si no existe snapshot, muestran el error normal.
+Los permisos del pase se resuelven en el backend y se mantienen en el estado de sesión. Adjuntos personales, Preparación, Journal y registro básico de gastos están disponibles con viaje activo; documentos curados, asistente, rutas, descargas offline y reportes conservan sus reglas de acceso. La compra y restauración necesitan verificación del servidor.
 
-Snapshots actuales:
+### Presentación y diagnóstico
 
-- discover mobile por usuario y destino, usado por Ideas;
-- bootstrap mobile por usuario y destino (cache key con `destinationSlug`), usado por Mapa, Viaje y Packs, y precalentado despues de Ideas;
-- recomendaciones cercanas, schedule y paquetes se derivan de ese bootstrap compartido.
+Pages XAML/C# y ViewModels de CommunityToolkit.Mvvm comparten DTOs de `TravelCompanion.Shared`. `EditorialUi`, `Colors.xaml` y `Styles.xaml` centralizan papel cálido, títulos serif, texto, espaciado, bordes y acciones de al menos 48 dp. Los flujos modificados están localizados en español e inglés, con descripciones accesibles, estados de guardado, errores enfocables y reintento.
 
-Los snapshots son de solo lectura para fallback. No hay sincronizacion bidireccional ni descarga offline de tiles de mapas o imagenes.
+Viaje, Journal y Documentos conservan listas virtualizadas. Mapa compara el contenido visible antes de reemplazar colecciones; los cambios equivalentes no reconstruyen todos los pins. La búsqueda del viaje trabaja sobre el snapshot local, respeta tipo/ciudad/fechas y evita consultas por cada pulsación. El resumen de mañana deriva primera reserva y hotel de la misma agenda y ofrece sus acciones sin una petición independiente.
 
-Formato de cache offline:
-
-- El contenido sensible (schedule, recomendaciones, entitlements y paquetes) se serializa y cifra con AES-GCM.
-- La clave de cifrado se guarda en `SecureStorage` (`offline_cache_encryption_key_v1`).
-- El archivo local contiene solo un envelope cifrado (`version`, `nonce`, `tag`, `ciphertext`).
-- Los snapshots de Discover/Bootstrap se ignoran y borran si superan 6 horas de antiguedad.
-- Al cerrar sesion se borran los snapshots `mobile-discover-*` y `mobile-bootstrap-*` asociados al usuario actual.
-- Si existe cache legacy en texto plano, se lee una vez y se migra automaticamente al formato cifrado.
-
-Decision vigente: por ahora no implementamos delta sync completo porque la app es mayormente read-only. La prioridad tecnica es mantener snapshots offline confiables, endpoints no chatty y agregar sync solo cuando existan mutaciones reales desde mobile.
-
-Mejora futura de performance mobile: medir y reducir el costo de lectura/deserializacion del cache cifrado en frio. En las pruebas Android reales, luego de corregir el scope `auto`/`japon`, el cache cross-tab queda en memory hit, pero el primer `disk cache hit` de `MobileDiscoverStore` puede tardar cientos de milisegundos. Queda anotado optimizar ese primer acceso si vuelve a ser perceptible, por ejemplo con warm-up en background, source generation de JSON o reutilizando un snapshot ya disponible en memoria desde bootstrap.
-
-La biometria desbloquea localmente una sesion ya existente. La autenticacion real contra el backend sigue siendo email/password + token bearer.
-
-La pantalla de login tambien muestra acceso a biometria cuando existe una sesion local habilitada. Si el usuario cerro sesion completamente, no se muestra porque el token fue revocado y eliminado.
-
-Permisos/configuracion biometrica:
-
-- Android: `USE_FINGERPRINT` hasta SDK 27 y `USE_BIOMETRIC` desde SDK 28.
-- iOS: `NSFaceIDUsageDescription` en `Info.plist`.
-
-Patron de UI:
-
-- Pages XAML.
-- ViewModels con CommunityToolkit.Mvvm.
-- DTOs compartidos desde `TravelCompanion.Shared`.
-- Las listas mobile mas sensibles a scroll usan filas livianas, altura estable y separadores simples en vez de cards pesadas con multiples bordes anidados.
-- `Ideas`, `Mapa`, `Viaje` y `Packs` renderizan la pagina visible completa con `ScrollView` + `BindableLayout`. Como estas pantallas estan paginadas o acotadas, se evita el costo de materializar celdas por primera vez mientras el usuario scrollea.
-- `Ideas` usa cache visual lazy por pagina (`RecommendationPageViewModel`): renderiza solo la pagina actual en la primera carga y conserva en memoria las paginas que el usuario ya visito. Esto evita una carga inicial pesada y mantiene rapido el regreso a paginas ya visitadas.
-- Los ViewModels de tabs principales (`Ideas`, `Mapa`, `Viaje`, `Packs`) son singletons durante la sesion mobile. Cada tab carga una vez en `OnAppearing`; al volver a una tab ya visitada se reutiliza el estado en memoria y el boton `refresh` queda como recarga manual.
-- Las Pages de tabs principales tambien son singletons y se asignan explicitamente al `Shell` al construir `AppShell`, para evitar reconstruir XAML al cambiar de tab.
-- El logout resetea esos estados de sesion para evitar mostrar contenido cacheado de otro usuario.
-- Las pantallas principales muestran spinner durante la primera carga solo cuando todavia no tienen contenido local para renderizar. Si existe snapshot local, se renderiza inmediatamente aunque el refresh de red siga en curso.
-- Las tabs con datos remotos (`Ideas`, `Mapa`, `Viaje`, `Packs`) exponen `LastUpdatedMessage` desde `ViewModelBase` para mostrar la ultima copia renderizada, ya venga de cache offline o de refresh fresco.
-- Los estados de error usan panel uniforme con accion `Reintentar` conectada al comando de carga de cada tab; los estados informativos/offline usan `NoticePanel` y se mantienen visualmente sobrios. Las tabs principales no muestran botones de refresh permanentes en headers; la recarga manual queda contextualizada en estados de error.
-- Los controles de paginacion usan `PagerButton`: botones de texto/chevron sin borde circular para mantener una UI mas sobria y menos pesada.
-- `Viaje` selecciona al abrir el tipo de reserva de la reserva vigente/proxima mas cercana, filtra reservas vencidas y muestra solo ciudades con reservas futuras o vigentes para ese tipo.
-- `Viaje` usa `CollectionView` agrupado por dia para recuperar virtualizacion en viajes largos, con filas de reserva de altura estable y headers de dia. Tambien cachea secciones por tipo/filtro (`Eventos`, `Vuelos`, `Hospedajes`) para reducir reconstrucciones al cambiar de tipo.
-- Los filtros de `Viaje` usan controles compactos y sobrios: selector de tipo con fondo claro y acento sutil, ciudades como filtros secundarios de baja presencia visual, y sin bloques oscuros pesados en el header.
-- Los taps de filas/chips en `Ideas`, `Mapa` y `Viaje` usan handlers livianos en code-behind en vez de bindings `Source={x:Reference ...}` dentro de templates calientes. Esto elimina los warnings XAML `XC0025` y reduce bindings dinamicos durante scroll/render.
-- Los `CollectionView` que siguen en mobile quedan reservados para listas chicas de filtros/chips o escenarios donde la virtualizacion compense el costo de crear celdas al vuelo.
-- Las filas evitan `SwipeView` cuando no hay acciones reales de swipe, porque en Android agrega costo visible al crear vistas nuevas durante el scroll.
-- Las listas que navegan a detalle usan `SelectionMode=None` y abren con `TapGestureRecognizer`, evitando el estado visual seleccionado de Android al volver atras.
-- Los textos inmutables de celdas (titulo, descripcion, categoria, ciudad, horarios) usan bindings `Mode=OneTime` para reducir re-evaluaciones durante scroll.
-- Las cards de listas principales usan bordes sobrios de radio bajo, sin sombras, para mantener estilo minimalista y bajo costo visual.
-- Estilos globales en `Resources/Styles/Colors.xaml` y `Resources/Styles/Styles.xaml`.
-- Componentes visuales reutilizables via recursos XAML: `Headline`, `SubHeadline`, `Eyebrow`, `SectionTitle`, `Metadata`, `Card`, `SoftPanel`, `GoldPill` y `GhostButton`.
-- Assets visuales locales en `Resources/Images`: hero de Japon e iconos SVG para las tabs principales.
-- Las tabs principales ocultan la nav bar nativa para evitar headers redundantes; las pantallas de detalle conservan navegacion con titulo/back.
+`TravelCompanionApiClient` y los stores registran tiempos y caché en diagnóstico. Android usa el tag `TravelCompanion`/`TCMOBILE`. Los errores de transporte nativo de Android envueltos en `WebException` se presentan como problemas de conexión; respuestas HTTP de protocolo conservan su tratamiento propio. Los logs no deben incluir tokens, parámetros privados ni contenido personal.
 
 ## Android local
 

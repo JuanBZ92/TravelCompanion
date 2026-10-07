@@ -11,6 +11,14 @@ public sealed class DocumentListGroup(string name, IEnumerable<object> rows) : O
 
 public static class DocumentListPresentation
 {
+    public static bool ShouldRequestIncludedDocuments(bool online, bool force,
+        bool hasCachedDocuments, string? cachedVersion, long? currentVersion) =>
+        online && (force || !hasCachedDocuments || currentVersion is null
+            || cachedVersion != currentVersion.Value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+
+    public static string FailureMessageKey(bool hasAvailableContent) =>
+        hasAvailableContent ? "DocsRefreshFailed" : "DocsLoadFailed";
+
     public static IReadOnlyList<DocumentListGroup> Build(
         IEnumerable<DocumentListGroup> personal,
         IEnumerable<DocumentListGroup> included,

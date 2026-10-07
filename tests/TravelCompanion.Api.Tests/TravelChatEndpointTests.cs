@@ -19,7 +19,7 @@ using TravelCompanion.Shared.Dtos;
 
 namespace TravelCompanion.Api.Tests;
 
-public sealed class TravelChatEndpointTests
+public sealed partial class TravelChatEndpointTests
 {
     private static readonly JsonSerializerOptions SnapshotJsonOptions = new(JsonSerializerDefaults.Web)
     {

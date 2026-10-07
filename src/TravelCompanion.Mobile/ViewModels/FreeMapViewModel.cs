@@ -18,6 +18,8 @@ public sealed partial class FreeMapViewModel(
     private DateTimeOffset _lastRevalidation;
     private long _revalidatedGeneration = -1;
     private string? _revalidatedCity;
+    private bool _previewExpanded;
+    private static string Text(string key) => LocalizationResourceManager.Instance[key];
 
     public ObservableCollection<FreeMapCityDto> Cities { get; } = [];
 
@@ -38,9 +40,7 @@ public sealed partial class FreeMapViewModel(
         get => _preview;
         private set
         {
-            if (_preview is not null && value is not null
-                && System.Text.Json.JsonSerializer.Serialize(_preview with { GeneratedAtUtc = default })
-                    == System.Text.Json.JsonSerializer.Serialize(value with { GeneratedAtUtc = default })) return;
+            if (MapContentComparison.SamePreview(_preview, value)) return;
             var selectedKey = _selectedMarker?.MarkerKey;
             if (SetProperty(ref _preview, value))
             {
@@ -59,6 +59,8 @@ public sealed partial class FreeMapViewModel(
         get => _selectedMarker;
         private set
         {
+            if (_selectedMarker?.MarkerKey != value?.MarkerKey || value?.Access != FreeMapMarkerAccess.Unlocked)
+                IsPreviewExpanded = false;
             if (SetProperty(ref _selectedMarker, value))
             {
                 OnPropertyChanged(nameof(HasSelection));
@@ -84,6 +86,18 @@ public sealed partial class FreeMapViewModel(
     public bool ShowMapSummary => Preview is not null && SelectedMarker is null;
     public bool HasContactUrl => !string.IsNullOrWhiteSpace(Preview?.ContactUrl);
     public bool ShowPinOnlyAction => Preview is not null && !HasContactUrl;
+    public bool IsPreviewExpanded
+    {
+        get => _previewExpanded;
+        private set
+        {
+            if (!SetProperty(ref _previewExpanded, value)) return;
+            OnPropertyChanged(nameof(PreviewTextLines));
+            OnPropertyChanged(nameof(PreviewDetailsAction));
+        }
+    }
+    public int PreviewTextLines => IsPreviewExpanded ? -1 : 2;
+    public string PreviewDetailsAction => Text(IsPreviewExpanded ? "MapHideDetailsAction" : "MapDetailsAction");
     public RecommendationDto? SelectedRecommendation => SelectedMarker?.Recommendation;
     public string SelectedRecommendationType =>
         SelectedRecommendation?.RefinedType ?? SelectedRecommendation?.Category ?? string.Empty;
@@ -93,14 +107,14 @@ public sealed partial class FreeMapViewModel(
     public string SelectedLocationText => SelectedRecommendation is null
         ? string.Empty
         : SelectedRecommendation.Rating.HasValue
-            ? $"{SelectedRecommendation.Neighborhood} · Rating {SelectedRecommendation.Rating:0.0}"
+            ? $"{SelectedRecommendation.Neighborhood} · {string.Format(Text("MapRating"), SelectedRecommendation.Rating)}"
             : SelectedRecommendation.Neighborhood;
     public string SelectedMetadataText => SelectedRecommendation is null
         ? string.Empty
-        : $"{FormatPrice(SelectedRecommendation.PriceLevel)} · {SelectedRecommendation.SuggestedDurationMinutes} min · {SelectedRecommendation.DistanceKm:0.0} km del centro";
+        : $"{FormatPrice(SelectedRecommendation.PriceLevel)} · {SelectedRecommendation.SuggestedDurationMinutes} min · {string.Format(Text("MapDistanceFromCenter"), SelectedRecommendation.DistanceKm)}";
     public string MapSummary => Preview is null
         ? string.Empty
-        : $"{Preview.UnlockedCount} lugares abiertos · {Preview.LockedCount} por descubrir";
+        : string.Format(Text("MapSummaryCounts"), Preview.UnlockedCount, Preview.LockedCount);
     public string SelectedMarkerPosition
     {
         get
@@ -144,10 +158,12 @@ public sealed partial class FreeMapViewModel(
         _lastRevalidation = DateTimeOffset.UtcNow;
         _revalidatedGeneration = freeMapStore.Generation;
         _revalidatedCity = SelectedCity?.Slug;
+        var contextVersion = sessionService.ContextVersion;
         try
         {
             var token = await RequireTokenAsync();
             await syncCoordinator.SynchronizeVersionsAsync(token, force: false);
+            if (contextVersion != sessionService.ContextVersion) return;
             await RefreshSelectedCityAsync(token, CancellationToken.None, allowCacheFallback: true);
         }
         catch (Exception) { /* Keep the current map available when offline. */ }
@@ -159,14 +175,37 @@ public sealed partial class FreeMapViewModel(
         IsRefreshing = true;
         return LoadAsync(async cancellationToken =>
         {
-            var token = await RequireTokenAsync();
+            var contextVersion = sessionService.ContextVersion;
+            var token = await RequireTokenAsync(cancellationToken);
             await syncCoordinator.SynchronizeVersionsAsync(token, force: true, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (contextVersion != sessionService.ContextVersion) return;
             if (SelectedCity is null) await LoadInitialAsync(cancellationToken);
             await RefreshSelectedCityAsync(token, cancellationToken, allowCacheFallback: true);
         });
     }
 
     public void SelectMarker(FreeMapMarkerDto marker) => SelectedMarker = marker;
+
+    [RelayCommand]
+    private void TogglePreviewDetails()
+    {
+        if (IsUnlockedSelection) IsPreviewExpanded = !IsPreviewExpanded;
+    }
+
+    [RelayCommand]
+    private async Task MoreAccessOptionsAsync()
+    {
+        var context = sessionService.ContextVersion;
+        var city = Preview?.City.Slug;
+        var key = SelectedMarker?.MarkerKey;
+        var choices = HasContactUrl ? new[] { Text("UxRequestAccess"), Text("UxHavePin") } : new[] { Text("UxHavePin") };
+        var choice = await Shell.Current.DisplayActionSheetAsync(Text("UxMoreActions"), Text("CommonCancel"), null, choices);
+        if (!sessionService.HasKnownValidAccess || context != sessionService.ContextVersion
+            || city != Preview?.City.Slug || key != SelectedMarker?.MarkerKey) return;
+        if (choice == Text("UxRequestAccess")) await ContactAsync();
+        else if (choice == Text("UxHavePin")) await UseAnotherPinAsync();
+    }
 
     [RelayCommand]
     private async Task AddSelectedToItineraryAsync()
@@ -193,7 +232,7 @@ public sealed partial class FreeMapViewModel(
             return;
         }
 
-        await GoogleMapsLauncher.OpenAsync(SelectedRecommendation);
+        if (!await GoogleMapsLauncher.OpenAsync(SelectedRecommendation)) ErrorMessage = Text("MapOpenFailed");
     }
 
     [RelayCommand]
@@ -231,12 +270,14 @@ public sealed partial class FreeMapViewModel(
         _selectedCity = null;
         OnPropertyChanged(nameof(SelectedCity));
         Preview = null;
+        SelectedMarker = null;
+        IsPreviewExpanded = false;
     }
 
     private async Task LoadInitialAsync(CancellationToken cancellationToken)
     {
         var context = freeMapStore.ContextKey;
-        var token = await RequireTokenAsync();
+        var token = await RequireTokenAsync(cancellationToken);
         var cachedCities = await freeMapStore.GetCachedCitiesAsync(cancellationToken);
         if (context != freeMapStore.ContextKey) return;
         if (cachedCities is not null)
@@ -253,7 +294,7 @@ public sealed partial class FreeMapViewModel(
             if (context != freeMapStore.ContextKey) return;
             if (remoteCities is null || remoteCities.Count == 0)
             {
-                throw new InvalidOperationException("No hay ciudades disponibles para el mapa gratuito.");
+                throw new InvalidOperationException(Text("MapNoCities"));
             }
 
             ApplyCities(remoteCities, SelectedCity?.Slug);
@@ -262,11 +303,17 @@ public sealed partial class FreeMapViewModel(
         }
         catch when (cachedCities is not null && Preview is not null)
         {
-            StatusMessage = $"Modo offline. {OfflineCacheService.FormatSavedAt(cachedCities.SavedAt)}";
+            StatusMessage = string.Format(Text("MapOfflineSaved"), cachedCities.SavedAt.ToLocalTime());
         }
     }
 
     private CancellationTokenSource? _cityLoad;
+
+    public void CancelCityLoad()
+    {
+        _cityLoad?.Cancel(); _cityLoad?.Dispose(); _cityLoad = null;
+        IsBusy = false;
+    }
 
     private async Task LoadSelectedCityAsync(FreeMapCityDto city)
     {
@@ -280,7 +327,7 @@ public sealed partial class FreeMapViewModel(
         ErrorMessage = null;
         try
         {
-            var token = await RequireTokenAsync();
+            var token = await RequireTokenAsync(cancellationToken);
             var cached = await freeMapStore.GetCachedCityAsync(city.Slug, cancellationToken);
             if (cancellationToken.IsCancellationRequested || SelectedCity?.Slug != city.Slug || context != freeMapStore.ContextKey) return;
             if (cached is not null)
@@ -298,7 +345,7 @@ public sealed partial class FreeMapViewModel(
                 if (cancellationToken.IsCancellationRequested || SelectedCity?.Slug != city.Slug || context != freeMapStore.ContextKey) return;
                 if (remote is null)
                 {
-                    throw new InvalidOperationException("No pudimos cargar esta ciudad.");
+                    throw new InvalidOperationException(Text("MapCityUnavailable"));
                 }
 
                 Preview = remote;
@@ -306,13 +353,13 @@ public sealed partial class FreeMapViewModel(
             }
             catch when (cached is not null && !cancellationToken.IsCancellationRequested && SelectedCity?.Slug == city.Slug)
             {
-                StatusMessage = $"Modo offline. {OfflineCacheService.FormatSavedAt(cached.SavedAt)}";
+                StatusMessage = string.Format(Text("MapOfflineSaved"), cached.SavedAt.ToLocalTime());
             }
         }
         catch (OperationCanceledException) { }
-        catch (Exception exception)
+        catch (Exception)
         {
-            if (ReferenceEquals(_cityLoad, operation)) ErrorMessage = exception.Message;
+            if (ReferenceEquals(_cityLoad, operation) && context == freeMapStore.ContextKey) ErrorMessage = Text("MapCityUnavailable");
         }
         finally
         {
@@ -352,7 +399,7 @@ public sealed partial class FreeMapViewModel(
             }
         }
 
-        throw new InvalidOperationException("No pudimos cargar el mapa gratuito.");
+        throw new InvalidOperationException(Text("MapLoadError"));
     }
 
     private async Task ApplyCachedSelectedCityAsync(CancellationToken cancellationToken)
@@ -372,7 +419,7 @@ public sealed partial class FreeMapViewModel(
         }
         else
         {
-            var token = await RequireTokenAsync();
+            var token = await RequireTokenAsync(cancellationToken);
             await RefreshSelectedCityAsync(token, cancellationToken, allowCacheFallback: false);
         }
     }
@@ -390,8 +437,10 @@ public sealed partial class FreeMapViewModel(
         OnPropertyChanged(nameof(SelectedCity));
     }
 
-    private async Task<string> RequireTokenAsync()
+    private async Task<string> RequireTokenAsync(CancellationToken cancellationToken = default)
     {
+        var contextVersion = sessionService.ContextVersion;
+        cancellationToken.ThrowIfCancellationRequested();
         if (!sessionService.HasKnownValidAccess)
         {
             sessionService.Clear();
@@ -399,7 +448,10 @@ public sealed partial class FreeMapViewModel(
             throw new OperationCanceledException();
         }
         var token = await sessionService.GetTokenAsync();
-        if (!string.IsNullOrWhiteSpace(token))
+        cancellationToken.ThrowIfCancellationRequested();
+        if (contextVersion != sessionService.ContextVersion || !sessionService.HasSession)
+            throw new OperationCanceledException();
+        if (!string.IsNullOrWhiteSpace(token) && sessionService.HasKnownValidAccess)
         {
             return token;
         }
@@ -451,9 +503,9 @@ public sealed partial class FreeMapViewModel(
 
     private static string FormatPrice(string? priceLevel) => priceLevel?.Trim().ToLowerInvariant() switch
     {
-        "free" => "Gratis",
-        "low" => "Coste bajo",
-        "high" => "Coste alto",
-        _ => "Coste medio"
+        "free" => Text("AssistantFreeCost"),
+        "low" => Text("AssistantLowCost"),
+        "high" => Text("AssistantHighCost"),
+        _ => Text("AssistantMediumCost")
     };
 }

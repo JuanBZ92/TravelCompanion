@@ -94,6 +94,9 @@ public sealed partial class TravelChatService(
         var isGuidedRequest = request.GuidedAction?.Action is GuidedTravelActions.Recommend
                 or GuidedTravelActions.Alternative
             && guidedCriteria is not null;
+        var hasFreeTimeWindow = isGuidedRequest && HasRequestedWindow(guidedCriteria);
+        if (HasRequestedWindow(request.Criteria) && !hasFreeTimeWindow)
+            return FreeTimeWindowUnavailable(conversationId, locale);
         var isAlternativeRequest = request.GuidedAction?.Action == GuidedTravelActions.Alternative
             || IsAlternativeRequest(request.Message);
         var targetedReplacementId = isGuidedRequest
@@ -274,6 +277,8 @@ public sealed partial class TravelChatService(
             .Where(trip =>
                 trip.PublicationStatus == TripPublicationStatus.Published
                 && trip.AppUserId == user.Id
+                && (!hasFreeTimeWindow || !trip.IsArchived)
+                && (!hasFreeTimeWindow || !activeTripId.HasValue || trip.Id == activeTripId)
                 && trip.StartsOn <= date
                 && trip.EndsOn >= date)
             .ToListAsync(cancellationToken);
@@ -297,7 +302,14 @@ public sealed partial class TravelChatService(
             .ToList();
 
         var city = ResolveCity(request.City ?? conversation?.LastCity, reservations, trips);
-        var planningWindow = FindPlanningWindow(reservations, date);
+        var freeTimeWindow = hasFreeTimeWindow && trips.Count == 1
+            ? ResolveFreeTimeWindow(trips[0], date, guidedCriteria!) : null;
+        if (hasFreeTimeWindow && freeTimeWindow is null)
+            return FreeTimeWindowUnavailable(conversationId, locale);
+        (TimeOnly Start, TimeOnly End, int AvailableMinutes)? planningWindow = freeTimeWindow is not null
+            ? (TimeOnly.FromDateTime(freeTimeWindow.Window.StartsAtLocal),
+                TimeOnly.FromDateTime(freeTimeWindow.Window.EndsAtLocal), freeTimeWindow.Window.AvailableMinutes)
+            : FindPlanningWindow(reservations, date);
         if (planningWindow is null)
         {
             return TrackOutcome(new TravelChatResponse(
@@ -331,10 +343,16 @@ public sealed partial class TravelChatService(
             .Concat(explicitRecommendationIds)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (hasFreeTimeWindow)
+            excludedRecommendationIds.UnionWith(reservations.Where(item => item.RecommendationId.HasValue)
+                .Select(item => item.RecommendationId!.Value.ToString()));
+        if (hasFreeTimeWindow && request.CurrentLocation is null)
+            guidedCriteria = guidedCriteria! with { MaxWalkingMinutes = null, WalkingMinuteOptions = [] };
         var profile = CreateProfile(user, effectivePreferences, responseMode, request.Message, guidedCriteria);
         ApplyHiddenConversationTags(profile, conversationState.HiddenTags);
         if (isGuidedRequest
             && guidedCriteria!.MaxWalkingMinutes.HasValue
+            && !hasFreeTimeWindow
             && request.CurrentLocation is null)
         {
             conversationState.GuidedCriteria = guidedCriteria;
@@ -383,6 +401,12 @@ public sealed partial class TravelChatService(
             guidedCriteria,
             excludedRecommendationIds,
             cancellationToken);
+        if (freeTimeWindow is not null)
+            planningResult = planningResult with
+            {
+                RankedRecommendations = planningResult.RankedRecommendations
+                    .Where(item => FitsFreeTime(item, freeTimeWindow, context)).ToList()
+            };
 
         if (planningResult.UnlockedRecommendationCount == 0)
         {
@@ -411,8 +435,10 @@ public sealed partial class TravelChatService(
             return TrackOutcome(new TravelChatResponse(
                 conversationId,
                 IsEnglish(locale)
-                    ? "I couldn't find another option with those filters. Adjust one criterion to broaden the search."
-                    : "No encontré otra opción con esos filtros. Ajustá un criterio para ampliar la búsqueda.",
+                    ? hasFreeTimeWindow ? "No idea fits this window with estimated travel time. Try another start, duration or interest."
+                        : "I couldn't find another option with those filters. Adjust one criterion to broaden the search."
+                    : hasFreeTimeWindow ? "No hay una idea que encaje con los traslados estimados. Prueba otra hora, duración o interés."
+                        : "No encontré otra opción con esos filtros. Ajustá un criterio para ampliar la búsqueda.",
                 Intent,
                 [],
                 [],
@@ -432,7 +458,9 @@ public sealed partial class TravelChatService(
                     : responseMode == BalancedMode
                         ? SelectDiverseRecommendations(planningResult.RankedRecommendations, 3)
                         : planningResult.RankedRecommendations.Take(3).ToList();
-        var cards = ranked.Select(scored => responseComposer.ToRecommendationCard(scored, context) with
+        var cards = ranked.Select(scored => freeTimeWindow is not null
+            ? ToFreeTimeCard(scored, context, freeTimeWindow, locale)
+            : responseComposer.ToRecommendationCard(scored, context) with
             {
                 Description = RecommendationPresentation.ToDto(scored.Recommendation, locale: locale).DisplayDescription
             }).ToList();
@@ -491,7 +519,10 @@ public sealed partial class TravelChatService(
 
         return TrackOutcome(new TravelChatResponse(
             conversationId,
-            useModelResponse ? modelResult!.Message : defaultMessage,
+            hasFreeTimeWindow ? IsEnglish(locale)
+                ? "Choose one idea for this free time. Duration and travel times are estimates; check the place’s hours before going."
+                : "Elige una idea para este rato libre. Duración y traslados estimados; confirma el horario del lugar antes de ir."
+                : useModelResponse ? modelResult!.Message : defaultMessage,
             Intent,
             cards,
             useModelResponse && modelResult!.SuggestedReplies.Count > 0
@@ -1101,11 +1132,15 @@ public sealed partial class TravelChatService(
             GuidedTravelPriorities.IsValid(criteria.Priority) ? criteria.Priority : GuidedTravelPriorities.Direct,
             budgets.FirstOrDefault(),
             walkingOptions.Count == 0 ? null : walkingOptions.Max(),
-            criteria.MaxDurationMinutes is 60 or 120 ? criteria.MaxDurationMinutes : null)
+            HasRequestedWindow(criteria) ? criteria.MaxDurationMinutes is > 0 and <= 120 ? criteria.MaxDurationMinutes : null
+                : criteria.MaxDurationMinutes is 60 or 120 ? criteria.MaxDurationMinutes : null)
         {
             Categories = categories,
             Budgets = budgets,
-            WalkingMinuteOptions = walkingOptions
+            WalkingMinuteOptions = walkingOptions,
+            WindowStartsAtLocal = criteria.WindowStartsAtLocal,
+            WindowEndsAtLocal = criteria.WindowEndsAtLocal,
+            WindowTimeZoneId = criteria.WindowTimeZoneId
         };
     }
 

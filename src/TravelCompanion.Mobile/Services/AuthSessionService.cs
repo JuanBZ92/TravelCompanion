@@ -3,10 +3,15 @@ using TravelCompanion.Shared;
 
 namespace TravelCompanion.Mobile.Services;
 
+public enum DeviceUnlockMethod { Biometric, Pin }
+
 public sealed class AuthSessionService
 {
     public event EventHandler? StateChanged;
     private long _contextVersion;
+    private long _sessionInvalidationVersion;
+    private readonly SemaphoreSlim _sessionWriteGate = new(1, 1);
+    private readonly object _sessionStateLock = new();
     private const string UserIdKey = "auth_user_id";
     private const string EmailKey = "auth_email";
     private const string EmailVerifiedKey = "auth_email_verified";
@@ -15,6 +20,7 @@ public sealed class AuthSessionService
     private const string DestinationNameKey = "auth_destination_name";
     private const string MustChangePasswordKey = "auth_must_change_password";
     private const string BiometricEnabledKey = "auth_biometric_enabled";
+    private const string UnlockMethodKeyPrefix = "auth_unlock_method_";
     private const string AccessModeKey = "auth_access_mode";
     private const string ExperienceModeKey = "auth_experience_mode";
     private const string CanEditItineraryKey = "auth_can_edit_itinerary";
@@ -31,10 +37,12 @@ public sealed class AuthSessionService
     private const string TrialCurrencyKey = "auth_trial_currency";
     private const string TrialPurchaseUrlKey = "auth_trial_purchase_url";
     private const string TokenKey = "auth_token";
+    private const string TokenStorageKey = "auth_token_storage_key";
+    private const string StagedTokenPrefix = "auth_token_v2_";
     private const string SignedOutKey = "auth_signed_out";
 
     public bool HasSession => !Preferences.Default.Get(SignedOutKey, false) && CurrentUserId.HasValue;
-    public long ContextVersion => Interlocked.Read(ref _contextVersion);
+    public long ContextVersion { get { lock (_sessionStateLock) return _contextVersion; } }
     public bool MustChangePassword => Preferences.Default.Get(MustChangePasswordKey, false);
     public SessionAccessMode AccessMode
     {
@@ -93,11 +101,37 @@ public sealed class AuthSessionService
         }
     }
     public bool HasKnownValidAccess => KnownAccessExpiresAtUtc is not { } expiresAt || expiresAt > DateTimeOffset.UtcNow;
+    public DeviceUnlockMethod PreferredUnlockMethod => CurrentUserId is { } userId
+        && Enum.TryParse<DeviceUnlockMethod>(Preferences.Default.Get(UnlockMethodKey(userId), string.Empty), out var method)
+        && Enum.IsDefined(method) ? method : DeviceUnlockMethod.Biometric;
+
+    // The legacy flag controls the existing default; an explicit choice always
+    // requires verification, including when the user chooses PIN instead of biometrics.
+    public bool RequiresLocalUnlock => HasSession && !MustChangePassword
+        && (Preferences.Default.Get(BiometricEnabledKey, false)
+            || CurrentUserId is { } userId && Preferences.Default.ContainsKey(UnlockMethodKey(userId)));
+
     public bool IsBiometricEnabled
     {
-        get => HasSession && Preferences.Default.Get(BiometricEnabledKey, false);
-        set => Preferences.Default.Set(BiometricEnabledKey, value);
+        get => RequiresLocalUnlock && PreferredUnlockMethod == DeviceUnlockMethod.Biometric;
+        set => SetUnlockMethod(value ? DeviceUnlockMethod.Biometric : DeviceUnlockMethod.Pin);
     }
+
+    public void SetUnlockMethod(DeviceUnlockMethod method)
+    {
+        if (!Enum.IsDefined(method)) throw new ArgumentOutOfRangeException(nameof(method));
+        lock (_sessionStateLock)
+        {
+            if (!HasSession || CurrentUserId is not { } userId) return;
+            Preferences.Default.Set(UnlockMethodKey(userId), method.ToString());
+            Interlocked.Increment(ref _contextVersion);
+        }
+        StateChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    public void DeleteUnlockPreference(Guid userId) => Preferences.Default.Remove(UnlockMethodKey(userId));
+
+    private static string UnlockMethodKey(Guid userId) => UnlockMethodKeyPrefix + userId.ToString("N");
 
     public Guid? CurrentUserId
     {
@@ -146,8 +180,63 @@ public sealed class AuthSessionService
         }
     }
 
-    public async Task SaveAsync(AuthSessionDto session)
+    public async Task SaveAsync(AuthSessionDto session) => await SaveCoreAsync(session, null);
+
+    public Task<bool> SaveIfCurrentAsync(AuthSessionDto session, long expectedContextVersion) =>
+        SaveCoreAsync(session, expectedContextVersion);
+
+    private async Task<bool> SaveCoreAsync(AuthSessionDto session, long? expectedContextVersion)
     {
+        long invalidation;
+        lock (_sessionStateLock) invalidation = _sessionInvalidationVersion;
+        await _sessionWriteGate.WaitAsync().ConfigureAwait(false);
+        string? stagedKey = null;
+        try
+        {
+            lock (_sessionStateLock)
+            {
+                if (invalidation != _sessionInvalidationVersion
+                    || expectedContextVersion.HasValue && expectedContextVersion.Value != _contextVersion) return false;
+            }
+            stagedKey = StagedTokenPrefix + Guid.NewGuid().ToString("N");
+            // Publish the pointer and profile together only after encrypted token persistence.
+            // An obsolete secure-storage continuation never overwrites the active token slot.
+            await SecureStorage.Default.SetAsync(stagedKey, session.Token).ConfigureAwait(false);
+            string previousKey;
+            lock (_sessionStateLock)
+            {
+                if (invalidation != _sessionInvalidationVersion
+                    || expectedContextVersion.HasValue && expectedContextVersion.Value != _contextVersion)
+                {
+                    RemoveTokenQuietly(stagedKey);
+                    return false;
+                }
+                previousKey = Preferences.Default.Get(TokenStorageKey, TokenKey);
+                PublishSession(session, stagedKey);
+                stagedKey = null;
+            }
+            RemoveTokenQuietly(previousKey);
+            if (previousKey != TokenKey) RemoveTokenQuietly(TokenKey);
+            StateChanged?.Invoke(this, EventArgs.Empty);
+            return true;
+        }
+        finally
+        {
+            if (stagedKey is not null) RemoveTokenQuietly(stagedKey);
+            _sessionWriteGate.Release();
+        }
+    }
+
+    private static void RemoveTokenQuietly(string key)
+    {
+        try { SecureStorage.Default.Remove(key); }
+        catch (Exception error) { ClientDiagnostics.Record("auth_token_cleanup_failed", exception: error); }
+    }
+
+    private void PublishSession(AuthSessionDto session, string storageKey)
+    {
+        if (CurrentUserId != session.UserId || CurrentTripId != session.TripId)
+            Preferences.Default.Remove(AccessExpiresAtUtcKey);
         Preferences.Default.Set(UserIdKey, session.UserId.ToString());
         Preferences.Default.Set(EmailKey, session.Email);
         Preferences.Default.Set(EmailVerifiedKey, session.EmailVerified);
@@ -182,18 +271,27 @@ public sealed class AuthSessionService
             BiometricEnabledKey,
             session.AccessMode != SessionAccessMode.FreeMapPreview && !session.MustChangePassword);
         ApplyTrialAccess(session.TrialAccess);
-        await SecureStorage.Default.SetAsync(TokenKey, session.Token).ConfigureAwait(false);
+        Preferences.Default.Set(TokenStorageKey, storageKey);
         Preferences.Default.Set(SignedOutKey, false);
         Interlocked.Increment(ref _contextVersion);
-        StateChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public async Task<string?> GetTokenAsync()
     {
-        if (!HasSession) return null;
+        string storageKey;
+        long context;
+        lock (_sessionStateLock)
+        {
+            if (!HasSession) return null;
+            storageKey = Preferences.Default.Get(TokenStorageKey, TokenKey);
+            context = _contextVersion;
+        }
         try
         {
-            return await SecureStorage.Default.GetAsync(TokenKey).ConfigureAwait(false);
+            var token = await SecureStorage.Default.GetAsync(storageKey).ConfigureAwait(false);
+            lock (_sessionStateLock)
+                return HasSession && context == _contextVersion
+                    && storageKey == Preferences.Default.Get(TokenStorageKey, TokenKey) ? token : null;
         }
         catch
         {
@@ -203,98 +301,126 @@ public sealed class AuthSessionService
 
     public void MarkPasswordChanged()
     {
-        Preferences.Default.Set(MustChangePasswordKey, false);
-        Preferences.Default.Set(BiometricEnabledKey, true);
+        lock (_sessionStateLock)
+        {
+            Preferences.Default.Set(MustChangePasswordKey, false);
+            Preferences.Default.Set(BiometricEnabledKey, true);
+        }
     }
 
     public void ApplyCapabilities(TravelerCapabilitiesDto capabilities)
     {
-        Preferences.Default.Set(CanEditItineraryKey, capabilities.CanEditItinerary);
-        Preferences.Default.Set(CanSearchGooglePlacesKey, capabilities.CanSearchGooglePlaces);
-        Preferences.Default.Set(HasCuratedDocsKey, capabilities.HasCuratedDocs);
-        Preferences.Default.Set(RequiresTripSetupKey, capabilities.RequiresTripSetup);
-        Preferences.Default.Set(CanCalculateRoutesKey, capabilities.CanCalculateRoutes);
+        lock (_sessionStateLock)
+        {
+            Preferences.Default.Set(CanEditItineraryKey, capabilities.CanEditItinerary);
+            Preferences.Default.Set(CanSearchGooglePlacesKey, capabilities.CanSearchGooglePlaces);
+            Preferences.Default.Set(HasCuratedDocsKey, capabilities.HasCuratedDocs);
+            Preferences.Default.Set(RequiresTripSetupKey, capabilities.RequiresTripSetup);
+            Preferences.Default.Set(CanCalculateRoutesKey, capabilities.CanCalculateRoutes);
+        }
     }
 
     public void ApplySyncState(MobileSyncStateDto state)
     {
-        if (state.AccessMode.HasValue)
-            Preferences.Default.Set(AccessModeKey, state.AccessMode.Value.ToString());
-        ApplyCapabilities(state.Capabilities);
-        Preferences.Default.Set(AccessExpiresAtUtcKey, state.AccessExpiresAtUtc.ToString("O"));
-        ApplyTrialAccess(state.TrialAccess);
+        lock (_sessionStateLock)
+        {
+            if (state.AccessMode.HasValue)
+                Preferences.Default.Set(AccessModeKey, state.AccessMode.Value.ToString());
+            ApplyCapabilities(state.Capabilities);
+            Preferences.Default.Set(AccessExpiresAtUtcKey, state.AccessExpiresAtUtc.ToString("O"));
+            ApplyTrialAccess(state.TrialAccess);
+        }
         StateChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public void ApplyTrialAccess(TrialAccessStatusDto? trial)
     {
-        if (trial is null || !trial.IsTrial)
+        lock (_sessionStateLock)
         {
-            ClearTrialAccess();
-            return;
-        }
+            if (trial is null || !trial.IsTrial)
+            {
+                ClearTrialAccess();
+                return;
+            }
 
-        Preferences.Default.Set(TrialStateKey, trial.State.ToString());
-        Preferences.Default.Set("auth_free_policy", (int)trial.FreePolicy);
-        Preferences.Default.Set("auth_day_improvements_remaining", trial.DayImprovementsRemaining);
-        SetTimestamp(TrialEditingExpiresAtUtcKey, trial.EditingExpiresAtUtc);
-        SetTimestamp(TrialDraftExpiresAtUtcKey, trial.DraftExpiresAtUtc);
-        Preferences.Default.Set(TrialAssistantRemainingKey, trial.AssistantRequestsRemaining);
-        Preferences.Default.Set(TrialPassPriceKey, trial.PassPrice.ToString(System.Globalization.CultureInfo.InvariantCulture));
-        Preferences.Default.Set(TrialCurrencyKey, trial.Currency);
-        Preferences.Default.Set(TrialPurchaseUrlKey, trial.PurchaseUrl ?? string.Empty);
-        Preferences.Default.Set(CanEditItineraryKey, trial.CanEdit);
-        Interlocked.Increment(ref _contextVersion);
+            Preferences.Default.Set(TrialStateKey, trial.State.ToString());
+            Preferences.Default.Set("auth_free_policy", (int)trial.FreePolicy);
+            Preferences.Default.Set("auth_day_improvements_remaining", trial.DayImprovementsRemaining);
+            SetTimestamp(TrialEditingExpiresAtUtcKey, trial.EditingExpiresAtUtc);
+            SetTimestamp(TrialDraftExpiresAtUtcKey, trial.DraftExpiresAtUtc);
+            Preferences.Default.Set(TrialAssistantRemainingKey, trial.AssistantRequestsRemaining);
+            Preferences.Default.Set(TrialPassPriceKey, trial.PassPrice.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            Preferences.Default.Set(TrialCurrencyKey, trial.Currency);
+            Preferences.Default.Set(TrialPurchaseUrlKey, trial.PurchaseUrl ?? string.Empty);
+            Preferences.Default.Set(CanEditItineraryKey, trial.CanEdit);
+            Interlocked.Increment(ref _contextVersion);
+        }
     }
 
     public void MarkTripConfigured(Guid tripId, string? destinationName = null)
     {
-        Preferences.Default.Set(TripIdKey, tripId.ToString());
-        Preferences.Default.Set(RequiresTripSetupKey, false);
-        if (!string.IsNullOrWhiteSpace(destinationName))
+        lock (_sessionStateLock)
         {
-            Preferences.Default.Set(DestinationNameKey, destinationName);
+            Preferences.Default.Set(TripIdKey, tripId.ToString());
+            Preferences.Default.Set(RequiresTripSetupKey, false);
+            if (!string.IsNullOrWhiteSpace(destinationName))
+            {
+                Preferences.Default.Set(DestinationNameKey, destinationName);
+            }
+            Interlocked.Increment(ref _contextVersion);
         }
-        Interlocked.Increment(ref _contextVersion);
     }
 
     public void MarkTripDeleted()
     {
-        Preferences.Default.Remove(TripIdKey);
-        Preferences.Default.Set(RequiresTripSetupKey, true);
-        Interlocked.Increment(ref _contextVersion);
+        lock (_sessionStateLock)
+        {
+            Preferences.Default.Remove(TripIdKey);
+            Preferences.Default.Set(RequiresTripSetupKey, true);
+            Interlocked.Increment(ref _contextVersion);
+        }
     }
 
     public void BeginLogout()
     {
-        // Persist before navigation/native cleanup: a killed process must reopen at PIN.
-        Preferences.Default.Set(SignedOutKey, true);
-        Preferences.Default.Remove(BiometricEnabledKey);
-        Interlocked.Increment(ref _contextVersion);
+        lock (_sessionStateLock)
+        {
+            // Persist before navigation/native cleanup: a killed process must reopen at PIN.
+            Preferences.Default.Set(SignedOutKey, true);
+            Preferences.Default.Remove(BiometricEnabledKey);
+            Interlocked.Increment(ref _contextVersion);
+            _sessionInvalidationVersion++;
+        }
     }
 
     public void Clear()
     {
-        BeginLogout();
-        Preferences.Default.Remove(UserIdKey);
-        Preferences.Default.Remove(EmailKey);
-        Preferences.Default.Remove(EmailVerifiedKey);
-        Preferences.Default.Remove(DisplayNameKey);
-        Preferences.Default.Remove(TripIdKey);
-        Preferences.Default.Remove(DestinationNameKey);
-        Preferences.Default.Remove(MustChangePasswordKey);
-        Preferences.Default.Remove(BiometricEnabledKey);
-        Preferences.Default.Remove(AccessModeKey);
-        Preferences.Default.Remove(ExperienceModeKey);
-        Preferences.Default.Remove(CanEditItineraryKey);
-        Preferences.Default.Remove(CanSearchGooglePlacesKey);
-        Preferences.Default.Remove(HasCuratedDocsKey);
-        Preferences.Default.Remove(RequiresTripSetupKey);
-        Preferences.Default.Remove(CanCalculateRoutesKey);
-        Preferences.Default.Remove(AccessExpiresAtUtcKey);
-        ClearTrialAccess();
-        SecureStorage.Default.Remove(TokenKey);
-        Interlocked.Increment(ref _contextVersion);
+        lock (_sessionStateLock)
+        {
+            BeginLogout();
+            Preferences.Default.Remove(UserIdKey);
+            Preferences.Default.Remove(EmailKey);
+            Preferences.Default.Remove(EmailVerifiedKey);
+            Preferences.Default.Remove(DisplayNameKey);
+            Preferences.Default.Remove(TripIdKey);
+            Preferences.Default.Remove(DestinationNameKey);
+            Preferences.Default.Remove(MustChangePasswordKey);
+            Preferences.Default.Remove(BiometricEnabledKey);
+            Preferences.Default.Remove(AccessModeKey);
+            Preferences.Default.Remove(ExperienceModeKey);
+            Preferences.Default.Remove(CanEditItineraryKey);
+            Preferences.Default.Remove(CanSearchGooglePlacesKey);
+            Preferences.Default.Remove(HasCuratedDocsKey);
+            Preferences.Default.Remove(RequiresTripSetupKey);
+            Preferences.Default.Remove(CanCalculateRoutesKey);
+            Preferences.Default.Remove(AccessExpiresAtUtcKey);
+            ClearTrialAccess();
+            var activeTokenKey = Preferences.Default.Get(TokenStorageKey, TokenKey);
+            RemoveTokenQuietly(activeTokenKey);
+            Preferences.Default.Remove(TokenStorageKey);
+            RemoveTokenQuietly(TokenKey);
+            Interlocked.Increment(ref _contextVersion);
+        }
         StateChanged?.Invoke(this, EventArgs.Empty);
     }
 

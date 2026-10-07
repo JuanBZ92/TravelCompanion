@@ -1,12 +1,12 @@
 @page "/admin/free-map"
 @model TravelCompanion.Api.Pages.Admin.FreeMapModel
 @{
-    ViewData["Title"] = "Free";
+    ViewData["Title"] = "Zona gratuita";
 }
 
 <div class="page-heading">
     <div>
-        <h1>Free</h1>
+        <h1>Zona gratuita</h1>
         <p class="lede">Centros fijos y radios visibles para el acceso promocional con PIN 0000.</p>
     </div>
     <span class="eyebrow">Conversion</span>
@@ -28,7 +28,7 @@
                 <select asp-for="Input.DestinationId" asp-items="Model.DestinationOptions"></select>
             </div>
             <div>
-                <label asp-for="Input.CitySlug" class="required">City slug</label>
+                <label asp-for="Input.CitySlug" class="required">Identificador de ciudad</label>
                 <input asp-for="Input.CitySlug" placeholder="tokyo" />
                 <span asp-validation-for="Input.CitySlug"></span>
             </div>

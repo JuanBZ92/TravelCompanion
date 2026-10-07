@@ -1,41 +1,57 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>@ViewData["Title"] - Travel Companion Admin</title>
-    <link rel="stylesheet" href="~/admin.css" />
+    <title>@ViewData["Title"] · Administración YUKU</title>
+    <link rel="stylesheet" href="~/admin.css" asp-append-version="true" />
     @await RenderSectionAsync("Styles", required: false)
 </head>
 <body class="@(ViewData["BodyClass"] as string)">
     <header class="topbar">
-        <a class="brand" asp-page="/Admin/Index">Travel Companion</a>
-        <nav>
-            <a asp-page="/Admin/Index">Dashboard</a>
-            <a asp-page="/Admin/Destinations">Destinations</a>
-            <a asp-page="/Admin/Packages">Packages</a>
-            <a asp-page="/Admin/Recommendations">Recommendations</a>
-            <a asp-page="/Admin/ExternalPlaces">Lugares guardados</a>
-            <a asp-page="/Admin/FreeMap">Free</a>
-            <a asp-page="/Admin/YukuJapanImport">Import YUKU</a>
-            <a asp-page="/Admin/TripImport">Import Viaje</a>
-            <a asp-page="/Admin/Trips">Viajes</a>
-            <a asp-page="/Admin/Reservations">Schedule</a>
-            <a asp-page="/Admin/Docs">Docs</a>
-            <a asp-page="/Admin/Users">Users</a>
-            <a asp-page="/Admin/BuilderAccess">Acceso pago</a>
-            <a asp-page="/Admin/Conversion">Conversión</a>
-            <a asp-page="/Admin/ThematicRoutes">Rutas</a>
+        <a class="brand" asp-page="/Admin/Index">YUKU <span class="muted">Administración</span></a>
+        @{
+            var currentPage = ViewContext.RouteData.Values["page"]?.ToString();
+            var navigationGroups = new[]
+            {
+                (Name: "Catálogo", Links: new[] {
+                    (Page: "/Admin/Destinations", Label: "Destinos"), (Page: "/Admin/Packages", Label: "Paquetes"),
+                    (Page: "/Admin/Recommendations", Label: "Recomendaciones"), (Page: "/Admin/ExternalPlaces", Label: "Lugares guardados"),
+                    (Page: "/Admin/FreeMap", Label: "Zona gratuita"), (Page: "/Admin/YukuJapanImport", Label: "Importar catálogo") }),
+                (Name: "Viajes", Links: new[] {
+                    (Page: "/Admin/Trips", Label: "Viajes"), (Page: "/Admin/Reservations", Label: "Agenda"),
+                    (Page: "/Admin/Docs", Label: "Documentos"), (Page: "/Admin/ThematicRoutes", Label: "Rutas"),
+                    (Page: "/Admin/TripImport", Label: "Importar viaje") }),
+                (Name: "Negocio", Links: new[] {
+                    (Page: "/Admin/Index", Label: "Resumen"), (Page: "/Admin/Users", Label: "Usuarios"),
+                    (Page: "/Admin/BuilderAccess", Label: "Acceso al pase"), (Page: "/Admin/Conversion", Label: "Conversión") })
+            };
+        }
+        <nav class="admin-navigation" aria-label="Administración">
+            @foreach (var group in navigationGroups)
+            {
+                var activeGroup = group.Links.Any(link => string.Equals(currentPage, link.Page, StringComparison.OrdinalIgnoreCase));
+                <details class="nav-group @(activeGroup ? "is-active" : "")">
+                    <summary>@group.Name</summary>
+                    <div class="nav-group-links">
+                        @foreach (var link in group.Links)
+                        {
+                            var active = string.Equals(currentPage, link.Page, StringComparison.OrdinalIgnoreCase);
+                            <a asp-page="@link.Page" aria-current="@(active ? "page" : null)">@link.Label</a>
+                        }
+                    </div>
+                </details>
+            }
             @if (User.Identity?.IsAuthenticated == true)
             {
-                <a asp-page="/Logout">Logout</a>
+                <a asp-page="/Logout">Cerrar sesión</a>
             }
         </nav>
     </header>
     <main class="shell">
         @RenderBody()
     </main>
-    <script src="~/admin.js"></script>
+    <script src="~/admin.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

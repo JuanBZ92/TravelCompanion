@@ -11,6 +11,14 @@ public static class ExpensePolicy
     public static decimal Round(decimal amount, string currency) => Math.Round(amount, Digits(currency), MidpointRounding.AwayFromZero);
     public static decimal? Converted(ExpenseDto item) => item.Deleted ? 0m : item.Rate is { } rate ? Round(item.Amount * rate, item.BaseCurrency) : null;
     public static decimal Total(IEnumerable<ExpenseDto> items) => items.Where(x => !x.Deleted).Sum(x => Converted(x) ?? 0m);
+    public static ExpenseBreakdownDto Breakdown(IEnumerable<ExpenseDto> items, string currency)
+    {
+        var current = items.Where(x => !x.Deleted).ToArray();
+        decimal Sum(IEnumerable<ExpenseDto> group) => group.Where(x => x.BaseCurrency == currency).Sum(x => Converted(x) ?? 0m);
+        int Pending(IEnumerable<ExpenseDto> group) => group.Count(x => x.Rate is null || x.BaseCurrency != currency);
+        return new(current.GroupBy(x => x.Category).Select(g => new ExpenseCategoryTotal(g.Key, Sum(g), Pending(g))).ToArray(),
+            current.GroupBy(x => x.Date).Select(g => new ExpenseDayTotal(g.Key, Sum(g), Pending(g))).OrderBy(x => x.Date).ToArray(), currency);
+    }
     public static bool TryAmount(string text, out decimal amount) => decimal.TryParse(text.Trim().Replace(',', '.'),
         NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out amount) && amount > 0 && amount <= 999999999m;
     public static void Validate(SaveExpenseRequest request)

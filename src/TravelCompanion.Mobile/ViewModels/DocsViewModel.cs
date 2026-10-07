@@ -45,6 +45,13 @@ public sealed partial class DocsViewModel(
     public bool HasHotelDocuments => SelectedCategory is null && HotelDocuments.Count > 0;
     public bool HasOtherDocuments => SelectedCategory is null && OtherDocuments.Count > 0;
     public bool HasHotels => SelectedCategory is null && Hotels.Count > 0;
+    public bool HasDocuments => DocumentGroups.Count > 0;
+    public bool ShowEmptyState => HasLoaded && !IsBusy && !HasDocuments && !HasError;
+    public bool IsOffline => Connectivity.Current.NetworkAccess != NetworkAccess.Internet;
+    public string OfflineNotice => Text("DocsOfflineNotice");
+    public string EmptyTitle => Text(SelectedCategory.HasValue ? "DocsCategoryEmptyTitle" : "DocsEmptyTitle");
+    public string EmptyBody => Text(SelectedCategory.HasValue ? "DocsCategoryEmptyBody" : "DocsEmptyBody");
+    protected override void OnLoadStateChanged() => OnPropertyChanged(nameof(ShowEmptyState));
     partial void OnSelectedJourneyChanged(FlightJourneyItemViewModel? value)
     {
         foreach (var journey in Journeys)
@@ -57,7 +64,9 @@ public sealed partial class DocsViewModel(
     [RelayCommand]
     public Task LoadAsync() => base.LoadAsync(LoadCoreAsync);
 
-    private async Task LoadCoreAsync(CancellationToken cancellationToken)
+    private Task LoadCoreAsync(CancellationToken cancellationToken) => LoadCoreAsync(cancellationToken, forceRemote: false);
+
+    private async Task LoadCoreAsync(CancellationToken cancellationToken, bool forceRemote)
     {
         if (!sessionService.HasSession)
         {
@@ -68,6 +77,7 @@ public sealed partial class DocsViewModel(
         var contextVersion = sessionService.ContextVersion;
         var userId = sessionService.CurrentUserId;
         var tripId = sessionService.CurrentTripId;
+        OnPropertyChanged(nameof(IsOffline));
         Title = SelectedCategory is { } category ? CategoryName(category) : Text("TabDocs");
         Subtitle = Text("LocalDocumentsNotice");
         await RefreshLocalDocumentsAsync(cancellationToken);
@@ -96,9 +106,16 @@ public sealed partial class DocsViewModel(
                 MarkLastUpdated(cached.SavedAt);
                 StatusMessage = null;
                 var versions = await syncStateStore.GetCachedStateAsync(cancellationToken);
-                if (Connectivity.Current.NetworkAccess != NetworkAccess.Internet
-                    || versions is not null && cached.Metadata?.DataVersion == versions.DocumentsVersion.ToString(CultureInfo.InvariantCulture))
+                if (!DocumentListPresentation.ShouldRequestIncludedDocuments(!IsOffline, forceRemote, true,
+                    cached.Metadata?.DataVersion, versions?.DocumentsVersion))
                     return;
+            }
+
+            if (IsOffline)
+            {
+                if (cached is null && !HasFlights && !HasHotelDocuments && !HasOtherDocuments && !HasHotels)
+                    ErrorMessage = Text("DocsOfflineMissing");
+                return;
             }
 
             var result = await apiClient.GetTravelDocsResultAsync(token, cancellationToken);
@@ -115,14 +132,8 @@ public sealed partial class DocsViewModel(
             var docs = result.Value;
             if (docs is null)
             {
-                if (cached is null)
-                {
-                    StatusMessage = Text("NoDocuments");
-                }
-                else
-                {
-                    StatusMessage = null;
-                }
+                ErrorMessage = Text(DocumentListPresentation.FailureMessageKey(HasDocuments));
+                StatusMessage = null;
             }
             else
             {
@@ -147,23 +158,9 @@ public sealed partial class DocsViewModel(
         catch
         {
             if (!CanShowIncludedDocuments(contextVersion, userId, tripId)) return;
-            var cacheKey = GetCacheKey(userId, tripId);
-            var cached = await offlineCacheService.GetAsync<TravelDocsDto>(cacheKey, maxAge: null, cancellationToken);
-            if (!CanShowIncludedDocuments(contextVersion, userId, tripId)) return;
-            if (cached is not null)
-            {
-                ApplyDocs(cached.Value);
-                await RefreshDocumentAvailabilityAsync(cancellationToken);
-                if (!CanShowIncludedDocuments(contextVersion, userId, tripId)) return;
-                MarkLastUpdated(cached.SavedAt);
-                StatusMessage = null;
-            }
-            else
-            {
-                StatusMessage = Text("NoDocuments");
-            }
-
-            ErrorMessage = null;
+            // A failed refresh never turns available local/cached content into an empty state.
+            ErrorMessage = Text(DocumentListPresentation.FailureMessageKey(HasDocuments));
+            StatusMessage = null;
         }
     }
 
@@ -178,12 +175,18 @@ public sealed partial class DocsViewModel(
     [RelayCommand]
     private Task RefreshAsync() => base.LoadAsync(async cancellationToken =>
     {
+        var version = sessionService.ContextVersion;
         var token = await sessionService.GetTokenAsync();
-        if (!string.IsNullOrWhiteSpace(token))
+        cancellationToken.ThrowIfCancellationRequested();
+        if (version != sessionService.ContextVersion) return;
+        if (!string.IsNullOrWhiteSpace(token) && !IsOffline)
         {
-            await syncCoordinator.SynchronizeVersionsAsync(token, force: true, cancellationToken);
+            try { await syncCoordinator.SynchronizeVersionsAsync(token, force: true, cancellationToken); }
+            catch (OperationCanceledException) { throw; }
+            catch { /* Document refresh has its own retained-content and retry state. */ }
         }
-        await LoadCoreAsync(cancellationToken);
+        if (version != sessionService.ContextVersion) return;
+        await LoadCoreAsync(cancellationToken, forceRemote: true);
     });
 
     [RelayCommand]
@@ -210,6 +213,7 @@ public sealed partial class DocsViewModel(
         OnPropertyChanged(nameof(CanAttachDocument));
         OnPropertyChanged(nameof(ShowLocalNotice));
         ErrorMessage = null;
+        StatusMessage = null;
         Journeys.Clear();
         HotelDocuments.Clear();
         OtherDocuments.Clear();
@@ -219,6 +223,8 @@ public sealed partial class DocsViewModel(
         OnPropertyChanged(nameof(HasHotelDocuments));
         OnPropertyChanged(nameof(HasOtherDocuments));
         OnPropertyChanged(nameof(HasHotels));
+        OnPropertyChanged(nameof(HasDocuments));
+        OnPropertyChanged(nameof(ShowEmptyState));
     }
 
     private void ApplyDocs(TravelDocsDto? docs)

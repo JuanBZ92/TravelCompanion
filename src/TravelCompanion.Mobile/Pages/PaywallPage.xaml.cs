@@ -35,6 +35,7 @@ public partial class PaywallPage : ContentPage
     protected override void OnDisappearing()
     {
         _isVisible = false;
+        _viewModel.CancelOfferLoad();
         _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
         base.OnDisappearing();
     }

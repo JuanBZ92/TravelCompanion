@@ -10,6 +10,8 @@ public sealed partial class DocsViewModel
     public void SetCategory(LocalDocumentCategory? category)
     {
         SelectedCategory = category;
+        Title = category.HasValue ? CategoryName(category.Value) : Text("TabDocs");
+        StatusMessage = null;
         LocalDocumentGroups.Clear();
         NotifySectionsChanged();
     }
@@ -40,7 +42,7 @@ public sealed partial class DocsViewModel
         if (!IsCurrentDocumentContext(contextVersion, user, trip) || selectedCategory != SelectedCategory) return;
         LocalDocumentGroups.Clear();
         var personal = LocalDocumentPolicy.PersonalDocuments(documents, SelectedCategory).ToList();
-        StatusMessage = SelectedCategory.HasValue && personal.Count == 0 ? Text("NoDocuments") : null;
+        StatusMessage = null;
         foreach (var category in Enum.GetValues<LocalDocumentCategory>())
         {
             if (SelectedCategory.HasValue && SelectedCategory.Value != category) continue;
@@ -64,11 +66,15 @@ public sealed partial class DocsViewModel
 
     private async Task AttachToCategoryAsync(LocalDocumentCategory category, CancellationToken ct)
     {
+        var version = sessionService.ContextVersion;
+        var user = sessionService.CurrentUserId;
+        var trip = sessionService.CurrentTripId;
         var key = TripPreparationCategoryCatalog.PreparationKey(category);
         var saved = await attachmentService.PickAndAttachAsync(category, key,
             string.Format(Text("AttachDocumentToCategory"), CategoryName(category)), ct);
-        if (saved is null) return;
+        if (saved is null || !IsCurrentDocumentContext(version, user, trip)) return;
         await RefreshLocalDocumentsAsync(ct);
+        if (!IsCurrentDocumentContext(version, user, trip)) return;
         StatusMessage = string.Format(Text("DocumentSavedInCategory"), CategoryName(category));
         SemanticScreenReader.Default.Announce(StatusMessage);
     }
@@ -82,8 +88,12 @@ public sealed partial class DocsViewModel
     private Task AttachDocumentAsync() => base.LoadAsync(async ct =>
     {
         if (!CanAttachDocument) return;
+        var version = sessionService.ContextVersion;
+        var user = sessionService.CurrentUserId;
+        var trip = sessionService.CurrentTripId;
         var category = SelectedCategory ?? await SelectCategoryAsync();
-        if (!category.HasValue) return;
+        ct.ThrowIfCancellationRequested();
+        if (!category.HasValue || !IsCurrentDocumentContext(version, user, trip)) return;
         try { await AttachToCategoryAsync(category.Value, ct); }
         catch (IOException) { ErrorMessage = Text("DocumentError") + " " + Text("DocumentLimit"); }
     });

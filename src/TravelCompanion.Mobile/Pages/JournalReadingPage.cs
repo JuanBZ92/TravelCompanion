@@ -88,7 +88,7 @@ public sealed class JournalReadingPage(JournalScope scope, JournalMemory origina
             }
             if (memory.Images.Length > 0)
             {
-                body.Add(JournalUi.Text(JournalText.Format("JournalPhotosLimit", memory.Images.Length), 12));
+                body.Add(JournalUi.Text(JournalText.Photos(memory.Images.Length), 12));
                 var indices = JournalEntries.PhotoPreviewIndices(memory);
                 var gallery = new FlexLayout { Wrap = Microsoft.Maui.Layouts.FlexWrap.Wrap,
                     AlignItems = Microsoft.Maui.Layouts.FlexAlignItems.Start,

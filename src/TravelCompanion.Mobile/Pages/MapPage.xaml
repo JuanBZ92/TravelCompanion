@@ -6,7 +6,7 @@
              xmlns:viewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
              x:Class="TravelCompanion.Mobile.Pages.MapPage"
              x:DataType="viewModels:MapViewModel"
-             Title="Map"
+             Title="{Binding [TabMap], Source={x:Static services:LocalizationResourceManager.Instance}}"
              Shell.NavBarIsVisible="False"
              SafeAreaEdges="All"
              BackgroundColor="{StaticResource Mist}">
@@ -221,7 +221,7 @@
                 Margin="0"
                 Style="{StaticResource MapPreviewPanel}"
                 IsVisible="{Binding HasSelectedRecommendation}">
-            <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="6">
+            <Grid RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="6">
                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" HeightRequest="48">
                     <Label Text="{Binding SelectedRecommendationPosition}"
                            FontSize="11"
@@ -249,12 +249,19 @@
                             SemanticProperties.Description="{Binding [UxClose], Source={x:Static services:LocalizationResourceManager.Instance}}" />
                 </Grid>
 
-                <VerticalStackLayout Grid.Row="1" Spacing="5">
+                <ScrollView x:Name="RecommendationPreviewScroll" Grid.Row="1" MaximumHeightRequest="220">
+                  <VerticalStackLayout Spacing="5">
                         <Label Text="{Binding SelectedRecommendation.Title}"
                                FontFamily="serif"
                                FontSize="22"
                                TextColor="{StaticResource Ink}"
-                               LineBreakMode="WordWrap" />
+                               LineBreakMode="TailTruncation" MaxLines="{Binding PreviewTextLines}">
+                            <Label.Triggers>
+                                <DataTrigger TargetType="Label" Binding="{Binding IsPreviewExpanded}" Value="True">
+                                    <Setter Property="LineBreakMode" Value="WordWrap" />
+                                </DataTrigger>
+                            </Label.Triggers>
+                        </Label>
                         <Label Text="{Binding SelectedRecommendationMeta}"
                                FontSize="11"
                                LineBreakMode="WordWrap"
@@ -269,11 +276,21 @@
                                IsVisible="{Binding ShowSelectedRecommendationDescription}"
                                FontSize="13"
                                LineHeight="1.2"
-                               LineBreakMode="WordWrap"
-                               TextColor="{StaticResource InkSoft}" />
-                </VerticalStackLayout>
+                               LineBreakMode="TailTruncation" MaxLines="{Binding PreviewTextLines}"
+                               TextColor="{StaticResource InkSoft}">
+                            <Label.Triggers>
+                                <DataTrigger TargetType="Label" Binding="{Binding IsPreviewExpanded}" Value="True">
+                                    <Setter Property="LineBreakMode" Value="WordWrap" />
+                                </DataTrigger>
+                            </Label.Triggers>
+                        </Label>
+                  </VerticalStackLayout>
+                </ScrollView>
+                <Button Grid.Row="2" Text="{Binding PreviewDetailsAction}"
+                        Command="{Binding TogglePreviewDetailsCommand}" Style="{StaticResource GhostButton}"
+                        HorizontalOptions="Start" MinimumHeightRequest="48" />
 
-                <Grid Grid.Row="2" ColumnDefinitions="48,*,48" ColumnSpacing="8" HeightRequest="48">
+                <Grid Grid.Row="3" ColumnDefinitions="48,*,48" ColumnSpacing="8" HeightRequest="48">
                     <Button Text="‹"
                             Command="{Binding SelectPreviousRecommendationCommand}"
                             IsEnabled="{Binding CanBrowseSelectedRecommendations}"

@@ -5,10 +5,20 @@ public partial class App : Application
 	public App()
 	{
 		TravelCompanion.Mobile.Services.LocalizationResourceManager.Instance.Initialize();
+        var cleanupStart = System.Diagnostics.Stopwatch.GetTimestamp();
+        var cleanupAllocation = GC.GetAllocatedBytesForCurrentThread();
         try { TravelCompanion.Mobile.Services.TripDocumentStore.ClearPreviewsAsync().GetAwaiter().GetResult(); }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
             Services.ClientDiagnostics.Record("preview_cleanup_failed", exception: exception);
+        }
+        finally
+        {
+            var cleanupTicks = System.Diagnostics.Stopwatch.GetTimestamp() - cleanupStart;
+            Services.ClientDiagnostics.Record("preview_cleanup_measured", new() { ElapsedTicks = cleanupTicks,
+                TickFrequency = System.Diagnostics.Stopwatch.Frequency,
+                ElapsedMs = (long)System.Diagnostics.Stopwatch.GetElapsedTime(cleanupStart).TotalMilliseconds,
+                AllocatedBytes = GC.GetAllocatedBytesForCurrentThread() - cleanupAllocation });
         }
         InitializeComponent();
 		UserAppTheme = AppTheme.Light;

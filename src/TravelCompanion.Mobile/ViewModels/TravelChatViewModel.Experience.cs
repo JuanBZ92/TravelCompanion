@@ -11,6 +11,7 @@ namespace TravelCompanion.Mobile.ViewModels;
 public sealed partial class TravelChatViewModel
 {
     private string _assistantSurface = "home";
+    private int _assistantSurfaceVersion;
     private readonly Stack<string> _assistantHistory = new();
     private bool _quickSearchSubmission;
     private bool _proposalIsQuickSearch;
@@ -72,6 +73,7 @@ public sealed partial class TravelChatViewModel
     public string AssistantOptionalBudget => Resource("AssistantOptionalBudget");
     public string AssistantOptionalWalk => Resource("AssistantOptionalWalk");
     public string AssistantShowIdeas => Resource("AssistantShowIdeas");
+    public string AssistantSearchAction => _pendingRetryRequest is null ? AssistantShowIdeas : Resource("AssistantRetry");
     public string AssistantYourDay => Resource("AssistantYourDay");
     public string AssistantNoIdeas => Resource("AssistantNoIdeas");
     public string AssistantOpenActivity => Resource("AssistantOpenActivity");
@@ -103,6 +105,7 @@ public sealed partial class TravelChatViewModel
         if (_assistantSurface == surface) return;
         if (remember) _assistantHistory.Push(_assistantSurface);
         _assistantSurface = surface;
+        _assistantSurfaceVersion++;
         OnPropertyChanged(nameof(ShowAssistantHome));
         OnPropertyChanged(nameof(ShowAssistantSearch));
         OnPropertyChanged(nameof(ShowAssistantProposal));
@@ -137,9 +140,13 @@ public sealed partial class TravelChatViewModel
     {
         PlanningDate = selectedDate;
         _assistantDateSelectedByTraveler = true;
+        var contextVersion = sessionService.ContextVersion;
+        var pageVersion = _assistantPageOperationVersion;
+        var date = DateOnly.FromDateTime(selectedDate);
         var schedule = (await bootstrapStore.GetCachedAsync())?.Value.Schedule;
-        if (schedule is null || schedule.TripId != sessionService.CurrentTripId) return;
-        var date = DateOnly.FromDateTime(PlanningDate);
+        if (contextVersion != sessionService.ContextVersion || pageVersion != _assistantPageOperationVersion
+            || date != DateOnly.FromDateTime(PlanningDate)
+            || schedule is null || schedule.TripId != sessionService.CurrentTripId) return;
         City = schedule.Items.Where(item => item.Date <= date && !string.IsNullOrWhiteSpace(item.City))
             .OrderByDescending(item => item.Date).Select(item => item.City).FirstOrDefault()
             ?? schedule.Items.Where(item => item.Date > date && !string.IsNullOrWhiteSpace(item.City))
@@ -205,6 +212,9 @@ public sealed partial class TravelChatViewModel
     [RelayCommand]
     private void OpenQuickSearch()
     {
+        _isFreeTimeSearch = false;
+        _pendingRetryRequest = null;
+        NotifyFreeTimeLabels();
         ErrorMessage = null;
         StatusMessage = null;
         _quickCategories.Clear();
@@ -224,6 +234,12 @@ public sealed partial class TravelChatViewModel
     [RelayCommand]
     private void OpenAssistantConversation()
     {
+        _isFreeTimeSearch = false;
+        _pendingRetryRequest = null;
+        _pendingGuidedAction = null;
+        _pendingReplacementCard = null;
+        _guidedCriteria = null;
+        NotifyFreeTimeLabels();
         SelectedDetailCard = null;
         ErrorMessage = null;
         StatusMessage = null;
@@ -244,7 +260,7 @@ public sealed partial class TravelChatViewModel
     {
         if (HasSelectedDetailCard) { CloseAssistantCard(); return true; }
         if (IsSecondaryMenuVisible) { IsSecondaryMenuVisible = false; return true; }
-        if (ShowAssistantConversation && HasGuidedQuestion && CanGoBack)
+        if (!IsBusy && ShowAssistantConversation && HasGuidedQuestion && CanGoBack)
         {
             GoBackGuided();
             return true;
@@ -259,6 +275,8 @@ public sealed partial class TravelChatViewModel
     [RelayCommand]
     private void SelectQuickCriterion(TravelChatGuidedOptionViewModel? option)
     {
+        _pendingRetryRequest = null;
+        OnPropertyChanged(nameof(AssistantSearchAction));
         if (option is null) return;
         if (option.Id.StartsWith("category.", StringComparison.Ordinal))
         {
@@ -294,6 +312,11 @@ public sealed partial class TravelChatViewModel
     private async Task SubmitQuickSearchAsync()
     {
         if (IsBusy) return;
+        if (IsFreeTimeSearch)
+        {
+            RefreshFreeTimeWindow();
+            if (_freeTimeWindow is null) { ErrorMessage = Resource("AssistantFreeTimeNoWindow"); return; }
+        }
         var categories = _quickCategories.Count == 0
             ? new[] { GuidedTravelCategories.Food, GuidedTravelCategories.Relax, GuidedTravelCategories.Culture,
                 GuidedTravelCategories.Walk, GuidedTravelCategories.Dance, GuidedTravelCategories.Nature,
@@ -307,20 +330,31 @@ public sealed partial class TravelChatViewModel
             Budgets = _quickBudgets.ToArray(),
             WalkingMinuteOptions = _quickWalking.Where(value => value > 0).ToArray()
         };
+        if (IsFreeTimeSearch && _freeTimeWindow is { } window)
+            _guidedCriteria = _guidedCriteria with
+            {
+                MaxDurationMinutes = _pendingRetryRequest?.Criteria?.MaxDurationMinutes ?? window.AvailableMinutes,
+                // Retry the exact interval and operation; an edited filter clears the pending request.
+                WindowStartsAtLocal = _pendingRetryRequest?.Criteria?.WindowStartsAtLocal ?? window.StartsAtLocal,
+                WindowEndsAtLocal = _pendingRetryRequest?.Criteria?.WindowEndsAtLocal ?? window.EndsAtLocal,
+                WindowTimeZoneId = _assistantSchedule?.TimeZoneId
+            };
         _pendingGuidedAction = new GuidedTravelActionDto(GuidedTravelActions.Recommend);
         _pendingReplacementCard = null;
         _quickSearchSubmission = true;
-        MessageText = Resource("AssistantSearchRequest");
+        MessageText = Resource(IsFreeTimeSearch ? "AssistantFreeTimeRequest" : "AssistantSearchRequest");
         HasGuidedQuestion = false;
         IsFreeTextVisible = false;
         SetAssistantSurface("conversation");
+        var contextVersion = sessionService.ContextVersion;
         try { await SendMessageAsync(); }
-        finally { _quickSearchSubmission = false; }
+        finally { if (contextVersion == sessionService.ContextVersion && !IsBusy) _quickSearchSubmission = false; }
     }
 
     private async Task ShowAssistantProposalAsync(IReadOnlyList<TravelChatCardViewModel> cards,
-        string message, bool isQuickSearch = false)
+        string message, bool isQuickSearch = false, AssistantRequestScope? operation = null)
     {
+        operation?.Verify();
         StatusMessage = null;
         ProposalRows.Clear();
         _proposalCards.Clear();
@@ -331,17 +365,25 @@ public sealed partial class TravelChatViewModel
         _proposalIsQuickSearch = isQuickSearch;
         _proposalMessage = message;
         OnPropertyChanged(nameof(ProposalMessage));
-        await RefreshAssistantProposalAsync();
+        await RefreshAssistantProposalAsync(operation);
+        operation?.Verify();
         SetAssistantSurface("proposal", remember: false);
         if (cards.Count > 0)
             await analytics.TrackAsync("proposal_previewed", "assistant", tripId: sessionService.CurrentTripId);
+        operation?.Verify();
     }
 
-    public async Task RefreshAssistantProposalAsync()
+    public async Task RefreshAssistantProposalAsync(AssistantRequestScope? operation = null)
     {
         if (string.IsNullOrWhiteSpace(_proposalMessage)
             || !ShowAssistantProposal && _assistantSurface != "conversation") return;
+        var contextVersion = sessionService.ContextVersion;
+        var pageVersion = _assistantPageOperationVersion;
+        var date = DateOnly.FromDateTime(PlanningDate);
         var cached = await bootstrapStore.GetCachedAsync();
+        operation?.Verify();
+        if (contextVersion != sessionService.ContextVersion || pageVersion != _assistantPageOperationVersion
+            || date != DateOnly.FromDateTime(PlanningDate)) return;
         var schedule = cached?.Value.Schedule;
         if (schedule is null || schedule.TripId != sessionService.CurrentTripId)
         {
@@ -361,7 +403,6 @@ public sealed partial class TravelChatViewModel
         _proposalRevision = schedule.Revision;
         _pendingProposalSaveRecommendationId = null;
         ProposalRows.Clear();
-        var date = DateOnly.FromDateTime(PlanningDate);
         var rows = _proposalIsQuickSearch
             ? AssistantDayProposalBuilder.BuildQuickSearch(schedule.Items, _proposalCards, date)
             : AssistantDayProposalBuilder.Build(schedule.Items, _proposalCards, date);
@@ -395,18 +436,35 @@ public sealed partial class TravelChatViewModel
     public async Task SaveProposalCardAsync(TravelChatCardViewModel? card)
     {
         if (card is null || !card.CanSave) return;
-        if (ShowAssistantProposal && _proposalRevision.HasValue)
+        using var scope = new AssistantRequestScope(sessionService, () => DateOnly.FromDateTime(PlanningDate),
+            () => _assistantPageOperationVersion);
+        var revision = _proposalRevision;
+        var tripId = _proposalTripId;
+        if (ShowAssistantProposal && revision.HasValue)
         {
-            var latest = (await bootstrapStore.GetCachedAsync())?.Value.Schedule;
-            if (latest is null || latest.TripId != _proposalTripId || latest.Revision != _proposalRevision.Value)
+            TripScheduleDto? latest;
+            try { latest = (await bootstrapStore.GetCachedAsync())?.Value.Schedule; }
+            catch (Exception error)
+            {
+                if (scope.CanPublish)
+                {
+                    ClientDiagnostics.Record("assistant_proposal_save_check_failed", exception: error);
+                    ErrorMessage = Resource("AssistantSaveError");
+                }
+                return;
+            }
+            if (!scope.CanPublish || !ShowAssistantProposal || _proposalTripId != tripId || _proposalRevision != revision) return;
+            if (latest is null || latest.TripId != tripId || latest.Revision != revision.Value)
             {
                 ErrorMessage = Resource("AssistantProposalNeedsRefresh");
                 SelectedDetailCard = null;
                 return;
             }
         }
+        if (!scope.CanPublish) return;
         _pendingProposalSaveRecommendationId = card.RecommendationId;
         await SaveItineraryItemCommand.ExecuteAsync(card);
+        if (!scope.CanPublish) return;
         if (card.IsSaved)
         {
             if (SelectedDetailCard == card) SelectedDetailCard = null;
@@ -435,6 +493,13 @@ public sealed partial class TravelChatViewModel
     private void AdjustAssistantCard()
     {
         SelectedDetailCard = null;
+        if (IsFreeTimeSearch)
+        {
+            ErrorMessage = null;
+            StatusMessage = null;
+            RestoreAssistantSearch();
+            return;
+        }
         AdjustGuidedPlanCommand.Execute(null);
         SetAssistantSurface("conversation");
     }

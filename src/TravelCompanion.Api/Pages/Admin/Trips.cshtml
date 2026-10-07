@@ -9,7 +9,7 @@
 }
 
 @section Styles {
-    <link rel="stylesheet" href="~/trip-planner.css" />
+    <link rel="stylesheet" href="~/trip-planner.css" asp-append-version="true" />
 }
 
 @if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
@@ -20,6 +20,10 @@
 {
     <section class="validation-summary-errors planner-notice"><strong>@Model.ErrorMessage</strong></section>
 }
+@if (Model.Editor is not null && !ViewData.ModelState.IsValid)
+{
+    <div asp-validation-summary="All" class="planner-notice" role="alert"></div>
+}
 
 @if (Model.Editor is null)
 {
@@ -29,7 +33,7 @@
             <h1>Viajes</h1>
             <p class="lede">Crea el itinerario, completá sus bloques y aplicalo cuando esté listo.</p>
         </div>
-        <span class="badge">@Model.Trips.Count viajes</span>
+        <span class="badge">@Model.TripPage.TotalCount viajes</span>
     </div>
 
     <div class="trip-admin-grid">
@@ -48,10 +52,12 @@
                     <div>
                         <label asp-for="CreateInput.TravelerName" class="required">Cliente</label>
                         <input asp-for="CreateInput.TravelerName" placeholder="Ivana &amp; Manu" />
+                        <span asp-validation-for="CreateInput.TravelerName"></span>
                     </div>
                     <div>
                         <label asp-for="CreateInput.AccessPin" class="required">PIN</label>
                         <input asp-for="CreateInput.AccessPin" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="190826" />
+                        <span asp-validation-for="CreateInput.AccessPin"></span>
                     </div>
                     <div class="trip-fixed-destination">
                         <label>Destino</label>
@@ -75,20 +81,49 @@
                         @for (var index = 0; index < Model.CreateInput.CitySegments.Count; index++)
                         {
                             <div class="trip-city-row" data-city-segment>
-                                <input asp-for="CreateInput.CitySegments[index].City" placeholder="Tokyo" aria-label="Ciudad" />
-                                <input asp-for="CreateInput.CitySegments[index].StartsOn" type="date" aria-label="Desde" />
-                                <input asp-for="CreateInput.CitySegments[index].EndsOn" type="date" aria-label="Hasta" />
-                                <input asp-for="CreateInput.CitySegments[index].HotelBase" placeholder="Opcional; se hereda" aria-label="Hotel o base inicial" />
+                                <label class="trip-city-field"><span class="trip-city-caption">Ciudad</span>
+                                    <input asp-for="CreateInput.CitySegments[index].City" placeholder="Tokyo" aria-label="Ciudad" />
+                                    <span asp-validation-for="CreateInput.CitySegments[index].City"></span>
+                                </label>
+                                <label class="trip-city-field"><span class="trip-city-caption">Desde</span>
+                                    <input asp-for="CreateInput.CitySegments[index].StartsOn" type="date" aria-label="Desde" />
+                                    <span asp-validation-for="CreateInput.CitySegments[index].StartsOn"></span>
+                                </label>
+                                <label class="trip-city-field"><span class="trip-city-caption">Hasta</span>
+                                    <input asp-for="CreateInput.CitySegments[index].EndsOn" type="date" aria-label="Hasta" />
+                                    <span asp-validation-for="CreateInput.CitySegments[index].EndsOn"></span>
+                                </label>
+                                <label class="trip-city-field"><span class="trip-city-caption">Hotel / base inicial</span>
+                                    <input asp-for="CreateInput.CitySegments[index].HotelBase" placeholder="Opcional; se hereda" aria-label="Hotel o base inicial" />
+                                    <span asp-validation-for="CreateInput.CitySegments[index].HotelBase"></span>
+                                </label>
                                 <button type="button" class="icon-button secondary" data-remove-city aria-label="Quitar ciudad" title="Quitar ciudad">×</button>
                             </div>
                         }
                     </div>
                     <template data-city-segment-template>
                         <div class="trip-city-row" data-city-segment>
-                            <input name="CreateInput.CitySegments[__index__].City" placeholder="Kyoto" aria-label="Ciudad" />
-                            <input name="CreateInput.CitySegments[__index__].StartsOn" type="date" aria-label="Desde" />
-                            <input name="CreateInput.CitySegments[__index__].EndsOn" type="date" aria-label="Hasta" />
-                            <input name="CreateInput.CitySegments[__index__].HotelBase" placeholder="Opcional; se hereda" aria-label="Hotel o base inicial" />
+                            <label class="trip-city-field"><span class="trip-city-caption">Ciudad</span>
+                                <input name="CreateInput.CitySegments[__index__].City" placeholder="Kyoto" aria-label="Ciudad"
+                                       data-val="true" data-val-required="La ciudad es obligatoria."
+                                       data-val-length="La ciudad no puede superar 120 caracteres." data-val-length-max="120" />
+                                <span class="field-validation-valid" data-valmsg-for="CreateInput.CitySegments[__index__].City" data-valmsg-replace="true"></span>
+                            </label>
+                            <label class="trip-city-field"><span class="trip-city-caption">Desde</span>
+                                <input name="CreateInput.CitySegments[__index__].StartsOn" type="date" aria-label="Desde"
+                                       data-val="true" data-val-required="Indica una fecha de inicio válida." />
+                                <span class="field-validation-valid" data-valmsg-for="CreateInput.CitySegments[__index__].StartsOn" data-valmsg-replace="true"></span>
+                            </label>
+                            <label class="trip-city-field"><span class="trip-city-caption">Hasta</span>
+                                <input name="CreateInput.CitySegments[__index__].EndsOn" type="date" aria-label="Hasta"
+                                       data-val="true" data-val-required="Indica una fecha de fin válida." />
+                                <span class="field-validation-valid" data-valmsg-for="CreateInput.CitySegments[__index__].EndsOn" data-valmsg-replace="true"></span>
+                            </label>
+                            <label class="trip-city-field"><span class="trip-city-caption">Hotel / base inicial</span>
+                                <input name="CreateInput.CitySegments[__index__].HotelBase" placeholder="Opcional; se hereda" aria-label="Hotel o base inicial"
+                                       data-val="true" data-val-length="El alojamiento no puede superar 180 caracteres." data-val-length-max="180" />
+                                <span class="field-validation-valid" data-valmsg-for="CreateInput.CitySegments[__index__].HotelBase" data-valmsg-replace="true"></span>
+                            </label>
                             <button type="button" class="icon-button secondary" data-remove-city aria-label="Quitar ciudad" title="Quitar ciudad">×</button>
                         </div>
                     </template>
@@ -111,14 +146,19 @@
                     <p class="form-hint">Los borradores no son accesibles desde la app.</p>
                 </div>
                 <form method="get" class="trip-search">
-                    <input name="search" value="@Model.Search" type="search" placeholder="Buscar cliente o destino" />
+                    <input name="search" value="@Model.Search" type="search" placeholder="Buscar cliente o destino" aria-label="Buscar cliente o destino" />
+                    <select asp-for="Status" aria-label="Estado del viaje">
+                        <option value="">Todos los estados</option>
+                        <option value="draft">Con borrador</option>
+                        <option value="published">Publicados</option>
+                    </select>
                     <button type="submit" class="secondary">Buscar</button>
                 </form>
             </div>
             <div class="trip-rows">
                 @if (Model.Trips.Count == 0)
                 {
-                    <div class="trip-empty">Todavía no hay viajes para mostrar.</div>
+                    <div class="trip-empty">No hay viajes que coincidan con estos filtros.</div>
                 }
                 @foreach (var trip in Model.Trips)
                 {
@@ -130,7 +170,7 @@
                         <span class="trip-row-state">
                             @if (trip.HasDraft)
                             {
-                                <span class="planner-status is-draft">Borrador</span>
+                                <span class="planner-status is-draft">@(trip.PublicationStatus == "Published" ? "Publicado · con borrador" : "Borrador")</span>
                             }
                             else
                             {
@@ -141,6 +181,20 @@
                     </a>
                 }
             </div>
+            <nav class="pagination" aria-label="Páginas de viajes">
+                <span class="muted">@Model.TripPage.FirstItem–@Model.TripPage.LastItem de @Model.TripPage.FilteredCount resultados</span>
+                @if (Model.PageNumber > 1)
+                {
+                    <a class="button secondary" asp-page="/Admin/Trips" asp-route-pageNumber="@(Model.PageNumber - 1)"
+                       asp-route-search="@Model.Search" asp-route-status="@Model.Status" rel="prev">Anterior</a>
+                }
+                <span>Página @Model.PageNumber de @Model.TripPage.PageCount</span>
+                @if (Model.PageNumber < Model.TripPage.PageCount)
+                {
+                    <a class="button secondary" asp-page="/Admin/Trips" asp-route-pageNumber="@(Model.PageNumber + 1)"
+                       asp-route-search="@Model.Search" asp-route-status="@Model.Status" rel="next">Siguiente</a>
+                }
+            </nav>
         </section>
     </div>
 }
@@ -191,7 +245,7 @@ else
                     <input data-meta="endsOn" type="date" />
                 </div>
                 <div>
-                    <label>Timezone</label>
+                    <label>Zona horaria</label>
                     <input data-meta="timeZoneId" maxlength="120" />
                 </div>
                 <div>
@@ -226,10 +280,10 @@ else
 @section Scripts {
     @if (Model.Editor is not null)
     {
-        <script src="~/trip-planner.js"></script>
+        <script src="~/trip-planner.js" asp-append-version="true"></script>
     }
     else
     {
-        <script src="~/trip-create.js"></script>
+        <script src="~/trip-create.js" asp-append-version="true"></script>
     }
 }

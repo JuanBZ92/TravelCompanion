@@ -16,8 +16,10 @@ const string largeDocsPin = "600702";
 const string navigationPin = "800703";
 var largeLists = args.Contains("--large-lists", StringComparer.Ordinal);
 var longTrip = args.Contains("--long-trip", StringComparer.Ordinal);
-if (args.Any(argument => argument is not ("--large-lists" or "--long-trip")))
-    throw new ArgumentException("Only --large-lists and --long-trip are supported by this synthetic review tool.");
+var dailyUx = args.Contains("--daily-ux", StringComparer.Ordinal);
+if (args.Any(argument => argument is not ("--large-lists" or "--long-trip" or "--daily-ux"))
+    || dailyUx && (largeLists || longTrip))
+    throw new ArgumentException("Supported modes: --large-lists, --long-trip, or --daily-ux alone.");
 var connection = new NpgsqlConnectionStringBuilder(
     Environment.GetEnvironmentVariable("TRAVELCOMPANION_REVIEW_POSTGRES")
     ?? "Host=127.0.0.1;Port=55439;Database=tc_dayplanner_review;Username=postgres;Pooling=false");
@@ -26,6 +28,13 @@ if (connection.Host != "127.0.0.1" || connection.Port != 55439 || connection.Dat
     throw new InvalidOperationException("Review seeding only supports 127.0.0.1:55439/tc_dayplanner_review without a custom search path.");
 await using var db = new TravelCompanionDbContext(new DbContextOptionsBuilder<TravelCompanionDbContext>()
     .UseNpgsql(connection.ConnectionString).Options);
+if (dailyUx)
+{
+    // This branch requires an already migrated local review database and never
+    // runs the general seed, changes its catalog, or rewrites an existing account.
+    await SeedDailyUxAsync(db);
+    return;
+}
 await db.Database.MigrateAsync();
 var userHasher = new PasswordHasher<AppUser>();
 await DatabaseSeeder.SeedAsync(db, userHasher);
@@ -54,6 +63,113 @@ Console.WriteLine($"Local synthetic review database ready: 127.0.0.1:55439/{data
 Console.WriteLine($"Review accounts: planner-free@example.test / planner-pass@example.test; password: {password}");
 Console.WriteLine($"Paid account PIN: {paidPin}. Free account uses email/password and Select trip (no custom trial PIN).");
 Console.WriteLine("Existing review accounts, plans and generation counts are preserved when this tool runs again.");
+
+static async Task SeedDailyUxAsync(TravelCompanionDbContext context)
+{
+    var now = DateTimeOffset.UtcNow;
+    var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(now, TimeZoneInfo.FindSystemTimeZoneById("Asia/Tokyo")).DateTime);
+    var email = $"daily-ux-{today:yyyyMMdd}@example.test";
+    // A different six-digit synthetic PIN per day; only a hash is persisted.
+    var pin = (900000 + today.DayNumber % 100000).ToString("000000", System.Globalization.CultureInfo.InvariantCulture);
+    var existing = await context.AppUsers.AsNoTracking().SingleOrDefaultAsync(item => item.Email == email);
+    if (existing is not null)
+    {
+        var existingTrip = await context.Trips.AsNoTracking().SingleAsync(item => item.AppUserId == existing.Id);
+        Console.WriteLine($"Reused daily UX account: {email}; trip: {existingTrip.Id}; PIN: {pin}; no existing data changed.");
+        return;
+    }
+    var japanId = await context.Destinations.AsNoTracking().Where(item => item.Slug == "japon").Select(item => item.Id).SingleAsync();
+    var firstDate = today.AddDays(-1);
+    var lastDate = today.AddDays(6);
+    const string hotelName = "Hotel de revisión · Marunouchi, Tokyo";
+    var user = new AppUser
+    {
+        Id = Guid.NewGuid(), Email = email, DisplayName = "Akira · revisión diaria", EmailVerified = true,
+        EmailVerifiedAtUtc = now, MustChangePassword = false, BehaviorAnalyticsConsent = false
+    };
+    user.PasswordHash = new PasswordHasher<AppUser>().HashPassword(user, password);
+    user.TravelPreferenceProfile = new() { UserId = user.Id, BudgetLevel = "medium", TravelPace = "balanced", Interests = ["Culture", "Food"], MaxWalkingMinutes = 90 };
+    user.Entitlements.Add(new()
+    {
+        Id = Guid.NewGuid(), UserId = user.Id, DestinationId = japanId, AccessLevel = ContentAccessLevel.Subscription,
+        GrantedAt = now, ExpiresAt = now.AddDays(60), Source = "local-daily-ux-review"
+    });
+    var trip = new Trip
+    {
+        Id = Guid.NewGuid(), AppUserId = user.Id, AppUser = user, DestinationId = japanId,
+        ExternalId = $"local-daily-ux-{today:yyyyMMdd}", TravelerName = user.DisplayName,
+        StartsOn = firstDate, EndsOn = lastDate, TimeZoneId = "Asia/Tokyo", ExperienceMode = ExperienceMode.SelfServiceBuilder,
+        PublicationStatus = TripPublicationStatus.Published, PublishedAtUtc = now,
+        BuilderSegmentsJson = JsonSerializer.Serialize(new BuilderTripSetupSegmentDto[] { new("Tokyo", firstDate, lastDate, HotelName: hotelName) })
+    };
+    var grant = new BuilderAccessGrant
+    {
+        Id = Guid.NewGuid(), AppUserId = user.Id, AppUser = user, DestinationId = japanId, TripId = trip.Id, Trip = trip,
+        Status = BuilderAccessStatus.Active, IsTrial = false, FreePolicy = FreeAccessPolicy.PersistentFree,
+        CreatedAtUtc = now, RedeemedAtUtc = now, ExpiresAtUtc = now.AddDays(60), OrderReference = "local-daily-ux-review"
+    };
+    grant.PinHash = new PasswordHasher<BuilderAccessGrant>().HashPassword(grant, pin);
+    for (var date = firstDate; date <= lastDate; date = date.AddDays(1))
+    {
+        var day = new TripDayPlan
+        {
+            Id = Guid.NewGuid(), TripId = trip.Id, Trip = trip, Date = date, DayNumber = date.DayNumber - firstDate.DayNumber + 1,
+            City = "Tokyo", HotelBase = hotelName, Introduction = "Recuerdos, reservas y planes flexibles para disfrutar Tokyo a tu ritmo."
+        };
+        foreach (var period in TripPlanPeriods.All)
+            day.Blocks.Add(new() { Id = Guid.NewGuid(), TripDayPlanId = day.Id, TripDayPlan = day, PeriodKey = period.Key, SortOrder = period.SortOrder });
+        trip.DayPlans.Add(day);
+        if (date != today && date != today.AddDays(1)) continue;
+        trip.Reservations.Add(new()
+        {
+            Id = Guid.NewGuid(), TripId = trip.Id, Trip = trip, Date = date, StartsAt = new(9, 0), EndsAt = new(10, 30),
+            Title = date == today ? "Primera reserva · museo y jardines" : "Primera reserva de mañana · paseo por el museo",
+            City = "Tokyo", LocationName = "Museo de revisión", Address = "Tokyo, Japan", ConfirmationCode = $"DAILY-{date:MMdd}",
+            Notes = "Reserva sintética con horario fijo. No representa una entrada real.",
+            Type = ReservationType.Event, PlanningKind = ScheduleItemKind.ConfirmedReservation,
+            TimePrecision = ItineraryTimePrecision.Exact, Flexibility = ItineraryFlexibility.ConfirmedReservation,
+            Owner = ItineraryItemOwner.Traveler, ItemSource = ItineraryItemSource.Manual, TimeZoneId = trip.TimeZoneId,
+            Latitude = 35.681236m, Longitude = 139.767125m, TripDayBlockId = day.Blocks.Single(item => item.PeriodKey == "morning").Id
+        });
+        foreach (var period in TripPlanPeriods.All)
+            trip.Reservations.Add(new()
+            {
+                Id = Guid.NewGuid(), TripId = trip.Id, Trip = trip, TripDayBlockId = day.Blocks.Single(item => item.PeriodKey == period.Key).Id,
+                Date = date, StartsAt = period.StartsAt, DurationMinutes = 60, City = "Tokyo",
+                Title = $"{period.Label} · idea flexible entre cafés, jardines y calles de Tokyo",
+                LocationName = "Marunouchi", Address = "Tokyo, Japan", ConfirmationCode = "",
+                Notes = "Plan sintético flexible: puedes cambiarlo o dejarlo como alternativa durante el día.",
+                Type = ReservationType.Event, PlanningKind = ScheduleItemKind.ManualEvent,
+                TimePrecision = ItineraryTimePrecision.PeriodOnly, Flexibility = ItineraryFlexibility.Flexible,
+                Owner = ItineraryItemOwner.Traveler, ItemSource = ItineraryItemSource.Manual, TimeZoneId = trip.TimeZoneId,
+                Latitude = 35.681236m, Longitude = 139.767125m, SortOrder = 10
+            });
+    }
+    trip.Reservations.Add(new()
+    {
+        Id = Guid.NewGuid(), TripId = trip.Id, Trip = trip, Date = firstDate, StartsAt = new(15, 0), EndsOn = lastDate, EndsAt = new(11, 0),
+        Type = ReservationType.Lodging, Title = hotelName, City = "Tokyo", LocationName = hotelName, Address = "Marunouchi, Tokyo, Japan",
+        ConfirmationCode = "DAILY-HOTEL", Notes = "Hotel sintético para revisar la base de hoy y mañana.",
+        PlanningKind = ScheduleItemKind.ConfirmedReservation, Flexibility = ItineraryFlexibility.ConfirmedReservation,
+        TimePrecision = ItineraryTimePrecision.Exact, TimeZoneId = trip.TimeZoneId, Latitude = 35.681236m, Longitude = 139.767125m
+    });
+    context.AddRange(user, trip, grant);
+    context.JournalFreeEntries.Add(new()
+    {
+        Id = Guid.NewGuid(), UserId = user.Id, TripId = trip.Id, Date = today, Title = "Las pequeñas cosas de Tokyo", Place = "Marunouchi",
+        Notes = "Llegamos sin prisa. El café de la mañana, los jardines y una conversación en el camino fueron los recuerdos que elegimos guardar.",
+        Revision = 1, MutationId = Guid.NewGuid(), UpdatedAt = now
+    });
+    context.TripExpenseSettings.Add(new() { TripId = trip.Id, UserId = user.Id, Currency = "EUR", Budget = 800, Revision = 1, MutationId = Guid.NewGuid() });
+    context.TripExpenses.AddRange(
+        new TripExpense { Id = Guid.NewGuid(), TripId = trip.Id, UserId = user.Id, Amount = 1800, Currency = "JPY", Date = today, Category = ExpenseCategory.Food,
+            Concept = "Almuerzo sintético", BaseCurrency = "EUR", Rate = .006m, RateDate = today, RateSource = "manual", Revision = 1, MutationId = Guid.NewGuid() },
+        new TripExpense { Id = Guid.NewGuid(), TripId = trip.Id, UserId = user.Id, Amount = 500, Currency = "JPY", Date = today, Category = ExpenseCategory.Transport,
+            Concept = "Traslado sintético pendiente de cotización", BaseCurrency = "EUR", Revision = 1, MutationId = Guid.NewGuid() });
+    await context.SaveChangesAsync();
+    Console.WriteLine($"Created daily UX account: {email}; PIN: {pin}; trip: {trip.Id}; Asia/Tokyo today: {today:yyyy-MM-dd}; tomorrow: {today.AddDays(1):yyyy-MM-dd}.");
+    Console.WriteLine("Only new synthetic account/trip rows were inserted. Existing review accounts, catalog, quotas and plans are untouched.");
+}
 
 async Task SeedTravelerAsync(TravelCompanionDbContext context, Guid destinationId, string email, string name, int days, bool trial,
     string? pin = null, IReadOnlyList<BuilderTripSetupSegmentDto>? segments = null)

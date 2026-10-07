@@ -109,44 +109,7 @@ public abstract partial class ViewModelBase : ObservableObject
 
     public bool HasLastUpdated => !string.IsNullOrWhiteSpace(LastUpdatedMessage);
 
-    protected async Task LoadAsync(Func<Task> loadAction)
-    {
-        if (IsBusy)
-        {
-            return;
-        }
-
-        // Cancel any previous load operation
-        _loadCancellationTokenSource?.Cancel();
-        _loadCancellationTokenSource?.Dispose();
-        _loadCancellationTokenSource = new CancellationTokenSource();
-
-        try
-        {
-            IsBusy = true;
-            ErrorMessage = null;
-            StatusMessage = null;
-            await loadAction();
-            HasLoaded = true;
-        }
-        catch (OperationCanceledException) when (_loadCancellationTokenSource?.IsCancellationRequested == true)
-        {
-            // Expected when operation is cancelled - don't show error
-        }
-        catch (Exception ex) when (IsConnectionError(ex))
-        {
-            if (_loadCancellationTokenSource?.IsCancellationRequested != true) ErrorMessage = ConnectionError;
-        }
-        catch (Exception ex)
-        {
-            ErrorMessage = ex.Message;
-        }
-        finally
-        {
-            IsRefreshing = false;
-            IsBusy = false;
-        }
-    }
+    protected Task LoadAsync(Func<Task> loadAction) => LoadAsync(_ => loadAction());
 
     protected async Task LoadAsync(Func<CancellationToken, Task> loadAction)
     {
@@ -159,8 +122,9 @@ public abstract partial class ViewModelBase : ObservableObject
         _loadCancellationTokenSource?.Cancel();
         _loadCancellationTokenSource?.Dispose();
         _loadCancellationTokenSource = new CancellationTokenSource();
-
-        var cancellationToken = _loadCancellationTokenSource.Token;
+        var operation = _loadCancellationTokenSource;
+        var cancellationToken = operation.Token;
+        bool IsActive() => ReferenceEquals(_loadCancellationTokenSource, operation) && !cancellationToken.IsCancellationRequested;
 
         try
         {
@@ -168,7 +132,7 @@ public abstract partial class ViewModelBase : ObservableObject
             ErrorMessage = null;
             StatusMessage = null;
             await loadAction(cancellationToken);
-            HasLoaded = true;
+            if (IsActive()) HasLoaded = true;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -176,16 +140,20 @@ public abstract partial class ViewModelBase : ObservableObject
         }
         catch (Exception ex) when (IsConnectionError(ex))
         {
-            if (!cancellationToken.IsCancellationRequested) ErrorMessage = ConnectionError;
+            if (IsActive()) ErrorMessage = ConnectionError;
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        {
+            if (IsActive()) ErrorMessage = ex.Message;
         }
         catch (Exception ex)
         {
-            ErrorMessage = ex.Message;
+            Services.ClientDiagnostics.Record("viewmodel_load_failed", exception: ex);
+            if (IsActive()) ErrorMessage = Services.LocalizationResourceManager.Instance["UxActionFailed"];
         }
         finally
         {
-            IsRefreshing = false;
-            IsBusy = false;
+            if (ReferenceEquals(_loadCancellationTokenSource, operation)) { IsRefreshing = false; IsBusy = false; }
         }
     }
 
@@ -209,7 +177,7 @@ public abstract partial class ViewModelBase : ObservableObject
 
     protected void MarkLastUpdated(DateTimeOffset savedAt)
     {
-        LastUpdatedMessage = $"Actualizado {savedAt.ToLocalTime():dd/MM HH:mm}";
+        LastUpdatedMessage = string.Format(Services.LocalizationResourceManager.Instance["UxLastUpdated"], savedAt.ToLocalTime());
     }
 
     protected virtual void OnLoadStateChanged()

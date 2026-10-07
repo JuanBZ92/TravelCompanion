@@ -346,10 +346,24 @@ public sealed class JournalMemoryPage : JournalScopedPage
     }
     private async Task ResolveAsync()
     {
-        var keep = JournalText.Get(memory.DeletePending is null ? "JournalKeepMine" : "JournalDelete"); var remote = JournalText.Get("JournalUseRemote");
-        var choice = await DisplayActionSheetAsync($"{memory.Text}\n\n{memory.FreeConflict?.Notes ?? memory.Conflict?.Notes}", JournalText.Get("JournalCancel"), null, keep, remote);
-        if (choice != keep && choice != remote) return;
-        await store.ResolveAsync(scope, memory, choice == keep);
+        if (busy || !store.IsCurrent(scope)) return;
+        var useLocal = false;
+        if (memory.FreeConflict?.Deleted == true)
+        {
+            if (!await DisplayAlertAsync(JournalText.Get("JournalDeleted"), JournalText.Get("JournalDeletedConflict"),
+                JournalText.Get("JournalAcceptDeletion"), JournalText.Get("JournalCancel"))) return;
+        }
+        else
+        {
+            var keep = JournalText.Get(memory.DeletePending is null ? "JournalKeepMine" : "JournalDelete");
+            var remote = JournalText.Get("JournalUseRemote");
+            var choice = await DisplayActionSheetAsync($"{memory.Text}\n\n{memory.FreeConflict?.Notes ?? memory.Conflict?.Notes}",
+                JournalText.Get("JournalCancel"), null, keep, remote);
+            if (choice != keep && choice != remote) return;
+            useLocal = choice == keep;
+        }
+        if (!store.IsCurrent(scope)) return;
+        await store.ResolveAsync(scope, memory, useLocal);
         var entries = await store.LoadAsync(scope, [], false, default);
         var resolved = entries.FirstOrDefault(x => x.Key == memory.Key);
         if (resolved is null)

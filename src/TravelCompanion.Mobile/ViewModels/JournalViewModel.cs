@@ -11,6 +11,7 @@ public sealed partial class JournalThumbnail(JournalMemory memory, int index) : 
 {
     public JournalMemory Memory { get; } = memory;
     public int Index { get; } = index;
+    public Guid PhotoId => Memory.Images[Index].Id;
     [ObservableProperty] private ImageSource source = ImageSource.FromFile("journal_photo.svg");
     public string Description => JournalText.Format("JournalPhotoNumber", Index + 1, Memory.Images.Length);
 }
@@ -44,6 +45,10 @@ public sealed partial class JournalViewModel(MobileBootstrapStore bootstrapStore
 {
     private JournalScope? renderedScope;
     private bool opening;
+    private int firstVisible = -1;
+    private int lastVisible = -1;
+    private CancellationTokenSource? thumbnailCancellation;
+    private readonly JournalThumbnailCache<ImageSource> thumbnailCache = new();
     public ObservableCollection<JournalRow> Entries { get; } = [];
     public string TripTitle { get; private set; } = "";
     public string Heading => JournalText.Get("JournalHeading");
@@ -98,6 +103,7 @@ public sealed partial class JournalViewModel(MobileBootstrapStore bootstrapStore
             if (needsSchedule)
             {
                 var token = await sessions.GetTokenAsync();
+                if (!store.IsCurrent(scope) || ct.IsCancellationRequested) return;
                 if (!string.IsNullOrEmpty(token))
                 {
                     var fresh = (await bootstrapStore.RefreshAsync(token, cancellationToken: timeout.Token))?.Schedule;
@@ -121,9 +127,17 @@ public sealed partial class JournalViewModel(MobileBootstrapStore bootstrapStore
         var drafts = await store.DraftsAsync(scope, ct);
         var rows = new List<JournalRow>();
         var activityIds = Activities.Select(x => x.Id).ToHashSet();
-        var thumbnails = new List<(JournalThumbnail Thumbnail, Guid PhotoId)>();
+        var sameScope = renderedScope == scope;
+        var oldRows = sameScope ? Entries.ToDictionary(x => x.Memory.Key) : new Dictionary<string, JournalRow>();
         foreach (var memory in memories.Where(x => !x.IsDraft && !x.Deleted && x.HasContent))
         {
+            var hasActivity = !memory.IsFree && activityIds.Contains(memory.Id);
+            if (oldRows.TryGetValue(memory.Key, out var previous) && previous.HasActivity == hasActivity
+                && JournalEntries.SameContent(previous.Memory, memory))
+            {
+                rows.Add(previous);
+                continue;
+            }
             var photos = new List<JournalThumbnail>();
             var indices = JournalEntries.PhotoPreviewIndices(memory);
             foreach (var i in indices)
@@ -131,33 +145,81 @@ public sealed partial class JournalViewModel(MobileBootstrapStore bootstrapStore
                 ct.ThrowIfCancellationRequested();
                 var photo = new JournalThumbnail(memory, i);
                 photos.Add(photo);
-                thumbnails.Add((photo, memory.Images[i].Id));
             }
-            rows.Add(new(memory, photos, !memory.IsFree && activityIds.Contains(memory.Id)));
+            rows.Add(new(memory, photos, hasActivity));
         }
         ct.ThrowIfCancellationRequested();
         if (!store.IsCurrent(scope)) return;
+        if (!sameScope)
+        {
+            StopThumbnails(); thumbnailCache.Clear(); Entries.Clear();
+            firstVisible = -1; lastVisible = -1;
+        }
         renderedScope = scope;
         Memories = memories; Drafts = drafts;
-        Entries.Clear(); foreach (var row in rows) Entries.Add(row);
+        JournalEntries.ReconcileRows(Entries, rows, x => x.Memory.Key);
+        if (firstVisible < 0 || firstVisible >= Entries.Count) { firstVisible = 0; lastVisible = 4; }
         NotifyContentChanged();
-        _ = LoadThumbnailsAsync(scope, thumbnails, ct);
+        LoadVisibleThumbnails();
     }
-    private async Task LoadThumbnailsAsync(JournalScope scope,
-        IEnumerable<(JournalThumbnail Thumbnail, Guid PhotoId)> thumbnails, CancellationToken ct)
+
+    public void SetVisibleRange(int first, int last)
+    {
+        if (first < 0 || last < first || (first == firstVisible && last == lastVisible)) return;
+        firstVisible = first; lastVisible = last;
+        LoadVisibleThumbnails();
+    }
+
+    public new void CancelLoading() { base.CancelLoading(); StopThumbnails(); }
+
+    private void StopThumbnails()
+    {
+        thumbnailCancellation?.Cancel(); thumbnailCancellation?.Dispose(); thumbnailCancellation = null;
+    }
+
+    private void LoadVisibleThumbnails()
+    {
+        StopThumbnails();
+        if (renderedScope is not { } scope || !store.IsCurrent(scope)) return;
+        var thumbnails = JournalEntries.VisibleRows(Entries.Count, firstVisible, lastVisible)
+            .SelectMany(i => Entries[i].Photos).ToArray();
+        thumbnailCancellation = new CancellationTokenSource();
+        _ = LoadThumbnailsAsync(scope, thumbnails, thumbnailCancellation.Token);
+    }
+
+    private async Task LoadThumbnailsAsync(JournalScope scope, IReadOnlyList<JournalThumbnail> thumbnails, CancellationToken ct)
     {
         try
         {
-            foreach (var (thumbnail, id) in thumbnails)
+            var visible = thumbnails.Select(x => x.PhotoId).ToHashSet();
+            foreach (var thumbnail in thumbnails)
             {
                 ct.ThrowIfCancellationRequested();
-                var bytes = await store.PhotoAsync(scope, id, true);
-                if (bytes is { Length: > 0 } && store.IsCurrent(scope))
-                    thumbnail.Source = ImageSource.FromStream(() => new MemoryStream(bytes));
+                if (!store.IsCurrent(scope) || renderedScope != scope) return;
+                if (thumbnailCache.TryGet(thumbnail.PhotoId, out var cached)) { thumbnail.Source = cached!; continue; }
+                try
+                {
+                    var bytes = await store.PhotoAsync(scope, thumbnail.PhotoId, true, ct);
+                    ct.ThrowIfCancellationRequested();
+                    if (bytes is not { Length: > 0 } || !store.IsCurrent(scope) || renderedScope != scope) continue;
+                    var source = ImageSource.FromStream(() => new MemoryStream(bytes));
+                    thumbnailCache.Add(thumbnail.PhotoId, source); thumbnail.Source = source;
+                    TrimThumbnails(visible);
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception) { /* A missing/damaged photo must not stop later thumbnails. */ }
             }
+            TrimThumbnails(visible);
         }
         catch (OperationCanceledException) { }
         catch (Exception) { /* Missing or damaged local photos leave the placeholder visible. */ }
+    }
+    private void TrimThumbnails(IReadOnlySet<Guid> visible)
+    {
+        var evicted = thumbnailCache.Trim(visible).ToHashSet();
+        if (evicted.Count == 0) return;
+        foreach (var thumbnail in Entries.SelectMany(x => x.Photos).Where(x => evicted.Contains(x.PhotoId)))
+            thumbnail.Source = ImageSource.FromFile("journal_photo.svg");
     }
     private void NotifyContentChanged()
     {
@@ -226,6 +288,10 @@ public sealed partial class JournalViewModel(MobileBootstrapStore bootstrapStore
         if (choice == activity) await Shell.Current.Navigation.PushModalAsync(new JournalActivityPickerPage(Activities, Memories));
         if (choice == export) await Shell.Current.Navigation.PushModalAsync(new JournalExportPage(scope, TripTitle, Memories.Where(x => !x.IsDraft && !x.Deleted && x.HasContent).ToArray()));
     }
-    private void Clear() { renderedScope = null; Entries.Clear(); Activities = []; Memories = []; Drafts = []; TripTitle = ""; NotifyContentChanged(); }
+    private void Clear()
+    {
+        StopThumbnails(); thumbnailCache.Clear(); firstVisible = -1; lastVisible = -1;
+        renderedScope = null; Entries.Clear(); Activities = []; Memories = []; Drafts = []; TripTitle = ""; NotifyContentChanged();
+    }
     public void ResetForNewSession() { ResetLoadState(); Clear(); }
 }

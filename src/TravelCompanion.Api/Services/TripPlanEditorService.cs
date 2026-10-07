@@ -21,27 +21,42 @@ public sealed class TripPlanEditorService(
         Converters = { new JsonStringEnumConverter() }
     };
 
-    public async Task<IReadOnlyList<TripPlanListItem>> ListTripsAsync(
+    public async Task<TripPlanListPage> ListTripsAsync(
         string? search,
+        int page,
+        string? status,
         CancellationToken cancellationToken = default)
     {
         var query = dbContext.Trips
             .AsNoTracking()
-            .Include(trip => trip.Destination)
-            .Include(trip => trip.PlanDraft)
             .AsQueryable();
+        var totalCount = await query.CountAsync(cancellationToken);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var term = search.Trim().ToLower();
+            var term = search.Trim().ToLowerInvariant();
             query = query.Where(trip =>
                 trip.TravelerName.ToLower().Contains(term)
                 || (trip.Destination != null && trip.Destination.Name.ToLower().Contains(term)));
         }
 
-        return await query
+        query = status switch
+        {
+            "draft" => query.Where(trip => trip.PlanDraft != null || trip.PublicationStatus == TripPublicationStatus.Draft),
+            "published" => query.Where(trip => trip.PublicationStatus == TripPublicationStatus.Published),
+            _ => query
+        };
+        var filteredCount = await query.CountAsync(cancellationToken);
+        const int pageSize = 50;
+        var pageCount = Math.Max(1, (int)Math.Ceiling(filteredCount / (double)pageSize));
+        page = Math.Clamp(page, 1, pageCount);
+
+        var items = await query
             .OrderByDescending(trip => trip.StartsOn)
             .ThenBy(trip => trip.TravelerName)
+            .ThenBy(trip => trip.Id)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .Select(trip => new TripPlanListItem(
                 trip.Id,
                 trip.TravelerName,
@@ -49,9 +64,10 @@ public sealed class TripPlanEditorService(
                 trip.StartsOn,
                 trip.EndsOn,
                 trip.PublicationStatus.ToString(),
-                trip.PlanDraft != null,
+                trip.PlanDraft != null || trip.PublicationStatus == TripPublicationStatus.Draft,
                 trip.PlanDraft != null ? trip.PlanDraft.UpdatedAtUtc : trip.UpdatedAtUtc))
             .ToListAsync(cancellationToken);
+        return new(items, totalCount, filteredCount, page, pageSize);
     }
 
     public async Task<Guid> CreateTripAsync(
@@ -369,7 +385,26 @@ public sealed class TripPlanEditorService(
         return false;
     }
 
-    public string SerializeForPage(TripPlanEditorState state) => JsonSerializer.Serialize(state, JsonOptions);
+    public string SerializeForPage(TripPlanEditorState state, string? submittedDraft = null)
+    {
+        if (!string.IsNullOrWhiteSpace(submittedDraft))
+        {
+            try
+            {
+                var payload = Deserialize(submittedDraft);
+                ValidateDateRange(payload.StartsOn, payload.EndsOn);
+                if (payload.Days is not null && payload.Days.All(day => day?.Blocks is not null
+                    && day.Blocks.All(block => block?.Recommendations is not null && block.Items is not null)))
+                    state = state with { Payload = payload };
+            }
+            catch (Exception exception) when (exception is JsonException or ValidationException)
+            {
+                // A malformed post keeps the saved editor readable and its validation message visible.
+            }
+        }
+        // Use the default JSON encoder because this value is rendered inside a script element.
+        return JsonSerializer.Serialize(state, JsonOptions);
+    }
 
     private async Task<Trip?> LoadTripGraphAsync(Guid tripId, CancellationToken cancellationToken) =>
         await dbContext.Trips

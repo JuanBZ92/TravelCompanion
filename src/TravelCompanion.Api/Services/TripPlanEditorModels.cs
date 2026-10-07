@@ -126,6 +126,14 @@ public sealed record TripPlanListItem(
     bool HasDraft,
     DateTimeOffset UpdatedAtUtc);
 
+public sealed record TripPlanListPage(
+    IReadOnlyList<TripPlanListItem> Items, int TotalCount, int FilteredCount, int Page, int PageSize)
+{
+    public int PageCount => Math.Max(1, (int)Math.Ceiling(FilteredCount / (double)PageSize));
+    public int FirstItem => FilteredCount == 0 ? 0 : (Page - 1) * PageSize + 1;
+    public int LastItem => Math.Min(Page * PageSize, FilteredCount);
+}
+
 public sealed record CreateTripPlanCommand(
     string TravelerName,
     string AccessPin,

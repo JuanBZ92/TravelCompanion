@@ -343,52 +343,59 @@
                     <CollectionView.Header>
                         <VerticalStackLayout Padding="0,12,0,16" Spacing="16">
                             <Label Text="{Binding PreviewMessage}" IsVisible="{Binding HasPreviewMessage}" FontSize="13" TextColor="#6A625B" />
-                            <Border Padding="14,12" BackgroundColor="#FFFCF8" Stroke="#DDD4C9" StrokeThickness="1" IsVisible="{Binding HasFocusItem}">
-                                <Border.StrokeShape>
-                                    <RoundRectangle CornerRadius="14" />
-                                </Border.StrokeShape>
-                                <Grid ColumnDefinitions="*,48" ColumnSpacing="12">
-                                    <VerticalStackLayout Spacing="4" VerticalOptions="Center">
-                                        <Label
-                                            Text="{Binding [UXAuditNextUp], Source={x:Static services:LocalizationResourceManager.Instance}}"
-                                            CharacterSpacing="2"
-                                            FontSize="10"
-                                            FontAttributes="Bold"
-                                            TextColor="#9D794F" />
-                                        <Label Text="{Binding FocusTitle}" FontFamily="serif" FontSize="21" TextColor="#1A1714" MaxLines="2" LineBreakMode="TailTruncation" />
-                                        <Label Text="{Binding FocusMeta}" FontSize="13" TextColor="#6E675F" />
-                                        <Label Text="{Binding FocusPlace}" FontSize="13" TextColor="#6E675F" MaxLines="1" LineBreakMode="TailTruncation" />
-                                    </VerticalStackLayout>
-                                    <VerticalStackLayout Grid.Column="1" Spacing="6" VerticalOptions="Center">
-                                        <ImageButton
-                                            Source="tab_map.svg"
-                                            Command="{Binding OpenFocusMapCommand}"
-                                            IsVisible="{Binding CanOpenFocusMap}"
-                                            Style="{StaticResource ContextIconButton}"
-                                            SemanticProperties.Description="{Binding [UxOpenMaps], Source={x:Static services:LocalizationResourceManager.Instance}}"
-                                            ToolTipProperties.Text="{Binding [UxOpenMaps], Source={x:Static services:LocalizationResourceManager.Instance}}" />
-                                        <ImageButton
-                                            Source="action_info.svg"
-                                            Command="{Binding OpenFocusDetailCommand}"
-                                            Style="{StaticResource ContextIconButton}"
-                                            SemanticProperties.Description="{Binding [UXAuditOpenActivity], Source={x:Static services:LocalizationResourceManager.Instance}}"
-                                            ToolTipProperties.Text="{Binding [UXAuditOpenActivity], Source={x:Static services:LocalizationResourceManager.Instance}}" />
-                                        <ImageButton
-                                            Source="tab_docs.svg"
-                                            Command="{Binding OpenFocusDocumentCommand}"
-                                            IsVisible="{Binding HasFocusDocument}"
-                                            Style="{StaticResource ContextIconButton}"
-                                            SemanticProperties.Description="{Binding [UxOpenDocument], Source={x:Static services:LocalizationResourceManager.Instance}}"
-                                            ToolTipProperties.Text="{Binding [UxOpenDocument], Source={x:Static services:LocalizationResourceManager.Instance}}" />
+                            <Border Padding="14,12" Style="{StaticResource EditorialCard}" IsVisible="{Binding HasDailyOverview}">
+                                <Grid>
+                                    <Grid ColumnDefinitions="*,48" ColumnSpacing="12" IsVisible="{Binding HasFocusItem}">
+                                        <VerticalStackLayout Spacing="4" VerticalOptions="Center">
+                                            <Label
+                                                Text="{Binding [UXAuditNextUp], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                                                CharacterSpacing="2"
+                                                FontSize="10"
+                                                FontAttributes="Bold"
+                                                TextColor="{StaticResource EditorialMuted}" />
+                                            <Label Text="{Binding FocusTitle}" FontFamily="serif" FontSize="21" TextColor="{StaticResource Ink}" MaxLines="2" LineBreakMode="TailTruncation" />
+                                            <Label Text="{Binding FocusMeta}" FontSize="13" TextColor="{StaticResource EditorialMuted}" />
+                                            <Label Text="{Binding FocusPlace}" FontSize="13" TextColor="{StaticResource EditorialMuted}" MaxLines="1" LineBreakMode="TailTruncation" />
+                                        </VerticalStackLayout>
+                                        <VerticalStackLayout Grid.Column="1" Spacing="6" VerticalOptions="Center">
+                                            <ImageButton
+                                                Source="tab_map.svg"
+                                                Command="{Binding OpenFocusMapCommand}"
+                                                IsVisible="{Binding CanOpenFocusMap}"
+                                                Style="{StaticResource ContextIconButton}"
+                                                SemanticProperties.Description="{Binding [UxOpenMaps], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                                                ToolTipProperties.Text="{Binding [UxOpenMaps], Source={x:Static services:LocalizationResourceManager.Instance}}" />
+                                            <ImageButton
+                                                Source="action_info.svg"
+                                                Command="{Binding OpenFocusDetailCommand}"
+                                                Style="{StaticResource ContextIconButton}"
+                                                SemanticProperties.Description="{Binding [UXAuditOpenActivity], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                                                ToolTipProperties.Text="{Binding [UXAuditOpenActivity], Source={x:Static services:LocalizationResourceManager.Instance}}" />
+                                            <ImageButton
+                                                Source="tab_docs.svg"
+                                                Command="{Binding OpenFocusDocumentCommand}"
+                                                IsVisible="{Binding HasFocusDocument}"
+                                                Style="{StaticResource ContextIconButton}"
+                                                SemanticProperties.Description="{Binding [UxOpenDocument], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                                                ToolTipProperties.Text="{Binding [UxOpenDocument], Source={x:Static services:LocalizationResourceManager.Instance}}" />
+                                        </VerticalStackLayout>
+                                    </Grid>
+                                    <VerticalStackLayout IsVisible="{Binding HasTomorrowOverview}" Spacing="4">
+                                        <Button Text="{Binding [TomorrowTitle], Source={x:Static services:LocalizationResourceManager.Instance}}" Command="{Binding OpenTomorrowCommand}"
+                                                BackgroundColor="Transparent" TextColor="{StaticResource Ink}" MinimumHeightRequest="48" HorizontalOptions="Start" Padding="0" />
+                                        <Label Text="{Binding TomorrowSummary}" FontSize="13" TextColor="{StaticResource EditorialMuted}" MaxLines="2" LineBreakMode="TailTruncation" />
                                     </VerticalStackLayout>
                                 </Grid>
                             </Border>
                             <Label
-                                Text="{Binding [UXAuditTodayFinished], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                                Text="{Binding TodayStatus}"
                                 IsVisible="{Binding ShowFinishedToday}"
-                                FontSize="12"
-                                TextColor="#8E867D" />
+                                FontSize="13"
+                                TextColor="{StaticResource EditorialMuted}" />
 
+                            <Button Text="{Binding [AssistantFreeTime], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                                    Command="{Binding FreeTimeCommand}" IsVisible="{Binding HasFocusItem}" MinimumHeightRequest="48"
+                                    BackgroundColor="Transparent" TextColor="{StaticResource Ink}" HorizontalOptions="Start" />
                             <Border IsVisible="{Binding IsSelectedDayLocked}" Style="{StaticResource NoticePanel}">
                                 <Label Text="{Binding LockedDayMessage}" TextColor="#5F4B25" />
                             </Border>
@@ -412,8 +419,8 @@
                                 <Grid ColumnDefinitions="28,*,32" ColumnSpacing="10" Padding="16,10" InputTransparent="True">
                                     <Image Source="today_sparkles.svg" HeightRequest="26" WidthRequest="26" />
                                     <VerticalStackLayout Grid.Column="1" Spacing="3" VerticalOptions="Center">
-                                        <Label Text="{Binding ImproveDayLabel}" TextColor="White" FontSize="16" />
-                                        <Label Text="{Binding ImproveDaySubtitle}" TextColor="#F1E5D5" FontSize="10" />
+                                        <Label Text="{Binding ImproveDayLabel}" TextColor="{StaticResource Ink}" FontSize="16" />
+                                        <Label Text="{Binding ImproveDaySubtitle}" TextColor="{StaticResource Ink}" FontSize="13" />
                                     </VerticalStackLayout>
                                     <Border
                                         Grid.Column="2"
@@ -423,7 +430,7 @@
                                         WidthRequest="32"
                                         HeightRequest="32"
                                         VerticalOptions="Center">
-                                        <Image Source="today_arrow.svg" WidthRequest="20" HeightRequest="20" HorizontalOptions="Center" VerticalOptions="Center" />
+                                        <Image Source="today_arrow_dark.svg" WidthRequest="20" HeightRequest="20" HorizontalOptions="Center" VerticalOptions="Center" />
                                     </Border>
                                 </Grid>
                             </Grid>

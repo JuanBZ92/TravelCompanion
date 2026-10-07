@@ -15,7 +15,7 @@ internal static class EditorialUi
     public static Color Gold => Resource("Gold", "#B8956A");
     public static string TextResource(string key) => LocalizationResourceManager.Instance[key];
 
-    public static Label Text(string text, double size = 15) => new()
+    public static Label Text(string text, double size = 16) => new()
     {
         Text = text, FontSize = size, TextColor = Muted, LineHeight = 1.2,
         LineBreakMode = LineBreakMode.WordWrap

@@ -6,6 +6,9 @@ public sealed class DiagnosticHttpHandler(HttpMessageHandler innerHandler) : Del
 {
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
+#if ANDROID
+        MobileOperationMeasurement.Request();
+#endif
         var watch = Stopwatch.StartNew();
         // Only a fixed API area is recorded. No path identifiers, query strings or headers.
         var area = request.RequestUri?.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries)

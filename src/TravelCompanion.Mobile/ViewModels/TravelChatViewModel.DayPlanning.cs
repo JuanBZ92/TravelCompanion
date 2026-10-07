@@ -24,9 +24,11 @@ public sealed partial class TravelChatViewModel
             return;
         }
         var page = new DayPlanChoicePage([card], batch: false);
+        var contextVersion = sessionService.ContextVersion;
+        var selectedDate = PlanningDate.Date;
         await Shell.Current.Navigation.PushModalAsync(page);
         var choice = await page.Result;
-        if (choice is not null)
+        if (choice is not null && contextVersion == sessionService.ContextVersion && selectedDate == PlanningDate.Date)
             await RunDayPlanAsync(DayPlanCardActions.CreateAlternative(card,
                 Messages.SelectMany(message => message.Cards), choice.Distance, choice.Budget), card);
     }
@@ -49,12 +51,15 @@ public sealed partial class TravelChatViewModel
             await PaywallNavigation.OpenAsync(PaywallEntryPoint.Today, limitReached: true);
             return;
         }
-        var token = await sessionService.GetTokenAsync();
-        if (string.IsNullOrWhiteSpace(token)) return;
-        var planningDate = DateOnly.FromDateTime(PlanningDate);
+        var scope = BeginAssistantOperation();
+        var planningDate = scope.Date;
+        var city = City;
+        var locale = CultureInfo.CurrentUICulture.Name;
         List<TravelChatCardViewModel>? completeDay = null;
         try
         {
+            var token = await scope.AwaitAsync(_ => sessionService.GetTokenAsync());
+            if (string.IsNullOrWhiteSpace(token)) return;
             IsBusy = true;
             ErrorMessage = null;
             StatusMessage = Resource("AssistantFullDayPreparing");
@@ -64,14 +69,11 @@ public sealed partial class TravelChatViewModel
                 replacementTarget.FeedbackStatusMessage = Resource("AssistantSearchingAlternative");
             }
             HasGuidedQuestion = false;
-            _chatRequestCancellationTokenSource?.Cancel();
-            _chatRequestCancellationTokenSource?.Dispose();
-            _chatRequestCancellationTokenSource = new CancellationTokenSource(TravelChatNetworkTimeout);
-            var cancellationToken = _chatRequestCancellationTokenSource.Token;
-            var response = await apiClient.SendTravelChatAsync(token, new TravelChatRequest(
-                Resource("AssistantGuidedFullDayRequestSummary"), _conversationId, City,
-                planningDate, null, CultureInfo.CurrentUICulture.Name,
-                action, Criteria: criteria, OperationId: operationId ?? Guid.NewGuid()), cancellationToken);
+            scope.SetNetworkTimeout(TravelChatNetworkTimeout);
+            var response = await scope.AwaitAsync(ct => apiClient.SendTravelChatAsync(token, new TravelChatRequest(
+                Resource("AssistantGuidedFullDayRequestSummary"), _conversationId, city,
+                planningDate, null, locale,
+                action, Criteria: criteria, OperationId: operationId ?? Guid.NewGuid()), ct));
             if (response is null)
             {
                 ErrorMessage = Resource("PlanningTryAgain");
@@ -106,11 +108,12 @@ public sealed partial class TravelChatViewModel
             {
                 _personalizationRequestKey = null;
                 foreach (var card in cards) _personalizedCards.Add(card);
-                await analytics.TrackAsync("personalization_proposal_generated", "assistant", tripId: sessionService.CurrentTripId);
+                await analytics.TrackAsync("personalization_proposal_generated", "assistant", tripId: scope.TripId);
             }
             else if (action.AdaptationReason is null && replacementTarget is null
                 && cards.Count > 0 && response.Intent == "day_plan")
-                await analytics.TrackAsync("day_improvement_proposal_generated", "assistant", tripId: sessionService.CurrentTripId);
+                await analytics.TrackAsync("day_improvement_proposal_generated", "assistant", tripId: scope.TripId);
+            scope.Verify();
             StatusMessage = response.Message;
             if (replacementTarget is not null)
             {
@@ -120,7 +123,7 @@ public sealed partial class TravelChatViewModel
                     cards[0].FeedbackStatusMessage = Resource("AssistantAlternativeReady");
                     owner?.ReplaceCard(replacementTarget, cards[0]);
                     OnMessagesChanged();
-                    if (owner is not null) await ShowAssistantProposalAsync(owner.Cards.ToList(), response.Message);
+                    if (owner is not null) await ShowAssistantProposalAsync(owner.Cards.ToList(), response.Message, operation: scope);
                 }
                 else replacementTarget.FeedbackStatusMessage = response.Message;
                 return;
@@ -132,13 +135,13 @@ public sealed partial class TravelChatViewModel
                 Messages.Add(new TravelChatMessageViewModel(response.Message, false, cards));
                 OnMessagesChanged();
                 completeDay = cards;
-                await ShowAssistantProposalAsync(cards, response.Message);
+                await ShowAssistantProposalAsync(cards, response.Message, operation: scope);
                 return;
             }
             if (cards.Count == 0)
             {
                 if (response.MissingContext is null)
-                    await ShowAssistantProposalAsync(cards, response.Message);
+                    await ShowAssistantProposalAsync(cards, response.Message, operation: scope);
                 return;
             }
             var pendingMessage = new TravelChatMessageViewModel(string.Empty, false, cards);
@@ -147,28 +150,39 @@ public sealed partial class TravelChatViewModel
             StatusMessage = response.Message;
             SuggestedReplies.Clear();
             OnMessagesChanged();
-            await ShowAssistantProposalAsync(cards, response.Message);
+            await ShowAssistantProposalAsync(cards, response.Message, operation: scope);
         }
         catch (OperationCanceledException)
         {
-            StatusMessage = Resource("PlanningTryAgain");
-            if (replacementTarget is not null) replacementTarget.FeedbackStatusMessage = StatusMessage;
+            if (ReferenceEquals(_assistantOperation, scope) && scope.HasCurrentContext)
+            {
+                StatusMessage = Resource(scope.ExplicitlyCancelled ? "AssistantRequestCancelled" : "PlanningTryAgain");
+                if (replacementTarget is not null) replacementTarget.FeedbackStatusMessage = StatusMessage;
+            }
         }
         catch (Exception)
         {
-            ErrorMessage = Resource("PlanningTryAgain");
-            if (replacementTarget is not null) replacementTarget.FeedbackStatusMessage = ErrorMessage;
+            if (ReferenceEquals(_assistantOperation, scope) && scope.HasCurrentContext)
+            {
+                ErrorMessage = Resource("PlanningTryAgain");
+                if (replacementTarget is not null) replacementTarget.FeedbackStatusMessage = ErrorMessage;
+            }
         }
         finally
         {
-            IsBusy = false;
+            if (ReferenceEquals(_assistantOperation, scope))
+            {
+                _assistantOperation = null;
+                IsBusy = false;
+            }
             if (replacementTarget is not null) replacementTarget.IsSearchingAlternative = false;
-            if (completeDay is not null)
+            scope.Dispose();
+            if (completeDay is not null && scope.CanPublish)
             {
                 var page = new DayPlanChoicePage(completeDay, batch: true);
                 await Shell.Current.Navigation.PushModalAsync(page);
                 var choice = await page.Result;
-                if (choice is not null) await RunDayPlanAsync(CreateDayAction(choice));
+                if (choice is not null && scope.CanPublish) await RunDayPlanAsync(CreateDayAction(choice));
             }
         }
     }

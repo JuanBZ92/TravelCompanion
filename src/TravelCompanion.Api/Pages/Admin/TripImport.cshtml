@@ -1,15 +1,15 @@
 @page "/admin/import/trip"
 @model TravelCompanion.Api.Pages.Admin.TripImportModel
 @{
-    ViewData["Title"] = "Import viaje";
+    ViewData["Title"] = "Importar viaje";
 }
 
 <div class="page-heading">
     <div>
-        <h1>Import viaje</h1>
-        <p class="lede">Crea o actualiza un viaje por PIN con bloques curatoriales y locations vinculadas a recommendations.</p>
+        <h1>Importar viaje</h1>
+        <p class="lede">Crea o actualiza un viaje por PIN con bloques editoriales y lugares vinculados a recomendaciones.</p>
     </div>
-    <span class="eyebrow">Planner</span>
+    <span class="eyebrow">Planificación</span>
 </div>
 
 @if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
@@ -22,16 +22,16 @@
 <section class="panel">
     <div class="section-header">
         <div>
-            <h2>Template simple</h2>
-            <p class="form-hint">Una sola hoja visible: Crear viaje. Las hojas ocultas contienen catalogos y validaciones para dropdowns.</p>
+            <h2>Plantilla simple</h2>
+            <p class="form-hint">Una sola hoja visible: Crear viaje. Las hojas ocultas contienen catálogos y validaciones para los desplegables.</p>
         </div>
         <div class="actions" style="margin-top: 0;">
-            <a asp-page-handler="Template" class="button secondary">Descargar template de viaje</a>
+            <a asp-page-handler="Template" class="button secondary">Descargar plantilla de viaje</a>
             <a asp-page-handler="Example" class="button secondary">Descargar ejemplo 18 dias</a>
         </div>
     </div>
     <p class="form-hint">
-        Completa PIN, cliente, fechas, ciudad por dia y los bloques que quieras curar. Si un bloque queda vacio/autofill, Today lo completa con 1 a 3 recomendaciones automaticas.
+        Completa PIN, cliente, fechas, ciudad por día y los bloques que quieras curar. Si un bloque queda vacío o en modo automático, el itinerario lo completa con 1 a 3 recomendaciones automáticas.
         La columna Hora reserva se completa solo cuando Reserva es Si; para recomendaciones alcanza con elegir Momento.
     </p>
 </section>
@@ -40,7 +40,7 @@
     <div class="section-header">
         <div>
             <h2>Subir Excel</h2>
-            <p class="form-hint">El preview no guarda datos. Confirmar import reemplaza solo los items de plan creados antes por este import, sin tocar reservas o eventos manuales.</p>
+            <p class="form-hint">La vista previa no guarda datos. Confirmar la importación reemplaza solo los elementos de plan creados antes por esta importación, sin tocar reservas o eventos manuales.</p>
         </div>
         <span class="badge">Idempotente</span>
     </div>
@@ -56,10 +56,10 @@
             </div>
         </div>
         <div class="actions">
-            <button type="submit" asp-page-handler="Preview" data-loading-message="Analizando el viaje...">Preview</button>
+            <button type="submit" asp-page-handler="Preview" data-loading-message="Analizando el viaje...">Vista previa</button>
             @if (Model.ImportResult?.CanImport == true || !string.IsNullOrWhiteSpace(Model.PreviewWorkbookBase64))
             {
-                <button type="submit" asp-page-handler="Import" class="secondary" data-loading-message="Creando el viaje y sus bloques...">Confirmar import</button>
+                <button type="submit" asp-page-handler="Import" class="secondary" data-loading-message="Creando el viaje y sus bloques...">Confirmar importación</button>
             }
         </div>
         <div class="submit-progress" data-submit-progress role="status" aria-live="polite" hidden>

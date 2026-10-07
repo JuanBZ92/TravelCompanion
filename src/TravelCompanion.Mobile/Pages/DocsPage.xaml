@@ -9,6 +9,9 @@
              Title="{Binding [TabDocs], Source={x:Static services:LocalizationResourceManager.Instance}}"
              Shell.NavBarIsVisible="True" SafeAreaEdges="All"
              BackgroundColor="{StaticResource Mist}">
+    <ContentPage.ToolbarItems>
+        <ToolbarItem IconImageSource="journal_search.svg" Text="{Binding [TripSearchTitle], Source={x:Static services:LocalizationResourceManager.Instance}}" Clicked="OnSearchClicked" />
+    </ContentPage.ToolbarItems>
     <ContentPage.Resources>
         <Style x:Key="DocumentAction" TargetType="ImageButton">
             <Setter Property="BackgroundColor" Value="Transparent" />
@@ -18,15 +21,15 @@
             <Setter Property="CornerRadius" Value="12" />
         </Style>
         <DataTemplate x:Key="PersonalDocumentRow" x:DataType="viewModels:LocalDocumentItemViewModel">
-            <Border Margin="24,0,24,10" Padding="12" Stroke="#E5DED5" BackgroundColor="#FFFDF8" StrokeShape="RoundRectangle 14">
+            <Border Margin="24,0,24,10" Padding="12" Style="{StaticResource EditorialCard}">
                 <Grid ColumnDefinitions="44,*,48" ColumnSpacing="12" MinimumHeightRequest="56">
                     <Border BackgroundColor="#F1EBE2" StrokeThickness="0" StrokeShape="RoundRectangle 12"
                             WidthRequest="44" HeightRequest="48" VerticalOptions="Center" InputTransparent="True">
                         <Image Source="tab_docs.svg" WidthRequest="22" HeightRequest="22" Opacity="0.7" AutomationProperties.IsInAccessibleTree="False" />
                     </Border>
                     <VerticalStackLayout Grid.Column="1" Spacing="5" VerticalOptions="Center" InputTransparent="True">
-                        <Label Text="{Binding Title}" FontSize="15" TextColor="#393229" MaxLines="2" LineBreakMode="TailTruncation" AutomationProperties.IsInAccessibleTree="False" />
-                        <Label Text="{Binding Details}" FontSize="11" TextColor="#8E867D" AutomationProperties.IsInAccessibleTree="False" />
+                        <Label Text="{Binding Title}" Style="{StaticResource EditorialBody}" MaxLines="2" LineBreakMode="TailTruncation" AutomationProperties.IsInAccessibleTree="False" />
+                        <Label Text="{Binding Details}" Style="{StaticResource EditorialCaption}" AutomationProperties.IsInAccessibleTree="False" />
                     </VerticalStackLayout>
                     <Button Grid.ColumnSpan="2" Command="{Binding OpenCommand}" BackgroundColor="Transparent"
                             BorderWidth="0" Padding="0" MinimumHeightRequest="56" SemanticProperties.Description="{Binding OpenDescription}" />
@@ -81,7 +84,7 @@
         <DataTemplate x:Key="FlightLegRow" x:DataType="viewModels:FlightLegItemViewModel">
             <Border Margin="24,0,24,10" Padding="16" BackgroundColor="{StaticResource AccentSoft}" Stroke="#D8CFC4" StrokeShape="RoundRectangle 16">
                 <VerticalStackLayout Spacing="10">
-                    <Label Text="{Binding ConnectionNote}" IsVisible="{Binding HasConnectionNote}" FontSize="12" CharacterSpacing="1" TextColor="{StaticResource Rose}" />
+                    <Label Text="{Binding ConnectionNote}" IsVisible="{Binding HasConnectionNote}" Style="{StaticResource EditorialCaption}" CharacterSpacing="1" TextColor="{StaticResource EditorialError}" />
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                         <Label Text="{Binding FlightNumber}" FontSize="21" FontFamily="serif" TextColor="{StaticResource Ink}" LineBreakMode="WordWrap" />
                         <Label Grid.Column="1" Text="{Binding Duration}" Style="{StaticResource Metadata}" />
@@ -114,7 +117,7 @@
             <VerticalStackLayout Spacing="8">
                 <Label x:Name="DocumentError" Text="{Binding ErrorMessage}" Style="{StaticResource Body}" />
                 <Button Text="{Binding [UxRetry], Source={x:Static services:LocalizationResourceManager.Instance}}"
-                        Command="{Binding LoadCommand}" IsEnabled="{Binding IsNotBusy}"
+                        Command="{Binding RefreshCommand}" IsEnabled="{Binding IsNotBusy}"
                         Style="{StaticResource EditorialSecondaryButton}" />
             </VerticalStackLayout>
         </Border>
@@ -126,22 +129,35 @@
             <CollectionView.Header>
                 <VerticalStackLayout Padding="24,20,24,12" Spacing="18">
                     <VerticalStackLayout Spacing="6">
-                        <Label Text="YUKU · JAPAN" CharacterSpacing="3" FontSize="10" TextColor="#8E867D" />
-                        <Label Text="{Binding Title}" FontFamily="serif" FontSize="32" TextColor="{StaticResource Ink}" SemanticProperties.HeadingLevel="Level1" />
+                        <Label Text="YUKU · JAPAN" Style="{StaticResource EditorialEyebrow}" />
+                        <Label Text="{Binding Title}" Style="{StaticResource EditorialHeading}" />
                     </VerticalStackLayout>
                     <VerticalStackLayout Spacing="6" IsVisible="{Binding CanAttachDocument}">
                         <Button Text="{Binding AddDocumentText}" Command="{Binding AttachDocumentCommand}"
-                                IsEnabled="{Binding IsNotBusy}" BackgroundColor="#3D3329" TextColor="#FFFDF8"
-                                CornerRadius="14" MinimumHeightRequest="48" FontSize="15" FontAttributes="Bold" />
-                        <Label Text="{Binding DocumentLimitText}" FontSize="11" TextColor="#8E867D" HorizontalTextAlignment="Center" />
+                                IsEnabled="{Binding IsNotBusy}" Style="{StaticResource EditorialPrimaryButton}" />
+                        <Label Text="{Binding DocumentLimitText}" Style="{StaticResource EditorialCaption}" HorizontalTextAlignment="Center" />
                     </VerticalStackLayout>
-                    <Label Text="{Binding LocalDocumentsNotice}" IsVisible="{Binding ShowLocalNotice}" FontSize="13" TextColor="#8E867D" />
+                    <Label Text="{Binding LocalDocumentsNotice}" IsVisible="{Binding ShowLocalNotice}" Style="{StaticResource EditorialCaption}" />
+                    <Border Style="{StaticResource NoticePanel}" IsVisible="{Binding IsOffline}">
+                        <Label Text="{Binding OfflineNotice}" Style="{StaticResource EditorialCaption}" />
+                    </Border>
                     <Border Style="{StaticResource NoticePanel}" IsVisible="{Binding HasStatus}">
                         <Label Text="{Binding StatusMessage}" FontSize="13" TextColor="#3D3329" />
                     </Border>
                     <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" HorizontalOptions="Start" />
                 </VerticalStackLayout>
             </CollectionView.Header>
+            <CollectionView.EmptyView>
+                <Border Margin="24,16" Style="{StaticResource EditorialCard}" IsVisible="{Binding ShowEmptyState}">
+                    <VerticalStackLayout Spacing="10">
+                        <Image Source="tab_docs.svg" WidthRequest="32" HeightRequest="32" HorizontalOptions="Start"
+                               AutomationProperties.IsInAccessibleTree="False" />
+                        <Label Text="{Binding EmptyTitle}" FontFamily="serif" FontSize="24" TextColor="{StaticResource Ink}"
+                               SemanticProperties.HeadingLevel="Level2" />
+                        <Label Text="{Binding EmptyBody}" Style="{StaticResource EditorialBody}" />
+                    </VerticalStackLayout>
+                </Border>
+            </CollectionView.EmptyView>
             <CollectionView.GroupHeaderTemplate>
                 <DataTemplate x:DataType="viewModels:DocumentListGroup">
                     <Label Text="{Binding Name}" Margin="24,16,24,12" Style="{StaticResource Eyebrow}"

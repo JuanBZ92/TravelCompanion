@@ -582,6 +582,8 @@ A tu manera.</value></data>
   <data name="JournalConflict" xml:space="preserve"><value>Conflicto · compara las versiones</value></data>
   <data name="JournalPending" xml:space="preserve"><value>Pendiente de sincronizar</value></data>
   <data name="JournalDeleted" xml:space="preserve"><value>Este recuerdo se eliminó en otro dispositivo.</value></data>
+  <data name="JournalDeletedConflict" xml:space="preserve"><value>Tu texto y tus fotos locales se conservan hasta que aceptes la eliminación. Copia lo que quieras conservar antes de aceptar. Al aceptar, este recuerdo también se elimina de este dispositivo.</value></data>
+  <data name="JournalAcceptDeletion" xml:space="preserve"><value>Aceptar eliminación</value></data>
   <data name="JournalEmptyValidation" xml:space="preserve"><value>Añade texto o una foto antes de guardar.</value></data>
   <data name="JournalFailure" xml:space="preserve"><value>No se pudo completar la acción. Inténtalo de nuevo.</value></data>
   <data name="JournalOk" xml:space="preserve"><value>Entendido</value></data>
@@ -787,8 +789,8 @@ A tu manera.</value></data>
   <data name="BiometricUnlockAction" xml:space="preserve"><value>Desbloquear</value></data>
   <data name="BiometricPasswordAction" xml:space="preserve"><value>Ingresar con contraseña</value></data>
   <data name="BiometricWaiting" xml:space="preserve"><value>Esperando tu confirmación…</value></data>
-  <data name="BiometricUnavailable" xml:space="preserve"><value>La biometría no está disponible. Ingresá con tu contraseña.</value></data>
-  <data name="BiometricRejected" xml:space="preserve"><value>No pudimos desbloquear. Probá de nuevo o ingresá con tu contraseña.</value></data>
+  <data name="BiometricUnavailable" xml:space="preserve"><value>La biometría no está disponible. Ingresa con tu PIN o un código por correo.</value></data>
+  <data name="BiometricRejected" xml:space="preserve"><value>No pudimos desbloquear. Probá de nuevo o entrá con PIN o correo.</value></data>
   <data name="BiometricUnlockError" xml:space="preserve"><value>No pudimos iniciar el desbloqueo. Volvé a intentar o ingresá con tu contraseña.</value></data>
   <data name="BiometricPromptTitle" xml:space="preserve"><value>Desbloquear Yuku</value></data>
   <data name="BiometricPromptDescription" xml:space="preserve"><value>Usá tu huella, Face ID o la biometría disponible en este dispositivo.</value></data>
@@ -867,4 +869,107 @@ A tu manera.</value></data>
   <data name="JournalAddingPhotos" xml:space="preserve"><value>Añadiendo fotos…</value></data>
   <data name="JournalDraftPhotoLimit" xml:space="preserve"><value>El borrador de este recuerdo ya tiene 10 fotos. Edita o descarta el borrador antes de añadir más.</value></data>
   <data name="AssistantConversationThinking" xml:space="preserve"><value>Preparando una respuesta…</value></data>
+  <data name="AssistantFreeTime" xml:space="preserve"><value>Tengo un rato libre</value></data>
+  <data name="AssistantFreeTimeHelp" xml:space="preserve"><value>Ideas que encajen antes de tu siguiente reserva fija.</value></data>
+  <data name="AssistantFreeTimeStart" xml:space="preserve"><value>Empezar a las</value></data>
+  <data name="AssistantFreeTimeDuration" xml:space="preserve"><value>Tiempo disponible</value></data>
+  <data name="AssistantFreeTimeMinutes" xml:space="preserve"><value>{0} min</value></data>
+  <data name="AssistantFreeTimeWindow" xml:space="preserve"><value>{0:t}–{1:t} · Hora del viaje ({2})</value></data>
+  <data name="AssistantFreeTimeNextFixed" xml:space="preserve"><value>Tu próxima reserva empieza a las {0:t}.</value></data>
+  <data name="AssistantFreeTimeNoWindow" xml:space="preserve"><value>No hay un rato libre en este intervalo. Cambia la hora o la duración.</value></data>
+  <data name="AssistantFreeTimeEstimate" xml:space="preserve"><value>Duración y traslados estimados; confirma el horario del lugar antes de ir.</value></data>
+  <data name="AssistantFreeTimeRequest" xml:space="preserve"><value>¿Qué puedo hacer en este rato libre?</value></data>
+  <data name="AssistantRequestCancelled" xml:space="preserve"><value>Cancelado. Tu mensaje sigue disponible.</value></data>
+  <data name="LocationRationaleTitle" xml:space="preserve"><value>Ubicación</value></data>
+  <data name="LocationRationaleMessage" xml:space="preserve"><value>La ubicación ayuda a ordenar planes cercanos a donde estás ahora.</value></data>
+  <data name="LocationRationaleOk" xml:space="preserve"><value>Entendido</value></data>
+  <data name="DocsEmptyTitle" xml:space="preserve"><value>Todavía no guardaste documentos</value></data>
+  <data name="DocsEmptyBody" xml:space="preserve"><value>Añade billetes, reservas o documentos personales para encontrarlos durante el viaje.</value></data>
+  <data name="DocsCategoryEmptyTitle" xml:space="preserve"><value>Esta categoría está vacía</value></data>
+  <data name="DocsCategoryEmptyBody" xml:space="preserve"><value>Añade un archivo aquí; quedará organizado en esta categoría.</value></data>
+  <data name="DocsOfflineNotice" xml:space="preserve"><value>Sin conexión. Los archivos guardados en este dispositivo siguen disponibles.</value></data>
+  <data name="DocsLoadFailed" xml:space="preserve"><value>No pudimos cargar los documentos del pase. Comprueba la conexión y vuelve a intentarlo.</value></data>
+  <data name="DocsOfflineMissing" xml:space="preserve"><value>Los documentos del pase aún no están disponibles sin conexión en este dispositivo. Conéctate para consultarlos y descargar los archivos que necesites.</value></data>
+  <data name="DocsRefreshFailed" xml:space="preserve"><value>No pudimos actualizar los documentos del pase. Conservamos los documentos disponibles.</value></data>
+  <data name="PreparationLegacyUnavailable" xml:space="preserve"><value>No pudimos recuperar los checks anteriores. Puedes seguir organizando tus documentos.</value></data>
+  <data name="PaywallHeadingMap" xml:space="preserve"><value>Descubre más de Japón</value></data>
+  <data name="PaywallHeadingToday" xml:space="preserve"><value>Todos tus días, a tu manera</value></data>
+  <data name="PaywallHeadingAssistant" xml:space="preserve"><value>Encuentra tu próxima idea</value></data>
+  <data name="PaywallHeadingOffline" xml:space="preserve"><value>Lleva tu viaje sin conexión</value></data>
+  <data name="PaywallHeadingExpenses" xml:space="preserve"><value>Tus gastos, en perspectiva</value></data>
+  <data name="PaywallExclusiveBenefits" xml:space="preserve"><value>LO QUE DESBLOQUEA EL PASE</value></data>
+  <data name="PaywallFreeFeatures" xml:space="preserve"><value>YA DISPONIBLE GRATIS</value></data>
+  <data name="PaywallFreeFeaturesBody" xml:space="preserve"><value>Con un viaje activo: Journal, documentos personales, preparación del viaje y registro básico de gastos. Tus archivos y fotos permanecen en este dispositivo.</value></data>
+  <data name="PaywallShowDetails" xml:space="preserve"><value>Ver detalles del pase</value></data>
+  <data name="PaywallHideDetails" xml:space="preserve"><value>Ocultar detalles</value></data>
+  <data name="PlannerCompare" xml:space="preserve"><value>Comparar propuestas</value></data>
+  <data name="PlannerCurrentOption" xml:space="preserve"><value>Propuesta actual</value></data>
+  <data name="PlannerPreviousOption" xml:space="preserve"><value>Propuesta anterior</value></data>
+  <data name="PlannerChoosePrevious" xml:space="preserve"><value>Elegir la anterior</value></data>
+  <data name="PlannerKeepCurrent" xml:space="preserve"><value>Elegir la actual</value></data>
+  <data name="PlannerAccessRequired" xml:space="preserve"><value>Tu acceso no permite aplicar esta propuesta. Revisa tu viaje y los permisos del pase.</value></data>
+  <data name="PlannerStaleHelp" xml:space="preserve"><value>El viaje cambió desde que generaste la propuesta. Revisa los cambios y genera otra antes de guardarla.</value></data>
+  <data name="PlannerSelectToApply" xml:space="preserve"><value>Selecciona al menos una idea para añadir al viaje.</value></data>
+  <data name="PlannerRecoverProposal" xml:space="preserve"><value>Revisar y generar otra propuesta</value></data>
+  <data name="UxMoreActions" xml:space="preserve"><value>Más opciones</value></data>
+  <data name="TripSearchTitle" xml:space="preserve"><value>Buscar en mi viaje</value></data>
+  <data name="TripSearchPlaceholder" xml:space="preserve"><value>Reserva, documento, recuerdo o fecha…</value></data>
+  <data name="TripSearchHint" xml:space="preserve"><value>Busca entre los datos guardados de este viaje. No se busca dentro de los archivos.</value></data>
+  <data name="TripSearchEmpty" xml:space="preserve"><value>No hay coincidencias. Prueba con otro nombre, lugar o fecha.</value></data>
+  <data name="TripSearchFailed" xml:space="preserve"><value>No pudimos leer los datos locales. Vuelve a intentarlo.</value></data>
+  <data name="TripSearchReservations" xml:space="preserve"><value>Reservas</value></data>
+  <data name="TripSearchDocuments" xml:space="preserve"><value>Documentos</value></data>
+  <data name="TripSearchMemories" xml:space="preserve"><value>Recuerdos</value></data>
+  <data name="TripSearchOpenFailed" xml:space="preserve"><value>No pudimos abrir este elemento. Puede haber cambiado o no estar disponible en este dispositivo.</value></data>
+  <data name="TomorrowTitle" xml:space="preserve"><value>Mañana a un vistazo</value></data>
+  <data name="TomorrowNoBooking" xml:space="preserve"><value>Sin reservas con horario. Un día para explorar.</value></data>
+  <data name="TomorrowDocuments" xml:space="preserve"><value>Documentos relacionados</value></data>
+  <data name="TomorrowNoDocuments" xml:space="preserve"><value>Sin documentos vinculados a las reservas o al hotel de mañana.</value></data>
+  <data name="TomorrowOpenDay" xml:space="preserve"><value>Ver mañana</value></data>
+  <data name="TomorrowOfflineReady" xml:space="preserve"><value>Itinerario disponible sin conexión. El mapa base necesita conexión.</value></data>
+  <data name="TomorrowOfflineMissing" xml:space="preserve"><value>Revisa la descarga offline antes de salir.</value></data>
+  <data name="TodayEmpty" xml:space="preserve"><value>Hoy todavía no tienes actividades. Puedes planificar el día.</value></data>
+  <data name="TodayFlexible" xml:space="preserve"><value>Tienes ideas sin horario para disfrutar a tu ritmo.</value></data>
+  <data name="TodayNoUpcoming" xml:space="preserve"><value>No quedan próximas reservas con horario.</value></data>
+  <data name="MapDetailsAction" xml:space="preserve"><value>Ver detalles</value></data>
+  <data name="MapHideDetailsAction" xml:space="preserve"><value>Mostrar menos</value></data>
+  <data name="MapLoadError" xml:space="preserve"><value>No pudimos cargar el mapa. Vuelve a intentarlo.</value></data>
+  <data name="MapCityUnavailable" xml:space="preserve"><value>No pudimos cargar esta ciudad. Vuelve a intentarlo.</value></data>
+  <data name="MapNoCities" xml:space="preserve"><value>Todavía no hay ciudades disponibles para el mapa.</value></data>
+  <data name="MapOfflineSaved" xml:space="preserve"><value>Sin conexión · guardado {0:dd/MM HH:mm}</value></data>
+  <data name="MapRating" xml:space="preserve"><value>Valoración {0:0.0}</value></data>
+  <data name="MapDistanceFromCenter" xml:space="preserve"><value>{0:0.0} km del centro</value></data>
+  <data name="MapSummaryCounts" xml:space="preserve"><value>{0} lugares abiertos · {1} por descubrir</value></data>
+  <data name="MapLockedPinTitle" xml:space="preserve"><value>Contenido YUKU</value></data>
+  <data name="MapSessionRequired" xml:space="preserve"><value>Tu sesión terminó. Vuelve a entrar para abrir el mapa.</value></data>
+  <data name="MapOpenFailed" xml:space="preserve"><value>No se pudo abrir Google Maps.</value></data>
+  <data name="UxLastUpdated" xml:space="preserve"><value>Actualizado {0:dd/MM HH:mm}</value></data>
+  <data name="AccountUnlockTitle" xml:space="preserve"><value>Desbloqueo de la app</value></data>
+  <data name="AccountUnlockBiometric" xml:space="preserve"><value>Biometría del dispositivo</value></data>
+  <data name="AccountUnlockPin" xml:space="preserve"><value>PIN o código por correo</value></data>
+  <data name="AccountUnlockBiometricBody" xml:space="preserve"><value>Confirma tu identidad con la biometría de este dispositivo. Puedes usarla sin conexión con una sesión guardada.</value></data>
+  <data name="AccountUnlockPinBody" xml:space="preserve"><value>Al abrir la app, verifica tu acceso con el PIN del viaje o un código por correo. Requiere conexión.</value></data>
+  <data name="AccountUnlockChoose" xml:space="preserve"><value>Elegir método de desbloqueo</value></data>
+  <data name="AccountUnlockSaved" xml:space="preserve"><value>Método de desbloqueo guardado para esta cuenta.</value></data>
+  <data name="AccountUnlockError" xml:space="preserve"><value>No pudimos cambiar el método. Tu protección actual se conserva.</value></data>
+  <data name="UnlockPinAction" xml:space="preserve"><value>Entrar con PIN o correo</value></data>
+  <data name="UnlockPinStatus" xml:space="preserve"><value>Para abrir tu viaje, verifica tu acceso con el PIN o un código por correo.</value></data>
+  <data name="TripSearchPartial" xml:space="preserve"><value>Parte del contenido no está disponible. Reintenta; se conservó lo que pudimos leer.</value></data>
+  <data name="TomorrowMetadataFailed" xml:space="preserve"><value>Parte de la información no está disponible. Puedes reintentar; el itinerario sigue accesible.</value></data>
+  <data name="MapNoPlaces" xml:space="preserve"><value>0 lugares</value></data>
+  <data name="MapPageSummary" xml:space="preserve"><value>Página {0} de {1} · {2} lugares</value></data>
+  <data name="MapGoogleUnavailable" xml:space="preserve"><value>Google no está disponible. Conservamos los resultados del catálogo.</value></data>
+  <data name="MapSearchEmpty" xml:space="preserve"><value>No encontramos lugares con esa búsqueda.</value></data>
+  <data name="MapSearchFailed" xml:space="preserve"><value>No pudimos completar la búsqueda. Inténtalo nuevamente.</value></data>
+  <data name="PlannerChooseForComparison" xml:space="preserve"><value>Elige una propuesta para seleccionar ideas y guardarlas en tu viaje.</value></data>
+  <data name="UxExpensePendingCurrencyChange" xml:space="preserve"><value>Sincronizá los gastos pendientes antes de cambiar de moneda.</value></data>
+  <data name="DocumentLinkEmpty" xml:space="preserve"><value>Añade un archivo en Documentos y vuelve a esta reserva.</value></data>
+  <data name="DocumentLinkFailed" xml:space="preserve"><value>No pudimos vincular el documento. Inténtalo de nuevo.</value></data>
+  <data name="LinkedDocumentUnavailableTitle" xml:space="preserve"><value>Documento no disponible</value></data>
+  <data name="LinkedDocumentUnavailable" xml:space="preserve"><value>Comprueba que el archivo exista y que haya un visor compatible instalado. Si es un documento incluido con tu viaje, intenta de nuevo con conexión.</value></data>
+  <data name="DayActivityInProgress" xml:space="preserve"><value>En curso</value></data>
+  <data name="DayActivityCheckIn" xml:space="preserve"><value>Check-in</value></data>
+  <data name="DayActivityPlan" xml:space="preserve"><value>Plan</value></data>
+  <data name="DayActivityReservation" xml:space="preserve"><value>Reserva</value></data>
+  <data name="DayActivityEvent" xml:space="preserve"><value>Actividad</value></data>
 </root>

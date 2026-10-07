@@ -126,8 +126,6 @@ public static class MauiProgram
         builder.Services.AddTransient<LoginViewModel>();
         builder.Services.AddTransient<BiometricUnlockViewModel>();
         builder.Services.AddTransient<ChangePasswordViewModel>();
-        builder.Services.AddSingleton<RecommendationsViewModel>();
-        builder.Services.AddSingleton<ISessionStateResettable>(sp => sp.GetRequiredService<RecommendationsViewModel>());
         builder.Services.AddSingleton<MapViewModel>();
         builder.Services.AddSingleton<ISessionStateResettable>(sp => sp.GetRequiredService<MapViewModel>());
         builder.Services.AddSingleton<FreeMapViewModel>();
@@ -137,8 +135,6 @@ public static class MauiProgram
         builder.Services.AddSingleton<TravelChatViewModel>();
         builder.Services.AddSingleton<ISessionStateResettable>(sp => sp.GetRequiredService<TravelChatViewModel>());
         builder.Services.AddTransient<ScheduleItemDetailViewModel>();
-        builder.Services.AddSingleton<PackagesViewModel>();
-        builder.Services.AddSingleton<ISessionStateResettable>(sp => sp.GetRequiredService<PackagesViewModel>());
         builder.Services.AddTransient<RecommendationDetailViewModel>();
         builder.Services.AddTransient<BuilderSetupViewModel>();
         builder.Services.AddTransient<ItineraryItemEditorViewModel>();
@@ -152,7 +148,6 @@ public static class MauiProgram
         builder.Services.AddTransient<LoginPage>();
         builder.Services.AddTransient<BiometricUnlockPage>();
         builder.Services.AddTransient<ChangePasswordPage>();
-        builder.Services.AddSingleton<RecommendationsPage>();
         builder.Services.AddSingleton<MapPage>();
         builder.Services.AddSingleton<FreeMapPage>();
         builder.Services.AddSingleton<ReservationReminderService>();
@@ -166,7 +161,6 @@ public static class MauiProgram
         builder.Services.AddSingleton<SchedulePage>();
         builder.Services.AddSingleton<TravelChatPage>();
         builder.Services.AddTransient<ScheduleItemDetailPage>();
-        builder.Services.AddSingleton<PackagesPage>();
         builder.Services.AddTransient<DocsPage>();
         builder.Services.AddTransient<LogoutPage>();
         builder.Services.AddTransient<RecommendationDetailPage>();

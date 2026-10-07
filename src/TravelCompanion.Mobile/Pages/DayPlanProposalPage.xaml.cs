@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using TravelCompanion.Mobile.Services;
 using TravelCompanion.Mobile.ViewModels;
 
 namespace TravelCompanion.Mobile.Pages;
@@ -6,6 +7,7 @@ namespace TravelCompanion.Mobile.Pages;
 public partial class DayPlanProposalPage : TripScopedPage, IQueryAttributable
 {
     private DayPlannerViewModel? viewModel;
+    private int appearanceVersion;
     public DayPlanProposalPage() => InitializeComponent();
     public void ApplyQueryAttributes(IDictionary<string, object> query)
     {
@@ -14,6 +16,7 @@ public partial class DayPlanProposalPage : TripScopedPage, IQueryAttributable
     }
     protected override void OnAppearing()
     {
+        appearanceVersion++;
         base.OnAppearing();
         if (viewModel is not null)
         {
@@ -25,6 +28,7 @@ public partial class DayPlanProposalPage : TripScopedPage, IQueryAttributable
     }
     protected override async void OnDisappearing()
     {
+        appearanceVersion++;
         Connectivity.Current.ConnectivityChanged -= OnConnectivityChanged;
         if (viewModel is not null) viewModel.PropertyChanged -= OnPlannerStateChanged;
         viewModel?.CancelLoadingOperation();
@@ -39,4 +43,17 @@ public partial class DayPlanProposalPage : TripScopedPage, IQueryAttributable
             EditorialUi.RevealError(PlannerError);
     }
     private async void OnBackClicked(object? sender, EventArgs e) => await Shell.Current.GoToAsync("..");
+    private async void OnMenuClicked(object? sender, EventArgs e)
+    {
+        if (viewModel is not { IsBusy: false } planner) return;
+        var sessions = MauiProgram.Services.GetRequiredService<AuthSessionService>();
+        var context = sessions.ContextVersion;
+        var appearance = appearanceVersion;
+        var actions = planner.CanCompare ? new[] { planner.CompareLabel, planner.NewProposalLabel } : new[] { planner.NewProposalLabel };
+        var choice = await DisplayActionSheetAsync(DayPlannerViewModel.Text("UxMoreActions"), planner.CancelLabel, null, actions);
+        if (!sessions.HasSession || context != sessions.ContextVersion || appearance != appearanceVersion
+            || !ReferenceEquals(viewModel, planner) || Shell.Current.CurrentPage != this || planner.IsBusy) return;
+        if (choice == planner.CompareLabel) planner.ToggleComparisonCommand.Execute(null);
+        else if (choice == planner.NewProposalLabel) await Shell.Current.GoToAsync("..");
+    }
 }

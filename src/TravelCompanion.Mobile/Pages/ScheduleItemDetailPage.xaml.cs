@@ -10,7 +10,7 @@ using Microsoft.Maui.Maps;
 
 namespace TravelCompanion.Mobile.Pages;
 
-public partial class ScheduleItemDetailPage : ContentPage
+public partial class ScheduleItemDetailPage : TripScopedPage
 {
     private async void OnExpenseClicked(object? sender, EventArgs e)
     {
@@ -135,7 +135,8 @@ public partial class ScheduleItemDetailPage : ContentPage
 
     private async void OnBackClicked(object? sender, EventArgs e)
     {
-        await Shell.Current.GoToAsync("..");
+        if (Navigation.ModalStack.LastOrDefault() == this) await Navigation.PopModalAsync();
+        else await Shell.Current.GoToAsync("..");
     }
 
 #if !WINDOWS

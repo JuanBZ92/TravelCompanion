@@ -63,11 +63,8 @@ public partial class AppShell : Shell
 
         if (sessionService.HasSession)
         {
-            var route = sessionService.MustChangePassword
-                ? "//change-password"
-                : sessionService.IsBiometricEnabled
-                    ? "//biometric-unlock"
-                    : GetAuthenticatedLandingRoute(sessionService);
+            var route = LocalUnlockRouting.StartupRoute(
+                sessionService, GetAuthenticatedLandingRoute(sessionService));
 
             Dispatcher.Dispatch(async () => await GoToAsync(route));
         }

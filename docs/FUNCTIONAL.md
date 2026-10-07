@@ -6,7 +6,7 @@ Consultar [Japón bien preparado](japan-launch.md) para la pantalla de preparaci
 
 ## Actualización de conversión y valor del pase — septiembre de 2026
 
-El [plan incremental de valor y conversión](launch-value-cycle.md) describe el comportamiento implementado, su activación y límites. Incluye creación sin PIN, Free persistente para nuevas cuentas compatibles (desactivado por defecto), paywall contextual, revisión de todos los días, preparación offline y documentos personales locales para Builder de pago. Ante descripciones históricas de pruebas temporales, rutas o almacenamiento, prevalece ese alcance.
+El [plan incremental de valor y conversión](launch-value-cycle.md) describe el comportamiento implementado, su activación y límites. Incluye creación sin PIN, Free persistente para nuevas cuentas compatibles (desactivado por defecto), paywall contextual, revisión de todos los días, preparación offline y documentos personales locales. Preparación, Journal y adjuntos personales están disponibles también con un viaje gratuito activo. Ante descripciones históricas de pruebas temporales, rutas o almacenamiento, prevalece ese alcance.
 
 Este documento describe que producto estamos construyendo, que funcionalidades existen y que decisiones funcionales estan vigentes. Debe mantenerse actualizado cada vez que se agregue o cambie comportamiento visible para usuarios, admins o clientes.
 
@@ -92,154 +92,61 @@ Comportamiento actual en la app:
 
 ## App mobile
 
-La direccion visual actual busca una experiencia minimalista y refinada:
+La navegación actual tiene Viaje, Mapa, Asistente, Journal y Cuenta. Documentos y la carpeta de preparación se abren desde el viaje o la cuenta; el pase aparece en contexto. Las tabs antiguas Ideas y Packs ya no forman parte de la app. Las pantallas comparten papel cálido, títulos serif legibles, acciones claras e iconos accesibles con áreas táctiles de al menos 48 dp.
 
-- paleta sobria de papel calido, tinta, verde profundo y acentos dorados;
-- cards planas de radio chico, borde fino y sin sombras decorativas;
-- jerarquia clara entre titulo, contexto y metadata;
-- categorias y niveles de acceso como metadata sobria;
-- botones sobrios con variantes primaria y secundaria;
-- tab bar inferior con iconos lineales y labels cortos;
-- hero visual local de Japon en la entrada principal, sin depender de imagenes remotas.
+### Acceso y cuenta
 
-### Login
+El viajero puede crear su viaje sin PIN, entrar con el PIN de un viaje o recuperar su cuenta con un código por correo. Se conservan los endpoints de email/contraseña para compatibilidad y administración. Una contraseña temporal exige cambio al primer acceso. Las sesiones usan tokens opacos; la app no concede acceso a contenido de pago por una declaración del cliente.
 
-Al iniciar, la app muestra una pantalla de ingreso.
+Cuenta permite verificar el correo, cambiar o archivar viajes, gestionar consentimiento de analítica, consultar documentos y el pase, compartir diagnóstico, cerrar sesión y eliminar la cuenta con confirmación. También permite elegir el desbloqueo mediante biometría o PIN/código por correo, guardando la elección por cuenta en este dispositivo. Elegir PIN conserva la verificación de acceso y requiere conexión. La biometría funciona con una sesión local guardada y mantiene el acceso sin conexión. El comportamiento previo de cuentas gratuitas sin una elección explícita se conserva.
 
-Estado actual:
+### Viaje y planificación
 
-- login por email y password contra usuarios existentes en el CMS;
-- los usuarios nuevos reciben una password temporal generada desde el admin;
-- al primer ingreso la app obliga a crear una nueva password;
-- sesion guardada localmente en el dispositivo;
-- desbloqueo por biometria si hay sesion activa y el usuario lo tiene habilitado;
-- fallback a password cuando la biometria falla, no esta disponible o el usuario la cancela;
-- el email demo es `demo@travelcompanion.local`;
-- la password temporal demo es `TravelDemo!2026`;
-- la sesion usa un token opaco emitido por la API.
+Viaje reúne la agenda, la carpeta de preparación y los gastos. Permite elegir día, distinguir eventos/vuelos/alojamientos y filtrar por ciudad. La búsqueda encuentra actividades por título, lugar, ciudad y tipo en la copia local, y permite saltar al día o abrir el detalle. El resumen de mañana presenta primera reserva y hotel cuando mañana pertenece al viaje.
 
-Esta es una decision de MVP para conectar usuarios, entitlements y schedule. Falta integrar envio real de email.
+Un día con planes flexibles sigue ofreciendo alternativas aunque ya no queden reservas futuras. Las reservas con horario, vuelos y alojamientos conservan sus datos y acciones de mapas. La app muestra estados distintos cuando carga, no hay contenido, falla la actualización o trabaja con una copia sin conexión; el reintento conserva lo ya disponible.
 
-### Ideas
+La planificación ofrece añadir nuevas alternativas por momento del día o reorganizar planes elegidos según preferencias. También admite preparar varios días, por ejemplo 3, 5 o 7, con selección de fechas y comparación de la agenda actual con la propuesta antes de aplicar. Las reservas fijas se conservan. Los permisos y cuotas de la cuenta siguen vigentes; no se usa la cantidad de planes existentes como garantía de que un día esté completo. Los avisos de agenda ayudan a revisar solapamientos o exceso de opciones.
 
-La tab `Ideas` permite:
+### Mapa y Asistente
 
-- ver recomendaciones curadas de Japon;
-- filtrar por categoria;
-- filtrar favoritos;
-- paginar resultados y elegir cuantas recomendaciones ver por pagina;
-- refrescar datos manteniendo la pagina actual cuando el filtro sigue siendo valido;
-- marcar o quitar favoritos;
-- ver barrio, descripcion, duracion sugerida y nivel de acceso;
-- abrir el detalle de una recomendacion.
+Mapa muestra recomendaciones según accesos y zonas gratuitas configuradas, con filtros, favoritos y detalle de lugar. El permiso para contenido completo, cálculo de rutas y recomendaciones del asistente depende de la cuenta. Los paquetes y niveles de acceso siguen siendo parte del catálogo aunque ya no tengan una tab propia.
 
-La app oculta recomendaciones que la cuenta no tiene desbloqueadas. Por ejemplo, el usuario free solo ve contenido gratis; el usuario de suscripcion ve gratis, recomendaciones exclusivas de suscripcion y todos los paquetes del destino; el usuario paid ve gratis y el paquete puntual asignado.
+Asistente diferencia preguntar y preparar planes. Sus acciones guiadas permiten definir fechas, tiempo disponible y preferencias; un resultado indica qué propone y solicita revisión antes de modificar la agenda. Un error conserva el mensaje y ofrece reintento. La app muestra claramente el estado de la operación y permite cancelar sin aplicar resultados posteriores. La IA y las decisiones de autorización se ejecutan en el backend.
 
-Para que la experiencia inicial sea mas rapida y robusta, Ideas usa un paquete reducido con destino y recomendaciones ya filtradas por acceso. Esa copia queda guardada para consulta offline. Despues de pintar Ideas, la app precarga en segundo plano el paquete mobile completo con mapa, schedule y packs para acelerar las otras tabs.
+### Preparación y Documentos
 
-El detalle de recomendacion permite:
+Preparar el viaje organiza Transporte, Alojamiento, Reservas y actividades y Documentos de viaje. En Carpeta, tocar una categoría abre sus documentos; su botón de añadir abre directamente el selector con esa categoría elegida. También permite indicar «Ya lo tengo fuera de la app», «No lo necesito» o «Volver a pendiente». El resumen indica categorías organizadas y no certifica requisitos migratorios.
 
-- guardar o quitar favorito;
-- abrir la ubicacion en mapas cuando el contenido esta desbloqueado;
-- ver categoria, tipo de acceso, estado de acceso, descripcion y coordenadas.
+Los adjuntos personales están disponibles también para usuarios gratuitos con sesión y viaje activos. PDF, JPEG y PNG se validan por contenido, con un máximo de 20 MB por archivo. Documentos permite añadir, abrir, renombrar, eliminar y mover categorías; los archivos anteriores sin categoría aparecen en Otros. Los documentos incluidos en el pase mantienen permisos separados.
 
-### Mapa
+Los archivos se guardan solo en este dispositivo, cifrados y separados por cuenta/viaje. Hay que conservar el original: no se recuperan al reinstalar. Las decisiones manuales funcionan sin conexión. La importación de checks antiguos ocurre una sola vez y no bloquea las acciones locales ni sobrescribe decisiones nuevas. Cancelar el selector o cambiar cuenta/viaje descarta la operación.
 
-La tab `Mapa` muestra recomendaciones cercanas.
+Documentos distingue una sección vacía de un fallo de actualización. Conserva los archivos y el contenido ya cargado, explica la desconexión y ofrece reintento. La revisión del itinerario y la descarga offline son acciones secundarias con sus permisos actuales.
 
-En plataformas mobile compatibles se usa mapa nativo. En Windows se muestra una experiencia fallback con lista cercana.
+### Journal
 
-La lista cercana se deriva del paquete mobile completo precargado, calcula distancias localmente y muestra solo la pagina actual para evitar renderizar demasiados pins/list items juntos. Al refrescar, mantiene la pagina actual si sigue existiendo.
+Mi diario reúne recuerdos libres y recuerdos de actividades en orden cronológico, agrupados por fecha. No hace falta tener actividades para escribir. Las tiles muestran fecha, título o lugar y portada; el detalle presenta el texto completo y acciones visibles de editar, añadir fotos y consultar actividad.
 
-### Viaje
+El editor admite fecha, título y lugar opcionales, hasta 2.000 caracteres y diez fotos, incluidos recuerdos solo con fotos. Permite buscar una actividad del día para usar su lugar sin abandonar el editor. Un borrador se guarda localmente tras una pausa y al salir; se puede continuar o descartar con confirmación. Guardar recuerdo confirma la entrada y solicita sincronización, con estados de guardando, pendiente y conflicto que conservan el contenido ante errores.
 
-La tab `Viaje` muestra el viaje asignado al usuario logueado agrupado por dia.
+Las entradas confirmadas sincronizan su texto; fotos, portadas y borradores permanecen en este dispositivo. Un fallo o archivo ausente no impide leer el resto del recuerdo. Borrar una actividad conserva su recuerdo. El álbum PDF está disponible en Android con selección de fechas y recuerdos confirmados; los borradores quedan excluidos.
 
-Incluye:
+Si otro dispositivo eliminó un recuerdo que conserva escritura o fotos locales pendientes, aparece un conflicto y el contenido local permanece disponible hasta resolverlo. La app ofrece «Aceptar eliminación» o «Cancelar» y explica que se puede conservar una copia antes de aceptar. Aceptar también elimina esa copia del dispositivo; cancelar mantiene el conflicto y el contenido. El registro eliminado no se resucita durante los reintentos.
 
-- titulo del viaje;
-- fechas del viaje;
-- selector superior para alternar entre eventos, vuelos y hospedajes;
-- selector para filtrar por ciudad dentro del tipo seleccionado;
-- filtros visualmente sobrios y compactos para que el viaje mantenga una sensacion refinada aun con muchas ciudades;
-- reservas por dia;
-- para eventos: ciudad, hora, lugar, direccion y codigo de confirmacion;
-- para vuelos: fecha/hora de salida, llegada, aerolinea, numero de vuelo, origen/destino y aeropuertos;
-- para hospedajes: alojamiento, direccion, dia/hora de check-in y dia/hora de check-out;
-- detalle de reserva;
-- apertura de direccion en mapas.
+### Gastos
 
-Al abrir `Viaje`, la app prioriza la informacion relevante desde el momento actual: selecciona el tipo de reserva de la reserva vigente o proxima mas cercana, oculta reservas ya vencidas y solo muestra ciudades con reservas futuras o vigentes.
+Con viaje activo, el registro básico de gastos permite añadir, editar y eliminar importes con categoría, fecha, moneda y actividad opcional, sin modificar el itinerario. Los cambios locales se conservan cuando falla la red. Las cotizaciones y conflictos se muestran sin convertir un importe pendiente en cero confirmado.
 
-Este modulo apunta a cubrir viajes contratados o reservas gestionadas por el negocio.
-No forma parte del modelo comercial de paquetes: si un usuario tiene un viaje armado por el negocio, ve su schedule; si no, puede usar la app con recomendaciones segun su acceso.
+El pase habilita desglose por categoría/día y exportación según los permisos vigentes. El desglose puede derivarse de la copia local autorizada sin conexión. Los cálculos usan la moneda configurada y señalan cotizaciones ausentes o de otra moneda. Cambiar de cuenta/viaje o de configuración durante el editor protege contra guardar datos en otro contexto.
 
-El ultimo paquete mobile descargado incluye el schedule disponible offline por usuario. Si no hay conexion, la app muestra la copia local y avisa la fecha/hora de guardado.
-La app mantiene preparadas las secciones de eventos, vuelos y hospedajes y renderiza el viaje como una lista agrupada por dia, para que alternar entre tipos se sienta inmediato despues de la primera carga incluso en viajes largos.
+### Gratis, pase y funcionamiento sin conexión
 
-### Packs
+Las cuentas gratuitas pueden organizar documentos personales, Preparación, Journal y gastos básicos con un viaje activo. La política de creación y edición puede ser Free persistente o prueba temporal según configuración; las cuotas del asistente y la planificación se resuelven en el servidor.
 
-La tab `Packs` lista paquetes disponibles para el destino demo.
+El pase presenta beneficios exclusivos y funciones gratuitas por separado. Su cabecera explica el beneficio del contexto que lo abrió; los detalles de acceso y conservación se pueden desplegar. Las compras nativas y restauración requieren verificación del servidor y su disponibilidad depende de la configuración de lanzamiento.
 
-Cada paquete muestra:
-
-- nombre, descripcion y precio;
-- si es pago fijo o suscripcion;
-- nivel de acceso requerido;
-- si esta incluido o no en la cuenta logueada.
-
-El CMS puede activar paquetes manualmente para usuarios. Esta activacion representa una compra o suscripcion concedida por admin mientras no exista checkout real.
-
-La ultima lista de paquetes queda incluida en el paquete mobile compartido por usuario para consulta offline.
-
-### Cuenta
-
-La tab `Cuenta` existe como punto de entrada para asistencia al viajero.
-
-Tambien muestra la cuenta activa, permite activar/desactivar biometria, bloquear la app sin cerrar sesion y cerrar sesion completamente. Todavia no tiene flujo completo de tickets, chat o contacto real.
-
-### Offline
-
-La app tiene una primera capa offline para pantallas criticas de viaje.
-
-Funciona con estrategia `local first`:
-
-- si existe una copia local, la muestra primero para evitar esperas innecesarias;
-- luego intenta descargar datos frescos y actualiza la pantalla/copia local;
-- si falla la conexion, conserva la copia local y muestra un aviso de modo offline con la fecha/hora de guardado;
-- si no existe copia local, necesita conexion y muestra el error normal.
-- durante la primera carga sin contenido local, muestra un spinner en lugar de empty states prematuros.
-- las tabs con datos muestran la ultima actualizacion disponible y un boton `Reintentar` dentro de los errores para recuperar sin buscar el refresh del header.
-- los controles permanentes se mantienen sobrios: la paginacion usa texto discreto en lugar de botones circulares y las tabs no muestran refresh visual en el header.
-
-Pantallas cubiertas:
-
-- recomendaciones;
-- mapa/lista cercana;
-- viaje;
-- paquetes y estado de acceso del usuario.
-
-Limitaciones actuales:
-
-- no hay sincronizacion bidireccional;
-- favoritos siguen siendo locales del dispositivo;
-- no descarga imagenes ni mapas tiles para offline;
-- el primer uso de cada pantalla necesita conexion para generar la copia local.
-
-Decision vigente: no se implementa sync/delta sync todavia porque el producto mobile actual es principalmente de lectura. Se mantiene el camino preparado para agregarlo cuando existan acciones editables desde la app.
-
-### Prueba gratuita y pase Japon
-
-La experiencia free demuestra el producto antes de pedir el pago:
-
-- cada instalacion tiene una cuenta tecnica propia; no comparte borrador ni cuota con otros visitantes;
-- puede explorar y buscar solamente recomendaciones dentro de los radios gratuitos configurados;
-- puede crear un itinerario y editarlo durante 30 minutos, con contador visible;
-- al terminar el tiempo, el borrador queda en solo lectura y se puede recuperar pagando durante siete dias;
-- dispone de tres consultas del Assistant que produzcan recomendaciones; errores y preguntas para completar contexto no consumen la cuota;
-- el pase convierte el mismo borrador en un viaje Builder, habilita el catalogo completo y dura hasta siete dias despues de la vuelta, con un maximo de un ano desde la activacion.
-
-Mientras no exista checkout nativo, la compra emite un PIN Builder desde el flujo comercial actual. La app valida ese PIN contra el backend; no activa acceso basandose solamente en una confirmacion del cliente.
+La app muestra primero la copia local disponible de agenda y catálogo. Las notas confirmadas, gastos y mutaciones de itinerario sincronizan al recuperar conexión cuando el usuario dispone del permiso correspondiente. No se prometen mapas descargados ni copia en la nube para archivos personales, fotos o borradores. Cada cuenta mantiene su contenido aislado.
 
 ## Admin CMS
 
@@ -248,15 +155,15 @@ El admin actual permite operar contenido basico sin tocar la base de datos manua
 Funciones existentes:
 
 - login de admin;
-- dashboard;
-- formularios con campos obligatorios marcados, errores visibles e inputs invalidos resaltados;
+- dashboard y navegación agrupada en Catálogo, Viajes y Negocio;
+- formularios con validación inline, foco en errores y entradas inválidas resaltadas; los borradores fallidos conservan el contenido y la revisión original; las confirmaciones de publicación y descarte se mantienen;
 - crear, editar y borrar destinos sin contenido asociado;
 - crear, editar y borrar paquetes reutilizables sin accesos asociados;
 - seleccionar un paquete y asignarle muchos usuarios sin crear paquetes por persona;
 - ocultar del selector de asignacion a usuarios que ya tienen acceso activo al paquete;
 - CRUD de recomendaciones con acceso `Free`, `Suscripcion` o `Paquete`;
 - asociacion de recomendaciones a uno o mas paquetes cuando el acceso elegido es `Paquete`;
-- crear, editar y borrar viajes por usuario/destino;
+- crear, editar y borrar viajes por usuario/destino; lista paginada de 50, búsqueda, filtros de estado y conteos;
 - CRUD de reservas dentro de cada viaje;
 - mostrar solo los campos relevantes para evento, vuelo u hospedaje al cargar reservas;
 - tipo de reserva: evento, vuelo u hospedaje;
@@ -274,33 +181,26 @@ Funciones existentes:
 - quitar accesos asignados;
 - seleccion de nivel de acceso para recomendaciones;
 
-Pendiente funcional natural:
-
-- cargar imagenes o media;
-- publicar/despublicar contenido;
-- ordenar recomendaciones.
-- adjuntar vouchers, PDFs o QR a reservas.
-
 ## Autenticacion y acceso
 
 Estado actual:
 
 - Admin tiene login por cookie.
-- API expone login mobile por email y password para usuarios creados en el CMS.
+- API expone acceso por PIN y recuperación con código por correo; mantiene email/contraseña para compatibilidad.
 - API emite tokens opacos y guarda solo hash del token.
 - Los errores de validacion de login/cambio de password y paginacion se devuelven en formato consistente (`ValidationProblemDetails`) para que la app pueda mostrar mensajes de forma uniforme.
 - Mobile guarda la sesion local y usa token bearer para refrescar datos de viaje.
-- Mobile usa un endpoint autenticado reducido para Ideas, con destino y recomendaciones ya filtradas por acceso.
-- Mobile precarga un bootstrap autenticado compartido para Mapa, Viaje y Packs, con accesos, schedule y paquetes del destino activo.
+- Mobile consulta catálogo y recomendaciones autorizadas mediante contratos autenticados.
+- Mobile usa un bootstrap autenticado compartido para Mapa y Viaje, con accesos, agenda y paquetes del destino activo.
 - Mobile guarda copias offline del discover reducido y del bootstrap completo por usuario.
 - Mobile puede desbloquear una sesion local con biometria del dispositivo.
-- `Bloquear app` mantiene la sesion local para poder usar biometria.
-- `Cerrar sesion` revoca y borra la sesion; despues hay que entrar con password.
+- La preferencia de desbloqueo por cuenta conserva la verificación incluso al elegir PIN.
+- Cerrar sesión revoca y borra credenciales; después exige un nuevo acceso válido.
 - Admin puede asignar entitlements a usuarios desde el CMS.
 - Admin puede activar un paquete a un usuario desde `/admin/packages`; el acceso queda asociado al paquete y destino.
 - La password temporal obliga cambio en primer ingreso.
 - Las passwords temporales no se escriben en logs; en desarrollo solo se muestran en el CMS para facilitar pruebas locales.
-- No hay integracion de pagos todavia.
+- Compras y restauración nativas están integradas con verificación del backend; las ventas reales dependen de la configuración de lanzamiento.
 
 El modelo de entitlements ya prepara la app para compras, paquetes o suscripciones reales.
 
@@ -334,29 +234,21 @@ La agenda muestra una tarjeta **Revisar mi día** para la fecha seleccionada. De
 
 Desde cada alerta se puede abrir el plan afectado. Los elementos creados por el viajero se abren en el editor; las reservas curadas se abren en modo detalle. La revisión es determinista, funciona con la agenda guardada sin conexión y se actualiza tras cada alta, edición o borrado.
 
-La tarjeta también permite pedir al Assistant una alternativa para la fecha seleccionada. La solicitud lleva la fecha y la ciudad al backend, conserva las reservas confirmadas como límites y busca opciones para los espacios libres. Guardar una sugerencia sigue abriendo el editor antes de modificar el itinerario.
+La tarjeta también permite pedir al Assistant una alternativa para la fecha seleccionada. La solicitud lleva la fecha y la ciudad al backend, conserva las reservas confirmadas y ofrece alternativas por momentos del día. Guardar una sugerencia sigue abriendo el editor antes de modificar el itinerario.
 
-Cuando está activada la personalización, **Mejorar el día** ofrece **Completar el día** y **Personalizar mi día**. La segunda opción permite elegir ritmo, hasta tres intereses y presupuesto para esa fecha. El perfil existente se precarga, pero solo se actualiza si el viajero marca explícitamente «Guardar también como preferencias generales». La propuesta respeta los planes guardados, prioriza intereses y proximidad con coordenadas conocidas y se guarda por actividad. Free dispone de una propuesta personalizada útil por cuenta dentro de su cuota actual; después se abre Pase Japón conservando los criterios para continuar tras la activación.
+Preparar planes diferencia añadir alternativas y reorganizar los planes seleccionados. El viajero elige fechas, ritmo, intereses y presupuesto, revisa criterios y compara la propuesta con la agenda antes de aplicarla. Las preferencias generales solo se actualizan si lo solicita. Las cuotas de Free se comprueban en el servidor y el pase conserva los criterios para continuar tras la activación.
 
 El menú del itinerario permite actualizar una copia offline de la agenda, recomendaciones y contenido de Today para la fecha seleccionada. También permite compartir una versión de texto ordenada por día; se omiten códigos de confirmación y notas privadas.
 
 Desde el mismo menú se puede crear una ruta temática de comida local, historia, arte, naturaleza o compras. La fecha y ciudad seleccionadas se pasan al Assistant, que propone varias paradas cercanas sin mover reservas. Cada parada se puede revisar, cambiar por otra y guardar por separado mediante el editor del Builder.
 
-## Roadmap funcional sugerido
+## Evolución del producto
 
-Proximos pasos de mayor valor:
-
-1. Reemplazar login mobile por identidad real: password, magic link, Auth0, Azure AD B2C o similar.
-2. Integrar envio real de email para passwords temporales.
-3. Conectar paquetes con checkout real o simulacion de compra iniciada desde la app.
-4. Aplicar bloqueo funcional mas fuerte en API, no solo en UI.
-5. Agregar destinos multiples y selector de destino en mobile.
-6. Mejorar soporte con formulario, email o chat.
-7. Agregar contenido enriquecido: fotos, tips, horarios, links, tags y prioridades.
+Las prioridades y condiciones de publicación se mantienen en [japan-launch](japan-launch.md) y [launch-value-cycle](launch-value-cycle.md). Creación de viaje, recuperación por correo, compras verificadas, permisos de API y contenido enriquecido ya forman parte de la app; su activación se rige por la configuración y las validaciones del entorno.
 
 ## Operacion e infraestructura
 
-La direccion de infraestructura para el MVP es Azure con Terraform.
+El repositorio incluye infraestructura Azure con Terraform y procedimientos Render. El entorno publicado se opera mediante su configuración y runbook; las revisiones usan backend y PostgreSQL locales aislados.
 
 Objetivo funcional:
 
@@ -370,7 +262,7 @@ Objetivo funcional:
 Ambientes esperados:
 
 - `local`: Docker Compose, API local y app en emulador/celular.
-- `dev`: primer ambiente Azure para pruebas desde dispositivos reales.
+- `dev`: backend de revisión separado de producción para pruebas desde dispositivos reales.
 - `staging`: validacion previa a produccion.
 - `prod`: datos reales, backups, monitoreo y dominios reales.
 
@@ -381,9 +273,9 @@ Ambientes esperados:
 - Las fotos se copian al almacenamiento privado del dispositivo, separadas por usuario y viaje: hasta 10 por recuerdo, máximo 2048 px y miniaturas, orientación normalizada y sin metadatos GPS. No hay nube ni cámara; cerrar sesión no borra fotos. Se puede elegir portada o quitar una copia sin tocar el original.
 - En Android, el álbum PDF incluye todo el viaje o días seleccionados, título y portada elegibles, notas completas y fotos. Ofrece vista previa, destino del sistema y compartir, con progreso y cancelación. No incluye códigos de reserva ni adjuntos. Se avisa si falta una foto.
 - La navegación principal de viajes builder tiene cinco destinos: Viaje, Mapa, Asistente, Journal y Cuenta. Los viajes sin Asistente mantienen sus restricciones. Documentos se abre desde Viaje o Cuenta; Pase Japón y Salir están en Cuenta. Journal requiere un viaje seleccionado.
-- En el detalle de una idea nueva de «Completar el día», el viajero puede elegir Mañana, Mediodía, Tarde o Noche antes de guardar. No modifica automáticamente reservas existentes ni fija una hora exacta.
+- En el detalle de una idea nueva de «Añadir alternativas», el viajero puede elegir Mañana, Mediodía, Tarde o Noche antes de guardar. No modifica automáticamente reservas existentes ni fija una hora exacta.
 - Las tarjetas de propuestas permiten guardar el plan del día sin abrir el detalle y pedir otra opción mediante iconos. El detalle conserva la elección de franja y usa las mismas acciones con nombres accesibles y estados de carga.
-- «Completar el día» respeta la franja guardada de los planes flexibles. Una reserva con hora ocupa su intervalo, no toda la franja; las sugerencias nuevas evitan solaparse con esas reservas.
+- Añadir alternativas conserva los planes flexibles y reservas existentes y ofrece opciones nuevas para los momentos del día. El viajero revisa las propuestas y los avisos de la agenda antes de decidir qué usar.
 - Atrás cierra primero el detalle o estado abierto, luego recorre páginas y pestañas visitadas. En la raíz, Android muestra «Volvé a presionar Atrás para cerrar» y requiere otra pulsación dentro de dos segundos.
 
 ## Regla de mantenimiento

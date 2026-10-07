@@ -17,19 +17,27 @@ public sealed class StorePurchaseRecoveryService(
         if (!await gate.WaitAsync(0, cancellationToken)) return;
         try
         {
-            var pending = await pendingStore.GetAsync();
+            var userId = sessions.CurrentUserId;
+            var contextVersion = sessions.ContextVersion;
+            bool Current() => !cancellationToken.IsCancellationRequested && sessions.HasSession
+                && sessions.CurrentUserId == userId && sessions.ContextVersion == contextVersion;
+            if (!Current() || userId is null) return;
+            var pending = await pendingStore.GetAsync(userId.Value);
+            if (!Current()) return;
             var token = await sessions.GetTokenAsync();
-            if (pending is null || string.IsNullOrWhiteSpace(token)
-                || pending.UserId != sessions.CurrentUserId || pending.Provider != store.Provider)
+            if (!Current() || pending is null || string.IsNullOrWhiteSpace(token)
+                || pending.UserId != userId || pending.Provider != store.Provider)
                 return;
 
             var passes = await api.RestorePassesAsync(token, cancellationToken);
+            if (!Current()) return;
             if (passes.Any(item => item.TripId == pending.TripId && item.State == TrialAccessState.Paid))
             {
                 if (!string.IsNullOrWhiteSpace(pending.Evidence))
                     await store.FinishAsync(pending.Evidence, cancellationToken);
-                await ActivateTripAsync(token, pending.TripId, cancellationToken);
-                pendingStore.Clear();
+                if (!Current()) return;
+                if (await ActivateTripAsync(token, pending, contextVersion, cancellationToken))
+                    await pendingStore.ClearAsync(pending);
                 return;
             }
 
@@ -47,14 +55,16 @@ public sealed class StorePurchaseRecoveryService(
                     UpdatedAtUtc = DateTimeOffset.UtcNow
                 };
                 await pendingStore.SaveAsync(pending);
+                if (!Current()) return;
             }
 
             var pass = await api.VerifyPurchaseAsync(token,
                 new(pending.IntentId, evidence, pending.Environment, $"resume-{pending.IntentId:N}"), cancellationToken);
-            if (pass?.State != TrialAccessState.Paid) return;
+            if (!Current() || pass?.State != TrialAccessState.Paid || pass.TripId != pending.TripId) return;
             await store.FinishAsync(evidence, cancellationToken);
-            await ActivateTripAsync(token, pending.TripId, cancellationToken);
-            pendingStore.Clear();
+            if (!Current()) return;
+            if (await ActivateTripAsync(token, pending, contextVersion, cancellationToken))
+                await pendingStore.ClearAsync(pending);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -66,12 +76,18 @@ public sealed class StorePurchaseRecoveryService(
         }
     }
 
-    private async Task ActivateTripAsync(string token, Guid tripId, CancellationToken cancellationToken)
+    private async Task<bool> ActivateTripAsync(string token, PendingStorePurchase pending, long contextVersion, CancellationToken cancellationToken)
     {
-        var selected = await api.SelectAccountTripAsync(token, tripId, cancellationToken);
-        if (selected is not null) await sessions.SaveAsync(selected);
+        var selected = await api.SelectAccountTripAsync(token, pending.TripId, cancellationToken);
+        if (cancellationToken.IsCancellationRequested || !sessions.HasSession
+            || sessions.CurrentUserId != pending.UserId || sessions.ContextVersion != contextVersion) return false;
+        if (selected is null || selected.UserId != pending.UserId || selected.TripId != pending.TripId) return false;
+        if (!await sessions.SaveIfCurrentAsync(selected, contextVersion)) return false;
+        if (cancellationToken.IsCancellationRequested || !sessions.HasSession
+            || sessions.CurrentUserId != pending.UserId || sessions.CurrentTripId != pending.TripId) return false;
         if (Shell.Current is AppShell shell) shell.ApplySessionTabs(sessions);
         syncCoordinator.TriggerSynchronize();
+        return true;
     }
 
     private static bool EvidenceMatches(string evidence, string opaqueAccountId)

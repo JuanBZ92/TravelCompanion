@@ -20,8 +20,20 @@ public static class SecureStorage
     public sealed class SecureStore
     {
         private readonly ConcurrentDictionary<string, string> _values = new();
-        public Task<string?> GetAsync(string key) => Task.FromResult(_values.GetValueOrDefault(key));
-        public Task SetAsync(string key, string value) { _values[key] = value; return Task.CompletedTask; }
-        public bool Remove(string key) => _values.TryRemove(key, out _);
+        public Func<string, Task>? BeforeGet { get; set; }
+        public Func<string, string, Task>? BeforeSet { get; set; }
+        public Action<string>? BeforeRemove { get; set; }
+        public async Task<string?> GetAsync(string key)
+        {
+            var value = _values.GetValueOrDefault(key);
+            if (BeforeGet is { } before) await before(key);
+            return value;
+        }
+        public async Task SetAsync(string key, string value)
+        {
+            if (BeforeSet is { } before) await before(key, value);
+            _values[key] = value;
+        }
+        public bool Remove(string key) { BeforeRemove?.Invoke(key); return _values.TryRemove(key, out _); }
     }
 }

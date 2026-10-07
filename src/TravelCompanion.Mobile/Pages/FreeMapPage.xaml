@@ -6,10 +6,11 @@
              xmlns:viewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
              x:Class="TravelCompanion.Mobile.Pages.FreeMapPage"
              x:DataType="viewModels:FreeMapViewModel"
-             Title="Map"
+             Title="{Binding [TabMap], Source={x:Static services:LocalizationResourceManager.Instance}}"
              Shell.NavBarIsVisible="False"
+             SafeAreaEdges="All"
              BackgroundColor="{StaticResource Mist}">
-    <Grid>
+    <Grid x:Name="RootLayout" SizeChanged="OnPageLayoutSizeChanged">
         <Grid x:Name="MapContainer" BackgroundColor="#E8E2DA">
             <VerticalStackLayout x:Name="MapFallback"
                                  Padding="28"
@@ -20,7 +21,7 @@
                        CharacterSpacing="5"
                        FontSize="11"
                        FontAttributes="Bold"
-                       TextColor="#8E867D"
+                       TextColor="{StaticResource Ink}"
                        HorizontalTextAlignment="Center" />
                 <Label Text="{Binding [UxMapFallback], Source={x:Static services:LocalizationResourceManager.Instance}}"
                        FontFamily="serif"
@@ -37,7 +38,7 @@
             <Border Grid.Row="0" BackgroundColor="#F2F8F3ED" Stroke="#D8CFC4" StrokeThickness="1" Padding="16,12" IsVisible="{Binding ShowMapSummary}">
                 <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="8">
                     <VerticalStackLayout Spacing="2">
-                        <Label Text="{Binding [UxMapExplore], Source={x:Static services:LocalizationResourceManager.Instance}}" CharacterSpacing="4" FontSize="10" FontAttributes="Bold" TextColor="#8E867D" />
+                        <Label Text="{Binding [UxMapExplore], Source={x:Static services:LocalizationResourceManager.Instance}}" CharacterSpacing="4" FontSize="10" FontAttributes="Bold" TextColor="{StaticResource EditorialMuted}" />
                         <Label Text="{Binding [UxMapCurated], Source={x:Static services:LocalizationResourceManager.Instance}}" FontFamily="serif" FontSize="25" TextColor="#1A1714" />
                     </VerticalStackLayout>
                     <Button Grid.Column="1"
@@ -84,7 +85,7 @@
             </Border>
 
             <Border Grid.Row="2" Margin="0,0,0,8" VerticalOptions="End" Style="{StaticResource MapPreviewPanel}" IsVisible="{Binding HasPreview}">
-                <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="6">
+                <Grid RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="6">
                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" HeightRequest="48" IsVisible="{Binding HasSelection}">
                         <Label Text="{Binding SelectedMarkerPosition}"
                                FontSize="11"
@@ -112,45 +113,62 @@
                                 SemanticProperties.Description="{Binding [UxClose], Source={x:Static services:LocalizationResourceManager.Instance}}" />
                     </Grid>
 
-                    <VerticalStackLayout Grid.Row="1" Spacing="5" IsVisible="{Binding IsUnlockedSelection}">
+                    <ScrollView x:Name="RecommendationPreviewScroll" Grid.Row="1" MaximumHeightRequest="220">
+                      <VerticalStackLayout Spacing="6">
+                        <VerticalStackLayout Spacing="5" IsVisible="{Binding IsUnlockedSelection}">
                             <Label Text="{Binding SelectedRecommendation.Title}"
                                    FontFamily="serif"
                                    FontSize="22"
                                    TextColor="{StaticResource Ink}"
-                                   LineBreakMode="WordWrap" />
+                                   LineBreakMode="TailTruncation" MaxLines="{Binding PreviewTextLines}">
+                                <Label.Triggers>
+                                    <DataTrigger TargetType="Label" Binding="{Binding IsPreviewExpanded}" Value="True">
+                                        <Setter Property="LineBreakMode" Value="WordWrap" />
+                                    </DataTrigger>
+                                </Label.Triggers>
+                            </Label>
                             <Label Text="{Binding SelectedLocationText}"
                                    FontSize="11"
                                    TextColor="{StaticResource Muted}"
-                                   LineBreakMode="WordWrap" />
+                                   LineBreakMode="TailTruncation" MaxLines="{Binding PreviewTextLines}">
+                                <Label.Triggers>
+                                    <DataTrigger TargetType="Label" Binding="{Binding IsPreviewExpanded}" Value="True">
+                                        <Setter Property="LineBreakMode" Value="WordWrap" />
+                                    </DataTrigger>
+                                </Label.Triggers>
+                            </Label>
                             <Label Text="{Binding SelectedRecommendation.DisplayDescription}"
                                    FontSize="13"
                                    TextColor="{StaticResource InkSoft}"
                                    LineHeight="1.2"
-                                   LineBreakMode="WordWrap" />
+                                   LineBreakMode="TailTruncation" MaxLines="{Binding PreviewTextLines}">
+                                <Label.Triggers>
+                                    <DataTrigger TargetType="Label" Binding="{Binding IsPreviewExpanded}" Value="True">
+                                        <Setter Property="LineBreakMode" Value="WordWrap" />
+                                    </DataTrigger>
+                                </Label.Triggers>
+                            </Label>
                             <Label Text="{Binding SelectedMetadataText}"
                                    FontSize="11"
                                    TextColor="{StaticResource Muted}"
                                    LineBreakMode="WordWrap" />
                             <Label Text="{Binding SelectedTagsText}"
+                                   IsVisible="{Binding IsPreviewExpanded}"
                                    FontSize="11"
                                    TextColor="#8A6F3D"
                                    LineBreakMode="WordWrap" />
                     </VerticalStackLayout>
 
-                    <VerticalStackLayout Grid.Row="1" Spacing="6" IsVisible="{Binding IsLockedSelection}">
+                    <VerticalStackLayout Spacing="6" IsVisible="{Binding IsLockedSelection}">
                         <Label Text="{Binding [UxLockedPlace], Source={x:Static services:LocalizationResourceManager.Instance}}" FontFamily="serif" FontSize="21" TextColor="{StaticResource Ink}" />
                         <Label Text="{Binding [UxLockedPlaceHelp], Source={x:Static services:LocalizationResourceManager.Instance}}" FontSize="13" TextColor="{StaticResource Muted}" LineHeight="1.2" />
-                        <Grid ColumnDefinitions="*,*" ColumnSpacing="8" IsVisible="{Binding HasContactUrl}">
-                            <Button Text="{Binding [UxRequestAccess], Source={x:Static services:LocalizationResourceManager.Instance}}" Command="{Binding ContactCommand}" IsVisible="{Binding HasContactUrl}" BackgroundColor="#3D3329" TextColor="White" CornerRadius="0" />
-                            <Button Grid.Column="1" Text="{Binding [UxHavePin], Source={x:Static services:LocalizationResourceManager.Instance}}" Command="{Binding UseAnotherPinCommand}" Style="{StaticResource GhostButton}" CornerRadius="0" />
-                        </Grid>
-                        <Button Text="{Binding [UxHavePin], Source={x:Static services:LocalizationResourceManager.Instance}}" Command="{Binding UseAnotherPinCommand}" Style="{StaticResource GhostButton}" CornerRadius="0" IsVisible="{Binding ShowPinOnlyAction}" />
-                        <Button Text="{Binding [UxCreateTrip], Source={x:Static services:LocalizationResourceManager.Instance}}" Command="{Binding StartFreeBuilderCommand}" BackgroundColor="#3D3329" TextColor="White" CornerRadius="0" />
-                        <Button Text="{Binding [UxActivatePass], Source={x:Static services:LocalizationResourceManager.Instance}}" Command="{Binding RedeemPassCommand}" BackgroundColor="#3D3329" TextColor="White" CornerRadius="0" />
+                        <Button Text="{Binding [UxActivatePass], Source={x:Static services:LocalizationResourceManager.Instance}}" Command="{Binding RedeemPassCommand}" Style="{StaticResource EditorialPrimaryButton}" MinimumHeightRequest="48" />
+                        <Button Text="{Binding [UxCreateTrip], Source={x:Static services:LocalizationResourceManager.Instance}}" Command="{Binding StartFreeBuilderCommand}" Style="{StaticResource GhostButton}" MinimumHeightRequest="48" />
+                        <Button Text="{Binding [UxMoreActions], Source={x:Static services:LocalizationResourceManager.Instance}}" Command="{Binding MoreAccessOptionsCommand}" Style="{StaticResource GhostButton}" MinimumHeightRequest="48" />
                     </VerticalStackLayout>
 
-                    <VerticalStackLayout Grid.Row="1" Spacing="4" IsVisible="{Binding ShowMapSummary}">
-                        <Label Text="{Binding [UxFreeRadius], Source={x:Static services:LocalizationResourceManager.Instance}}" CharacterSpacing="3" FontSize="10" FontAttributes="Bold" TextColor="#9B9288" />
+                    <VerticalStackLayout Spacing="4" IsVisible="{Binding ShowMapSummary}">
+                        <Label Text="{Binding [UxFreeRadius], Source={x:Static services:LocalizationResourceManager.Instance}}" CharacterSpacing="3" FontSize="10" FontAttributes="Bold" TextColor="{StaticResource EditorialMuted}" />
                         <Label Text="{Binding MapSummary}" FontFamily="serif" FontSize="20" TextColor="#1A1714" />
                         <Label Text="{Binding [UxTapPin], Source={x:Static services:LocalizationResourceManager.Instance}}" FontSize="13" TextColor="#6E675F" />
                         <Button Text="{Binding [UxCreateTripTrial], Source={x:Static services:LocalizationResourceManager.Instance}}"
@@ -164,8 +182,14 @@
                                 Style="{StaticResource GhostButton}"
                                 CornerRadius="0" />
                     </VerticalStackLayout>
+                      </VerticalStackLayout>
+                    </ScrollView>
+                    <Button Grid.Row="2" Text="{Binding PreviewDetailsAction}"
+                            IsVisible="{Binding IsUnlockedSelection}"
+                            Command="{Binding TogglePreviewDetailsCommand}" Style="{StaticResource GhostButton}"
+                            HorizontalOptions="Start" MinimumHeightRequest="48" />
 
-                    <Grid Grid.Row="2" ColumnDefinitions="48,*,48" ColumnSpacing="8" HeightRequest="48" IsVisible="{Binding HasSelection}">
+                    <Grid Grid.Row="3" ColumnDefinitions="48,*,48" ColumnSpacing="8" HeightRequest="48" IsVisible="{Binding HasSelection}">
                         <Button Text="‹"
                                 Command="{Binding SelectPreviousMarkerCommand}"
                                 IsEnabled="{Binding CanBrowseMarkers}"

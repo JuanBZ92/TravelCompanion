@@ -22,8 +22,23 @@ public static class ClientDiagnostics
     }
 
     // Callers supply code-defined fields only, never user input or formatted log messages.
-    public static void Record(string name, DiagnosticDetails? details = null, Exception? exception = null) =>
+    public static void Record(string name, DiagnosticDetails? details = null, Exception? exception = null)
+    {
         journal?.Write(name, details, exception);
+#if ANDROID
+        // Only explicitly enabled review builds expose numeric performance samples to ADB.
+        // Do not forward general diagnostics, exceptions or user content to logcat.
+        if (MobileDiagnosticsSettings.IsEnabled && name.EndsWith("_measured", StringComparison.Ordinal) && details is not null)
+        {
+            try
+            {
+                Android.Util.Log.Info("YukuPerformance", System.Text.Json.JsonSerializer.Serialize(
+                    new DiagnosticEntry(DateTimeOffset.UtcNow, name, details, []), DiagnosticJsonContext.Default.DiagnosticEntry));
+            }
+            catch { /* Measurement must never interrupt the app. */ }
+        }
+#endif
+    }
 
     private static DiagnosticDetails EnvironmentDetails() => new()
     {

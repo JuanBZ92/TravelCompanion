@@ -32,7 +32,11 @@ public sealed partial class TravelChatViewModel(
     private bool _hasLoadedContext;
     private string? _missingContextMessage;
     private string? _missingContextField;
-    private CancellationTokenSource? _chatRequestCancellationTokenSource;
+    private AssistantRequestScope? _assistantOperation;
+    private TravelChatRequest? _pendingRetryRequest;
+    private string? _pendingRetryMessage;
+    private string? _pendingRetryInput;
+    private int _assistantPageOperationVersion;
     private GuidedPlanCriteriaDto? _guidedCriteria;
     private GuidedTravelActionDto? _pendingGuidedAction;
     private TravelChatCardViewModel? _pendingReplacementCard;
@@ -41,7 +45,6 @@ public sealed partial class TravelChatViewModel(
     private bool _hasGuidedQuestion = true;
     private bool _isFreeTextVisible;
     private bool _isSecondaryMenuVisible;
-    private bool _isExplicitlyCancelled;
     private bool _isFullDayFlow;
     private bool _isFullDayProgressActive;
     private int? _adaptationRevision;
@@ -88,7 +91,14 @@ public sealed partial class TravelChatViewModel(
     public bool HasGuidedQuestion
     {
         get => _hasGuidedQuestion;
-        private set => SetProperty(ref _hasGuidedQuestion, value);
+        private set
+        {
+            if (SetProperty(ref _hasGuidedQuestion, value))
+            {
+                OnPropertyChanged(nameof(ShowConversationList));
+                OnPropertyChanged(nameof(ShowEmptyState));
+            }
+        }
     }
     public bool IsFreeTextVisible
     {
@@ -124,7 +134,16 @@ public sealed partial class TravelChatViewModel(
     public DateTime PlanningDate
     {
         get => _planningDate;
-        set { if (SetProperty(ref _planningDate, value)) RefreshAssistantContext(); }
+        set
+        {
+            if (_planningDate.Date != value.Date)
+            {
+                _assistantOperation?.Cancel();
+                if (_assistantOperation is not null) IsBusy = false;
+                _pendingRetryRequest = null;
+            }
+            if (SetProperty(ref _planningDate, value)) { RefreshAssistantContext(); RefreshFreeTimeWindow(); }
+        }
     }
 
     public string? City
@@ -153,11 +172,15 @@ public sealed partial class TravelChatViewModel(
 
     public bool HasMissingContext => !string.IsNullOrWhiteSpace(MissingContextMessage);
     public bool HasMessages => Messages.Count > 0;
-    public bool ShowEmptyState => !HasMessages && !IsBusy;
+    public bool ShowConversationList => HasMessages || HasGuidedQuestion;
+    public bool ShowEmptyState => !HasMessages && !HasGuidedQuestion && !IsBusy;
     public bool ShowGlobalLoading => IsBusy && !_isFullDayProgressActive;
 
     public async Task LoadContextAsync()
     {
+        var contextVersion = sessionService.ContextVersion;
+        var pageVersion = _assistantPageOperationVersion;
+        bool IsCurrent() => contextVersion == sessionService.ContextVersion && pageVersion == _assistantPageOperationVersion;
         OnPropertyChanged(nameof(CanPlanItinerary));
         EnsureLocalizationSubscription();
         ApplyCachedPreferencesForCurrentUser();
@@ -166,12 +189,14 @@ public sealed partial class TravelChatViewModel(
             if (_cachedPreferenceProfile is null)
             {
                 var token = await sessionService.GetTokenAsync();
+                if (!IsCurrent()) return;
                 if (!string.IsNullOrWhiteSpace(token))
                 {
                     await RefreshPreferenceProfileAsync(token, CancellationToken.None);
                 }
             }
             var cached = await bootstrapStore.GetCachedAsync();
+            if (!IsCurrent()) return;
             if (cached is not null)
             {
                 ApplyPlanningContext(cached.Value.Schedule);
@@ -183,6 +208,8 @@ public sealed partial class TravelChatViewModel(
         await LoadAsync(async ct =>
         {
             var token = await sessionService.GetTokenAsync();
+            ct.ThrowIfCancellationRequested();
+            if (!IsCurrent()) return;
             if (string.IsNullOrWhiteSpace(token))
             {
                 sessionService.Clear();
@@ -191,6 +218,8 @@ public sealed partial class TravelChatViewModel(
             }
 
             var cached = await bootstrapStore.GetCachedAsync(cancellationToken: ct);
+            ct.ThrowIfCancellationRequested();
+            if (!IsCurrent()) return;
             if (cached is not null)
             {
                 ApplyPlanningContext(cached.Value.Schedule);
@@ -200,10 +229,16 @@ public sealed partial class TravelChatViewModel(
                 // Yield after applying local state so the cached itinerary can render
                 // before network synchronization starts.
                 await Task.Yield();
+                ct.ThrowIfCancellationRequested();
+                if (!IsCurrent()) return;
             }
 
             await RefreshPreferenceProfileAsync(token, ct);
+            ct.ThrowIfCancellationRequested();
+            if (!IsCurrent()) return;
             await ReplayPendingMutationsAsync(token, ct);
+            ct.ThrowIfCancellationRequested();
+            if (!IsCurrent()) return;
 
             if (cached is not null)
             {
@@ -218,6 +253,8 @@ public sealed partial class TravelChatViewModel(
             try
             {
                 var result = await bootstrapStore.RefreshResultAsync(token, cancellationToken: ct);
+                ct.ThrowIfCancellationRequested();
+                if (!IsCurrent()) return;
                 if (result.IsUnauthorized)
                 {
                     sessionService.Clear();
@@ -241,6 +278,8 @@ public sealed partial class TravelChatViewModel(
             }
             catch (Exception ex) when (cached is not null || IsTransientNetworkException(ex))
             {
+                ct.ThrowIfCancellationRequested();
+                if (!IsCurrent()) return;
                 if (cached is null)
                 {
                     StatusMessage = Resource("AssistantOfflineStatusNoCache");
@@ -375,7 +414,12 @@ public sealed partial class TravelChatViewModel(
 
     public void ResetForNewSession()
     {
+        CancelActiveOperations();
         ResetLoadState();
+        _pendingRetryRequest = null;
+        _pendingRetryMessage = null;
+        _assistantSchedule = null;
+        _isFreeTimeSearch = false;
         _conversationId = null;
         _adaptationRevision = null;
         _adaptationTripId = null;
@@ -595,28 +639,33 @@ public sealed partial class TravelChatViewModel(
             return;
         }
 
-        var token = await sessionService.GetTokenAsync();
-        if (string.IsNullOrWhiteSpace(token))
-        {
-            sessionService.Clear();
-            await Shell.Current.GoToAsync("//login");
-            return;
-        }
-
+        var activeRequest = BeginAssistantOperation();
+        var city = City;
+        var locale = CultureInfo.CurrentUICulture.Name;
+        var guidedAction = _pendingGuidedAction;
+        var guidedCriteria = _guidedCriteria;
+        var conversationId = _conversationId;
+        var replacementCard = _pendingReplacementCard;
+        var retryInput = JsonSerializer.Serialize(new { city, locale, guidedAction, guidedCriteria }, PreferenceJsonOptions);
         TravelChatMessageViewModel? fullDayProgressMessage = null;
         try
         {
-            var isGuidedSubmission = _pendingGuidedAction is not null;
-            var isFullDaySubmission = _pendingGuidedAction?.Action == GuidedTravelActions.FullDay;
+            var token = await activeRequest.AwaitAsync(_ => sessionService.GetTokenAsync());
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                sessionService.Clear();
+                await Shell.Current.GoToAsync("//login");
+                return;
+            }
+            var isGuidedSubmission = guidedAction is not null;
+            var isFullDaySubmission = guidedAction?.Action == GuidedTravelActions.FullDay;
             if (isFullDaySubmission && !sessionService.CanEditItinerary)
             {
                 await PaywallNavigation.OpenAsync(PaywallEntryPoint.Today, limitReached: true);
                 return;
             }
-            var replacementCard = _pendingReplacementCard;
             var isTargetedReplacement = replacementCard is not null
-                && _pendingGuidedAction?.Action == GuidedTravelActions.Alternative;
-            _isExplicitlyCancelled = false;
+                && guidedAction?.Action == GuidedTravelActions.Alternative;
             _isFullDayProgressActive = isFullDaySubmission;
             OnPropertyChanged(nameof(ShowGlobalLoading));
             IsBusy = true;
@@ -643,36 +692,31 @@ public sealed partial class TravelChatViewModel(
                 Messages.Add(new TravelChatMessageViewModel(message, isFromUser: true));
             }
             OnMessagesChanged();
-            var currentLocation = (_pendingGuidedAction is not null && _guidedCriteria?.MaxWalkingMinutes is not null)
-                || ShouldAttachLocation(message)
-                ? await locationService.GetCurrentLocationAsync()
-                : null;
-
-            _chatRequestCancellationTokenSource?.Cancel();
-            _chatRequestCancellationTokenSource?.Dispose();
-            _chatRequestCancellationTokenSource = new CancellationTokenSource(TravelChatNetworkTimeout);
-            var activeRequest = _chatRequestCancellationTokenSource;
-            var response = await apiClient.SendTravelChatAsync(
-                token,
-                new TravelChatRequest(
-                    message,
-                    _conversationId,
-                    City,
-                    DateOnly.FromDateTime(PlanningDate),
-                    currentLocation,
-                    CultureInfo.CurrentUICulture.Name,
-                    _pendingGuidedAction,
-                    _pendingGuidedAction is null ? null : _guidedCriteria,
-                    Guid.NewGuid()),
-                activeRequest.Token);
+            var retry = _pendingRetryRequest is not null && _pendingRetryMessage == message
+                && _pendingRetryRequest.Date == activeRequest.Date && _pendingRetryInput == retryInput;
+            var currentLocation = retry ? _pendingRetryRequest!.CurrentLocation
+                : ((guidedAction is not null && guidedCriteria?.MaxWalkingMinutes is not null) || ShouldAttachLocation(message))
+                    ? await activeRequest.AwaitAsync(ct => locationService.GetCurrentLocationAsync(ct)) : null;
+            if (guidedCriteria?.WindowStartsAtLocal is not null && currentLocation is null)
+                guidedCriteria = guidedCriteria with { MaxWalkingMinutes = null, WalkingMinuteOptions = [] };
+            var outbound = retry ? _pendingRetryRequest! : new TravelChatRequest(
+                message, conversationId, city, activeRequest.Date, currentLocation, locale,
+                guidedAction, guidedAction is null ? null : guidedCriteria, Guid.NewGuid());
+            _pendingRetryRequest = outbound;
+            _pendingRetryMessage = message;
+            _pendingRetryInput = retryInput;
+            activeRequest.SetNetworkTimeout(TravelChatNetworkTimeout);
+            var response = await activeRequest.AwaitAsync(ct => apiClient.SendTravelChatAsync(token, outbound, ct));
 
             if (response is null)
             {
                 RemoveProgressMessage(fullDayProgressMessage);
-                await ApplyChatOfflineFallbackAsync(message);
+                await ApplyChatOfflineFallbackAsync(message, activeRequest);
                 return;
             }
 
+            _pendingRetryRequest = null;
+            _pendingRetryMessage = null;
             _lastFailedMessage = null;
             if (response.TrialAccess is not null)
             {
@@ -687,6 +731,7 @@ public sealed partial class TravelChatViewModel(
             var cards = (response.Cards ?? [])
                 .Select(card => new TravelChatCardViewModel(card))
                 .ToList();
+            foreach (var card in cards) card.PlanningDate = activeRequest.Date;
             var wasQuickSearch = _quickSearchSubmission;
             var showQuickSearchProposal = wasQuickSearch && response.MissingContext is null && cards.Count > 0;
             _quickSearchSubmission = false;
@@ -706,8 +751,9 @@ public sealed partial class TravelChatViewModel(
                 var processedCardCount = Math.Min(cards.Count, 5);
                 for (var index = 0; index < processedCardCount; index++)
                 {
-                    cards[index].PlanningDate = DateOnly.FromDateTime(PlanningDate);
-                    await PublishFullDayCardAsync(fullDayProgressMessage, cards[index], index + 1, processedCardCount);
+                    cards[index].PlanningDate = activeRequest.Date;
+                    await PublishFullDayCardAsync(fullDayProgressMessage, cards[index], index + 1, processedCardCount, activeRequest);
+                    activeRequest.Verify();
                 }
                 responseMessage = response.Message;
                 fullDayProgressMessage.UpdateProgress(responseMessage, isLoading: false);
@@ -745,7 +791,7 @@ public sealed partial class TravelChatViewModel(
             ApplyMissingContext(response.MissingContext);
             if (showQuickSearchProposal)
                 await ShowAssistantProposalAsync(cards, Resource("AssistantSearchProposalIntro"),
-                    isQuickSearch: true);
+                    isQuickSearch: true, operation: activeRequest);
             else if (wasQuickSearch)
             {
                 RestoreAssistantSearch();
@@ -778,30 +824,47 @@ public sealed partial class TravelChatViewModel(
             }
             OnMessagesChanged();
         }
-        catch (OperationCanceledException) when (_isExplicitlyCancelled)
+        catch (OperationCanceledException) when (activeRequest.ExplicitlyCancelled || !activeRequest.HasCurrentContext)
         {
-            RemoveProgressMessage(fullDayProgressMessage);
+            if (ReferenceEquals(_assistantOperation, activeRequest) && activeRequest.HasCurrentContext)
+            {
+                RemoveProgressMessage(fullDayProgressMessage);
+                if (string.IsNullOrWhiteSpace(MessageText)) MessageText = message;
+                StatusMessage = Resource("AssistantRequestCancelled");
+            }
         }
         catch (Exception ex) when (IsTransientNetworkException(ex))
         {
-            RemoveProgressMessage(fullDayProgressMessage);
-            await ApplyChatOfflineFallbackAsync(message);
+            if (ReferenceEquals(_assistantOperation, activeRequest) && activeRequest.HasCurrentContext)
+            {
+                RemoveProgressMessage(fullDayProgressMessage);
+                await ApplyChatOfflineFallbackAsync(message, activeRequest);
+            }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            RemoveProgressMessage(fullDayProgressMessage);
-            ErrorMessage = string.Format(CultureInfo.CurrentCulture, Resource("AssistantPrepareError"), ex.Message);
+            if (ReferenceEquals(_assistantOperation, activeRequest) && activeRequest.HasCurrentContext)
+            {
+                RemoveProgressMessage(fullDayProgressMessage);
+                if (string.IsNullOrWhiteSpace(MessageText)) MessageText = message;
+                ErrorMessage = Resource("PlanningTryAgain");
+            }
         }
         finally
         {
-            if (_quickSearchSubmission)
+            if (ReferenceEquals(_assistantOperation, activeRequest))
             {
-                _quickSearchSubmission = false;
-                RestoreAssistantSearch();
+                if (_quickSearchSubmission && activeRequest.HasCurrentContext)
+                {
+                    _quickSearchSubmission = false;
+                    RestoreAssistantSearch();
+                }
+                IsBusy = false;
+                _isFullDayProgressActive = false;
+                _assistantOperation = null;
+                OnPropertyChanged(nameof(ShowGlobalLoading));
             }
-            IsBusy = false;
-            _isFullDayProgressActive = false;
-            OnPropertyChanged(nameof(ShowGlobalLoading));
+            activeRequest.Dispose();
         }
     }
 
@@ -857,27 +920,27 @@ public sealed partial class TravelChatViewModel(
     private async Task SaveItineraryItemAsync(TravelChatCardViewModel? card)
     {
         if (card is null || !card.CanSave) return;
-        var contextVersion = sessionService.ContextVersion;
+        using var scope = new AssistantRequestScope(sessionService, () => DateOnly.FromDateTime(PlanningDate),
+            () => _assistantPageOperationVersion);
         card.IsSaving = true;
         card.FeedbackStatusMessage = Resource("AssistantSaveQueued");
         try
         {
             await _saveQueue.RunAsync(async () =>
             {
-                if (contextVersion != sessionService.ContextVersion) return;
+                if (!scope.CanPublish) return;
                 card.FeedbackStatusMessage = Resource("AssistantSavingItem");
-                await SaveItineraryItemCoreAsync(card);
+                await SaveItineraryItemCoreAsync(card, scope);
             });
         }
         finally { card.IsSaving = false; }
     }
 
-    private async Task SaveItineraryItemCoreAsync(TravelChatCardViewModel card)
+    private async Task SaveItineraryItemCoreAsync(TravelChatCardViewModel card, AssistantRequestScope scope)
     {
         if (card.RecommendationId is not { } recommendationId) return;
-        var contextVersion = sessionService.ContextVersion;
         var token = await sessionService.GetTokenAsync();
-        if (contextVersion != sessionService.ContextVersion) return;
+        if (!scope.CanPublish) return;
         if (string.IsNullOrWhiteSpace(token))
         {
             sessionService.Clear();
@@ -890,7 +953,7 @@ public sealed partial class TravelChatViewModel(
             ErrorMessage = null;
             StatusMessage = null;
             var recommendation = await FindRecommendationAsync(recommendationId, token);
-            if (contextVersion != sessionService.ContextVersion) return;
+            if (!scope.CanPublish) return;
             if (recommendation is null)
             {
                 StatusMessage = Resource("AssistantDetailNotFound");
@@ -900,7 +963,7 @@ public sealed partial class TravelChatViewModel(
 
             if (!sessionService.CanEditItinerary)
             {
-                pendingItineraryActionStore.Set(recommendation, DateOnly.FromDateTime(PlanningDate), card.StartsAt);
+                pendingItineraryActionStore.Set(recommendation, scope.Date, card.StartsAt);
                 await PaywallNavigation.OpenAsync(PaywallEntryPoint.Assistant, limitReached: true);
                 return;
             }
@@ -915,6 +978,7 @@ public sealed partial class TravelChatViewModel(
             if (card.IsDayPlanCard)
             {
                 var saved = await SaveFullDayCardsAsync([card], token, CancellationToken.None);
+                if (!scope.CanPublish) return;
                 StatusMessage = saved == 1 ? Resource("AssistantSavedButton")
                     : card.FeedbackStatusMessage ?? Resource("PlanningTryAgain");
                 return;
@@ -923,7 +987,7 @@ public sealed partial class TravelChatViewModel(
             var parameters = new ShellNavigationQueryParameters
             {
                 ["Recommendation"] = recommendation,
-                ["Date"] = DateOnly.FromDateTime(PlanningDate)
+                ["Date"] = scope.Date
             };
             if (card.StartsAt is { } suggestedStart && suggestedStart != TimeOnly.MinValue)
             {
@@ -934,7 +998,9 @@ public sealed partial class TravelChatViewModel(
         }
         catch (Exception ex)
         {
-            ErrorMessage = string.Format(CultureInfo.CurrentCulture, Resource("AssistantSaveErrorWithReason"), ex.Message);
+            if (!scope.CanPublish) return;
+            ClientDiagnostics.Record("assistant_save_failed", exception: ex);
+            ErrorMessage = Resource("AssistantSaveError");
             card.FeedbackStatusMessage = Resource("PlanningTryAgain");
         }
     }
@@ -1084,68 +1150,75 @@ public sealed partial class TravelChatViewModel(
         bool alternative,
         TravelChatCardViewModel? replacementCard = null)
     {
+        if (IsBusy) return;
         var criteria = _guidedCriteria;
         if (!AssistantGuidedCriteriaPolicy.HasValidCategory(criteria))
         {
             RestartGuidedFlow();
             return;
         }
-
+        var fullDay = _isFullDayFlow;
         if (!alternative && _guidedPreferencesDirty)
         {
-            await PersistGuidedPreferencesAsync();
+            var preparation = BeginAssistantOperation();
+            try
+            {
+                await PersistGuidedPreferencesAsync(preparation, criteria!, _selectedWalkingMinutes.Contains(0)
+                    ? 180 : criteria!.MaxWalkingMinutes ?? 30);
+                preparation.Verify();
+            }
+            catch (OperationCanceledException)
+            {
+                if (ReferenceEquals(_assistantOperation, preparation) && preparation.HasCurrentContext)
+                    StatusMessage = Resource(preparation.ExplicitlyCancelled ? "AssistantRequestCancelled" : "PlanningTryAgain");
+                return;
+            }
+            catch (Exception)
+            {
+                if (ReferenceEquals(_assistantOperation, preparation) && preparation.HasCurrentContext)
+                    ErrorMessage = Resource("PlanningTryAgain");
+                return;
+            }
+            finally
+            {
+                if (ReferenceEquals(_assistantOperation, preparation)) { _assistantOperation = null; IsBusy = false; }
+                preparation.Dispose();
+            }
         }
-
         _pendingGuidedAction = new GuidedTravelActionDto(
-            alternative
-                ? GuidedTravelActions.Alternative
-                : _isFullDayFlow ? GuidedTravelActions.FullDay : GuidedTravelActions.Recommend,
-            OptionId: !alternative && _isFullDayFlow ? Guid.NewGuid().ToString("N") : null,
+            alternative ? GuidedTravelActions.Alternative : fullDay ? GuidedTravelActions.FullDay : GuidedTravelActions.Recommend,
+            OptionId: !alternative && fullDay ? Guid.NewGuid().ToString("N") : null,
             RecommendationId: replacementCard?.RecommendationId?.ToString());
         _pendingReplacementCard = alternative ? replacementCard : null;
-        MessageText = alternative
-            ? Resource("AssistantGuidedAnotherRequest")
-            : _isFullDayFlow
-                ? Resource("AssistantGuidedFullDayRequestSummary")
-                : BuildGuidedRequestSummary(criteria);
+        MessageText = alternative ? Resource("AssistantGuidedAnotherRequest")
+            : fullDay ? Resource("AssistantGuidedFullDayRequestSummary") : BuildGuidedRequestSummary(criteria);
         IsFreeTextVisible = false;
         IsSecondaryMenuVisible = false;
         await SendMessageAsync();
     }
 
-    private async Task PersistGuidedPreferencesAsync()
+    private async Task PersistGuidedPreferencesAsync(AssistantRequestScope operation, GuidedPlanCriteriaDto criteria, int walkingMinutes)
     {
-        var token = await sessionService.GetTokenAsync();
-        if (string.IsNullOrWhiteSpace(token) || _guidedCriteria is null) return;
-        var categories = _guidedCriteria.Categories.Append(_guidedCriteria.Category)
-            .Where(GuidedTravelCategories.IsValid)
-            .Select(value => value!)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        var token = await operation.AwaitAsync(_ => sessionService.GetTokenAsync());
+        if (string.IsNullOrWhiteSpace(token)) return;
+        operation.SetNetworkTimeout(TravelChatNetworkTimeout);
+        var categories = criteria.Categories.Append(criteria.Category).Where(GuidedTravelCategories.IsValid)
+            .Select(value => value!).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         if (categories.Count == 0) return;
-
-        var budgets = _guidedCriteria.Budgets.Append(_guidedCriteria.Budget)
-            .Where(value => value is "low" or "medium" or "high")
-            .Select(value => value!)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-        var walkingMinutes = _selectedWalkingMinutes.Contains(0)
-            ? 180
-            : _guidedCriteria.MaxWalkingMinutes ?? 30;
+        var budgets = criteria.Budgets.Append(criteria.Budget).Where(value => value is "low" or "medium" or "high")
+            .Select(value => value!).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         try
         {
-            var savedProfile = await apiClient.PatchTravelPreferenceProfileAsync(
-                token,
-                new TravelPreferenceProfilePatchDto(
-                    null, null, budgets.FirstOrDefault() ?? "medium", "balanced",
-                    categories, null, null, walkingMinutes));
-            if (savedProfile is not null)
+            var savedProfile = await operation.AwaitAsync(ct => apiClient.PatchTravelPreferenceProfileAsync(token,
+                new TravelPreferenceProfilePatchDto(null, null, budgets.FirstOrDefault() ?? "medium", "balanced",
+                    categories, null, null, walkingMinutes), ct));
+            if (savedProfile is not null && savedProfile.UserId == sessionService.CurrentUserId)
             {
                 CachePreferenceProfile(savedProfile);
                 _guidedPreferencesDirty = false;
             }
         }
-        catch (Exception ex) when (IsTransientNetworkException(ex))
+        catch (Exception ex) when (IsTransientNetworkException(ex) && operation.CanPublish)
         {
             // The plan can still be generated. A later profile update may retry.
         }
@@ -1167,7 +1240,7 @@ public sealed partial class TravelChatViewModel(
             var card = cardsToProcess[index];
             if (_adaptationCards.Contains(card) && !_adaptationRevision.HasValue)
             {
-                card.FeedbackStatusMessage = "El itinerario cambió. Actualizá el día y generá otra propuesta.";
+                card.FeedbackStatusMessage = Resource("PlannerStaleHelp");
                 continue;
             }
             if (sessionService.CanEditItinerary
@@ -1250,10 +1323,12 @@ public sealed partial class TravelChatViewModel(
         TravelChatMessageViewModel progressMessage,
         TravelChatCardViewModel card,
         int completed,
-        int total)
+        int total,
+        AssistantRequestScope operation)
     {
         return MainThread.InvokeOnMainThreadAsync(() =>
         {
+            operation.Verify();
             card.AnimateEntrance = true;
             Messages.Add(new TravelChatMessageViewModel(string.Empty, isFromUser: false, [card]));
             var progressIndex = Messages.IndexOf(progressMessage);
@@ -1276,14 +1351,18 @@ public sealed partial class TravelChatViewModel(
         }
     }
 
-    private async Task ApplyChatOfflineFallbackAsync(string message)
+    private async Task ApplyChatOfflineFallbackAsync(string message, AssistantRequestScope operation)
     {
+        if (!operation.HasCurrentContext || !ReferenceEquals(_assistantOperation, operation)
+            || operation.ExplicitlyCancelled) return;
         _lastFailedMessage = message;
-        MessageText = message;
+        if (string.IsNullOrWhiteSpace(MessageText)) MessageText = message;
         ErrorMessage = null;
         ClearMissingContext();
 
         var cached = await bootstrapStore.GetCachedAsync();
+        if (!operation.HasCurrentContext || !ReferenceEquals(_assistantOperation, operation)
+            || operation.ExplicitlyCancelled) return;
         var offlineMessage = cached is null
             ? Resource("AssistantOfflineFallbackNoCache")
             : string.Format(
@@ -1291,7 +1370,7 @@ public sealed partial class TravelChatViewModel(
                 Resource("AssistantOfflineFallbackWithCache"),
                 OfflineCacheService.FormatSavedAt(cached.SavedAt));
 
-        StatusMessage = cached is null
+        StatusMessage = _quickSearchSubmission ? offlineMessage : cached is null
             ? Resource("AssistantOfflineStatusNoCache")
             : null;
 
@@ -1344,7 +1423,9 @@ public sealed partial class TravelChatViewModel(
 
     private async Task ReplayPendingMutationsAsync(string token, CancellationToken cancellationToken)
     {
+        var contextVersion = sessionService.ContextVersion;
         var result = await syncCoordinator.SynchronizeAsync(cancellationToken);
+        if (contextVersion != sessionService.ContextVersion || cancellationToken.IsCancellationRequested) return;
         if (result.Total == 0)
         {
             return;
@@ -1370,7 +1451,10 @@ public sealed partial class TravelChatViewModel(
 
     private async Task<RecommendationDto?> FindRecommendationAsync(Guid recommendationId, string token)
     {
+        var contextVersion = sessionService.ContextVersion;
+        var pageVersion = _assistantPageOperationVersion;
         var cached = await bootstrapStore.GetCachedAsync();
+        if (contextVersion != sessionService.ContextVersion || pageVersion != _assistantPageOperationVersion) return null;
         var recommendation = cached?.Value.Recommendations
             .FirstOrDefault(existing => existing.Id == recommendationId);
         if (recommendation is not null)
@@ -1379,6 +1463,7 @@ public sealed partial class TravelChatViewModel(
         }
 
         var result = await bootstrapStore.RefreshResultAsync(token);
+        if (contextVersion != sessionService.ContextVersion || pageVersion != _assistantPageOperationVersion) return null;
         if (result.IsUnauthorized)
         {
             sessionService.Clear();
@@ -1496,6 +1581,8 @@ public sealed partial class TravelChatViewModel(
 
     protected override void OnLoadStateChanged()
     {
+        OnPropertyChanged(nameof(AssistantSearchAction));
+        OnPropertyChanged(nameof(CanSubmitQuickSearch));
         SendMessageCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(ShowEmptyState));
         OnPropertyChanged(nameof(ShowGlobalLoading));
@@ -1503,6 +1590,7 @@ public sealed partial class TravelChatViewModel(
 
     private void OnMessagesChanged()
     {
+        OnPropertyChanged(nameof(ShowConversationList));
         OnPropertyChanged(nameof(HasMessages));
         OnPropertyChanged(nameof(ShowEmptyState));
     }
@@ -1520,6 +1608,8 @@ public sealed partial class TravelChatViewModel(
 
     private void OnCultureChanged(object? sender, EventArgs e)
     {
+        NotifyFreeTimeLabels();
+        RefreshFreeTimeWindow();
         OnPropertyChanged(nameof(AssistantEyebrow));
         OnPropertyChanged(nameof(AssistantTitle));
         OnPropertyChanged(nameof(EmptyStateTitle));
@@ -1568,6 +1658,8 @@ public sealed partial class TravelChatViewModel(
     private void ApplyPlanningContext(TripScheduleDto? schedule)
     {
         if (schedule is null) return;
+        _assistantSchedule = schedule;
+        RefreshFreeTimeWindow();
         SetAssistantDateRange(schedule);
         // Returning from the replacement dialog must keep the day being edited.
         var selectedDate = DateOnly.FromDateTime(PlanningDate);
@@ -1605,9 +1697,19 @@ public sealed partial class TravelChatViewModel(
 
     public void CancelActiveOperations()
     {
-        _isExplicitlyCancelled = true;
+        _assistantPageOperationVersion++;
+        _assistantOperation?.Cancel();
         CancelLoading();
-        _chatRequestCancellationTokenSource?.Cancel();
+        IsBusy = false;
+    }
+
+    private AssistantRequestScope BeginAssistantOperation()
+    {
+        _assistantOperation?.Cancel();
+        var scope = new AssistantRequestScope(sessionService, () => DateOnly.FromDateTime(PlanningDate));
+        _assistantOperation = scope;
+        IsBusy = true;
+        return scope;
     }
 
     private void RestartGuidedFlow()
@@ -1802,9 +1904,12 @@ public sealed partial class TravelChatViewModel(
 
     private async Task RefreshPreferenceProfileAsync(string token, CancellationToken cancellationToken)
     {
+        var contextVersion = sessionService.ContextVersion;
         try
         {
             var profile = await apiClient.GetTravelPreferenceProfileAsync(token, cancellationToken);
+            if (contextVersion != sessionService.ContextVersion || cancellationToken.IsCancellationRequested
+                || profile?.UserId != sessionService.CurrentUserId) return;
             if (profile is null)
             {
                 return;

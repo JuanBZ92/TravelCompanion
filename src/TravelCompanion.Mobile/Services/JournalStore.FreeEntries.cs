@@ -19,6 +19,7 @@ public sealed partial class JournalStore
 
     public async Task SaveDraftAsync(JournalScope scope, JournalMemory memory, string text, CancellationToken ct = default)
     {
+        CheckEntry(scope, memory);
         ValidateContent(memory, text);
         await gate.WaitAsync(ct);
         try
@@ -48,13 +49,13 @@ public sealed partial class JournalStore
             await cache.SaveAsync(Prefix(scope) + "drafts", drafts, ct);
             var entries = await ReadAsync(scope, ct);
             foreach (var photo in removed.Where(p => !entries.Any(e => e.Images.Any(x => x.Id == p.Id))))
-                await cache.DeleteAsync(Prefix(scope) + photo.Id);
+                await DeletePhotoPayloadAsync(scope, photo.Id);
             var unconfirmed = entries.FirstOrDefault(x => x.Key == memory.Key && x.IsDraft);
             if (unconfirmed is not null)
             {
                 entries.Remove(unconfirmed);
                 await WriteAsync(scope, entries, ct);
-                foreach (var photo in unconfirmed.Images) await cache.DeleteAsync(Prefix(scope) + photo.Id);
+                foreach (var photo in unconfirmed.Images) await DeletePhotoPayloadAsync(scope, photo.Id);
             }
         }
         finally { gate.Release(); }
@@ -68,6 +69,7 @@ public sealed partial class JournalStore
 
     private async Task SaveFreeLocalAsync(JournalScope scope, JournalMemory entry, string text, CancellationToken ct)
     {
+        CheckEntry(scope, entry);
         ValidateContent(entry, text);
         await gate.WaitAsync(ct);
         try
@@ -92,6 +94,7 @@ public sealed partial class JournalStore
 
     public async Task DeleteFreeLocalAsync(JournalScope scope, JournalMemory entry)
     {
+        CheckEntry(scope, entry);
         if (!entry.IsFree) throw new ArgumentException("Only free entries can be deleted here.");
         await gate.WaitAsync();
         try
@@ -107,42 +110,89 @@ public sealed partial class JournalStore
         finally { gate.Release(); }
     }
 
-    private async Task SyncFreeAsync(JournalScope scope, List<JournalMemory> entries, string token, CancellationToken ct)
+    private async Task SyncFreeAsync(JournalScope scope, string token, CancellationToken networkCt, CancellationToken localCt)
     {
-        var remote = await api.GetJournalFreeAsync(token, scope.TripId, ct);
-        Check(scope);
-        foreach (var note in remote)
+        var beforeRead = (await ReadLocalSnapshotAsync(scope, localCt)).Where(x => x.IsFree).ToDictionary(x => x.Key);
+        var remote = await api.GetJournalFreeAsync(token, scope.TripId, networkCt);
+        await gate.WaitAsync(localCt);
+        try
         {
-            var i = entries.FindIndex(x => x.IsFree && x.Id == note.Id);
-            if (i < 0) entries.Add(JournalMemory.FromFree(note));
-            else if (note.Deleted)
+            Check(scope); var entries = await ReadAsync(scope, localCt); var changed = false;
+            var removedPhotos = new List<JournalPhoto>();
+            foreach (var note in remote.Where(x => x.TripId == scope.TripId))
             {
-                foreach (var photo in entries[i].Images) await cache.DeleteAsync(Prefix(scope) + photo.Id);
-                entries[i] = entries[i] with { FreeEntry = note, FreePending = null, DeletePending = null, FreeConflict = null, Photos = [], CoverId = null };
+                var i = entries.FindIndex(x => x.IsFree && x.Id == note.Id);
+                if (i < 0) { entries.Add(JournalMemory.FromFree(note)); changed = true; continue; }
+                var current = entries[i];
+                if (note.Revision < current.Revision) continue;
+                if (note.Deleted)
+                {
+                    var original = beforeRead.GetValueOrDefault(current.Key);
+                    var editedDuringRead = original is null || current.FreePending?.MutationId != original.FreePending?.MutationId
+                        || current.DeletePending?.MutationId != original.DeletePending?.MutationId
+                        || !current.Images.SequenceEqual(original.Images) || current.CoverId != original.CoverId;
+                    // Preserve all unacknowledged writing, including edits saved offline before GET.
+                    // The tombstone remains authoritative and explicit resolution cannot resurrect it.
+                    if (current.FreePending is not null || editedDuringRead || current.FreeConflict?.Deleted == true)
+                        entries[i] = current with { FreeConflict = current.FreeConflict is { } conflict && conflict.Revision > note.Revision ? conflict : note };
+                    else
+                    {
+                        removedPhotos.AddRange(current.Images);
+                        entries[i] = current with { FreeEntry = note, FreePending = null, DeletePending = null,
+                            FreeConflict = null, Photos = [], CoverId = null };
+                    }
+                }
+                else if (current.FreePending is null && current.DeletePending is null && !current.HasConflict)
+                    entries[i] = current with { FreeEntry = note, FreeConflict = null };
+                if (entries[i] != current) changed = true;
             }
-            else if (entries[i].FreePending is null && entries[i].DeletePending is null && !entries[i].HasConflict)
-                entries[i] = entries[i] with { FreeEntry = note, FreeConflict = null };
+            Check(scope);
+            if (changed) await WriteAsync(scope, entries, localCt);
+            if (removedPhotos.Count > 0) await DeleteUnreferencedPhotosAsync(scope, removedPhotos, entries, localCt);
         }
-        for (var i = 0; i < entries.Count; i++)
+        finally { gate.Release(); }
+        var snapshot = await ReadLocalSnapshotAsync(scope, localCt);
+        foreach (var entry in snapshot.Where(x => x.IsFree && !x.IsDraft && !x.HasConflict))
         {
-            var entry = entries[i];
-            if (!entry.IsFree || entry.IsDraft || entry.HasConflict) continue;
             JournalFreeSaveResult? result = null;
             if (entry.DeletePending is { } deletion)
-                result = await api.DeleteJournalFreeAsync(token, scope.TripId, entry.Id, deletion, ct);
+                result = await api.DeleteJournalFreeAsync(token, scope.TripId, entry.Id, deletion, networkCt);
             else if (entry.FreePending is { } pending)
-                result = await api.SaveJournalFreeAsync(token, scope.TripId, entry.Id, pending, ct);
+                result = await api.SaveJournalFreeAsync(token, scope.TripId, entry.Id, pending, networkCt);
             if (result is null) continue;
-            Check(scope);
-            entries[i] = result.Saved || result.Entry.Deleted
-                ? entry with { FreeEntry = result.Entry, FreePending = null, DeletePending = null, FreeConflict = null }
-                : entry with { FreeConflict = result.Entry };
-            if (result.Entry.Deleted)
+            await gate.WaitAsync(localCt);
+            try
             {
-                foreach (var photo in entry.Images) await cache.DeleteAsync(Prefix(scope) + photo.Id);
-                entries[i] = entries[i] with { Photos = [], CoverId = null };
+                Check(scope); var entries = await ReadAsync(scope, localCt);
+                var i = entries.FindIndex(x => x.Key == entry.Key);
+                if (i < 0 || result.Entry.TripId != scope.TripId) continue;
+                var current = entries[i];
+                var sameMutation = entry.DeletePending is { } sentDeletion
+                    ? current.DeletePending?.MutationId == sentDeletion.MutationId
+                    : current.FreePending?.MutationId == entry.FreePending!.MutationId;
+                var accepted = result.Saved || entry.DeletePending is not null && result.Entry.Deleted;
+                if (sameMutation)
+                    entries[i] = accepted
+                        ? current with { FreeEntry = result.Entry, FreePending = null, DeletePending = null, FreeConflict = null }
+                        : current with { FreeConflict = result.Entry };
+                else if (result.Entry.Deleted)
+                    entries[i] = current with { FreeConflict = result.Entry };
+                else if (result.Saved && result.Entry.Revision >= current.Revision)
+                {
+                    var oldRevision = entry.FreePending?.ExpectedRevision ?? entry.DeletePending!.ExpectedRevision;
+                    entries[i] = current with { FreeEntry = result.Entry,
+                        FreePending = current.FreePending is { } newer && newer.ExpectedRevision == oldRevision
+                            ? newer with { ExpectedRevision = result.Entry.Revision } : current.FreePending,
+                        DeletePending = current.DeletePending is { } nextDelete && nextDelete.ExpectedRevision == oldRevision
+                            ? nextDelete with { ExpectedRevision = result.Entry.Revision } : current.DeletePending };
+                }
+                else continue;
+                var deleted = sameMutation && accepted && result.Entry.Deleted;
+                if (deleted) entries[i] = entries[i] with { Photos = [], CoverId = null };
+                Check(scope); await WriteAsync(scope, entries, localCt);
+                if (deleted) await DeleteUnreferencedPhotosAsync(scope, current.Images, entries, localCt);
             }
-            await WriteAsync(scope, entries, ct);
+            finally { gate.Release(); }
         }
     }
 
@@ -160,8 +210,10 @@ public sealed partial class JournalStore
                 FreePending = useLocal && !server.Deleted && current.DeletePending is null
                     ? new(current.Title, current.City, current.Date, current.Text, server.Revision, Guid.NewGuid()) : null,
                 DeletePending = useLocal && !server.Deleted && current.DeletePending is not null
-                    ? new(server.Revision, Guid.NewGuid()) : null };
+                    ? new(server.Revision, Guid.NewGuid()) : null,
+                Photos = server.Deleted ? [] : current.Photos, CoverId = server.Deleted ? null : current.CoverId };
             await WriteAsync(scope, entries, default);
+            if (server.Deleted) await DeleteUnreferencedPhotosAsync(scope, current.Images, entries, default);
         }
         finally { gate.Release(); }
     }
@@ -172,6 +224,6 @@ public sealed partial class JournalStore
         var drafts = await ReadDraftsAsync(scope, ct);
         var retained = entries.Concat(drafts.Select(x => x.Memory)).SelectMany(x => x.Images).Select(x => x.Id).ToHashSet();
         Check(scope);
-        foreach (var photo in candidates.Where(x => !retained.Contains(x.Id))) await cache.DeleteAsync(Prefix(scope) + photo.Id);
+        foreach (var photo in candidates.Where(x => !retained.Contains(x.Id))) await DeletePhotoPayloadAsync(scope, photo.Id);
     }
 }

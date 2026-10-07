@@ -59,6 +59,9 @@ public sealed class OfflineCacheService
         try
         {
             var json = await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false);
+#if ANDROID
+            MobileOperationMeasurement.Read(Encoding.UTF8.GetByteCount(json));
+#endif
 
             var encryptedEntry = await TryReadEncryptedEntryAsync<T>(json, cancellationToken).ConfigureAwait(false);
             if (encryptedEntry is not null && encryptedEntry.FormatVersion == CurrentCacheFormatVersion)

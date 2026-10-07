@@ -63,6 +63,12 @@ public sealed record DiagnosticDetails
     public int? EventId { get; init; }
     public int? Status { get; init; }
     public long? ElapsedMs { get; init; }
+    public long? ElapsedTicks { get; init; }
+    public long? TickFrequency { get; init; }
+    public long? AllocatedBytes { get; init; }
+    public long? Requests { get; init; }
+    public long? Reads { get; init; }
+    public long? BytesRead { get; init; }
     public bool? Canceled { get; init; }
     public bool? IsTerminating { get; init; }
 }

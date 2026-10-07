@@ -26,6 +26,35 @@ shared contracts and a notifications worker. Tests use xUnit.
   isolation and existing access rules; visual changes must not broaden permissions.
 - Validate affected behavior and Android compilation. Review changed screens on a
   device or emulator when available; record actual coverage and any blocked checks.
+- Do not run TalkBack tests or enable TalkBack on the user's device, now or in future
+  sessions, per the user's explicit preference. Continue other accessibility checks
+  without activating it and document screen-reader coverage as unexecuted.
+- Use PIN/password for review-app access, not biometrics, per the user's preference.
+  Ask the user to unlock the phone's system lock manually when required.
+- Preserve the user's system display settings during QA, including density, font
+  scale, dark mode and rotation. Prefer overrides confined to the review app.
+  Record originals before any authorized system override and restore them in
+  cleanup, including interrupted tests; verify restoration before handing back.
+
+## Completing an accepted plan
+- Before implementation, record each independently verifiable acceptance criterion
+  with a stable ID in a tracked checklist. Map it to the production flow, focused
+  verification and status; do not mark a whole area complete because a helper exists.
+- Review the complete user flow, including navigation, offline behavior, account/trip
+  changes and every relevant access mode. A cached entitlement must not override a
+  known revoked or expired permission.
+- Complete the final comparison against the accepted plan within the same task.
+  Fix known implementation gaps and validate them before handing work back; the user
+  should not need to request another review to finish already authorized work.
+- Keep implementation, automated verification and native verification separate.
+  Missing hardware is a validation limitation, not proof of completion or missing code.
+- Bind final evidence to the exact source snapshot and artifact. Changes after tests
+  invalidate affected evidence; do not reuse old test totals as proof of new changes.
+- Keep the review within the agreed acceptance criteria. Record unrelated ideas in
+  a backlog instead of silently expanding the plan and reopening completed work.
+- For the current daily-use plan, use `docs/plans/daily-use-clarity.json` and
+  `scripts/check-plan-completion.ps1`. See `docs/plan-completion.md` for the closing
+  procedure and its limits. Never certify pending native checks from source or unit tests.
 
 ## Commands (repository root)
 - Use `--verbosity minimal`; target the affected project and installed mobile platform.

@@ -4,6 +4,7 @@ using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Microsoft.Maui;
 using TravelCompanion.Mobile.Controls;
+using TravelCompanion.Mobile.Services;
 using TravelCompanion.Mobile.ViewModels;
 using TravelCompanion.Shared.Dtos;
 
@@ -28,6 +29,7 @@ public partial class MapPage : ContentPage
     private readonly ILogger<MapPage> _logger;
     private CancellationTokenSource? _searchDebounce;
     private bool _isSearchPanelExpanded;
+    private string? _previewSelectionKey;
 
 #if !WINDOWS
     private readonly MauiMap _map;
@@ -129,7 +131,8 @@ public partial class MapPage : ContentPage
         }
         catch (Exception ex)
         {
-            _viewModel.ErrorMessage = $"Error loading map: {ex.Message}";
+            _logger.LogError(ex, "Could not load map.");
+            _viewModel.ErrorMessage = LocalizationResourceManager.Instance["MapLoadError"];
         }
         finally
         {
@@ -149,6 +152,7 @@ public partial class MapPage : ContentPage
 #endif
         CancelSearchDebounce();
         _viewModel.CancelSearch();
+        _viewModel.CancelDetails();
         _viewModel.CancelLoading();
         DismissSearchKeyboard();
         base.OnDisappearing();
@@ -199,6 +203,12 @@ public partial class MapPage : ContentPage
             {
                 if (!_isSubscribedToRecommendations) return;
                 DismissSearchKeyboard();
+                var key = _viewModel.SelectedRecommendation?.SelectionKey;
+                if (_previewSelectionKey != key)
+                {
+                    _previewSelectionKey = key;
+                    _ = ResetPreviewScrollAsync();
+                }
                 TryRefreshMapPins(moveToBounds: false);
                 TryFocusRecommendation(_viewModel.SelectedRecommendation);
             }
@@ -225,6 +235,12 @@ public partial class MapPage : ContentPage
         {
             _logger.LogDebug(exception, "Could not reset the map results scroll position.");
         }
+    }
+
+    private async Task ResetPreviewScrollAsync()
+    {
+        try { await RecommendationPreviewScroll.ScrollToAsync(0, 0, false); }
+        catch (Exception exception) { _logger.LogDebug(exception, "Could not reset map preview scroll position."); }
     }
 
 #if !WINDOWS
@@ -347,7 +363,7 @@ public partial class MapPage : ContentPage
         catch (Exception exception)
         {
             _logger.LogError(exception, "Could not render map pins.");
-            _viewModel.ErrorMessage = "No pudimos mostrar los marcadores del mapa. Inténtalo de nuevo.";
+            _viewModel.ErrorMessage = LocalizationResourceManager.Instance["MapLoadError"];
         }
     }
 
@@ -540,6 +556,7 @@ public partial class MapPage : ContentPage
 
     private void OnPageLayoutSizeChanged(object? sender, EventArgs e)
     {
+        RecommendationPreviewScroll.MaximumHeightRequest = Math.Clamp(RootLayout.Height * 0.36, 100, 280);
         if (_isSearchPanelExpanded)
         {
             UpdateSearchPanelLayout();

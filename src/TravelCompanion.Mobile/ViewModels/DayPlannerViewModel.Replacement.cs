@@ -15,7 +15,7 @@ public sealed partial class DayPlannerViewModel
     private void RememberRecommendations(DayPlanResponse value) => seenRecommendations.UnionWith(
         value.Days.SelectMany(day => day.Stops).Select(stop => stop.RecommendationId).Where(id => id != Guid.Empty));
 
-    private bool CanReplace(PlannerStopRow row) => current && IsNotBusy && HasOptions && options?.Enabled == true
+    private bool CanReplace(PlannerStopRow row) => !ShowComparison && current && IsNotBusy && HasOptions && options?.Enabled == true
         && Online && (!Stale || pendingReplacement?.StopId == row.Value.Id) && pendingApplication is null && !row.IsSaved && !row.IsReplacing
         && Days.Any(day => day.Contains(row))
         && (pendingReplacement is null || pendingReplacement.StopId == row.Value.Id);
@@ -134,7 +134,7 @@ public sealed partial class DayPlannerViewModel
         // Save the canonical receipt before committing the visible change. Failed local writes leave the old row retryable.
         return store.SaveAsync(user.Value, trip.Value, new(options, request, value, selected, pendingApplication,
             Days.SelectMany(day => day).Where(stop => stop.IsSaved).Select(stop => stop.Value.Id).ToArray(), proposalRevision,
-            DateOnly.FromDateTime(SelectedDate), dayCount, CurrentPreferences(), null, history, proposalRequest), ct);
+            DateOnly.FromDateTime(SelectedDate), dayCount, CurrentPreferences(), null, history, proposalRequest, previousAlternative), ct);
     }
 
     private async Task RecoverCanonicalProposalAsync(string token, PlannerStopRow row, CancellationToken ct)

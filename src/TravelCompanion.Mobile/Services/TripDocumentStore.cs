@@ -120,9 +120,11 @@ public sealed class TripDocumentStore(OfflineCacheService cache, AuthSessionServ
     {
         var scope = Scope();
         var document = (await ListAsync(ct)).Single(item => item.Id == id);
+        EnsureDocumentAccess(document);
         var payload = await cache.GetAsync<LocalDocumentPayload>(FileKey(scope, id), cancellationToken: ct)
             ?? throw new FileNotFoundException();
         EnsureScope(scope);
+        EnsureDocumentAccess(document);
         var directory = Path.Combine(FileSystem.CacheDirectory, "document-preview");
         Directory.CreateDirectory(directory);
         var path = Path.Combine(directory, id.ToString("N") + document.Extension);
@@ -130,6 +132,7 @@ public sealed class TripDocumentStore(OfflineCacheService cache, AuthSessionServ
         {
             await File.WriteAllBytesAsync(path, payload.Value.Bytes, ct);
             EnsureScope(scope);
+            EnsureDocumentAccess(document);
             if (!await Launcher.OpenAsync(new OpenFileRequest(document.Title, new ReadOnlyFile(path))))
                 throw new IOException("No compatible viewer is installed.");
         }
@@ -138,6 +141,12 @@ public sealed class TripDocumentStore(OfflineCacheService cache, AuthSessionServ
             File.Delete(path);
             throw;
         }
+    }
+
+    private void EnsureDocumentAccess(LocalTripDocument document)
+    {
+        if (document.SourceUrl is not null && (!sessions.HasCuratedDocs || !sessions.HasKnownValidAccess))
+            throw new UnauthorizedAccessException();
     }
 
     public async Task<bool> ExistsAsync(Guid id, CancellationToken ct = default)

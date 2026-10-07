@@ -1,0 +1,387 @@
+{
+  "schemaVersion": 1,
+  "plan": "Alternar A continuación / Mañana a un vistazo",
+  "acceptedBaseline": "51c996264bf45d7562b45bc8658d0f51d5cc6af9",
+  "previousDelivery": {
+    "versionCode": 147,
+    "sourceHash": "B76939D5ED3CA730F88E31FA15A7C2ECAA6AB98AA402080B035BC2BED502D060",
+    "sourceFileCount": 829,
+    "matrixHash": "BD22B3427637855BA1EF4ABE90B92519D6F31DC81204EDAED2DF02546FE3DF92",
+    "evidence": "artifacts/native-acceptance-20261007/closure-evidence-147.json",
+    "apkSha256": "9AF8E8E278B485F8F4B7677A62241111F0D91FAFC31D277A72B341ACC2F342B3",
+    "note": "Árbol previo sin commit sobre HEAD 51c9962. Referencia histórica tomada del proof QA147; no es evidencia de código, tests ni APK QA148."
+  },
+  "scope": "Incremento acotado de Viaje: un bloque contextual para hoy según la zona horaria del viaje; actividad activa/futura antes de Mañana. Conservar navegación, permisos, contratos y datos. Sin nuevos endpoints, tablas, migraciones, infraestructura, push ni despliegue. No modificar la matriz o evidencia histórica QA147.",
+  "androidArtifact": {
+    "package": "com.yuku.travelcompanion.plannerpaidreview",
+    "versionCode": 148
+  },
+  "requiredSuites": [
+    "mobile",
+    "shared"
+  ],
+  "requiredBuilds": [
+    "android-release"
+  ],
+  "criteria": [
+    {
+      "id": "dayctx01-trip-today",
+      "phase": "Incremento posterior a QA147",
+      "acceptance": "El bloque contextual sólo aparece cuando la fecha seleccionada es hoy en la zona horaria del viaje; no usa la fecha local del teléfono como autoridad.",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Mobile/Services/TripDayOverview.cs",
+        "src/TravelCompanion.Mobile/ViewModels/ScheduleViewModel.cs",
+        "src/TravelCompanion.Mobile/Pages/SchedulePage.xaml",
+        "src/TravelCompanion.Shared/UpcomingActivitySelector.cs"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.TripDayContextTests.Other_selected_dates_hide_both_contexts"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.TripDayContextTests.Context_uses_trip_timezone_rather_than_device_or_utc_date"
+        },
+        {
+          "suite": "shared",
+          "prefix": "TravelCompanion.Shared.Tests.UpcomingActivitySelectorTests.Uses_trip_date_at_utc_midnight_and_ignores_other_selected_days"
+        }
+      ],
+      "artifacts": [
+        "artifacts/day-context-20261007/review.md",
+        "artifacts/day-context-20261007/mobile-full-results/mobile-full.trx",
+        "artifacts/day-context-20261007/shared-full-results/shared-full.trx"
+      ],
+      "reviewNote": "ResolveContext compara fecha seleccionada con hoy de la zona del viaje y límites StartsOn/EndsOn; HasDailyOverview vincula la decisión a la identidad vigente. Tests ejercen el resolver/selector; wiring del VM revisado en fuente, no ejecutado por estos tests."
+    },
+    {
+      "id": "dayctx02-exclusive-block",
+      "phase": "Incremento posterior a QA147",
+      "acceptance": "A continuación y Mañana a un vistazo alternan dentro de un único bloque: nunca aparecen simultáneamente; Mañana sólo se ofrece si pertenece al viaje y no queda actividad activa/futura.",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Mobile/Services/TripDayOverview.cs",
+        "src/TravelCompanion.Mobile/ViewModels/ScheduleViewModel.cs",
+        "src/TravelCompanion.Mobile/Pages/SchedulePage.xaml"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.TripDayContextTests.Future_activity_excludes_tomorrow_and_keeps_detail_metadata"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.TripDayContextTests.Confirmed_empty_day_can_show_tomorrow_but_initial_absence_cannot"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.TripDayContextTests.Last_day_shows_upcoming_activity_but_no_tomorrow_after_it_ends"
+        }
+      ],
+      "artifacts": [
+        "artifacts/day-context-20261007/review.md",
+        "artifacts/day-context-20261007/mobile-full-results/mobile-full.trx"
+      ],
+      "reviewNote": "TripDayContext devuelve Activity o Tomorrow de forma excluyente. XAML contiene un Border común con hijos HasFocusItem/HasTomorrowOverview; las ramas se derivan del mismo contexto. QA148 final muestra un único bloque en ES futura → En curso → Mañana por avance del reloj; otra fecha no muestra ninguno. Evidencia nativa limitada al perfil original del teléfono."
+    },
+    {
+      "id": "dayctx03-active-first",
+      "phase": "Incremento posterior a QA147",
+      "acceptance": "Una actividad con horario que está en curso tiene prioridad sobre una futura; los elementos terminados y las ideas sin horario exacto no ocultan Mañana.",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Shared/UpcomingActivitySelector.cs",
+        "src/TravelCompanion.Mobile/Services/TripDayOverview.cs",
+        "src/TravelCompanion.Mobile/ViewModels/ScheduleViewModel.cs"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.TripDayContextTests.Ongoing_activity_precedes_future_and_final_completion_reveals_tomorrow"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.TripDayContextTests.Flexible_ideas_stay_in_schedule_without_blocking_tomorrow"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.TripDayContextTests.Hotel_check_in_does_not_block_tomorrow_until_checkout"
+        },
+        {
+          "suite": "shared",
+          "prefix": "TravelCompanion.Shared.Tests.UpcomingActivitySelectorTests.In_progress_precedes_future_and_uses_earliest_start_within_its_group"
+        }
+      ],
+      "artifacts": [
+        "artifacts/day-context-20261007/review.md",
+        "artifacts/day-context-20261007/mobile-full-results/mobile-full.trx",
+        "artifacts/day-context-20261007/shared-full-results/shared-full.trx"
+      ],
+      "reviewNote": "Selector filtra horario exacto y final vigente; prioriza actividad iniciada frente a futura. El check-in conserva la ventana de una hora y los planes sin horario permanecen en el itinerario sin bloquear Mañana."
+    },
+    {
+      "id": "dayctx04-stable-chronology",
+      "phase": "Incremento posterior a QA147",
+      "acceptance": "La selección respeta el inicio cronológico y los desempates existentes por prioridad e identidad estable; no depende del orden de entrada del catálogo.",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Shared/UpcomingActivitySelector.cs"
+      ],
+      "tests": [
+        {
+          "suite": "shared",
+          "prefix": "TravelCompanion.Shared.Tests.UpcomingActivitySelectorTests.Earlier_exact_flexible_plan_precedes_later_confirmed_booking"
+        },
+        {
+          "suite": "shared",
+          "prefix": "TravelCompanion.Shared.Tests.UpcomingActivitySelectorTests.Booking_fixed_plan_or_flight_wins_only_when_start_times_tie"
+        },
+        {
+          "suite": "shared",
+          "prefix": "TravelCompanion.Shared.Tests.UpcomingActivitySelectorTests.Equal_time_and_priority_use_stable_id_regardless_of_input_order"
+        }
+      ],
+      "artifacts": [
+        "artifacts/day-context-20261007/review.md",
+        "artifacts/day-context-20261007/shared-full-results/shared-full.trx"
+      ],
+      "reviewNote": "Orden verificado: activa/futura, inicio, prioridad vigente sólo en empate e Id estable. Tests usan entradas invertidas y prioridad distinta; no hay dependencia del orden recibido."
+    },
+    {
+      "id": "dayctx05-in-progress-localized",
+      "phase": "Incremento posterior a QA147",
+      "acceptance": "Una actividad activa muestra En curso en español e In progress en inglés; una futura conserva A continuación. Los textos utilizan recursos compartidos y no duplican literales.",
+      "implementation": "done",
+      "verification": "source_review",
+      "sources": [
+        "src/TravelCompanion.Mobile/ViewModels/ScheduleViewModel.cs",
+        "src/TravelCompanion.Mobile/Pages/SchedulePage.xaml",
+        "src/TravelCompanion.Mobile/Localization/AppResources.es.resx",
+        "src/TravelCompanion.Mobile/Localization/AppResources.resx"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.TripDayContextTests.Same_activity_transitions_from_future_to_in_progress_then_tomorrow"
+        }
+      ],
+      "artifacts": [
+        "artifacts/day-context-20261007/review.md",
+        "artifacts/day-context-20261007/mobile-full-results/mobile-full.trx"
+      ],
+      "reviewNote": "FocusMeta añade DayActivityInProgress y tipos mediante recursos ES/EN; claves presentes con En curso/In progress. NotifyFocusChanged publica FocusMeta aunque se conserve el Id. El test complementario valida el cambio del record, no el VM completo. QA148 muestra En curso en ES; el PNG en-in-progress muestra UP NEXT / In progress, aunque su XML anterior aún muestra Mañana porque el refresh terminó entre lecturas. El PNG es la evidencia visual de ese label EN; se preserva la discrepancia."
+    },
+    {
+      "id": "dayctx06-clock-transitions",
+      "phase": "Incremento posterior a QA147",
+      "acceptance": "Al avanzar el reloj se recalcula futura → en curso → siguiente actividad o Mañana sin exigir cambiar de fecha o refrescar manualmente.",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Shared/UpcomingActivitySelector.cs",
+        "src/TravelCompanion.Mobile/Services/TripDayOverview.cs",
+        "src/TravelCompanion.Mobile/ViewModels/ScheduleViewModel.cs"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.TripDayContextTests.Same_activity_transitions_from_future_to_in_progress_then_tomorrow"
+        },
+        {
+          "suite": "shared",
+          "prefix": "TravelCompanion.Shared.Tests.UpcomingActivitySelectorTests.In_progress_changes_at_start_and_after_the_inclusive_duration_end"
+        }
+      ],
+      "artifacts": [
+        "artifacts/day-context-20261007/review.md",
+        "artifacts/day-context-20261007/mobile-full-results/mobile-full.trx",
+        "artifacts/day-context-20261007/shared-full-results/shared-full.trx"
+      ],
+      "reviewNote": "Instantes deterministas cubren inicio y final inclusivo vigente. RefreshAccessState llama al resolver desde el timer existente; RefreshUpcomingActivity compara el record completo y notifica cambio de estado con el mismo Id. QA148 final confirma en ES futura → En curso con mismo Id → Mañana mediante el reloj real, sin cambiar reloj ni refrescar manualmente. Esto no sustituye las pruebas deterministas de medianoche/empates."
+    },
+    {
+      "id": "dayctx07-trip-midnight",
+      "phase": "Incremento posterior a QA147",
+      "acceptance": "El cambio de medianoche de la zona del viaje recalcula hoy/Mañana y el bloque aunque la fecha del teléfono sea distinta; una actividad nocturna válida conserva su estado.",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Shared/UpcomingActivitySelector.cs",
+        "src/TravelCompanion.Mobile/Services/TripDayOverview.cs",
+        "src/TravelCompanion.Mobile/ViewModels/ScheduleViewModel.cs"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.TripDayContextTests.Tokyo_midnight_switches_context_date_and_preserves_overnight_flight"
+        },
+        {
+          "suite": "shared",
+          "prefix": "TravelCompanion.Shared.Tests.UpcomingActivitySelectorTests.Keeps_overnight_flight_current_after_midnight"
+        }
+      ],
+      "artifacts": [
+        "artifacts/day-context-20261007/review.md",
+        "artifacts/day-context-20261007/mobile-full-results/mobile-full.trx",
+        "artifacts/day-context-20261007/shared-full-results/shared-full.trx"
+      ],
+      "reviewNote": "Resolver/selector usan la zona del viaje y conservan vuelos nocturnos. RefreshAccessState avanza la selección sólo si seguía en el hoy previo y el nuevo día pertenece al viaje; el último día no inventa mañana. Transición real nativa pendiente, sin modificar el reloj."
+    },
+    {
+      "id": "dayctx08-context-changes",
+      "phase": "Incremento posterior a QA147",
+      "acceptance": "Cambiar cuenta, viaje o fecha descarta el contexto anterior y evita publicar una actividad o resumen de Mañana de la selección anterior.",
+      "implementation": "done",
+      "verification": "source_review",
+      "sources": [
+        "src/TravelCompanion.Mobile/Services/TripDayOverview.cs",
+        "src/TravelCompanion.Mobile/ViewModels/ScheduleViewModel.cs",
+        "src/TravelCompanion.Mobile/Pages/SchedulePage.xaml"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.TripDayContextTests.Clearing_context_then_loading_another_trip_does_not_reuse_old_activity"
+        }
+      ],
+      "artifacts": [
+        "artifacts/day-context-20261007/review.md",
+        "artifacts/day-context-20261007/mobile-full-results/mobile-full.trx"
+      ],
+      "reviewNote": "Snapshot ligado a _overviewUserId y TripId, limpiado por ResetForNewSession/ApplyEmptySchedule. Mantiene caché al renovar la misma sesión o preferencia PIN. Detail/Maps capturan item y ContextVersion, recalculan tras analítica y requieren mismo item y HasFocusItem antes de navegar. El test complementario valida aislamiento del resolver entre snapshots, no AuthSession/ScheduleVM completo. En QA148, cambiar cuenta/viaje mientras bootstrap permanece retenido cancela la petición y conserva el nuevo viaje 20/10 tras el intervalo; proxy registra delayed-client-gone, no una respuesta tardía aplicada."
+    },
+    {
+      "id": "dayctx09-confirmed-cache",
+      "phase": "Incremento posterior a QA147",
+      "acceptance": "La carga inicial sin datos confirmados no muestra prematuramente el final del día ni Mañana; una caché confirmada puede resolver el bloque y permanece durante un fallo de actualización.",
+      "implementation": "done",
+      "verification": "source_review",
+      "sources": [
+        "src/TravelCompanion.Mobile/Services/TripDayOverview.cs",
+        "src/TravelCompanion.Mobile/ViewModels/ScheduleViewModel.cs",
+        "src/TravelCompanion.Mobile/Pages/SchedulePage.xaml"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.TripDayContextTests.Confirmed_empty_day_can_show_tomorrow_but_initial_absence_cannot"
+        }
+      ],
+      "artifacts": [
+        "artifacts/day-context-20261007/review.md",
+        "artifacts/day-context-20261007/mobile-full-results/mobile-full.trx"
+      ],
+      "reviewNote": "Sin _overviewSchedule confirmado el resolver queda Empty e IsOverviewCurrent bloquea el falso final inicial. ApplySchedule admite caché confirmada y refresca contexto antes del enriquecimiento remoto. El test complementario no simula red ni caché del VM completo. QA148 conserva la reserva 09:00 y tres acciones en A continuación durante HTTP 503 efectivos: proxy registra cuatro respuestas bootstrap-503 y dos today-503, es-cache-http503 y es-cache-http503-settled no muestran Mañana. El fallo de bootstrap es terminal en ese ciclo; otro intento de fallback Today puede recuperar. No se afirma fallo total de red ni Connectivity offline."
+    },
+    {
+      "id": "dayctx10-focus-actions",
+      "phase": "Incremento posterior a QA147",
+      "acceptance": "El estado A continuación/En curso conserva abrir actividad, Maps, documento y Tengo un rato libre con la fecha y contexto correctos; sus acciones mantienen sus condiciones existentes.",
+      "implementation": "done",
+      "verification": "source_review",
+      "sources": [
+        "src/TravelCompanion.Mobile/ViewModels/ScheduleViewModel.cs",
+        "src/TravelCompanion.Mobile/Pages/SchedulePage.xaml"
+      ],
+      "tests": [],
+      "artifacts": [
+        "artifacts/day-context-20261007/review.md"
+      ],
+      "reviewNote": "Border común conserva commands de detalle/Maps/documento y FreeTime; iconos usan ContextIconButton 48×48 y descripciones ES/EN. Guards posteriores a await descartan item/contexto anterior; el documento conserva comprobaciones de permisos en su store. QA148 abre el detalle del museo del 8/10, lleva Maps al primer plano y abre el chooser Android del PDF vinculado. No se certifica un visor PDF ni una búsqueda de rato libre desde esta evidencia."
+    },
+    {
+      "id": "dayctx11-tomorrow-actions",
+      "phase": "Incremento posterior a QA147",
+      "acceptance": "Mañana conserva el resumen de primera reserva/hotel/documentos y su navegación al día correcto, con los permisos actuales; no ofrece una fecha fuera del viaje.",
+      "implementation": "done",
+      "verification": "source_review",
+      "sources": [
+        "src/TravelCompanion.Mobile/Services/TripDayOverview.cs",
+        "src/TravelCompanion.Mobile/ViewModels/ScheduleViewModel.cs",
+        "src/TravelCompanion.Mobile/Pages/SchedulePage.xaml",
+        "src/TravelCompanion.Mobile/Pages/TomorrowOverviewPage.cs"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.TripSearchAndOverviewTests.Tomorrow_is_inside_trip_and_selects_first_distinct_booking_separately_from_hotel"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.TripSearchAndOverviewTests.Tomorrow_downloaded_curated_document_still_requires_access_but_personal_attachment_does_not"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.TripSearchAndOverviewTests.Tomorrow_linked_curated_url_requires_access_even_if_a_local_file_is_available"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.TripDayContextTests.Last_day_shows_upcoming_activity_but_no_tomorrow_after_it_ends"
+        }
+      ],
+      "artifacts": [
+        "artifacts/day-context-20261007/review.md",
+        "artifacts/day-context-20261007/mobile-full-results/mobile-full.trx"
+      ],
+      "reviewNote": "OpenTomorrow recalcula el contexto y sólo abre una fecha vigente dentro del viaje. El resumen reutiliza FirstBooking; TomorrowOverviewPage y permisos documentales permanecen existentes. Tests de helpers cubren reserva/hotel/permisos. QA148 abre Mañana para el 9/10 con hotel y sin documentos relacionados; Ver mañana selecciona el 9/10 y no muestra un contexto de hoy. No demuestra un documento vinculado a mañana."
+    },
+    {
+      "id": "dayctx12-boundaries",
+      "phase": "Incremento posterior a QA147",
+      "acceptance": "El incremento no añade permisos de pago, llamadas API, DTOs, tablas ni migraciones; mantiene compatibilidad de caché, datos personales y los estilos editoriales existentes.",
+      "implementation": "done",
+      "verification": "source_review",
+      "sources": [
+        "src/TravelCompanion.Mobile/Services/TripDayOverview.cs",
+        "src/TravelCompanion.Mobile/ViewModels/ScheduleViewModel.cs",
+        "src/TravelCompanion.Mobile/Pages/SchedulePage.xaml",
+        "src/TravelCompanion.Shared/UpcomingActivitySelector.cs",
+        "src/TravelCompanion.Mobile/Localization/AppResources.es.resx",
+        "src/TravelCompanion.Mobile/Localization/AppResources.resx"
+      ],
+      "tests": [],
+      "artifacts": [
+        "artifacts/day-context-20261007/review.md"
+      ],
+      "reviewNote": "Incremento usa selector/record local, propiedades/bindings y recursos; no introduce HTTP, DTOs, tablas ni migraciones. Mantiene Commands/permisos existentes y recursos editoriales. Revisión independiente resuelve dos gaps concretos sin ampliar alcance; ver review.md."
+    }
+  ],
+  "nativeChecks": [
+    {
+      "id": "dayctx-native-apk148",
+      "status": "passed",
+      "note": "QA148 final compilada/firmada con salida 0, instalada y abierta por PIN en com.yuku.travelcompanion.plannerpaidreview. SHA-256 24FEC97D6759CD78E3720D99CA433485369DCE140E593F6BAF187A3B10008873, 24.967.198 bytes; hash instalado coincide. Conserva 250 recuerdos/3 fotos y app habitual v119. La primera APK falló por Shared RID obsoleto y queda histórica; sólo el publish limpio final acredita esta APK. Ver apk-proof-148.json, native-install-proof.json y qa148-build-diagnosis.json. QA147 permanece inmutable."
+    },
+    {
+      "id": "dayctx-native-alternation",
+      "status": "passed",
+      "note": "QA148 final en perfil original: es-future-timed, es-in-progress y es-after-last-activity muestran un bloque ES futura → En curso → Mañana por reloj real, sin refresh manual. es-other-date no muestra contexto de hoy; Mañana sólo aparece para el siguiente día del viaje. Datos sintéticos relativos al instante real, sin alterar el reloj. Medianoche, empates y ausencia inicial se cubren con tests/revisión de fuente; no se presentan como observaciones nativas de esos límites."
+    },
+    {
+      "id": "dayctx-native-actions",
+      "status": "passed",
+      "note": "QA148 abre el detalle de la reserva del museo 8/10; maps-focus.log muestra Google Maps al primer plano. document-focus.log acredita sólo chooser Android para el PDF vinculado, no visor/contenido PDF. es-tomorrow-detail muestra el 9/10/hotel/sin documentos relacionados y es-open-tomorrow-day confirma Ver mañana en esa fecha. El recorrido nativo no certifica búsqueda de rato libre ni un documento vinculado a mañana; condiciones/permisos se revisaron en fuente y helpers."
+    },
+    {
+      "id": "dayctx-native-cache-context",
+      "status": "passed",
+      "note": "QA148 conserva contexto al cambiar cuenta/viaje durante bootstrap retenido unos 90 s: es-other-account-trip, es-other-account-after-delay y es-other-account-late-response mantienen el nuevo viaje 20/10 sin contenido anterior; proxy registra delayed-client-gone, no respuesta aplicada. HTTP 503 real: proxy-events.ndjson registra cuatro bootstrap-503 entre 15:57:59 y 15:58:13 UTC y dos today-503 a 15:58:13/15:58:15; es-cache-http503 y es-cache-http503-settled conservan A CONTINUACIÓN, reserva 09:00 y acciones Maps/detalle/documento, sin Mañana. Bootstrap agotó reintentos en ese ciclo; el fallback Today puede recuperar en otro intento. No se afirma fallo total ni Connectivity offline. Capturas unreachable y primeros supuestos 503 quedan históricas y no acreditan este fallo efectivo."
+    },
+    {
+      "id": "dayctx-native-layout-localization",
+      "status": "passed",
+      "note": "QA148 en perfil original muestra En curso/A continuación/Mañana ES y UP NEXT/In progress/Tomorrow at a glance EN. In progress se observó en PNG en-in-progress; XML/log previo aún muestra Mañana por refresh entre capturas, discrepancia conservada. Labels y controles legibles en ese perfil; áreas 48 dp revisadas en XAML. phone-before/after confirman densidad física 600, fontScale 1.0, sistema oscuro y ajustes registrados sin cambios. No se ejecutaron fuentes ampliadas/otros anchos, TalkBack ni biometría; no se certifican desde tests."
+    },
+    {
+      "id": "talkback",
+      "status": "excluded",
+      "note": "Excluido permanentemente por petición del usuario. No activar TalkBack; usar PIN/password y no biometría. No alterar ajustes globales del teléfono."
+    }
+  ]
+}

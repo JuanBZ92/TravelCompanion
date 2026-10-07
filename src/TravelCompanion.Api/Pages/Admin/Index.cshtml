@@ -1,11 +1,11 @@
 @page "/admin"
 @model TravelCompanion.Api.Pages.Admin.IndexModel
 @{
-    ViewData["Title"] = "Dashboard";
+    ViewData["Title"] = "Resumen";
 }
 
-<h1>Admin</h1>
-<p class="lede">Contenido base para destinos, recomendaciones y schedule.</p>
+<h1>Administración</h1>
+<p class="lede">Gestiona el catálogo, los viajes y sus accesos.</p>
 
 <section class="grid">
     <div class="panel">
@@ -26,7 +26,7 @@
     </div>
     <div class="panel">
         <div class="metric">@Model.DocumentCount</div>
-        <div class="muted">Docs</div>
+        <div class="muted">Documentos</div>
     </div>
     <div class="panel">
         <div class="metric">@Model.UserCount</div>
@@ -40,37 +40,37 @@
 
 <section class="grid" style="margin-top: 18px;">
     <div class="panel">
-        <h2>Destinations</h2>
+        <h2>Destinos</h2>
         <p class="muted">Crea destinos vendibles con slug, pais, imagen principal y descripcion.</p>
         <a class="button" asp-page="/Admin/Destinations">Gestionar</a>
     </div>
     <div class="panel">
-        <h2>Packages</h2>
+        <h2>Paquetes</h2>
         <p class="muted">Configura paquetes de pago fijo o suscripcion por destino.</p>
         <a class="button" asp-page="/Admin/Packages">Gestionar</a>
     </div>
     <div class="panel">
-        <h2>Recommendations</h2>
+        <h2>Recomendaciones</h2>
         <p class="muted">Carga lugares, categorias, duracion y coordenadas para la app.</p>
         <a class="button" asp-page="/Admin/Recommendations">Gestionar</a>
     </div>
     <div class="panel">
-        <h2>Import YUKU</h2>
-        <p class="muted">Sube el Excel verificado y genera recomendaciones Free para Japon.</p>
+        <h2>Importar catálogo YUKU</h2>
+        <p class="muted">Sube el Excel verificado y genera recomendaciones gratuitas para Japón.</p>
         <a class="button" asp-page="/Admin/YukuJapanImport">Importar</a>
     </div>
     <div class="panel">
-        <h2>Schedule</h2>
+        <h2>Agenda</h2>
         <p class="muted">Administra reservas y eventos del viaje demo.</p>
         <a class="button" asp-page="/Admin/Reservations">Gestionar</a>
     </div>
     <div class="panel">
-        <h2>Docs</h2>
-        <p class="muted">Carga PDFs y links del viaje para la tab Docs de la app.</p>
+        <h2>Documentos</h2>
+        <p class="muted">Añade archivos PDF y enlaces a los documentos del viaje.</p>
         <a class="button" asp-page="/Admin/Docs">Gestionar</a>
     </div>
     <div class="panel">
-        <h2>Users & access</h2>
+        <h2>Usuarios y accesos</h2>
         <p class="muted">Crea usuarios y asigna accesos por pago, paquete o suscripcion.</p>
         <a class="button" asp-page="/Admin/Users">Gestionar</a>
     </div>

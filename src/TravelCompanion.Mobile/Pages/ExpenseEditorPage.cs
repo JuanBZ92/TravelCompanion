@@ -12,7 +12,7 @@ public sealed class ExpenseEditorPage : TripScopedPage
     private readonly ExpenseBook book;
     private readonly ExpenseDto? original;
     private readonly Entry amount = new() { Keyboard = Keyboard.Numeric, Placeholder = "0", FontSize = 34 };
-    private readonly Picker currency = new() { Title = "Moneda / Currency", ItemsSource = ExpensePolicy.Currencies };
+    private readonly Picker currency = new() { Title = T("Moneda", "Currency"), ItemsSource = ExpensePolicy.Currencies };
     private readonly Entry concept = new() { MaxLength = 160 };
     private readonly Entry manual = new() { Keyboard = Keyboard.Numeric, Placeholder = "1 JPY = …" };
     private readonly DatePicker date = new() { MinimumDate = new DateTime(2000, 1, 1), MaximumDate = new DateTime(2100, 12, 31) };
@@ -22,6 +22,8 @@ public sealed class ExpenseEditorPage : TripScopedPage
     private ExpenseActivityDto? activity;
     private bool saving;
     private bool closed;
+    private bool closing;
+    private readonly ExpenseEditorSnapshot initial;
     private ExpenseRateDto? currentRate;
     private int rateVersion;
     private readonly List<(ExpenseCategory Category, Border View)> categoryViews = [];
@@ -87,6 +89,7 @@ public sealed class ExpenseEditorPage : TripScopedPage
         if (original is not null) footer.Add(IconButton("action_delete.svg", T("Eliminar gasto", "Delete expense"), DeleteAsync));
         var layout = new Grid { Padding = new Thickness(24, 16), RowDefinitions = [new(GridLength.Auto), new(GridLength.Star), new(GridLength.Auto)], RowSpacing = 12 };
         layout.Add(heading); layout.Add(new ScrollView { Content = body }, 0, 1); layout.Add(footer, 0, 2); Content = layout;
+        initial = Capture();
     }
     protected override void OnAppearing() { base.OnAppearing(); Dispatcher.Dispatch(() => amount.Focus()); _ = RefreshRateAsync(); }
     private async Task RefreshRateAsync()
@@ -110,7 +113,23 @@ public sealed class ExpenseEditorPage : TripScopedPage
         catch (Exception error) { ClientDiagnostics.Record("expense_rate_failed", exception: error); }
     }
     protected override bool OnBackButtonPressed() { if (!saving) _ = CloseAsync(); return true; }
-    private Task CloseAsync() { if (closed) return Task.CompletedTask; closed = true; return Navigation.PopModalAsync(); }
+    private ExpenseEditorSnapshot Capture() => ExpenseEditorSnapshot.Create(amount.Text, currency.SelectedItem as string ?? "JPY",
+        DateOnly.FromDateTime(date.Date ?? DateTime.Today), category, concept.Text, manual.Text, activity?.Id);
+    private async Task CloseAsync(bool confirmed = false)
+    {
+        if (closed || closing) return;
+        closing = true;
+        try
+        {
+            if (!confirmed && store.IsCurrent(scope) && Capture() != initial
+                && !await DisplayAlertAsync(T("¿Descartar los cambios?", "Discard changes?"),
+                    T("Este gasto todavía no está guardado.", "This expense has not been saved yet."),
+                    T("Descartar cambios", "Discard changes"), T("Seguir editando", "Keep editing"))) return;
+            closed = true;
+            if (Navigation.ModalStack.LastOrDefault() == this) await Navigation.PopModalAsync();
+        }
+        finally { closing = false; }
+    }
     private void SelectCategory()
     {
         foreach (var tile in categoryViews)
@@ -154,7 +173,7 @@ public sealed class ExpenseEditorPage : TripScopedPage
                 custom.HasValue ? "manual" : preserve ? original!.RateSource : quoteRate?.Source,
                 book.Settings.Currency, original?.Revision ?? 0, false, Guid.Empty);
             await store.SaveAsync(scope, entry, custom, book.Settings.Revision);
-            await CloseAsync();
+            await CloseAsync(confirmed: true);
         }
         finally { saving = false; }
     }
@@ -162,7 +181,7 @@ public sealed class ExpenseEditorPage : TripScopedPage
     {
         if (saving || original is null || !await DisplayAlertAsync(T("Eliminar gasto", "Delete expense"), original.Concept, T("Eliminar", "Delete"), T("Cancelar", "Cancel"))) return;
         saving = true;
-        try { await store.SaveAsync(scope, original with { Deleted = true }, null, book.Settings.Revision); await CloseAsync(); }
+        try { await store.SaveAsync(scope, original with { Deleted = true }, null, book.Settings.Revision); await CloseAsync(confirmed: true); }
         finally { saving = false; }
     }
 }

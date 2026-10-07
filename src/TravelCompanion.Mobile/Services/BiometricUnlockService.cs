@@ -13,19 +13,31 @@ public sealed class BiometricUnlockService(IBiometricAuthentication biometricAut
         return availability.IsAvailable;
     }
 
-    public async Task<bool> UnlockAsync(CancellationToken cancellationToken = default)
+    public async Task<bool> UnlockAsync(CancellationToken cancellationToken = default) =>
+        await AuthenticateForUnlockAsync(cancellationToken) == BiometricUnlockOutcome.Succeeded;
+
+    public async Task<BiometricUnlockOutcome> AuthenticateForUnlockAsync(CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var result = await biometricAuthentication.AuthenticateAsync(
             new AuthenticationRequest(
                 LocalizationResourceManager.Instance["BiometricPromptTitle"],
                 LocalizationResourceManager.Instance["BiometricPromptDescription"])
             {
-                CancelTitle = LocalizationResourceManager.Instance["BiometricPasswordAction"],
-                FallbackTitle = LocalizationResourceManager.Instance["BiometricPasswordAction"],
+                CancelTitle = LocalizationResourceManager.Instance["UnlockPinAction"],
+                FallbackTitle = LocalizationResourceManager.Instance["UnlockPinAction"],
                 Authenticators = Authenticator.Biometric
             },
             cancellationToken).ConfigureAwait(false);
 
-        return result.IsSuccessful;
+        cancellationToken.ThrowIfCancellationRequested();
+        return result.Status switch
+        {
+            AuthenticationStatus.Success => BiometricUnlockOutcome.Succeeded,
+            // The native negative/fallback button is labelled as the PIN alternative.
+            AuthenticationStatus.FallbackRequested or AuthenticationStatus.Canceled => BiometricUnlockOutcome.UsePin,
+            AuthenticationStatus.Failed => BiometricUnlockOutcome.Rejected,
+            _ => BiometricUnlockOutcome.Failed
+        };
     }
 }

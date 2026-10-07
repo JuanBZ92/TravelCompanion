@@ -52,6 +52,9 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
 
     private readonly ILogger<ScheduleViewModel> _logger;
     private readonly List<ScheduleItemDto> _allItems = [];
+    private TripScheduleDto? _overviewSchedule;
+    private Guid? _overviewUserId;
+    private TripDayContext _dayContext = TripDayContext.Empty;
     private readonly List<RecommendationDto> _recommendations = [];
     private readonly Dictionary<string, ScheduleTypeSectionViewModel> _sectionCache = new(StringComparer.Ordinal);
     private ReservationType _selectedType = ReservationType.Event;
@@ -222,7 +225,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
                 _today = _todayByDate.GetValueOrDefault(today);
                 RebuildSelectedDay();
             }
-            OnPropertyChanged(nameof(HasFocusItem));
+            NotifyFocusChanged();
             OnPropertyChanged(nameof(ShowFinishedToday));
             OnPropertyChanged(nameof(DayEyebrow));
         }
@@ -233,14 +236,35 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     private Task RedeemPassAsync() => PaywallNavigation.OpenAsync(TravelCompanion.Shared.Dtos.PaywallEntryPoint.Today);
 
     public bool HasSelectedDayItems => TodaySections.Any(section => section.HasContent);
-    public bool HasFocusItem => _focusItem is not null && _selectedDate == TripToday;
-    public bool ShowFinishedToday => _tripId.HasValue && _selectedDate == TripToday && !HasFocusItem && !ShowTodayLoading;
+    private bool IsOverviewCurrent => _sessionService.HasSession
+        && _overviewUserId == _sessionService.CurrentUserId
+        && _overviewSchedule is { } schedule && schedule.TripId == _sessionService.CurrentTripId;
+    public bool HasDailyOverview => IsOverviewCurrent && _selectedDate == TripToday && _dayContext.HasContent;
+    public bool HasFocusItem => HasDailyOverview && _dayContext.Activity is not null;
+    public bool ShowFinishedToday => IsOverviewCurrent && _selectedDate == TripToday && !HasFocusItem && !ShowTodayLoading;
+    public string TodayStatus => LocalizationResourceManager.Instance[TripDayOverview.TodayMessage(_allItems, TripToday,
+        _today?.Sections.Any(x => x.Recommendations.Count > 0) == true)];
+    public bool HasTomorrowOverview => HasDailyOverview && _dayContext.Tomorrow.HasValue;
+    public string TomorrowSummary => _overviewSchedule is { } schedule && _dayContext.Tomorrow is { } date
+        ? TripDayOverview.FirstBooking(schedule, date) is { } first ? $"{first.StartsAt:HH\\:mm} · {first.Title}" : LocalizationResourceManager.Instance["TomorrowNoBooking"] : "";
+    [RelayCommand] private async Task OpenTomorrowAsync()
+    {
+        RefreshUpcomingActivity();
+        if (!HasTomorrowOverview || _overviewSchedule is not { } schedule || _dayContext.Tomorrow is not { } date) return;
+        await Shell.Current.Navigation.PushModalAsync(new TomorrowOverviewPage(schedule, date, _hotelsByDate.GetValueOrDefault(date)));
+    }
+    [RelayCommand] private async Task FreeTimeAsync()
+    {
+        if (_selectedDate is not { } date || !_tripId.HasValue) return;
+        if (!_sessionService.CanUseAssistant) { await PaywallNavigation.OpenAsync(PaywallEntryPoint.Assistant); return; }
+        await Shell.Current.GoToAsync("//main/assistant", new ShellNavigationQueryParameters { ["FreeTimeDate"] = date });
+    }
     private DateOnly TripToday => DateOnly.FromDateTime(UpcomingActivitySelector.GetTripNow(_tripTimeZoneId, DateTimeOffset.UtcNow));
     public string FocusPlace => _focusItem is null ? string.Empty
         : string.Equals(_focusItem.LocationName, _focusItem.Title, StringComparison.OrdinalIgnoreCase)
             ? !string.IsNullOrWhiteSpace(_focusItem.Address) ? _focusItem.Address : _focusItem.City
             : !string.IsNullOrWhiteSpace(_focusItem.LocationName) ? _focusItem.LocationName : _focusItem.Address;
-    public bool CanOpenFocusMap => _focusItem is not null && (!string.IsNullOrWhiteSpace(_focusItem.Address) || !string.IsNullOrWhiteSpace(_focusItem.LocationName));
+    public bool CanOpenFocusMap => HasFocusItem && _focusItem is not null && (!string.IsNullOrWhiteSpace(_focusItem.Address) || !string.IsNullOrWhiteSpace(_focusItem.LocationName));
     public bool HasFocusDocument => HasFocusItem && _focusDocument is not null;
     public bool ShowInitialLoading => IsBusy && DayFilters.Count == 0;
     public bool ShowTodayLoading => _isTodayLoading && _selectedDate.HasValue;
@@ -289,39 +313,60 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         ? "Cuando haya reservas, vas a ver aca el proximo momento relevante."
         : $"{_focusItem.TypeLabel} en {NormalizeCity(_focusItem.City)}";
     public string FocusMeta => _focusItem is null ? string.Empty
-        : _focusItem.HasExactTime
-            ? $"{_focusItem.StartsAt:HH\\:mm} · {(_focusItem.IsRecommendation ? "Plan" : _focusItem.TypeLabel)}"
-            : _focusItem.PeriodDisplay;
+        : $"{(_dayContext.IsInProgress ? LocalizationResourceManager.Instance["DayActivityInProgress"] + " · " : "")}{_focusItem.StartsAt:HH\\:mm} · {LocalizationResourceManager.Instance[FocusTypeKey]}";
+    private string FocusTypeKey => _focusItem?.Type switch
+    {
+        ReservationType.Flight => "UXAuditDocumentFlight",
+        ReservationType.Lodging => "DayActivityCheckIn",
+        _ => _focusItem?.PlanningKind switch
+        {
+            ScheduleItemKind.Recommendation => "DayActivityPlan",
+            ScheduleItemKind.ConfirmedReservation => "DayActivityReservation",
+            _ => "DayActivityEvent"
+        }
+    };
 
     [RelayCommand]
     private async Task OpenFocusDetailAsync()
     {
-        if (_focusItem is null) return;
+        RefreshUpcomingActivity();
+        if (!HasFocusItem || _focusItem is not { } item) return;
+        var contextVersion = _sessionService.ContextVersion;
         await _analytics.TrackAsync("next_activity_opened", "today", tripId: _tripId);
-        await OpenScheduleItemAsync(_focusItem);
+        RefreshUpcomingActivity();
+        if (!HasFocusItem || contextVersion != _sessionService.ContextVersion || _focusItem != item) return;
+        await OpenScheduleItemAsync(item);
     }
 
     [RelayCommand]
     private async Task OpenFocusMapAsync()
     {
-        if (!CanOpenFocusMap || _focusItem is null) return;
+        RefreshUpcomingActivity();
+        if (!CanOpenFocusMap || _focusItem is not { } item) return;
+        var contextVersion = _sessionService.ContextVersion;
         await _analytics.TrackAsync("next_activity_opened", "route", tripId: _tripId);
-        await GoogleMapsLauncher.OpenAsync($"{_focusItem.LocationName}, {_focusItem.Address}", _focusItem.ProviderPlaceId);
+        RefreshUpcomingActivity();
+        if (!HasFocusItem || contextVersion != _sessionService.ContextVersion || _focusItem != item) return;
+        await GoogleMapsLauncher.OpenAsync($"{item.LocationName}, {item.Address}", item.ProviderPlaceId);
     }
 
     [RelayCommand]
     private async Task OpenFocusDocumentAsync()
     {
-        if (!HasFocusDocument || _focusDocument is null) return;
+        RefreshUpcomingActivity();
+        if (!HasFocusDocument || _focusDocument is not { } document) return;
+        var contextVersion = _sessionService.ContextVersion;
         try
         {
-            await _documents.OpenLinkedAsync(_focusDocument);
+            await _documents.OpenLinkedAsync(document);
+            if (!IsOverviewCurrent || contextVersion != _sessionService.ContextVersion) return;
             await _analytics.TrackAsync("next_activity_opened", "document", tripId: _tripId);
         }
         catch
         {
-            await Shell.Current.DisplayAlertAsync("Documento no disponible",
-                "Comprobá el archivo o la conexión y volvé a intentarlo desde el detalle.", "OK");
+            if (!IsOverviewCurrent || contextVersion != _sessionService.ContextVersion) return;
+            await Shell.Current.DisplayAlertAsync(LocalizationResourceManager.Instance["LinkedDocumentUnavailableTitle"],
+                LocalizationResourceManager.Instance["LinkedDocumentUnavailable"], "OK");
         }
     }
 
@@ -428,6 +473,9 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         _tripStartsOn = null;
         _tripEndsOn = null;
         _tripId = null;
+        _overviewSchedule = null;
+        _overviewUserId = null;
+        _dayContext = TripDayContext.Empty;
         _builderRevision = null;
         _selectedDate = null;
         _selectedCity = "Tu viaje";
@@ -1139,6 +1187,8 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
 
     private void ApplySchedule(TripScheduleDto schedule)
     {
+        _overviewSchedule = schedule;
+        _overviewUserId = _sessionService.CurrentUserId;
         var stopwatch = Stopwatch.StartNew();
         var sourceItems = schedule.Items ?? [];
         var previouslySelectedDate = _tripId == schedule.TripId
@@ -1194,6 +1244,9 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
 
     private void ApplyEmptySchedule()
     {
+        _overviewSchedule = null;
+        _overviewUserId = null;
+        _dayContext = TripDayContext.Empty;
         TripTitle = "Your Trip";
         TripDates = "No reservations yet.";
         _allItems.Clear();
@@ -1924,10 +1977,16 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
 
     private void RefreshUpcomingActivity()
     {
-        var next = _selectedDate is { } date
-            ? UpcomingActivitySelector.Select(_allItems, date, _tripTimeZoneId, DateTimeOffset.UtcNow)
-            : null;
-        if (_focusItem?.Id == next?.Id) return;
+        var context = TripDayOverview.ResolveContext(IsOverviewCurrent ? _overviewSchedule : null,
+            _selectedDate, DateTimeOffset.UtcNow);
+        var contextChanged = _dayContext != context;
+        _dayContext = context;
+        var next = context.Activity;
+        if (_focusItem?.Id == next?.Id)
+        {
+            if (contextChanged) NotifyFocusChanged();
+            return;
+        }
         _focusItem = next;
         _focusDocument = null;
         NotifyFocusChanged();
@@ -2086,7 +2145,12 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
 
     private void NotifyFocusChanged()
     {
+        OnPropertyChanged(nameof(TodayStatus));
+        OnPropertyChanged(nameof(HasDailyOverview));
+        OnPropertyChanged(nameof(HasTomorrowOverview));
+        OnPropertyChanged(nameof(TomorrowSummary));
         OnPropertyChanged(nameof(HasFocusItem));
+        OnPropertyChanged(nameof(ShowFinishedToday));
         OnPropertyChanged(nameof(FocusTitle));
         OnPropertyChanged(nameof(FocusSubtitle));
         OnPropertyChanged(nameof(FocusMeta));

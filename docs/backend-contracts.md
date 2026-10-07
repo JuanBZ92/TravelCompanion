@@ -161,6 +161,43 @@ POST /api/ai/travel-chat
 
 Guided actions and options use stable codes rather than localized labels. Categories are `food`, `relax`, `culture`, `walk`, `dance`, `nature`, `shopping`, `viewpoint`, and `nightlife`. The mobile flow asks for category, budget, and maximum walking distance in that order. Sending `guidedAction.action = alternative` keeps the criteria and excludes all recommendations already shown in the conversation.
 
+### Ventana opcional: «Tengo un rato libre»
+
+`POST /api/ai/travel-chat` admite tres campos aditivos y opcionales en `criteria`: `windowStartsAtLocal`, `windowEndsAtLocal` y `windowTimeZoneId`. Los constructores y campos anteriores se conservan; cuando no se envía una ventana, sigue vigente el flujo anterior. La ventana se utiliza con `guidedAction.action = recommend` o `alternative`; no convierte `full_day` en una planificación temporal, pues esa acción mantiene su tratamiento independiente de los criterios.
+
+Ejemplo sintético, sin ubicación personal ni identificadores de una cuenta:
+
+```json
+{
+  "message": "Tengo un rato libre",
+  "conversationId": null,
+  "city": "Tokyo",
+  "date": "2026-10-20",
+  "currentLocation": null,
+  "locale": "es-ES",
+  "operationId": "11111111-1111-4111-8111-111111111111",
+  "guidedAction": { "action": "recommend" },
+  "criteria": {
+    "category": "culture",
+    "budget": "medium",
+    "maxDurationMinutes": 90,
+    "windowStartsAtLocal": "2026-10-20T14:00:00",
+    "windowEndsAtLocal": "2026-10-20T15:30:00",
+    "windowTimeZoneId": "Asia/Tokyo"
+  }
+}
+```
+
+Enviar los tres campos juntos. Los límites son horas de pared de la zona del viaje, sin `Z` ni desplazamiento UTC; en .NET deben ser `DateTimeKind.Unspecified`. Ambas fechas deben coincidir con el día solicitado, el final debe ser posterior al inicio y el intervalo inicial no puede superar 120 minutos. El cliente ofrece 30, 60, 90 y 120 minutos; estos valores de interfaz no son una restricción adicional del contrato. `windowTimeZoneId` debe coincidir con la zona almacenada del viaje. Horas inexistentes o ambiguas por cambio de horario, zonas inválidas, campos incompletos, días pasados o intervalos ya vencidos producen una respuesta sin tarjetas con `missingContext.field = time_window`. Un viaje no disponible para el día puede devolver el contexto `date` antes de validar la ventana.
+
+El viaje se resuelve desde la sesión autenticada: debe pertenecer al usuario, estar publicado y no archivado. Una ventana requiere exactamente un viaje válido; no mezcla reservas de viajes solapados. El backend transforma a la zona del viaje las horas reales de las reservas, descarta la ventana si comienza durante un compromiso fijo y recorta su final al próximo compromiso. Si el día es hoy, el inicio anterior a la hora actual se adelanta al siguiente minuto. Se consideran compromisos los elementos con hora exacta y las reglas actuales de propietario/flexibilidad; los placeholders flexibles no bloquean el rato. El alojamiento bloquea una hora de check-in, no toda la estancia. Una reserva sin hora final usa su duración almacenada o 60 minutos; una hora final nocturna sin fecha final explícita puede pertenecer al día siguiente. Estos márgenes sirven para organizar sugerencias, no para certificar disponibilidad.
+
+Las ideas pasan por el catálogo y los permisos existentes, preferencias, ranking determinista y exclusión de recomendaciones ya guardadas ese día. `alternative` conserva además la exclusión de las recomendaciones anteriores del mismo contexto de conversación. Después del ranking, cada idea debe tener duración positiva y caber individualmente junto con la ida estimada y un margen de retorno; cuando hay un próximo compromiso dentro del límite, se usa su ubicación para estimar ese retorno. Si faltan coordenadas, se aplican márgenes estimados; no se consulta una ruta en vivo. Sin GPS, el flujo continúa y no aplica el filtro opcional de distancia a pie desde una ubicación desconocida. Las tarjetas representan alternativas independientes, no una ruta que combine todas. `startTime` y `endTime` se expresan en la zona del viaje y los avisos aclaran que duración, traslado y horarios requieren comprobación: no garantizan apertura, llegada ni una reserva.
+
+Se mantienen autenticación, fechas y catálogo gratuitos, acceso del pase y cuotas actuales del Assistant. La ventana no concede permisos ni una cuota nueva. Un reintento debe conservar el mismo `operationId` y el pedido completo, incluidos conversación, fecha, coordenadas y criterios: el lease de cuota se identifica por la operación y la huella del contenido. Un resultado útil consume una consulta; el reintento exacto no consume otra. Cambiar el contenido genera una identidad distinta a efectos de cuota. Una ventana inválida o una respuesta sin ideas cancela el lease y no consume una consulta exitosa. Las respuestas existentes de cuota/acceso (`daily_limit`, `upgrade_required`) siguen vigentes. Pedir, ajustar o cancelar sugerencias nunca crea ni modifica reservas; guardar requiere la acción explícita y los controles actuales de `save-itinerary-item`.
+
+Publicar primero el backend que valida estos campos y después el cliente que ofrece el flujo. Un servidor anterior puede ignorar campos JSON desconocidos y devolver sugerencias sin respetar la ventana; esa combinación no está soportada. Si se revierte el backend, desactivar el flujo de ventana en el cliente o mantener una API compatible. No requiere migraciones PostgreSQL.
+
 `guidedAction.action = full_day` requests a complete five-slot day. `guidedAction.optionId` is a per-request opaque seed so retries return the same selection while a new request can produce another combination. The response uses distinct real catalog recommendations at 09:00 (coffee), 10:30 (morning visit), 13:00 (lunch), 16:00 (afternoon outing), and 19:30 (dinner). When the accessible catalog cannot fill a suitable slot, the response returns fewer cards and says so instead of inventing a place. Budget, walking distance, access permissions, and the selected interest remain server-enforced.
 
 If the authenticated user does not have minimum preference context, the chat returns no cards and sets `missingContext`:

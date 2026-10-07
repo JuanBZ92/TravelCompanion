@@ -1,11 +1,11 @@
 @page "/login"
 @model TravelCompanion.Api.Pages.LoginModel
 @{
-    ViewData["Title"] = "Login";
+    ViewData["Title"] = "Acceso al administrador";
 }
 
 <section class="auth-panel">
-    <h1>Admin login</h1>
+    <h1>Acceso al administrador</h1>
     <p class="lede">Acceso local para gestionar contenido.</p>
 
     @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
@@ -20,7 +20,7 @@
             <input asp-for="Input.Username" autocomplete="username" />
         </div>
         <div style="margin-top: 12px;">
-            <label asp-for="Input.Password">Password</label>
+            <label asp-for="Input.Password">Contraseña</label>
             <input asp-for="Input.Password" type="password" autocomplete="current-password" />
         </div>
         <div class="actions">

@@ -35,18 +35,22 @@ public sealed class LocationService(ILogger<LocationService> logger) : ILocation
     {
         try
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var permissionStatus = await Permissions.CheckStatusAsync<Permissions.LocationWhenInUse>();
+            cancellationToken.ThrowIfCancellationRequested();
             if (permissionStatus != PermissionStatus.Granted)
             {
                 if (Permissions.ShouldShowRationale<Permissions.LocationWhenInUse>())
                 {
                     await Shell.Current.DisplayAlertAsync(
-                        "Ubicacion",
-                        "La ubicacion ayuda a ordenar planes cercanos a donde estas ahora.",
-                        "Entendido");
+                        LocalizationResourceManager.Instance["LocationRationaleTitle"],
+                        LocalizationResourceManager.Instance["LocationRationaleMessage"],
+                        LocalizationResourceManager.Instance["LocationRationaleOk"]);
+                    cancellationToken.ThrowIfCancellationRequested();
                 }
 
                 permissionStatus = await Permissions.RequestAsync<Permissions.LocationWhenInUse>();
+                cancellationToken.ThrowIfCancellationRequested();
             }
 
             if (permissionStatus is not (PermissionStatus.Granted or PermissionStatus.Limited))
@@ -55,6 +59,7 @@ public sealed class LocationService(ILogger<LocationService> logger) : ILocation
             }
 
             var lastKnownLocation = await GetLastKnownLocationAsync(cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
             if (lastKnownLocation is not null)
             {
                 return lastKnownLocation;

@@ -31,7 +31,7 @@ public sealed class LoginModel(IOptions<AdminAuthOptions> authOptions) : PageMod
         var options = authOptions.Value;
         if (!IsMatch(Input.Username, options.Username) || !IsMatch(Input.Password, options.Password))
         {
-            ErrorMessage = "Usuario o password incorrecto.";
+            ErrorMessage = "Usuario o contraseña incorrectos.";
             return Page();
         }
 

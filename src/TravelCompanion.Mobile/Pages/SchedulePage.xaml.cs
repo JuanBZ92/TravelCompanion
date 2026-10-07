@@ -11,6 +11,8 @@ namespace TravelCompanion.Mobile.Pages;
 public partial class SchedulePage : ContentPage, IQueryAttributable
 {
     private bool _openingTodayDetail;
+    private bool _openingItineraryMenu;
+    private int _appearanceVersion;
     private async void OnExpensesSectionClicked(object? sender, EventArgs e) => await ShowExpensesAsync();
     private async void OnItinerarySectionClicked(object? sender, EventArgs e)
     {
@@ -105,6 +107,7 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
 
     protected override async void OnAppearing()
     {
+        _appearanceVersion++;
         base.OnAppearing();
         UpdateSectionButtons();
         _dayStripActive = true;
@@ -129,6 +132,7 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
 
     protected override void OnDisappearing()
     {
+        _appearanceVersion++;
         _dayStripActive = false;
         _viewModel.PropertyChanged -= OnSchedulePropertyChanged;
         _centeredDay = null;
@@ -149,7 +153,16 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
         _accessTimer.Start();
     }
 
-    private void OnAccessTimerTick(object? sender, EventArgs e) => _viewModel.RefreshAccessState();
+    private void OnAccessTimerTick(object? sender, EventArgs e)
+    {
+        if (!MobileDiagnosticsSettings.IsEnabled) { _viewModel.RefreshAccessState(); return; }
+        var start = Stopwatch.GetTimestamp(); var allocated = GC.GetAllocatedBytesForCurrentThread();
+        _viewModel.RefreshAccessState();
+        ClientDiagnostics.Record("schedule_timer_measured", new() { ElapsedTicks = Stopwatch.GetTimestamp() - start,
+            TickFrequency = Stopwatch.Frequency,
+            ElapsedMs = (long)Stopwatch.GetElapsedTime(start).TotalMilliseconds,
+            AllocatedBytes = GC.GetAllocatedBytesForCurrentThread() - allocated });
+    }
 
     private async Task HandleAppearingAsync()
     {
@@ -278,54 +291,70 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
 
     private async void OnItineraryMenuClicked(object? sender, EventArgs e)
     {
-        var resources = TravelCompanion.Mobile.Services.LocalizationResourceManager.Instance;
-        var reviewDayLabel = resources["UXAuditReviewDay"];
-        var reviewTripLabel = resources["ReviewTrip"];
-        var downloadLabel = resources["DownloadTrip"];
-        var shareLabel = resources["UXAuditShareItinerary"];
-        var editLabel = resources["UXAuditEditItinerary"];
-        var deleteLabel = resources["DeleteTripTitle"];
-        var remindersLabel = resources["UXAuditReservationReminders"];
-        var actions = new List<string>
+        if (_openingItineraryMenu || !_dayStripActive) return;
+        var sessions = MauiProgram.Services.GetRequiredService<AuthSessionService>();
+        var contextVersion = sessions.ContextVersion;
+        var appearanceVersion = _appearanceVersion;
+        _openingItineraryMenu = true;
+        try
         {
-            reviewDayLabel,
-            reviewTripLabel,
-            downloadLabel,
-            shareLabel
-        };
-        actions.Add(remindersLabel);
-        if (_viewModel.CanManageItinerary)
-        {
-            actions.Insert(0, editLabel);
-            actions.Add(deleteLabel);
+            var resources = TravelCompanion.Mobile.Services.LocalizationResourceManager.Instance;
+            var reviewDayLabel = resources["UXAuditReviewDay"];
+            var reviewTripLabel = resources["ReviewTrip"];
+            var downloadLabel = resources["DownloadTrip"];
+            var shareLabel = resources["UXAuditShareItinerary"];
+            var editLabel = resources["UXAuditEditItinerary"];
+            var deleteLabel = resources["DeleteTripTitle"];
+            var remindersLabel = resources["UXAuditReservationReminders"];
+            var searchLabel = resources["TripSearchTitle"];
+            var actions = new List<string>
+            {
+                searchLabel,
+                reviewDayLabel,
+                reviewTripLabel,
+                downloadLabel,
+                shareLabel
+            };
+            actions.Add(remindersLabel);
+            if (_viewModel.CanManageItinerary)
+            {
+                actions.Insert(0, editLabel);
+                actions.Add(deleteLabel);
+            }
+            var action = await DisplayActionSheetAsync(
+                resources["UXAuditItineraryMenuTitle"],
+                resources["CommonCancel"],
+                null,
+                actions.ToArray());
+            if (!sessions.HasSession || contextVersion != sessions.ContextVersion
+                || appearanceVersion != _appearanceVersion || Shell.Current.CurrentPage != this) return;
+            if ((action == editLabel || action == deleteLabel) && !_viewModel.CanManageItinerary) return;
+            if (action == searchLabel)
+                await Navigation.PushModalAsync(new TripSearchPage());
+            else if (action == reviewDayLabel)
+                await _viewModel.ReviewSelectedDayCommand.ExecuteAsync(null);
+            else if (action == reviewTripLabel)
+                await _viewModel.ReviewTripCommand.ExecuteAsync(null);
+            else if (action == editLabel)
+            {
+                await _viewModel.EditItineraryCommand.ExecuteAsync(null);
+            }
+            else if (action == deleteLabel)
+            {
+                await _viewModel.DeleteItineraryCommand.ExecuteAsync(null);
+            }
+            else if (action == downloadLabel)
+            {
+                await _viewModel.DownloadOfflineCommand.ExecuteAsync(null);
+            }
+            else if (action == shareLabel)
+            {
+                await _viewModel.ShareItineraryCommand.ExecuteAsync(null);
+            }
+            else if (action == remindersLabel)
+                await MauiProgram.Services.GetRequiredService<TravelCompanion.Mobile.Services.ReservationReminderService>().ConfigureAsync();
         }
-        var action = await DisplayActionSheetAsync(
-            resources["UXAuditItineraryMenuTitle"],
-            resources["CommonCancel"],
-            null,
-            actions.ToArray());
-        if (action == reviewDayLabel)
-            await _viewModel.ReviewSelectedDayCommand.ExecuteAsync(null);
-        else if (action == reviewTripLabel)
-            await _viewModel.ReviewTripCommand.ExecuteAsync(null);
-        else if (action == editLabel)
-        {
-            await _viewModel.EditItineraryCommand.ExecuteAsync(null);
-        }
-        else if (action == deleteLabel)
-        {
-            await _viewModel.DeleteItineraryCommand.ExecuteAsync(null);
-        }
-        else if (action == downloadLabel)
-        {
-            await _viewModel.DownloadOfflineCommand.ExecuteAsync(null);
-        }
-        else if (action == shareLabel)
-        {
-            await _viewModel.ShareItineraryCommand.ExecuteAsync(null);
-        }
-        else if (action == remindersLabel)
-            await MauiProgram.Services.GetRequiredService<TravelCompanion.Mobile.Services.ReservationReminderService>().ConfigureAsync();
+        finally { _openingItineraryMenu = false; }
     }
 
     private async void OnTodayLocationTapped(object? sender, TappedEventArgs e) => await OpenTodayLocationAsync(sender);

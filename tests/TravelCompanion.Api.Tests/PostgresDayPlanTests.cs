@@ -1,3 +1,4 @@
+using System.Data;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -27,7 +28,9 @@ public sealed class PostgresDayPlanTests
         async Task<DayPlanResponse> Generate()
         {
             await using var db = Open(database);
-            return await DayPlanTestWorld.Service(db, analytics: true, logger: new CaptureWarnings(warnings)).GenerateAsync(world.Access(), request, default);
+            var response = await DayPlanTestWorld.Service(db, analytics: true, logger: new CaptureWarnings(warnings)).GenerateAsync(world.Access(), request, default);
+            Assert.Equal(ConnectionState.Closed, db.Database.GetDbConnection().State);
+            return response;
         }
 
         var responses = await Task.WhenAll(Generate(), Generate(), Generate());
@@ -38,6 +41,31 @@ public sealed class PostgresDayPlanTests
         var events = await verify.ProductAnalyticsEvents.Where(item => item.Name == "first_useful_response").ToListAsync();
         Assert.True(events.Count == 1, $"Expected one signal, got {events.Count}. Diagnostics: {string.Join("; ", warnings)}");
         Assert.Empty(await verify.Reservations.ToListAsync());
+    }
+
+    [PostgresItineraryIdempotencyTests.PostgresFact]
+    public async Task Generation_telemetry_preserves_a_connection_opened_by_the_caller()
+    {
+        await using var database = new PerformanceDatabase();
+        await database.InitializeAsync();
+        await using var db = Open(database);
+        var world = await DayPlanTestWorld.SeedAsync(db, trial: true);
+        world.User.BehaviorAnalyticsConsent = true;
+        await db.SaveChangesAsync();
+        await db.Database.OpenConnectionAsync();
+        try
+        {
+            var response = await DayPlanTestWorld.Service(db, analytics: true).GenerateAsync(world.Access(), world.Request(3), default);
+
+            Assert.NotEmpty(response.Days.SelectMany(day => day.Stops));
+            Assert.Equal(ConnectionState.Open, db.Database.GetDbConnection().State);
+            Assert.Equal(1, await db.ProductAnalyticsEvents.CountAsync(item => item.Name == "first_useful_response"));
+            Assert.Equal(1, await db.AssistantUsageLeases.CountAsync(item => item.CompletedAtUtc != null));
+        }
+        finally
+        {
+            await db.Database.CloseConnectionAsync();
+        }
     }
 
     [PostgresItineraryIdempotencyTests.PostgresFact]

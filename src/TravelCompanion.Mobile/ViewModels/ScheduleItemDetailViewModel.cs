@@ -211,17 +211,24 @@ public sealed partial class ScheduleItemDetailViewModel(
             if (version != sessionService.ContextVersion || !ReferenceEquals(ScheduleItem, item)) return;
             if (choices.Count == 0)
             {
-                await Shell.Current.DisplayAlertAsync("Documentos", "Agregá un archivo en la pestaña Documentos y volvé a esta reserva.", "OK");
+                var text = LocalizationResourceManager.Instance;
+                await Shell.Current.DisplayAlertAsync(text["UxDocuments"], text["DocumentLinkEmpty"], text["UxOk"]);
                 return;
             }
             var labels = choices.Select((choice, index) => $"{index + 1}. {choice.Title}").ToArray();
-            var selected = await Shell.Current.DisplayActionSheetAsync("Vincular documento", "Cancelar", null, labels);
+            var selected = await Shell.Current.DisplayActionSheetAsync(
+                LocalizationResourceManager.Instance["UxLinkDocument"],
+                LocalizationResourceManager.Instance["CommonCancel"], null, labels);
             var position = Array.IndexOf(labels, selected);
             if (position < 0 || version != sessionService.ContextVersion) return;
             await documentLinks.SetAsync(choices[position]);
             await RefreshLinkedDocumentAsync();
         }
-        catch { await Shell.Current.DisplayAlertAsync("Documentos", "No pudimos vincular el documento.", "OK"); }
+        catch
+        {
+            var text = LocalizationResourceManager.Instance;
+            await Shell.Current.DisplayAlertAsync(text["UxDocuments"], text["DocumentLinkFailed"], text["UxOk"]);
+        }
     }
 
     [RelayCommand]
@@ -235,8 +242,9 @@ public sealed partial class ScheduleItemDetailViewModel(
         catch
         {
             await RefreshLinkedDocumentAsync();
-            await Shell.Current.DisplayAlertAsync("Documento no disponible",
-                "Comprobá que el archivo exista y que haya un visor instalado. Si es un documento del viaje, intentá con conexión.", "OK");
+            var text = LocalizationResourceManager.Instance;
+            await Shell.Current.DisplayAlertAsync(text["LinkedDocumentUnavailableTitle"],
+                text["LinkedDocumentUnavailable"], text["UxOk"]);
         }
     }
 

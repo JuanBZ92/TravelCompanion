@@ -3,6 +3,7 @@ using TravelCompanion.Shared.Dtos;
 namespace TravelCompanion.Mobile.Services;
 
 public sealed record JournalPhoto(Guid Id);
+public sealed record JournalPhotoPayload(byte[] Bytes);
 public sealed record JournalMemory(JournalNoteDto Note, SaveJournalNoteRequest? Pending = null,
     JournalNoteDto? Conflict = null, JournalPhoto[]? Photos = null, Guid? CoverId = null,
     JournalFreeEntryDto? FreeEntry = null, SaveJournalFreeEntryRequest? FreePending = null,
@@ -34,6 +35,7 @@ public readonly record struct JournalScope(Guid UserId, Guid TripId, long Versio
 public sealed partial class JournalStore(OfflineCacheService cache, AuthSessionService sessions, TravelCompanionApiClient api)
 {
     private readonly SemaphoreSlim gate = new(1, 1);
+    private readonly SemaphoreSlim syncGate = new(1, 1);
     private readonly HashSet<Guid> deletedUsers = [];
     private readonly HashSet<(Guid, Guid)> deletedTrips = [];
     public JournalScope Scope() => sessions.HasSession && sessions.CurrentUserId is { } user && sessions.CurrentTripId is { } trip
@@ -45,9 +47,15 @@ public sealed partial class JournalStore(OfflineCacheService cache, AuthSessionS
         if (!IsCurrent(scope) || deletedUsers.Contains(scope.UserId) || deletedTrips.Contains((scope.UserId, scope.TripId)))
             throw new OperationCanceledException("La sesión cambió.");
     }
+    private void CheckEntry(JournalScope scope, JournalMemory entry)
+    {
+        Check(scope);
+        if (entry.Note.TripId != scope.TripId || entry.FreeEntry is { } free && free.TripId != scope.TripId)
+            throw new OperationCanceledException("The memory belongs to another trip.");
+    }
     private static string Prefix(JournalScope s) => $"personal-journal-{s.UserId}-{s.TripId}-";
     private async Task<List<JournalMemory>> ReadAsync(JournalScope s, CancellationToken ct) =>
-        (await cache.GetAsync<List<JournalMemory>>(Prefix(s) + "index", cancellationToken: ct))?.Value ?? [];
+        ((await cache.GetAsync<List<JournalMemory>>(Prefix(s) + "index", cancellationToken: ct))?.Value ?? []).ToList();
     private Task WriteAsync(JournalScope s, List<JournalMemory> entries, CancellationToken ct) => cache.SaveAsync(Prefix(s) + "index", entries, ct);
 
     public async Task ReplayPendingAsync(CancellationToken ct)
@@ -65,73 +73,137 @@ public sealed partial class JournalStore(OfflineCacheService cache, AuthSessionS
         try
         {
             Check(scope);
-            var entries = await ReadAsync(scope, ct);
             var currentItems = items.ToDictionary(x => x.Id);
-            // Discard only untouched legacy previews whose source was corrected. Never
-            // discard saved notes, offline edits, photos, or memories of deleted activities.
-            var changed = entries.RemoveAll(x => !x.IsFree && !x.IsDraft && x.Note.Revision == 0 && x.Note.UpdatedAt == DateTimeOffset.MinValue
-                && x.Pending is null && x.Conflict is null && x.Images.Length == 0
-                && currentItems.TryGetValue(x.Note.ActivityId, out var source)
-                && JournalEntries.Build([source]).Count == 0) > 0;
-            foreach (var legacy in JournalEntries.Build(currentItems.Values))
-                if (entries.All(x => x.IsFree || x.Note.ActivityId != legacy.Item.Id))
-                {
-                    entries.Add(new(new(legacy.Item.Id, scope.TripId, legacy.Title, legacy.Item.City,
-                        legacy.Item.Date, legacy.Notes, 0, DateTimeOffset.MinValue)));
-                    changed = true;
-                }
-            if (sync)
+            // Background replay has no activity seed; avoid decrypting the same index twice.
+            if (currentItems.Count > 0)
             {
-                var token = await sessions.GetTokenAsync();
-                Check(scope);
-                if (!string.IsNullOrEmpty(token))
-                {
-                    try
+                var entries = await ReadAsync(scope, ct);
+                // Discard only untouched legacy previews whose source was corrected. Never
+                // discard saved notes, offline edits, photos, or memories of deleted activities.
+                var changed = entries.RemoveAll(x => !x.IsFree && !x.IsDraft && x.Note.Revision == 0 && x.Note.UpdatedAt == DateTimeOffset.MinValue
+                    && x.Pending is null && x.Conflict is null && x.Images.Length == 0
+                    && currentItems.TryGetValue(x.Note.ActivityId, out var source)
+                    && JournalEntries.Build([source]).Count == 0) > 0;
+                foreach (var legacy in JournalEntries.Build(currentItems.Values))
+                    if (entries.All(x => x.IsFree || x.Note.ActivityId != legacy.Item.Id))
                     {
-                        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                        timeout.CancelAfter(TimeSpan.FromSeconds(12));
-                        var remote = await api.GetJournalAsync(token, scope.TripId, timeout.Token);
-                        Check(scope);
-                        foreach (var note in remote)
-                        {
-                            var index = entries.FindIndex(x => x.Note.ActivityId == note.ActivityId);
-                            if (index < 0) entries.Add(new(note));
-                            else if (entries[index].Pending is null) entries[index] = entries[index] with { Note = note, Conflict = null };
-                        }
-                        for (var i = 0; i < entries.Count; i++)
-                        {
-                            if (entries[i].IsFree || entries[i].IsDraft || entries[i].Pending is not { } pending || entries[i].Conflict is not null) continue;
-                            var result = await api.SaveJournalAsync(token, scope.TripId, entries[i].Note.ActivityId, pending, timeout.Token);
-                            Check(scope);
-                            entries[i] = result.Saved ? entries[i] with { Note = result.Entry, Pending = null, Conflict = null }
-                                : entries[i] with { Conflict = result.Entry };
-                            await WriteAsync(scope, entries, ct);
-                        }
-                        await SyncFreeAsync(scope, entries, token, timeout.Token);
+                        entries.Add(new(new(legacy.Item.Id, scope.TripId, legacy.Title, legacy.Item.City,
+                            legacy.Item.Date, legacy.Notes, 0, DateTimeOffset.MinValue)));
+                        changed = true;
                     }
-                    catch (HttpRequestException) { onSyncFailure?.Invoke(); /* Keep the local mutation for retry. */ }
-                    catch (IOException) { onSyncFailure?.Invoke(); /* A dropped response must not discard confirmed local content. */ }
+                Check(scope);
+                if (changed) await WriteAsync(scope, entries, ct);
+            }
+        }
+        finally { gate.Release(); }
+        if (sync) await SyncAsync(scope, ct, onSyncFailure);
+        return Ordered(await ReadLocalSnapshotAsync(scope, ct));
+    }
+
+    // Search and other local readers must not seed activities or wait for the network.
+    public async Task<IReadOnlyList<JournalMemory>> ReadConfirmedLocalAsync(JournalScope scope, CancellationToken ct = default) =>
+        Ordered(await ReadLocalSnapshotAsync(scope, ct)).Where(x => !x.IsDraft && x.HasContent).ToArray();
+
+    private static List<JournalMemory> Ordered(IEnumerable<JournalMemory> entries) => entries.Where(x => !x.Deleted)
+        .OrderBy(x => x.Date).ThenBy(x => x.Title).ThenBy(x => x.Key).ToList();
+
+    private async Task<List<JournalMemory>> ReadLocalSnapshotAsync(JournalScope scope, CancellationToken ct)
+    {
+        await gate.WaitAsync(ct);
+        try { Check(scope); var entries = await ReadAsync(scope, ct); Check(scope); return entries; }
+        finally { gate.Release(); }
+    }
+
+    private async Task SyncAsync(JournalScope scope, CancellationToken ct, Action? onSyncFailure)
+    {
+        // Only remote work is serialized here. Local saves/photos/drafts use the short gate above.
+        await syncGate.WaitAsync(ct);
+        try
+        {
+            Check(scope);
+            var token = await sessions.GetTokenAsync();
+            Check(scope);
+            if (string.IsNullOrEmpty(token)) return;
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeout.CancelAfter(TimeSpan.FromSeconds(12));
+            var remote = await api.GetJournalAsync(token, scope.TripId, timeout.Token);
+            await ApplyRemoteNotesAsync(scope, remote, ct);
+            var snapshot = await ReadLocalSnapshotAsync(scope, ct);
+            foreach (var entry in snapshot.Where(x => !x.IsFree && !x.IsDraft && x.Pending is not null && !x.HasConflict))
+            {
+                var result = await api.SaveJournalAsync(token, scope.TripId, entry.Id, entry.Pending!, timeout.Token);
+                await ApplyNoteResultAsync(scope, entry, result, ct);
+            }
+            await SyncFreeAsync(scope, token, timeout.Token, ct);
+        }
+        catch (HttpRequestException) { onSyncFailure?.Invoke(); }
+        catch (IOException) { onSyncFailure?.Invoke(); }
 #if ANDROID
-                    catch (Java.IO.IOException) { onSyncFailure?.Invoke(); /* Android's HTTP handler can expose the native exception directly. */ }
+        catch (Java.IO.IOException) { onSyncFailure?.Invoke(); }
 #endif
-                    catch (TaskCanceledException) when (!ct.IsCancellationRequested) { onSyncFailure?.Invoke(); }
+        catch (TaskCanceledException) when (!ct.IsCancellationRequested) { onSyncFailure?.Invoke(); }
+        finally { syncGate.Release(); }
+    }
+
+    private async Task ApplyRemoteNotesAsync(JournalScope scope, IEnumerable<JournalNoteDto> remote, CancellationToken ct)
+    {
+        await gate.WaitAsync(ct);
+        try
+        {
+            Check(scope); var entries = await ReadAsync(scope, ct); var changed = false;
+            foreach (var note in remote.Where(x => x.TripId == scope.TripId))
+            {
+                var index = entries.FindIndex(x => !x.IsFree && x.Id == note.ActivityId);
+                if (index < 0) { entries.Add(new(note)); changed = true; }
+                else if (entries[index].Pending is null && note.Revision >= entries[index].Note.Revision)
+                {
+                    var updated = entries[index] with { Note = note, Conflict = null };
+                    if (updated != entries[index]) { entries[index] = updated; changed = true; }
                 }
             }
-            Check(scope);
-            if (sync || changed) await WriteAsync(scope, entries, ct);
-            return entries.Where(x => !x.Deleted).OrderBy(x => x.Date).ThenBy(x => x.Title).ThenBy(x => x.Key).ToList();
+            Check(scope); if (changed) await WriteAsync(scope, entries, ct);
+        }
+        finally { gate.Release(); }
+    }
+
+    private async Task ApplyNoteResultAsync(JournalScope scope, JournalMemory sent, JournalSaveResult result, CancellationToken ct)
+    {
+        await gate.WaitAsync(ct);
+        try
+        {
+            Check(scope); var entries = await ReadAsync(scope, ct);
+            var index = entries.FindIndex(x => x.Key == sent.Key);
+            if (index < 0 || result.Entry.TripId != scope.TripId) return;
+            var current = entries[index];
+            if (current.Pending?.MutationId == sent.Pending!.MutationId)
+                entries[index] = result.Saved ? current with { Note = result.Entry, Pending = null, Conflict = null }
+                    : current with { Conflict = result.Entry };
+            else if (result.Saved && result.Entry.Revision >= current.Note.Revision)
+            {
+                // A later edit is still pending. Rebase only over our acknowledged predecessor;
+                // its mutation ID/text/photos remain untouched and it has never been sent yet.
+                var pending = current.Pending is { } newer && newer.ExpectedRevision == sent.Pending.ExpectedRevision
+                    ? newer with { ExpectedRevision = result.Entry.Revision } : current.Pending;
+                entries[index] = current with { Note = result.Entry, Pending = pending };
+            }
+            else return;
+            Check(scope); await WriteAsync(scope, entries, ct);
         }
         finally { gate.Release(); }
     }
 
     public async Task SaveAsync(JournalScope scope, JournalMemory entry, string text, CancellationToken ct = default)
     {
+#if ANDROID
+        using var measurement = MobileOperationMeasurement.Start("journal_save_measured");
+#endif
+        CheckEntry(scope, entry);
         if (entry.IsFree) { await SaveFreeLocalAsync(scope, entry, text, ct); return; }
         if (text.Length > 2000) throw new ArgumentException("La nota admite hasta 2000 caracteres.");
         await gate.WaitAsync(ct);
         try
         {
-            Check(scope);
+            CheckEntry(scope, entry);
             var entries = await ReadAsync(scope, ct);
             var index = entries.FindIndex(x => x.Key == entry.Key);
             var current = index >= 0 ? entries[index] : entry;
@@ -218,7 +290,7 @@ public sealed partial class JournalStore(OfflineCacheService cache, AuthSessionS
                 Check(scope);
                 var id = Guid.NewGuid();
                 created.Add(id);
-                await cache.SaveAsync(Prefix(scope) + id, photo);
+                await SavePhotoPayloadAsync(scope, id, photo);
                 updated = updated with { Photos = [..updated.Images, new(id)], CoverId = updated.CoverId ?? id };
                 Check(scope);
             }
@@ -250,7 +322,7 @@ public sealed partial class JournalStore(OfflineCacheService cache, AuthSessionS
                     throw new AggregateException(exception, rollback);
                 }
             }
-            foreach (var id in created) await cache.DeleteAsync(Prefix(scope) + id);
+            foreach (var id in created) await DeletePhotoPayloadAsync(scope, id);
             throw;
         }
         finally { gate.Release(); }
@@ -269,17 +341,69 @@ public sealed partial class JournalStore(OfflineCacheService cache, AuthSessionS
             entries[i] = entries[i] with { Photos = photos, CoverId = remove
                 ? (entries[i].CoverId == photoId ? photos.FirstOrDefault()?.Id : entries[i].CoverId) : photoId };
             await WriteAsync(scope, entries, default);
-            if (remove) await cache.DeleteAsync(Prefix(scope) + photoId);
+            if (remove) await DeleteUnreferencedPhotosAsync(scope, [new(photoId)], entries, default);
         }
         finally { gate.Release(); }
     }
 
-    public async Task<byte[]?> PhotoAsync(JournalScope scope, Guid id, bool thumbnail = false)
+    private static string PhotoPayloadKey(JournalScope scope, Guid id) => Prefix(scope) + "photo-" + id;
+    private static string ThumbnailPayloadKey(JournalScope scope, Guid id) => Prefix(scope) + "thumbnail-" + id;
+
+    private async Task SavePhotoPayloadAsync(JournalScope scope, Guid id, JournalImageData data, CancellationToken ct = default)
     {
         Check(scope);
-        var data = (await cache.GetAsync<JournalImageData>(Prefix(scope) + id))?.Value;
+        await cache.SaveAsync(PhotoPayloadKey(scope, id), new JournalPhotoPayload(data.Image), ct);
         Check(scope);
-        return thumbnail ? data?.Thumbnail : data?.Image;
+        await cache.SaveAsync(ThumbnailPayloadKey(scope, id), new JournalPhotoPayload(data.Thumbnail), ct);
+        Check(scope);
+    }
+
+    private async Task DeletePhotoPayloadAsync(JournalScope scope, Guid id)
+    {
+        await cache.DeleteAsync(PhotoPayloadKey(scope, id));
+        await cache.DeleteAsync(ThumbnailPayloadKey(scope, id));
+        await cache.DeleteAsync(Prefix(scope) + id); // Legacy combined payload.
+    }
+
+    public async Task<byte[]?> PhotoAsync(JournalScope scope, Guid id, bool thumbnail = false, CancellationToken ct = default)
+    {
+#if ANDROID
+        using var measurement = MobileOperationMeasurement.Start(thumbnail ? "journal_thumbnail_measured" : "journal_photo_measured");
+#endif
+        Check(scope);
+        var key = thumbnail ? ThumbnailPayloadKey(scope, id) : PhotoPayloadKey(scope, id);
+        var separate = (await cache.GetAsync<JournalPhotoPayload>(key, cancellationToken: ct))?.Value;
+        ct.ThrowIfCancellationRequested();
+        Check(scope);
+        if (separate is not null) return separate.Bytes;
+        var legacy = (await cache.GetAsync<JournalImageData>(Prefix(scope) + id, cancellationToken: ct))?.Value;
+        ct.ThrowIfCancellationRequested(); Check(scope);
+        if (legacy is null) return null;
+        // Migrate on first access, keeping the old file until both encrypted parts are durable.
+        // Recheck references under the local gate so a simultaneous deletion cannot resurrect it.
+        await gate.WaitAsync(ct);
+        try
+        {
+            Check(scope);
+            var entries = await ReadAsync(scope, ct); var drafts = await ReadDraftsAsync(scope, ct);
+            Check(scope);
+            if (!entries.Concat(drafts.Select(x => x.Memory)).Any(x => x.Images.Any(p => p.Id == id))) return null;
+            try
+            {
+                await SavePhotoPayloadAsync(scope, id, legacy, ct);
+                await cache.DeleteAsync(Prefix(scope) + id);
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (IOException)
+            {
+                // Disk exhaustion must not make an existing photo unreadable.
+                await cache.DeleteAsync(PhotoPayloadKey(scope, id));
+                await cache.DeleteAsync(ThumbnailPayloadKey(scope, id));
+            }
+            ct.ThrowIfCancellationRequested(); Check(scope);
+            return thumbnail ? legacy.Thumbnail : legacy.Image;
+        }
+        finally { gate.Release(); }
     }
 
     public async Task DeleteAccountAsync(Guid user)
@@ -305,11 +429,19 @@ public sealed partial class JournalStore(OfflineCacheService cache, AuthSessionS
             var drafts = await ReadDraftsAsync(source, default);
             foreach (var photo in memories.Concat(drafts.Select(x => x.Memory)).SelectMany(x => x.Images).DistinctBy(x => x.Id))
             {
-                var payload = await cache.GetAsync<JournalImageData>(Prefix(source) + photo.Id);
-                if (payload is not null) await cache.SaveAsync(Prefix(target) + photo.Id, payload.Value);
+                var image = await cache.GetAsync<JournalPhotoPayload>(PhotoPayloadKey(source, photo.Id));
+                var thumbnail = await cache.GetAsync<JournalPhotoPayload>(ThumbnailPayloadKey(source, photo.Id));
+                var legacy = image is null || thumbnail is null ? await cache.GetAsync<JournalImageData>(Prefix(source) + photo.Id) : null;
+                Check(source);
+                if (image is not null || legacy is not null)
+                    await cache.SaveAsync(PhotoPayloadKey(target, photo.Id), image?.Value ?? new JournalPhotoPayload(legacy!.Value.Image));
+                if (thumbnail is not null || legacy is not null)
+                    await cache.SaveAsync(ThumbnailPayloadKey(target, photo.Id), thumbnail?.Value ?? new JournalPhotoPayload(legacy!.Value.Thumbnail));
+                Check(source);
             }
             if (memories.Count > 0) await WriteAsync(target, memories, default);
             if (drafts.Count > 0) await cache.SaveAsync(Prefix(target) + "drafts", drafts);
+            Check(source);
             await cache.DeleteByPrefixAsync(Prefix(source));
         }
         finally { gate.Release(); }

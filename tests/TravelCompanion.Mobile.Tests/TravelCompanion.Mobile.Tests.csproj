@@ -28,8 +28,28 @@
     <Compile Include="..\..\src\TravelCompanion.Mobile\ViewModels\DayPlannerViewModel.cs" Link="DayPlannerViewModel.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\ViewModels\DayPlannerViewModel.Replacement.cs" Link="DayPlannerViewModel.Replacement.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\ExpenseStore.cs" Link="ExpenseStore.cs" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\Services\ExpenseEditorSnapshot.cs" Link="ExpenseEditorSnapshot.cs" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\Services\MapContentComparison.cs" Link="MapContentComparison.cs" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\Services\LocalUnlockRouting.cs" Link="LocalUnlockRouting.cs" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\ViewModels\BiometricUnlockViewModel.cs" Link="BiometricUnlockViewModel.cs" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\Services\TripSearchIndex.cs" Link="TripSearchIndex.cs" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\Services\TripDayOverview.cs" Link="TripDayOverview.cs" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\Services\PaywallPresentation.cs" Link="PaywallPresentation.cs" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\ViewModels\PaywallViewModel.cs" Link="PaywallViewModel.cs" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\Services\PendingStorePurchaseStore.cs" Link="PendingStorePurchaseStore.cs" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\Services\PendingItineraryActionStore.cs" Link="PendingItineraryActionStore.cs" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\Services\StorePurchaseRecoveryService.cs" Link="StorePurchaseRecoveryService.cs" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\ViewModels\TripPreparationViewModel.cs" Link="TripPreparationViewModel.cs" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\ViewModels\DocsViewModel.cs" Link="DocsViewModel.cs" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\ViewModels\DocsViewModel.Local.cs" Link="DocsViewModel.Local.cs" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\ViewModels\DocsViewModel.Presentation.cs" Link="DocsViewModel.Presentation.cs" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\ViewModels\ISessionStateResettable.cs" Link="ISessionStateResettable.cs" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\Services\AssistantRequestScope.cs" Link="AssistantRequestScope.cs" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\Services\AssistantFreeTimeWindow.cs" Link="AssistantFreeTimeWindow.cs" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\ViewModels\TravelChatViewModel.FreeTime.cs" Link="TravelChatViewModel.FreeTime.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\DiagnosticJournal.cs" Link="DiagnosticJournal.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\JournalEntries.cs" Link="JournalEntries.cs" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\ViewModels\JournalViewModel.cs" Link="JournalViewModel.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\MapUpdateBatch.cs" Link="MapUpdateBatch.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\JournalStore.cs" Link="JournalStore.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\JournalStore.FreeEntries.cs" Link="JournalStore.FreeEntries.cs" />
@@ -59,6 +79,7 @@
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\ReservationLocalTime.cs" Link="ReservationLocalTime.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\AuthSessionService.cs" Link="AuthSessionService.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\FreeMapStore.cs" Link="FreeMapStore.cs" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\ViewModels\FreeMapViewModel.cs" Link="FreeMapViewModel.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\ItineraryEditorContext.cs" Link="ItineraryEditorContext.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\BuilderTripDeletionFlow.cs" Link="BuilderTripDeletionFlow.cs" />
   </ItemGroup>

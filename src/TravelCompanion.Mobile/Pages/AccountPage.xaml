@@ -37,14 +37,14 @@
                     <Label Text="{Binding [TabAccount], Source={x:Static services:LocalizationResourceManager.Instance}}"
                            FontFamily="serif" FontSize="36" TextColor="{StaticResource Ink}" SemanticProperties.HeadingLevel="Level1" />
                     <Label Text="{Binding [AccountIntro], Source={x:Static services:LocalizationResourceManager.Instance}}"
-                           FontSize="15" TextColor="{StaticResource InkSoft}" />
+                           Style="{StaticResource EditorialBody}" TextColor="{StaticResource InkSoft}" />
                 </VerticalStackLayout>
 
                 <Border Style="{StaticResource AccountPanel}">
                     <Grid ColumnDefinitions="32,*,48" ColumnSpacing="12">
                         <Image Source="tab_account.svg" WidthRequest="26" HeightRequest="26" VerticalOptions="Start" Margin="0,6,0,0" AutomationProperties.IsInAccessibleTree="False" />
                         <VerticalStackLayout Grid.Column="1" Spacing="6" VerticalOptions="Center">
-                            <Label Text="{Binding Email}" FontSize="15" TextColor="{StaticResource Ink}" LineBreakMode="WordWrap" />
+                            <Label Text="{Binding Email}" Style="{StaticResource EditorialBody}" LineBreakMode="WordWrap" />
                             <Label Text="{Binding [AccountVerified], Source={x:Static services:LocalizationResourceManager.Instance}}"
                                    IsVisible="{Binding EmailVerified}" FontSize="12" TextColor="#8A6F49" />
                             <Label Text="{Binding [AccountVerifyEmail], Source={x:Static services:LocalizationResourceManager.Instance}}"
@@ -102,11 +102,22 @@
                 </Border>
 
                 <Label Text="{Binding [AccountPreferences], Source={x:Static services:LocalizationResourceManager.Instance}}" Style="{StaticResource AccountSection}" />
+                <Border Style="{StaticResource EditorialCard}">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="{Binding [AccountUnlockTitle], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                               Style="{StaticResource EditorialEyebrow}" SemanticProperties.HeadingLevel="Level2" />
+                        <Label Text="{Binding UnlockMethodLabel}" Style="{StaticResource EditorialBody}" FontAttributes="Bold" />
+                        <Label Text="{Binding UnlockMethodDescription}" Style="{StaticResource EditorialCaption}" />
+                        <Button Text="{Binding [AccountUnlockChoose], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                                Command="{Binding ChooseUnlockMethodCommand}" IsEnabled="{Binding IsNotBusy}"
+                                Style="{StaticResource EditorialSecondaryButton}" MinimumHeightRequest="48" />
+                    </VerticalStackLayout>
+                </Border>
                 <Border Style="{StaticResource AccountPanel}">
                     <VerticalStackLayout Spacing="8">
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                             <Label Text="{Binding [AccountAnalyticsTitle], Source={x:Static services:LocalizationResourceManager.Instance}}"
-                                   FontSize="15" TextColor="{StaticResource Ink}" VerticalOptions="Center" />
+                                   Style="{StaticResource EditorialBody}" VerticalOptions="Center" />
                             <Switch Grid.Column="1" IsToggled="{Binding BehaviorAnalyticsEnabled}" OnColor="#B49468"
                                     SemanticProperties.Description="{Binding [AccountAnalyticsTitle], Source={x:Static services:LocalizationResourceManager.Instance}}" />
                         </Grid>
@@ -115,6 +126,7 @@
                     </VerticalStackLayout>
                 </Border>
                 <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
+                <Label Text="{Binding StatusMessage}" IsVisible="{Binding HasStatus}" Style="{StaticResource EditorialCaption}" />
                 <Button Text="{Binding [DiagnosticsShare], Source={x:Static services:LocalizationResourceManager.Instance}}"
                         Clicked="OnDiagnosticsClicked" Style="{StaticResource AccountAction}" />
                 <Border Style="{StaticResource ErrorPanel}" IsVisible="{Binding HasError}">

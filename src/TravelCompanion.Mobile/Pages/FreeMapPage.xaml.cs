@@ -1,5 +1,6 @@
 using TravelCompanion.Mobile.Controls;
 using System.ComponentModel;
+using TravelCompanion.Mobile.Services;
 using TravelCompanion.Mobile.ViewModels;
 using TravelCompanion.Shared.Dtos;
 
@@ -16,6 +17,7 @@ public partial class FreeMapPage : ContentPage
     private readonly FreeMapViewModel _viewModel;
     private bool _isActive;
     private long _appearance;
+    private string? _previewSelectionKey;
 
 #if !WINDOWS
     private readonly MauiMap _map;
@@ -76,7 +78,7 @@ public partial class FreeMapPage : ContentPage
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine(ex);
-            if (_isActive && appearance == _appearance) _viewModel.ErrorMessage = "No pudimos cargar el mapa. Volvé a intentarlo.";
+            if (_isActive && appearance == _appearance) _viewModel.ErrorMessage = LocalizationResourceManager.Instance["MapLoadError"];
         }
     }
 
@@ -85,6 +87,7 @@ public partial class FreeMapPage : ContentPage
         _isActive = false;
         _appearance++;
         _viewModel.CancelLoading();
+        _viewModel.CancelCityLoad();
         base.OnDisappearing();
         _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
     }
@@ -92,7 +95,21 @@ public partial class FreeMapPage : ContentPage
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(FreeMapViewModel.Preview) or nameof(FreeMapViewModel.SelectedMarker))
+        {
             TryUpdateMap();
+            var key = _viewModel.SelectedMarker?.MarkerKey;
+            if (_previewSelectionKey != key)
+            {
+                _previewSelectionKey = key;
+                _ = ResetPreviewScrollAsync();
+            }
+        }
+    }
+
+    private async Task ResetPreviewScrollAsync()
+    {
+        try { await RecommendationPreviewScroll.ScrollToAsync(0, 0, false); }
+        catch (Exception exception) { System.Diagnostics.Debug.WriteLine(exception); }
     }
 
     private void TryUpdateMap()
@@ -106,7 +123,7 @@ public partial class FreeMapPage : ContentPage
 #if !WINDOWS
             _renderedPreview = null;
 #endif
-            _viewModel.ErrorMessage = "No pudimos mostrar el mapa. Volvé a intentarlo.";
+            _viewModel.ErrorMessage = LocalizationResourceManager.Instance["MapLoadError"];
         }
     }
 
@@ -167,7 +184,7 @@ public partial class FreeMapPage : ContentPage
                 pin.MarkerClicked += handler;
                 _pinHandlers[pin] = handler;
             }
-            pin.Label = isUnlocked ? marker.Recommendation?.Title ?? "YUKU" : "Contenido YUKU";
+            pin.Label = isUnlocked ? marker.Recommendation?.Title ?? "YUKU" : LocalizationResourceManager.Instance["MapLockedPinTitle"];
             pin.Address = isUnlocked ? marker.Recommendation?.Neighborhood ?? string.Empty : string.Empty;
             pin.BindingContext = marker;
             pin.Type = isUnlocked ? PinType.Place : PinType.Generic;
@@ -246,4 +263,7 @@ public partial class FreeMapPage : ContentPage
         }
         return base.OnBackButtonPressed();
     }
+
+    private void OnPageLayoutSizeChanged(object? sender, EventArgs e) =>
+        RecommendationPreviewScroll.MaximumHeightRequest = Math.Clamp(RootLayout.Height * 0.36, 100, 280);
 }

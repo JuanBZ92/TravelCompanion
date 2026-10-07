@@ -349,19 +349,34 @@
         </Setter>
     </Style>
 
+    <!-- Shared editorial measurements also match EditorialUi's C# controls. -->
+    <x:Double x:Key="EditorialHeadingSize">30</x:Double>
+    <x:Double x:Key="EditorialBodySize">16</x:Double>
+    <x:Double x:Key="EditorialCaptionSize">13</x:Double>
+    <x:Double x:Key="EditorialEyebrowSize">12</x:Double>
+    <x:Double x:Key="EditorialTouchSize">48</x:Double>
+    <x:Double x:Key="EditorialSpacing">16</x:Double>
+    <x:Double x:Key="EditorialCompactSpacing">8</x:Double>
     <Style TargetType="Label" x:Key="EditorialHeading">
         <Setter Property="FontFamily" Value="serif" />
-        <Setter Property="FontSize" Value="30" />
+        <Setter Property="FontSize" Value="{StaticResource EditorialHeadingSize}" />
         <Setter Property="TextColor" Value="{StaticResource Ink}" />
         <Setter Property="LineHeight" Value="1.12" />
         <Setter Property="LineBreakMode" Value="WordWrap" />
         <Setter Property="SemanticProperties.HeadingLevel" Value="Level1" />
     </Style>
     <Style TargetType="Label" x:Key="EditorialBody">
-        <Setter Property="FontSize" Value="15" />
+        <Setter Property="FontSize" Value="{StaticResource EditorialBodySize}" />
         <Setter Property="TextColor" Value="{StaticResource EditorialMuted}" />
         <Setter Property="LineHeight" Value="1.25" />
         <Setter Property="LineBreakMode" Value="WordWrap" />
+    </Style>
+    <Style TargetType="Label" x:Key="EditorialCaption" BasedOn="{StaticResource EditorialBody}">
+        <Setter Property="FontSize" Value="{StaticResource EditorialCaptionSize}" />
+    </Style>
+    <Style TargetType="Label" x:Key="EditorialEyebrow" BasedOn="{StaticResource EditorialCaption}">
+        <Setter Property="FontSize" Value="{StaticResource EditorialEyebrowSize}" />
+        <Setter Property="CharacterSpacing" Value="2" />
     </Style>
     <Style TargetType="Border" x:Key="EditorialCard">
         <Setter Property="Padding" Value="16" />
@@ -371,19 +386,19 @@
     </Style>
     <Style TargetType="ImageButton" x:Key="EditorialIconButton">
         <Setter Property="BackgroundColor" Value="Transparent" />
-        <Setter Property="MinimumWidthRequest" Value="48" />
-        <Setter Property="MinimumHeightRequest" Value="48" />
-        <Setter Property="WidthRequest" Value="48" />
-        <Setter Property="HeightRequest" Value="48" />
+        <Setter Property="MinimumWidthRequest" Value="{StaticResource EditorialTouchSize}" />
+        <Setter Property="MinimumHeightRequest" Value="{StaticResource EditorialTouchSize}" />
+        <Setter Property="WidthRequest" Value="{StaticResource EditorialTouchSize}" />
+        <Setter Property="HeightRequest" Value="{StaticResource EditorialTouchSize}" />
         <Setter Property="Padding" Value="12" />
     </Style>
     <Style TargetType="Button" x:Key="EditorialPrimaryButton">
         <Setter Property="BackgroundColor" Value="{StaticResource Accent}" />
         <Setter Property="TextColor" Value="White" />
         <Setter Property="CornerRadius" Value="14" />
-        <Setter Property="MinimumHeightRequest" Value="48" />
-        <Setter Property="MinimumWidthRequest" Value="48" />
-        <Setter Property="FontSize" Value="15" />
+        <Setter Property="MinimumHeightRequest" Value="{StaticResource EditorialTouchSize}" />
+        <Setter Property="MinimumWidthRequest" Value="{StaticResource EditorialTouchSize}" />
+        <Setter Property="FontSize" Value="{StaticResource EditorialBodySize}" />
         <Setter Property="Padding" Value="16,12" />
     </Style>
     <Style TargetType="Button" x:Key="EditorialSecondaryButton" BasedOn="{StaticResource EditorialPrimaryButton}">

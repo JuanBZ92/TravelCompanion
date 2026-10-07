@@ -13,6 +13,7 @@ public sealed class TripsModel(
     TripPlanEditorService editorService) : PageModel
 {
     public IReadOnlyList<TripPlanListItem> Trips { get; private set; } = [];
+    public TripPlanListPage TripPage { get; private set; } = new([], 0, 0, 1, 50);
     public IReadOnlyList<SelectListItem> DestinationOptions { get; private set; } = [];
     public string JapanDestinationName { get; private set; } = "Japón";
     public TripPlanEditorState? Editor { get; private set; }
@@ -23,6 +24,12 @@ public sealed class TripsModel(
 
     [BindProperty(SupportsGet = true)]
     public string? Search { get; set; }
+
+    [BindProperty(SupportsGet = true)]
+    public int PageNumber { get; set; } = 1;
+
+    [BindProperty(SupportsGet = true)]
+    public string? Status { get; set; }
 
     [BindProperty]
     public CreateTripInput CreateInput { get; set; } = new();
@@ -60,6 +67,22 @@ public sealed class TripsModel(
         else if (CreateInput.CitySegments.Any(segment => segment.StartsOn == default || segment.EndsOn == default))
         {
             ModelState.AddModelError(string.Empty, "Completá las fechas de todos los tramos de ciudad.");
+            for (var index = 0; index < CreateInput.CitySegments.Count; index++)
+            {
+                var segment = CreateInput.CitySegments[index];
+                if (segment.StartsOn == default)
+                {
+                    var key = $"CreateInput.CitySegments[{index}].StartsOn";
+                    ModelState[key]?.Errors.Clear();
+                    ModelState.AddModelError(key, "Indica una fecha de inicio válida.");
+                }
+                if (segment.EndsOn == default)
+                {
+                    var key = $"CreateInput.CitySegments[{index}].EndsOn";
+                    ModelState[key]?.Errors.Clear();
+                    ModelState.AddModelError(key, "Indica una fecha de fin válida.");
+                }
+            }
         }
 
         if (!ModelState.IsValid)
@@ -99,7 +122,8 @@ public sealed class TripsModel(
 
     public async Task<IActionResult> OnPostSaveDraftAsync()
     {
-        ModelState.Remove(nameof(CreateInput));
+        RemoveCreateInputValidation();
+        if (!ModelState.IsValid) return await ShowEditorValidationAsync();
         if (!TripId.HasValue || string.IsNullOrWhiteSpace(DraftJson))
         {
             ErrorMessage = "No se recibió un borrador válido.";
@@ -118,7 +142,8 @@ public sealed class TripsModel(
         }
         else
         {
-            ErrorMessage = result.Message;
+            ModelState.AddModelError(string.Empty, result.Message);
+            return await ShowEditorValidationAsync();
         }
 
         return RedirectToPage(new { tripId = TripId.Value });
@@ -126,7 +151,8 @@ public sealed class TripsModel(
 
     public async Task<IActionResult> OnPostPublishAsync()
     {
-        ModelState.Remove(nameof(CreateInput));
+        RemoveCreateInputValidation();
+        if (!ModelState.IsValid) return await ShowEditorValidationAsync();
         if (!TripId.HasValue || string.IsNullOrWhiteSpace(DraftJson))
         {
             ErrorMessage = "No se recibió un borrador válido.";
@@ -145,7 +171,8 @@ public sealed class TripsModel(
         }
         else
         {
-            ErrorMessage = result.Message;
+            ModelState.AddModelError(string.Empty, result.Message);
+            return await ShowEditorValidationAsync();
         }
 
         return RedirectToPage(new { tripId = TripId.Value });
@@ -160,9 +187,25 @@ public sealed class TripsModel(
         return deletedTrip ? RedirectToPage() : RedirectToPage(new { tripId = id });
     }
 
-    private async Task LoadPageAsync()
+    private void RemoveCreateInputValidation()
     {
-        Trips = await editorService.ListTripsAsync(Search, HttpContext.RequestAborted);
+        foreach (var key in ModelState.Keys.Where(key => key == nameof(CreateInput)
+            || key.StartsWith(nameof(CreateInput) + ".", StringComparison.Ordinal)).ToList())
+            ModelState.Remove(key);
+    }
+
+    private async Task<IActionResult> ShowEditorValidationAsync()
+    {
+        await LoadPageAsync(preserveSubmittedDraft: true);
+        return Page();
+    }
+
+    private async Task LoadPageAsync(bool preserveSubmittedDraft = false)
+    {
+        Status = Status is "draft" or "published" ? Status : null;
+        TripPage = await editorService.ListTripsAsync(Search, PageNumber, Status, HttpContext.RequestAborted);
+        Trips = TripPage.Items;
+        PageNumber = TripPage.Page;
         var destinations = await dbContext.Destinations
             .AsNoTracking()
             .OrderBy(destination => destination.Name)
@@ -189,8 +232,9 @@ public sealed class TripsModel(
             }
             else
             {
-                BasePlanRevision = Editor.BasePlanRevision;
-                EditorStateJson = editorService.SerializeForPage(Editor);
+                if (!preserveSubmittedDraft) BasePlanRevision = Editor.BasePlanRevision;
+                EditorStateJson = editorService.SerializeForPage(Editor,
+                    preserveSubmittedDraft ? DraftJson : null);
             }
         }
 
@@ -209,7 +253,7 @@ public sealed class TripsModel(
     public sealed class CreateTripInput
     {
         [Required(ErrorMessage = "El nombre del cliente es obligatorio.")]
-        [StringLength(140)]
+        [StringLength(140, ErrorMessage = "El nombre del cliente no puede superar 140 caracteres.")]
         public string TravelerName { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "El PIN es obligatorio.")]
@@ -225,13 +269,15 @@ public sealed class TripsModel(
     public sealed class CreateTripCityInput
     {
         [Required(ErrorMessage = "La ciudad es obligatoria.")]
-        [StringLength(120)]
+        [StringLength(120, ErrorMessage = "La ciudad no puede superar 120 caracteres.")]
         public string City { get; set; } = string.Empty;
 
+        [Required(ErrorMessage = "Indica una fecha de inicio válida.")]
         public DateOnly StartsOn { get; set; }
+        [Required(ErrorMessage = "Indica una fecha de fin válida.")]
         public DateOnly EndsOn { get; set; }
 
-        [StringLength(180)]
+        [StringLength(180, ErrorMessage = "El alojamiento no puede superar 180 caracteres.")]
         public string? HotelBase { get; set; }
     }
 }

@@ -62,6 +62,12 @@ public sealed record GuidedPlanCriteriaDto(
     public bool IgnorePreferences { get; init; }
     public string? TravelPace { get; init; }
     public IReadOnlyList<string> Interests { get; init; } = [];
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public DateTime? WindowStartsAtLocal { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public DateTime? WindowEndsAtLocal { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? WindowTimeZoneId { get; init; }
 }
 
 public sealed record DayPersonalizationOptionsDto(

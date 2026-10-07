@@ -1,0 +1,1352 @@
+{
+  "schemaVersion": 1,
+  "plan": "Auditoría de Yuku y propuesta de mejora: uso diario y claridad",
+  "acceptedBaseline": "51c996264bf45d7562b45bc8658d0f51d5cc6af9",
+  "scope": "Fases 1–4 y calidad acordada. Sin push, producción, migraciones nuevas ni infraestructura.",
+  "androidArtifact": {
+    "package": "com.yuku.travelcompanion.plannerpaidreview",
+    "versionCode": 147
+  },
+  "requiredSuites": [
+    "mobile",
+    "api",
+    "shared"
+  ],
+  "requiredBuilds": [
+    "api-worker",
+    "android-release"
+  ],
+  "criteria": [
+    {
+      "id": "ux01-contrast-secondary",
+      "phase": "D/F/H/K: fundamentos y UX",
+      "acceptance": "Texto secundario legible conservando la paleta",
+      "implementation": "done",
+      "verification": "source_review",
+      "sources": [
+        "src/TravelCompanion.Mobile/Resources/Styles/Colors.xaml"
+      ],
+      "tests": [],
+      "artifacts": [],
+      "reviewNote": "Cálculo WCAG sobre colores actuales: #71675D sobre Mist #F8F3ED = 5.0087:1."
+    },
+    {
+      "id": "ux02-contrast-plan",
+      "phase": "D/F/H/K: fundamentos y UX",
+      "acceptance": "Dorado con texto oscuro en Planificar",
+      "implementation": "done",
+      "verification": "source_review",
+      "sources": [
+        "src/TravelCompanion.Mobile/Pages/SchedulePage.xaml",
+        "src/TravelCompanion.Mobile/Resources/Images/today_arrow_dark.svg"
+      ],
+      "tests": [],
+      "artifacts": [],
+      "reviewNote": "Botón subyacente Text vacío; título y subtítulo visibles usan Ink. #1A1714 sobre Gold #B8956A = 6.4128:1."
+    },
+    {
+      "id": "ux03-docs-valid-empty",
+      "phase": "D/F/H/K: fundamentos y UX",
+      "acceptance": "Vacío solamente tras respuesta válida sin documentos",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Mobile/ViewModels/DocsViewModel.cs",
+        "src/TravelCompanion.Mobile/Pages/DocsPage.xaml"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.DocsViewModelTests.Successful_empty_response_shows_empty_only_after_loading_finishes"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Revisado en código de la aplicación. Pruebas de lógica; comprobación nativa actual registrada por separado."
+    },
+    {
+      "id": "ux04-docs-failure",
+      "phase": "D/F/H/K: fundamentos y UX",
+      "acceptance": "Fallo sin caché muestra error recuperable y reintento; refresh conserva contenido",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Mobile/ViewModels/DocsViewModel.cs",
+        "src/TravelCompanion.Mobile/Pages/DocsPage.xaml"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.DocsViewModelTests.Failure_without_cache_is_retryable_error_and_never_a_false_empty_state"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.DocsViewModelTests.Failed_refresh_retains_both_sources_and_retry_can_clear_curated_rows_without_losing_personal_files"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Revisado en código de la aplicación. Pruebas de lógica; comprobación nativa actual registrada por separado."
+    },
+    {
+      "id": "ux05-docs-offline",
+      "phase": "D/F/H/K: fundamentos y UX",
+      "acceptance": "Offline sin descarga explica contenido no disponible y conserva archivos personales; caché funciona sin HTTP",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Mobile/ViewModels/DocsViewModel.cs",
+        "src/TravelCompanion.Mobile/Localization/AppResources.resx",
+        "src/TravelCompanion.Mobile/Localization/AppResources.es.resx"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.DocsViewModelTests.Offline_without_downloaded_content_explains_missing_pass_content_and_keeps_personal_files"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.DocsViewModelTests.Offline_cache_and_personal_attachment_remain_available_without_fetching"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.DocsViewModelTests.Free_read_only_user_can_use_personal_documents_offline_without_expanding_included_access"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Revisado en código de la aplicación. Pruebas de lógica; comprobación nativa actual registrada por separado."
+    },
+    {
+      "id": "ux06-planner-block",
+      "phase": "D/F/H/K: fundamentos y UX",
+      "acceptance": "Motivo junto a aplicar cuando falta conexión/acceso/revisión/selección; recuperación conserva propuesta",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Mobile/ViewModels/DayPlannerViewModel.cs",
+        "src/TravelCompanion.Mobile/Pages/DayPlanProposalPage.xaml"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.DayPlannerViewModelTests.Offline_proposal_explains_block_without_losing_selection"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.DayPlannerViewModelTests.Choosing_a_compared_proposal_never_enables_saving_offline_or_without_access_options"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.DayPlannerViewModelTests.Access_and_revision_failures_preserve_the_proposal_and_selected_ids"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Ramas adicionales selección vacía, comparación no elegida y reemplazo pendiente tienen texto localizado; botón recuperación sólo revision obsoleta +online +sin operaciones pendientes."
+    },
+    {
+      "id": "ux07-planner-pending",
+      "phase": "D/F/H/K: fundamentos y UX",
+      "acceptance": "Operaciones pendientes mantienen identidad y recuperación contextual",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Mobile/ViewModels/DayPlannerViewModel.cs",
+        "src/TravelCompanion.Mobile/ViewModels/DayPlannerViewModel.Replacement.cs"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.DayPlannerViewModelTests.Lost_application_response_survives_refresh_and_restart_then_replays_same_mutation"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.DayPlannerViewModelTests.Lost_response_survives_restart_and_replays_the_same_mutation_before_saving"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.DayPlannerViewModelTests.Pending_replacement_blocks_other_commands_and_cancellation_preserves_its_identity"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Revisado en código de la aplicación. Pruebas de lógica; comprobación nativa actual registrada por separado."
+    },
+    {
+      "id": "ux08-today-message",
+      "phase": "D/F/H/K: fundamentos y UX",
+      "acceptance": "Distinguir día vacío, ideas flexibles y ausencia de próximas reservas",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Mobile/ViewModels/ScheduleViewModel.cs",
+        "src/TravelCompanion.Mobile/Services/TripDayOverview.cs"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.TripSearchAndOverviewTests.Today_distinguishes_empty_flexible_and_no_upcoming_reservations"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Revisado en código de la aplicación. Pruebas de lógica; comprobación nativa actual registrada por separado."
+    },
+    {
+      "id": "ux09-expense-discard",
+      "phase": "D/F/H/K: fundamentos y UX",
+      "acceptance": "Advertir al cerrar gasto modificado y evitar aviso si intacto",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Mobile/Pages/ExpenseEditorPage.cs",
+        "src/TravelCompanion.Mobile/Services/ExpenseEditorSnapshot.cs"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.ExpenseEditorSnapshotTests.UntouchedWhitespaceAndQuoteRefreshDoNotMakeTheFormDirty"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.ExpenseEditorSnapshotTests.EachEditableFieldIncludingActivityAndManualRateMakesTheFormDirty"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Cierre y atrás convergen en CloseAsync; confirmación ES/EN, cierre confirmado tras guardar omite aviso. Diálogo nativo no ejecutado en esta revisión."
+    },
+    {
+      "id": "ux10-localization",
+      "phase": "D/F/H/K: fundamentos y UX",
+      "acceptance": "Recorridos modificados ES/EN y detalles técnicos inesperados sólo en diagnóstico",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Mobile/Localization/AppResources.resx",
+        "src/TravelCompanion.Mobile/Localization/AppResources.es.resx",
+        "src/TravelCompanion.Mobile/Pages/ExpenseEditorPage.cs",
+        "src/TravelCompanion.Mobile/Services/LocationService.cs",
+        "src/TravelCompanion.Mobile/ViewModels/ViewModelBase.cs"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.LoadErrorPresentationTests.Android_native_transport_errors_use_the_selected_language"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.LoadErrorPresentationTests.Successful_retry_clears_the_connection_error"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.ScheduleTodayLocalizationTests.Generated_day_title_and_free_block_are_localized"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Claves de Docs/planner/Preparación/pase/unlock presentes en ambos RESX; gastos usa T(es,en); rationale GPS localizado. Revisión independiente final corrigió el literal de propuesta obsoleta del Asistente mediante PlannerStaleHelp ES/EN; compilación final posterior valida el ViewModel completo."
+    },
+    {
+      "id": "ux11-preparation-local",
+      "phase": "D/F/H/K: fundamentos y UX",
+      "acceptance": "Adjuntar y decisiones locales no esperan importación remota ni analítica y no vuelven a consultar por cada cambio",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Mobile/ViewModels/TripPreparationViewModel.cs"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.TripPreparationViewModelTests.Slow_legacy_request_does_not_block_local_attachments_or_manual_decisions_or_repeat_after_them"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.TripPreparationViewModelTests.Pending_optional_analytics_does_not_hold_loading_or_local_mutations"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.TripPreparationViewModelTests.Completed_import_and_offline_use_never_need_the_legacy_endpoint"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Revisado en código de la aplicación. Pruebas de lógica; comprobación nativa actual registrada por separado."
+    },
+    {
+      "id": "ux12-preparation-error-scope",
+      "phase": "D/F/H/K: fundamentos y UX",
+      "acceptance": "Importación fallida no bloquea archivos; cambios de cuenta/viaje descartan operación",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Mobile/ViewModels/TripPreparationViewModel.cs"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.TripPreparationViewModelTests.Legacy_transport_failure_preserves_local_actions_and_has_separate_recoverable_notice"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.TripPreparationViewModelTests.Account_or_trip_change_during_import_cannot_write_legacy_state_into_the_new_context"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.TripPreparationViewModelTests.Account_change_in_manual_action_sheet_discards_the_selected_decision"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Revisado en código de la aplicación. Pruebas de lógica; comprobación nativa actual registrada por separado."
+    },
+    {
+      "id": "ux13-assistant-gps-cancel",
+      "phase": "D/F/H/K: fundamentos y UX",
+      "acceptance": "Cancelar todo el recorrido desde antes de token/GPS, aunque plataforma ignore token",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Mobile/Services/AssistantRequestScope.cs",
+        "src/TravelCompanion.Mobile/ViewModels/TravelChatViewModel.cs",
+        "src/TravelCompanion.Mobile/Services/LocationService.cs"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.AssistantOperationTests.Cancel_during_delayed_gps_finishes_without_sending_even_if_platform_ignores_token"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.AssistantOperationTests.Cancel_before_token_lookup_does_not_start_work"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.AssistantOperationTests.Cancelled_operation_does_not_cancel_a_new_operation_for_same_context"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Revisado en código de la aplicación. Pruebas de lógica; comprobación nativa actual registrada por separado."
+    },
+    {
+      "id": "ux14-assistant-context",
+      "phase": "D/F/H/K: fundamentos y UX",
+      "acceptance": "No presentar ni guardar respuestas de usuario/viaje/fecha/página anteriores",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Mobile/Services/AssistantRequestScope.cs",
+        "src/TravelCompanion.Mobile/Pages/TravelChatPage.xaml.cs",
+        "src/TravelCompanion.Mobile/ViewModels/TravelChatViewModel.Experience.cs"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.AssistantOperationTests.Late_response_from_previous_context_is_discarded"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.AssistantOperationTests.Queued_save_keeps_original_date_and_discards_work_after_date_or_page_changes"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Revisado en código de la aplicación. Pruebas de lógica; comprobación nativa actual registrada por separado."
+    },
+    {
+      "id": "ux15-assistant-guided-scroll",
+      "phase": "D/F/H/K: fundamentos y UX",
+      "acceptance": "Preguntas guiadas desplazables sin envolver lista virtualizada en ScrollView vertical; atrás/respuesta/cancelación accesibles",
+      "implementation": "done",
+      "verification": "source_review",
+      "sources": [
+        "src/TravelCompanion.Mobile/Pages/TravelChatPage.xaml",
+        "src/TravelCompanion.Mobile/Pages/TravelChatPage.xaml.cs",
+        "src/TravelCompanion.Mobile/ViewModels/TravelChatViewModel.Experience.cs"
+      ],
+      "tests": [],
+      "artifacts": [],
+      "reviewNote": "Guiado dentro del header desplazable de CollectionView, con respuestas FlexLayout Wrap y áreas de al menos 48 dp. La revisión nativa encontró que KeepLastItemInView podía ocultar una pregunta nueva; QA145 revela el header mediante el scroll nativo y mantiene el desplazamiento mientras la pregunta está activa. Se comprueban aparición, sesión y contexto antes de desplazar, se cancela al salir y se respeta reducción de movimiento. La comprobación física final sigue en curso."
+    },
+    {
+      "id": "ux16-assistant-keyboard",
+      "phase": "D/F/H/K: fundamentos y UX",
+      "acceptance": "Teclado no tapa acciones y fecha contextual permanece visible",
+      "implementation": "done",
+      "verification": "source_review",
+      "sources": [
+        "src/TravelCompanion.Mobile/Pages/TravelChatPage.xaml",
+        "src/TravelCompanion.Mobile/Platforms/Android/MainActivity.cs",
+        "src/TravelCompanion.Mobile/Resources/Styles/Styles.xaml"
+      ],
+      "tests": [],
+      "artifacts": [],
+      "reviewNote": "Entrada abajo en fila propia, encabezado y fecha arriba, lista ocupa *. La revisión a 320 dp y fuente 200 % detectó recorte en el inicio del Asistente; QA144 trasladó cabecera y estados al contenido desplazable del inicio. QA145 conserva esa corrección. La cobertura final de teclado, guiados y perfiles ampliados se registra por separado y sigue en curso."
+    },
+    {
+      "id": "ux17-reduced-motion",
+      "phase": "D/F/H/K: fundamentos y UX",
+      "acceptance": "Respetar reducción de movimiento y transiciones breves útiles",
+      "implementation": "done",
+      "verification": "source_review",
+      "sources": [
+        "src/TravelCompanion.Mobile/Pages/TravelChatPage.xaml.cs"
+      ],
+      "tests": [],
+      "artifacts": [],
+      "reviewNote": "Android ValueAnimator.AreAnimatorsEnabled, iOS UIAccessibility.IsReduceMotionEnabled, Windows UISettings.AnimationsEnabled; salida inmediata si reducido; fade/translate220ms, cancelación al descargar."
+    },
+    {
+      "id": "ux18-map-progressive",
+      "phase": "D/F/H/K: fundamentos y UX",
+      "acceptance": "Vista previa breve, contenido largo desplazable y acciones contenidas",
+      "implementation": "done",
+      "verification": "source_review",
+      "sources": [
+        "src/TravelCompanion.Mobile/Pages/MapPage.xaml",
+        "src/TravelCompanion.Mobile/Pages/FreeMapPage.xaml",
+        "src/TravelCompanion.Mobile/ViewModels/MapViewModel.cs",
+        "src/TravelCompanion.Mobile/ViewModels/FreeMapViewModel.cs"
+      ],
+      "tests": [],
+      "artifacts": [
+        "artifacts/native-acceptance-20261007/qa144-map-full-detail-384-100.png"
+      ],
+      "reviewNote": "2 líneas iniciales y detalle en ScrollView máximo220dp. La revisión nativa QA144 mostró una línea truncada al expandir pese a MaxLines=-1; MapPage y FreeMapPage cambian LineBreakMode a WordWrap cuando IsPreviewExpanded. La revisión física de esta corrección en la próxima QA146 sigue pendiente; QA145 conserva la identidad del artefacto vigente hasta confirmar compilación, instalación y firma del reemplazo. Add/Maps utilidades; gratuito bloqueado mantiene una primaria activar pase, crear y más como GhostButton. No nuevo desbloqueo."
+    },
+    {
+      "id": "ux19-map-permissions-cache",
+      "phase": "D/F/H/K: fundamentos y UX",
+      "acceptance": "Conservar reglas de acceso y no refrescar catálogo mediante comparación JSON",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Mobile/Services/MapContentComparison.cs",
+        "src/TravelCompanion.Mobile/ViewModels/MapViewModel.cs",
+        "src/TravelCompanion.Mobile/ViewModels/FreeMapViewModel.cs"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.MapContentComparisonTests.Deserialized_catalog_does_not_cause_refresh_but_access_and_editorial_changes_do"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.MapContentComparisonTests.Search_index_reuses_text_when_only_non_search_details_change"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.MapContentComparisonTests.Free_preview_ignores_fetch_timestamp_but_keeps_order_access_location_and_city_changes"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.FreeMapViewModelTests.Background_revalidation_cannot_send_the_old_token_for_the_new_account_or_trip"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Igualdad estructural de DTOs, alternativa concreta al version/hash sugerido, sin serializar JSON."
+    },
+    {
+      "id": "ux20-paywall-context",
+      "phase": "D/F/H/K: fundamentos y UX",
+      "acceptance": "Encabezado según origen, exclusivos primero y funciones personales claramente gratis",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Mobile/Services/PaywallPresentation.cs",
+        "src/TravelCompanion.Mobile/ViewModels/PaywallViewModel.cs",
+        "src/TravelCompanion.Mobile/Pages/PaywallPage.xaml"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.PaywallPresentationTests.Contextual_heading_uses_the_current_entry_point_and_safe_default"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Sección Ya incluido gratis ES/EN incluye Journal, documentos personales, preparación y gastos básicos; detalle ampliable después de exclusivos. Conversión no afirmada."
+    },
+    {
+      "id": "ux21-paywall-recovery-permissions",
+      "phase": "D/F/H/K: fundamentos y UX",
+      "acceptance": "Conservar verificación, restauración, recuperación y contexto de compra",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Mobile/ViewModels/PaywallViewModel.cs",
+        "src/TravelCompanion.Mobile/Services/StorePurchaseRecoveryService.cs",
+        "src/TravelCompanion.Mobile/Services/PendingStorePurchaseStore.cs",
+        "src/TravelCompanion.Mobile/Services/AuthSessionService.cs"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.PaywallViewModelContextTests"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.StorePurchaseRecoveryContextTests"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.AuthSessionAtomicTests"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Suite focal comercio+atomicidad86/86. Recibos por propietario y mutación, formato legacy compatible, token/perfil publicados juntos, expiry no cruza owner/trip y misma cuenta/viaje preserva expiración."
+    },
+    {
+      "id": "ux22-unlock-choice",
+      "phase": "D/F/H/K: fundamentos y UX",
+      "acceptance": "Preferencia por cuenta biometría o PIN/código con protección y fallback",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Mobile/Pages/AccountPage.xaml",
+        "src/TravelCompanion.Mobile/ViewModels/AccountViewModel.cs",
+        "src/TravelCompanion.Mobile/Services/LocalUnlockRouting.cs",
+        "src/TravelCompanion.Mobile/ViewModels/BiometricUnlockViewModel.cs"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.LocalUnlockTests.Pin_choice_remains_protected_and_survives_session_updates_password_change_and_restart"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.LocalUnlockTests.Preferences_are_per_account_and_logout_does_not_erase_the_users_choice"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.LocalUnlockTests.Pin_startup_goes_to_verification_without_native_biometrics_or_authenticated_navigation"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.LocalUnlockTests.Unavailable_or_rejected_biometrics_never_open_authenticated_tabs"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.LocalUnlockTests.Context_or_method_change_during_native_verification_discards_the_result"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Revisado en código de la aplicación. Pruebas de lógica; comprobación nativa actual registrada por separado."
+    },
+    {
+      "id": "ux23-admin-navigation",
+      "phase": "D/F/H/K: fundamentos y UX",
+      "acceptance": "Admin agrupado Catálogo/Viajes/Negocio y página activa clara",
+      "implementation": "done",
+      "verification": "source_review",
+      "sources": [
+        "src/TravelCompanion.Api/Pages/Shared/_Layout.cshtml",
+        "src/TravelCompanion.Api/wwwroot/admin.css",
+        "src/TravelCompanion.Api/wwwroot/trip-planner.css"
+      ],
+      "tests": [],
+      "artifacts": [],
+      "reviewNote": "HTML lang=es; navegación agrupada en details/summary con activo por ruta. La revisión de navegador detectó desbordamientos en el formulario de viajes; el CSS responsive ajusta columnas, campos y navegación a anchos reducidos. CSS y JavaScript usan asp-append-version para evitar recursos antiguos tras una publicación. El recorrido final de navegador sigue en curso."
+    },
+    {
+      "id": "ux24-admin-pagination",
+      "phase": "D/F/H/K: fundamentos y UX",
+      "acceptance": "Viajes50 por página, filtros antes de paginar, orden estable y conservación de filtros",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Api/Services/TripPlanEditorService.cs",
+        "src/TravelCompanion.Api/Pages/Admin/Trips.cshtml.cs",
+        "src/TravelCompanion.Api/Pages/Admin/Trips.cshtml"
+      ],
+      "tests": [
+        {
+          "suite": "api",
+          "prefix": "TravelCompanion.Api.Tests.TripPlanEditorServiceTests.List_limits_each_page_to_fifty_with_stable_order_and_total_counts"
+        },
+        {
+          "suite": "api",
+          "prefix": "TravelCompanion.Api.Tests.TripPlanEditorServiceTests.List_applies_search_and_status_before_paging_and_keeps_total_count"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Revisado en código de la aplicación. Pruebas de lógica; comprobación nativa actual registrada por separado."
+    },
+    {
+      "id": "ux25-admin-inline",
+      "phase": "D/F/H/K: fundamentos y UX",
+      "acceptance": "Validaciones cercanas a campos, foco sobre error, preservación de formulario y confirmaciones de publicación/eliminación",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Api/wwwroot/admin.js",
+        "src/TravelCompanion.Api/wwwroot/trip-create.js",
+        "src/TravelCompanion.Api/wwwroot/trip-planner.css",
+        "src/TravelCompanion.Api/Pages/Shared/_Layout.cshtml",
+        "src/TravelCompanion.Api/Pages/Admin/Trips.cshtml",
+        "src/TravelCompanion.Api/Pages/Admin/Trips.cshtml.cs"
+      ],
+      "tests": [
+        {
+          "suite": "api",
+          "prefix": "TravelCompanion.Api.Tests.TripPlanEditorServiceTests.Invalid_publish_stays_on_editor_with_submitted_content_without_publishing"
+        },
+        {
+          "suite": "api",
+          "prefix": "TravelCompanion.Api.Tests.TripPlanEditorServiceTests.Editor_preview_preserves_validation_failure_without_allowing_script_injection_or_revision_change"
+        },
+        {
+          "suite": "api",
+          "prefix": "TravelCompanion.Api.Tests.TripPlanEditorServiceTests.Invalid_create_dates_keep_the_form_and_report_each_affected_field_without_creating_a_trip"
+        }
+      ],
+      "artifacts": [
+        "artifacts/native-acceptance-20261007/api-telemetry-final.trx",
+        "artifacts/native-acceptance-20261007/api-telemetry-final-summary.json",
+        "artifacts/native-acceptance-20261007/api-worker-telemetryfinal.log",
+        "artifacts/native-acceptance-20261007/admin-inline-final-verification.json",
+        "artifacts/native-acceptance-20261007/admin-telemetryfinal-verification.json"
+      ],
+      "reviewNote": "Validación HTML complementada por el servidor; publicación confirma antes de deshabilitar submit. Campos de ciudad y fechas muestran mensajes ES cercanos al control; trip-create.js reindexa los mensajes e inicializa validación también al añadir una fila dinámica. El handler conserva valores y reemplaza errores de fechas vacías o inválidas por mensajes ES sin crear el viaje. La Theory de fechas tiene tres casos: inicio inválido, fin inválido y ambos. La suite API definitiva pasó 561/561, incluidos 35/35 PostgreSQL reales, sin fallos ni omisiones; API/worker compilaron tres proyectos, cero errores y cero warnings. TRX y resumen conservan las huellas del corte; la base temporal exclusiva fue eliminada. El recorrido final de navegador sigue pendiente por separado."
+    },
+    {
+      "id": "ux26-admin-language",
+      "phase": "D/F/H/K: fundamentos y UX",
+      "acceptance": "Idioma coherente del admin",
+      "implementation": "done",
+      "verification": "source_review",
+      "sources": [
+        "src/TravelCompanion.Api/Pages/Shared/_Layout.cshtml",
+        "src/TravelCompanion.Api/Pages/Admin/Index.cshtml",
+        "src/TravelCompanion.Api/Pages/Admin/Trips.cshtml.cs",
+        "src/TravelCompanion.Api/Pages/Admin/TripImport.cshtml",
+        "src/TravelCompanion.Api/Pages/Admin/YukuJapanImport.cshtml",
+        "src/TravelCompanion.Api/Pages/Login.cshtml",
+        "src/TravelCompanion.Api/Pages/Login.cshtml.cs"
+      ],
+      "tests": [],
+      "artifacts": [],
+      "reviewNote": "Títulos, navegación, importaciones y estados en español. StringLength140/120/180 usa ErrorMessageES manteniendo límites. La revisión nativa encontró el acceso al admin en inglés; Login.cshtml y Login.cshtml.cs ahora localizan encabezado, campos, acción y error de credenciales. Admin no tenía requisito de interfaz bilingüe; ES/EN corresponde a móvil. La cobertura de navegador se registra por separado."
+    },
+    {
+      "id": "perf01-journal-http",
+      "phase": "E/K fase 3",
+      "acceptance": "Guardar recuerdos, fotos y borradores sin esperar HTTP retenido.",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Mobile/Services/JournalStore.cs",
+        "src/TravelCompanion.Mobile/Services/JournalStore.FreeEntries.cs"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.JournalStoreTests.EditingAndAddingPhotosWhileSaveIsInFlightKeepsNewMutation"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.JournalStoreTests.LocalReadAndDraftDoNotWaitForRemoteFetchAndDeletedTripCannotBeRecreated"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Pruebas sobre código de la aplicación y revisión del flujo."
+    },
+    {
+      "id": "perf02-journal-ack",
+      "phase": "E/K fase 3",
+      "acceptance": "ACK confirma sólo la mutación correspondiente; conservar escritura nueva, conflictos, borrados y reintentos.",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Mobile/Services/JournalStore.cs",
+        "src/TravelCompanion.Mobile/Services/JournalStore.FreeEntries.cs"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.JournalStoreTests.DeletingDuringSaveKeepsDeletionAndRebasesOverAcknowledgedSave"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.JournalStoreTests.InterruptedResponseKeepsFreeMutationForRetry"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.JournalStoreTests.RemoteTombstoneKeepsPreviouslySavedOfflineWritingAndPhotosUntilResolution"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Pruebas sobre código de la aplicación y revisión del flujo."
+    },
+    {
+      "id": "perf03-expense-http",
+      "phase": "E/K fase 3",
+      "acceptance": "Guardar gastos durante HTTP y mostrar la escritura local aunque siga el refresh.",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Mobile/Services/ExpenseStore.cs",
+        "src/TravelCompanion.Mobile/Pages/ExpensesPanel.cs"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.ExpenseStoreTests.SaveDuringBlockedSyncKeepsNewMutationAndDoesNotWaitForHttp"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Store real con HTTP bloqueado. Panel relee el libro durante refresh; UI nativa actual pendiente."
+    },
+    {
+      "id": "perf04-expense-ack",
+      "phase": "E/K fase 3",
+      "acceptance": "ACK anterior no confirma una mutación nueva ni borra cambios de otro dispositivo.",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Mobile/Services/ExpenseStore.cs"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.ExpenseStoreTests.OlderBudgetAcknowledgementCannotClearNewBudgetMutation"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.ExpenseStoreTests.EditorSnapshotSavedAfterOtherDeviceRefreshCannotOverwriteUnseenVersion"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Pruebas sobre código de la aplicación y revisión del flujo."
+    },
+    {
+      "id": "perf05-visible-thumbnails",
+      "phase": "E/K fase 3",
+      "acceptance": "Miniaturas sólo del viewport con margen; cancelar al salir, conservar filas y posición.",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Mobile/ViewModels/JournalViewModel.cs",
+        "src/TravelCompanion.Mobile/Pages/JournalPage.xaml.cs",
+        "src/TravelCompanion.Mobile/Services/JournalEntries.cs"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.JournalViewModelTests.LargeJournalLoadsVisibleThumbnailsAndRetainsRowsAndViewportAfterRefresh"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.JournalViewModelTests.LateTokenCannotStartBootstrapRequestAfterContextChanges"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Pruebas sobre código de la aplicación y revisión del flujo."
+    },
+    {
+      "id": "perf06-missing-photo",
+      "phase": "E/K fase 3",
+      "acceptance": "Foto ausente mantiene placeholder y no impide cargar las siguientes.",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Mobile/ViewModels/JournalViewModel.cs"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.JournalViewModelTests.MissingThumbnailKeepsPlaceholderAndDoesNotStopLaterVisiblePhotos"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Pruebas sobre código de la aplicación y revisión del flujo."
+    },
+    {
+      "id": "perf07-split-photos",
+      "phase": "E/K fase 3",
+      "acceptance": "Miniaturas cifradas separadas de originales con lectura antigua y migración gradual recuperable.",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Mobile/Services/JournalStore.cs"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.JournalStoreTests.LegacyPhotoMigratesOnceAndSubsequentThumbnailReadDoesNotLoadFullPayload"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.JournalStoreTests.CancelledLegacyMigrationRetainsReadablePhotoAndRetryCompletesSplit"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Pruebas sobre código de la aplicación y revisión del flujo."
+    },
+    {
+      "id": "perf08-compatible-data",
+      "phase": "E/K fase 3",
+      "acceptance": "Conservar notas antiguas, fotos, portadas, borradores, mutaciones y conflictos.",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Mobile/Services/JournalEntries.cs",
+        "src/TravelCompanion.Mobile/Services/JournalStore.FreeEntries.cs",
+        "src/TravelCompanion.Mobile/Services/JournalStore.DraftPhotos.cs"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.JournalStoreTests.LegacyJsonRetainsPendingConflictAndCover"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.JournalStoreTests.FreeDraftSurvivesRestartButIsNotConfirmedOrSynced"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Pruebas sobre código de la aplicación y revisión del flujo."
+    },
+    {
+      "id": "perf09-cleanup-link",
+      "phase": "E/K fase 3",
+      "acceptance": "Limpiar y vincular todos los archivos nuevos; un fallo no elimina el contenido de origen.",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Mobile/Services/JournalStore.cs",
+        "src/TravelCompanion.Mobile/Services/JournalStore.DraftPhotos.cs"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.JournalStoreTests.LegacyAndSplitPhotosTransferTogetherWithoutCrossAccountLeakage"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.JournalStoreTests.FreeDraftPhotosTransferOnVerifiedLinkAndAreErasedWithTrip"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.JournalStoreTests.FailedAccountLinkCopyKeepsSourceWritingAndPhotosAndCanRetry"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Pruebas sobre código de la aplicación y revisión del flujo."
+    },
+    {
+      "id": "perf10-map-comparison",
+      "phase": "E/K fase 3",
+      "acceptance": "Evitar comparar JSON completos y recalcular búsqueda sólo si cambian campos relevantes.",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Mobile/Services/MapContentComparison.cs",
+        "src/TravelCompanion.Mobile/ViewModels/MapViewModel.cs",
+        "src/TravelCompanion.Mobile/ViewModels/FreeMapViewModel.cs"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.MapContentComparisonTests.Deserialized_catalog_does_not_cause_refresh_but_access_and_editorial_changes_do"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.MapContentComparisonTests.Search_index_reuses_text_when_only_non_search_details_change"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Pruebas sobre código de la aplicación y revisión del flujo."
+    },
+    {
+      "id": "prod01-search-local",
+      "phase": "I.1/K fase 4",
+      "acceptance": "Buscar nombre, texto confirmado, lugar y fecha localmente; separar tipos e identidades.",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Mobile/Services/TripSearchIndex.cs",
+        "src/TravelCompanion.Mobile/Services/JournalStore.cs",
+        "src/TravelCompanion.Mobile/Pages/TripSearchPage.cs"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.TripSearchAndOverviewTests.Search_handles_accents_words_dates_and_type_without_reading_files"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.TripSearchAndOverviewTests.Search_keeps_activity_and_its_linked_memory_with_the_same_source_identifier"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.JournalStoreTests.LocalConfirmedSearchExcludesDraftsAndDeletedEntriesAndRejectsCrossTripWriting"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Pruebas sobre código de la aplicación y revisión del flujo."
+    },
+    {
+      "id": "prod02-search-navigation",
+      "phase": "I.1/K fase 4",
+      "acceptance": "Accesos desde Viaje, Documentos y Journal; abrir y volver conserva consulta.",
+      "implementation": "done",
+      "verification": "source_review",
+      "sources": [
+        "src/TravelCompanion.Mobile/Pages/SchedulePage.xaml.cs",
+        "src/TravelCompanion.Mobile/Pages/DocsPage.xaml.cs",
+        "src/TravelCompanion.Mobile/Pages/JournalPage.xaml.cs",
+        "src/TravelCompanion.Mobile/Pages/TripSearchPage.cs"
+      ],
+      "tests": [],
+      "artifacts": [],
+      "reviewNote": "Tres accesos al mismo modal; volver no reconstruye campo/selección. Recorrido QA138 histórico, APK actual sin prueba física."
+    },
+    {
+      "id": "prod03-search-isolation",
+      "phase": "I.1/K fase 4",
+      "acceptance": "Sólo datos personales o autorizados; conservar fuentes ante fallo parcial y descartar contexto anterior.",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Mobile/Services/TripSearchIndex.cs",
+        "src/TravelCompanion.Mobile/Pages/TripSearchPage.cs"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.TripSearchAndOverviewTests.Search_source_failure_retains_previous_documents_and_refreshes_other_sources"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.TripSearchAndOverviewTests.Search_discards_late_metadata_after_cancel_or_scope_change"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Sin OCR, lectura de PDF/fotos ni otra caché. Permisos incluidos comprobados al mostrar/abrir."
+    },
+    {
+      "id": "prod04-tomorrow-date",
+      "phase": "I.2/K fase 4",
+      "acceptance": "Mañana sólo dentro del viaje; primera reserva y hotel diferenciados.",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Mobile/Services/TripDayOverview.cs",
+        "src/TravelCompanion.Mobile/ViewModels/ScheduleViewModel.cs",
+        "src/TravelCompanion.Mobile/Pages/TomorrowOverviewPage.cs"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.TripSearchAndOverviewTests.Tomorrow_is_inside_trip_and_selects_first_distinct_booking_separately_from_hotel"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Pruebas sobre código de la aplicación y revisión del flujo."
+    },
+    {
+      "id": "prod05-tomorrow-documents",
+      "phase": "I.2/K fase 4",
+      "acceptance": "Documentos vinculados a reserva y hotel, enlaces deduplicados y permisos incluidos vigentes.",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Mobile/Services/TripDayOverview.cs",
+        "src/TravelCompanion.Mobile/Services/TripDocumentStore.cs",
+        "src/TravelCompanion.Mobile/Pages/TomorrowOverviewPage.cs"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.TripSearchAndOverviewTests.Tomorrow_does_not_repeat_a_file_linked_to_both_first_booking_and_hotel"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.TripSearchAndOverviewTests.Tomorrow_downloaded_curated_document_still_requires_access_but_personal_attachment_does_not"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.TripDocumentStoreTests"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Pruebas sobre código de la aplicación y revisión del flujo."
+    },
+    {
+      "id": "prod06-tomorrow-recovery",
+      "phase": "I.2/K fase 4",
+      "acceptance": "Estado offline determinista y reintento; conservar metadatos válidos sin publicar otro contexto.",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Mobile/Services/TripDayOverview.cs",
+        "src/TravelCompanion.Mobile/Pages/TomorrowOverviewPage.cs"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.TripSearchAndOverviewTests.Tomorrow_failed_refresh_keeps_documents_and_refreshes_offline_status_independently"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.TripSearchAndOverviewTests.Tomorrow_cancel_or_scope_change_discards_late_metadata"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Pruebas sobre código de la aplicación y revisión del flujo."
+    },
+    {
+      "id": "prod07-free-time-ui",
+      "phase": "I.3/K fase 4",
+      "acceptance": "Acción junto a próxima actividad y en Asistente; tiempo editable, progreso cancelable y alternativas antes de añadir.",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Mobile/Pages/SchedulePage.xaml",
+        "src/TravelCompanion.Mobile/Pages/TravelChatPage.xaml",
+        "src/TravelCompanion.Mobile/ViewModels/TravelChatViewModel.FreeTime.cs",
+        "src/TravelCompanion.Mobile/Services/AssistantFreeTimeWindow.cs"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.AssistantFreeTimeWindowTests"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.AssistantFreeTimeViewModelTests"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Flujo de guardado vigente, contexto completo y protección de doble pulsación."
+    },
+    {
+      "id": "prod08-free-time-backend",
+      "phase": "I.3/K fase 4",
+      "acceptance": "Campos opcionales; validar ventana, zona horaria, compromisos, duración y catálogo en backend.",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Shared/Dtos/TravelChatDtos.cs",
+        "src/TravelCompanion.Shared/TravelTimeWindowPolicy.cs",
+        "src/TravelCompanion.Api/Services/TravelChatService.FreeTime.cs"
+      ],
+      "tests": [
+        {
+          "suite": "api",
+          "prefix": "TravelCompanion.Api.Tests.TravelChatServiceTests.Free_time_"
+        },
+        {
+          "suite": "shared",
+          "prefix": "TravelCompanion.Shared.Tests.TravelTimeWindowPolicyTests"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Contrato previo sin ventana conservado; sin tablas/proveedor/infraestructura nueva."
+    },
+    {
+      "id": "prod09-free-time-access",
+      "phase": "I.3/K fase 4",
+      "acceptance": "Fallback determinista, cuotas/permisos actuales y estimaciones sin garantías de apertura o llegada.",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Api/Services/TravelChatService.FreeTime.cs",
+        "src/TravelCompanion.Mobile/Localization/AppResources.es.resx",
+        "src/TravelCompanion.Mobile/Localization/AppResources.resx"
+      ],
+      "tests": [
+        {
+          "suite": "api",
+          "prefix": "TravelCompanion.Api.Tests.TravelChatEndpointTests.Free_time_"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Backend conserva acceso/cuota/replay. Ubicación opcional y mensajes de estimación."
+    },
+    {
+      "id": "prod10-offline-breakdown",
+      "phase": "I.4/K fase 4",
+      "acceptance": "Categorías/días desde libro local con importes parciales y conversiones ausentes u obsoletas.",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Mobile/Services/ExpenseStore.cs",
+        "src/TravelCompanion.Mobile/Pages/ExpensesPanel.cs",
+        "src/TravelCompanion.Mobile/Pages/ExpenseBreakdownPage.cs",
+        "src/TravelCompanion.Shared/ExpensePolicy.cs"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.ExpenseStoreTests"
+        },
+        {
+          "suite": "shared",
+          "prefix": "TravelCompanion.Shared.Tests.ExpenseBreakdownTests"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Cálculo previo a token/red; servidor sigue siendo autoridad."
+    },
+    {
+      "id": "prod11-offline-premium",
+      "phase": "I.4/K fase 4",
+      "acceptance": "Premium vigente; FreeMapPreview, expirado o BuilderReadOnly no se habilitan por snapshot cacheado.",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Mobile/Services/ExpenseStore.cs",
+        "src/TravelCompanion.Mobile/Pages/ExpensesPanel.cs"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.ExpenseStoreTests.CachedPremiumDoesNotUnlockFreeOrExpiredSession"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.ExpenseStoreTests.CachedPremiumCannotOverrideAReadOnlyBuilderSessionWithAStillValidLogin"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "BuilderReadOnly reproducido rojo y resuelto. CSV mantiene permiso/red."
+    },
+    {
+      "id": "prod12-two-snapshots",
+      "phase": "I.5/K fase 4",
+      "acceptance": "Dos snapshots cifrados del mismo rango conservan selección/revisión/identificadores tras reinicio.",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Mobile/Services/DayPlannerStore.cs",
+        "src/TravelCompanion.Mobile/ViewModels/DayPlannerViewModel.cs"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.DayPlannerViewModelTests.Two_alternatives_survive_restart_and_switch_as_complete_proposals"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.DayPlannerViewModelTests.Different_date_range_does_not_offer_comparison"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Pruebas sobre código de la aplicación y revisión del flujo."
+    },
+    {
+      "id": "prod13-whole-choice",
+      "phase": "I.5/K fase 4",
+      "acceptance": "Elegir propuesta completa antes de aplicar; sin mezcla ni ampliar permisos offline.",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Mobile/ViewModels/DayPlannerViewModel.cs",
+        "src/TravelCompanion.Mobile/Pages/DayPlanProposalPage.xaml"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.DayPlannerViewModelTests.Comparison_requires_a_complete_choice_before_editing_or_saving"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.DayPlannerViewModelTests.Choosing_a_compared_proposal_never_enables_saving_offline_or_without_access_options"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Pruebas sobre código de la aplicación y revisión del flujo."
+    },
+    {
+      "id": "prod14-comparison-apply",
+      "phase": "I.5/K fase 4",
+      "acceptance": "Revisión vigente, recuperación, cuotas y Apply sin duplicados, con receipt idempotente.",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Mobile/Services/DayPlannerStore.cs",
+        "src/TravelCompanion.Api/Services/DayPlanService.cs"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.DayPlannerViewModelTests.Replacement_or_canonical_recovery_preserves_both_alternatives_after_restart"
+        },
+        {
+          "suite": "api",
+          "prefix": "TravelCompanion.Api.Tests.DayPlanServiceTests"
+        },
+        {
+          "suite": "api",
+          "prefix": "TravelCompanion.Api.Tests.PostgresDayPlanTests"
+        }
+      ],
+      "artifacts": [
+        "artifacts/native-acceptance-20261007/api-telemetry-final.trx",
+        "artifacts/native-acceptance-20261007/api-telemetry-focused.trx",
+        "artifacts/native-acceptance-20261007/api-telemetry-final-summary.json",
+        "artifacts/native-acceptance-20261007/analytics-connection-comparison.json"
+      ],
+      "reviewNote": "Apply valida revisión y reutiliza reservas por mutación/recomendación/título. La suite API definitiva pasó 561/561, incluidos 35/35 PostgreSQL reales. Las dos regresiones focalizadas PostgreSQL preservan respuestas idénticas, un uso comprometido, señal deduplicada y el estado de conexiones propias/preabiertas. TrackSafelyAsync usa una conexión para sus cinco comandos SQL sin ampliar el límite de dos segundos; sólo cierra la conexión que abrió y un fallo no invalida el plan comprometido. El diagnóstico sintético local registra una apertura/13,02 ms acumulados de SQL y una señal; una corrida por versión, sin cinco calentamientos/treinta repeticiones. No es benchmark p50/p95 ni evidencia de latencia Android/producción; no se atribuye todo el cambio de tiempo a la corrección."
+    },
+    {
+      "id": "measure01-host",
+      "phase": "E/K medición",
+      "acceptance": "Registrar cinco calentamientos y treinta repeticiones con memoria, lecturas y peticiones.",
+      "implementation": "done",
+      "verification": "measured",
+      "sources": [
+        "src/TravelCompanion.Mobile/Services/MobileOperationMeasurement.cs",
+        "docs/tools/measure-journal-host.ps1"
+      ],
+      "tests": [],
+      "artifacts": [
+        "artifacts/plan-recheck-20261006/host-performance/comparison.json",
+        "artifacts/plan-recheck-20261006/host-performance/run-manifest.json"
+      ],
+      "reviewNote": "Host histórico anterior al último guard de permiso: no acredita Android ni fuente actual exacta. Sin regresión >10% reproducida en escenarios registrados."
+    },
+    {
+      "id": "measure02-native-operations",
+      "phase": "E/K medición",
+      "acceptance": "Medir operaciones Android Release separadas del host con muestras y contadores.",
+      "implementation": "done",
+      "verification": "measured",
+      "sources": [
+        "src/TravelCompanion.Mobile/Services/MobileOperationMeasurement.cs",
+        "docs/tools/analyze-native-performance.ps1"
+      ],
+      "tests": [],
+      "artifacts": [
+        "artifacts/daily-ux-20261006/native-expense-137-analysis/summary.json",
+        "artifacts/daily-ux-20261006/native-journal-137-analysis/summary.json",
+        "artifacts/daily-ux-20261006/native-thumbnail-137-analysis/summary.json",
+        "artifacts/native-acceptance-20261007/qa145-journal-600-150-en-native-analysis/capture-analysis.json",
+        "artifacts/native-acceptance-20261007/qa145-journal-600-150-en-native.manifest.json",
+        "artifacts/native-acceptance-20261007/qa147-expense-384-100-es-native-analysis/capture-analysis.json",
+        "artifacts/native-acceptance-20261007/qa147-expense-384-100-es-native-analysis/raw-fidelity.json",
+        "artifacts/native-acceptance-20261007/qa147-expense-384-100-es-native.manifest.json",
+        "artifacts/native-acceptance-20261007/qa147-thumbnail-trial.json",
+        "artifacts/native-acceptance-20261007/qa147-thumbnails-384-100-es-native.manifest.json"
+      ],
+      "reviewNote": "Journal QA145 Release: cinco calentamientos y treinta muestras reales; p50/p95 de 204,25/281,52 ms, cero peticiones y dos lecturas. Perfil de 600 dp, 150 %, EN; 250 recuerdos y aproximadamente 993 KB leídos. Gastos QA147 Release a 384 dp, 100 %, ES: cinco calentamientos y treinta muestras reales; p50/p95 de 46,535/51,409 ms, cero peticiones, una lectura y 6.844/6.917 bytes leídos p50/p95. Backend inaccesible mediante retirada del reverse QA; no se afirma ConnectivityOffline. Asignaciones del intervalo global del proceso, sin comparación entre versiones, perfiles o datos diferentes. Miniaturas QA147: trial de tres lecturas comprobado; serie interrumpida tras tres calentamientos, cero muestras medidas. No se certifica benchmark actual."
+    },
+    {
+      "id": "measure03-startup",
+      "phase": "E/K medición",
+      "acceptance": "Medir arranque frío, limpieza y timer antes de modificarlos.",
+      "implementation": "done",
+      "verification": "measured",
+      "sources": [
+        "src/TravelCompanion.Mobile/App.xaml.cs",
+        "src/TravelCompanion.Mobile/ViewModels/ScheduleViewModel.cs",
+        "scripts/measure-android-startup.ps1"
+      ],
+      "tests": [],
+      "artifacts": [
+        "artifacts/daily-ux-20261006/native-cold-139/final-release-v139-startup-summary.json",
+        "artifacts/daily-ux-20261006/native-cleanup-139-analysis/summary.json",
+        "artifacts/daily-ux-20261006/native-timer-139-analysis/summary.json"
+      ],
+      "reviewNote": "QA139: cinco calentamientos/treinta muestras. No demuestra causa ni justifica modificar estos componentes; protección de previews intacta."
+    },
+    {
+      "id": "quality01-localized-errors",
+      "phase": "F/K calidad",
+      "acceptance": "ES/EN iguales y errores útiles; detalles inesperados sólo en diagnóstico sin información personal.",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Mobile/ViewModels/ViewModelBase.cs",
+        "src/TravelCompanion.Mobile/ViewModels/ScheduleItemDetailViewModel.cs",
+        "src/TravelCompanion.Mobile/Services/LocationService.cs",
+        "src/TravelCompanion.Mobile/Services/DiagnosticJournal.cs",
+        "src/TravelCompanion.Mobile/Localization/AppResources.es.resx",
+        "src/TravelCompanion.Mobile/Localization/AppResources.resx"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.LoadErrorPresentationTests"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.DiagnosticJournalTests"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Pruebas sobre código de la aplicación y revisión del flujo. La revisión nativa encontró mensajes de vinculación de documentos sólo en español; ScheduleItemDetailViewModel ahora usa recursos ES/EN para vacío, error y documento no disponible. Los dos RESX conservan 962 claves iguales y únicas; las comprobaciones nativas se registran por separado."
+    },
+    {
+      "id": "quality02-session-receipts",
+      "phase": "H/K permisos",
+      "acceptance": "Token/perfil atómicos, respuestas tardías descartadas y recibos bajo propietario original.",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Mobile/Services/AuthSessionService.cs",
+        "src/TravelCompanion.Mobile/Services/PendingStorePurchaseStore.cs",
+        "src/TravelCompanion.Mobile/Services/StorePurchaseRecoveryService.cs",
+        "src/TravelCompanion.Mobile/ViewModels/PaywallViewModel.cs"
+      ],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.AuthSessionAtomicTests"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.PaywallViewModelContextTests"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.StorePurchaseRecoveryContextTests"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Pruebas sintéticas, sin compra real."
+    },
+    {
+      "id": "quality03-documentation",
+      "phase": "B/K fase 1",
+      "acceptance": "Actualizar documentación y referencias de pantallas antiguas conservando catálogo offline.",
+      "implementation": "done",
+      "verification": "source_review",
+      "sources": [
+        "README.md",
+        "docs/TECHNICAL.md",
+        "docs/FUNCTIONAL.md",
+        "docs/backend-contracts.md",
+        "src/TravelCompanion.Mobile/AppShell.xaml.cs",
+        "src/TravelCompanion.Mobile/MauiProgram.cs"
+      ],
+      "tests": [],
+      "artifacts": [],
+      "reviewNote": "Docs contrastados contra rutas/DI. Legacy sin referencias retirado; bootstrap conserva catálogo completo."
+    }
+  ],
+  "nativeChecks": [
+    {
+      "id": "latest-apk",
+      "status": "passed",
+      "note": "QA147 Release ARM64 instalada por actualización en la identidad QA separada, acceso por PIN y datos conservados. Se comprobaron Mapa expandido y Ajustar del Asistente a 384 dp/100%/ES: texto completo multilínea y pregunta cliente visible sin desplazamiento manual. App habitual intacta. Evidencia: artifacts/native-acceptance-20261007/native-review.json."
+    },
+    {
+      "id": "full-native-matrix",
+      "status": "pending",
+      "note": "Cobertura versionada: QA142/144 ES a 384 dp y 100 %, Asistente QA144 a 320 dp y 200 %, QA145 EN a 600 dp y 150 %, QA147 ES a 384 dp y 100 %, además de la historia QA137/139. No se afirma una matriz cartesiana completa. Gastos QA147 completó cinco calentamientos y treinta muestras; Miniaturas QA147 se interrumpió tras tres calentamientos al salir de QA, con cero muestras medidas. Quedan esa serie y combinaciones adicionales: se conserva la configuración global original por petición del usuario y no hay AVD instalado. TalkBack está excluido permanentemente. Evidencia: artifacts/native-acceptance-20261007/native-review.json."
+    },
+    {
+      "id": "tomorrow-native",
+      "status": "passed",
+      "note": "Comprobado QA145 EN a 600 dp y 150 %: primera reserva del 8 de octubre, hotel separado, documento personal vinculado visible y Abrir mañana selecciona 8/10. PDF sintético abierto offline en QA142 con conexión realmente desactivada. Capturas conservan versión y perfil; permisos y contexto tienen pruebas adicionales. Fuentes de Mañana no cambiaron después de QA145. Ver artifacts/native-acceptance-20261007/native-review.json."
+    },
+    {
+      "id": "admin-browser",
+      "status": "passed",
+      "note": "Edge aislado con backend Review local: 105/105 checks, 54 menús y 92 capturas con hashes. Anchos CSS de 320/384/600/1280, claro/oscuro y texto CSS al 100/150/200 %; navegación, página activa, foco, errores inline, formulario conservado, filas dinámicas y logout. Cinco viajes sintéticos conservados; la paginación de 50 resultados tiene tests API. No acredita teclado ni preferencias del sistema. Recursos descargados con HTTP 200 y hashes actuales: admin-browser-final.json y admin-browser-final-bindings.json."
+    },
+    {
+      "id": "talkback",
+      "status": "excluded",
+      "note": "Excluido permanentemente por petición expresa del usuario; no activar ni programar."
+    },
+    {
+      "id": "voiceover",
+      "status": "not_applicable",
+      "note": "Sin plataforma/dispositivo iOS en este host; no se certifica cobertura."
+    }
+  ]
+}

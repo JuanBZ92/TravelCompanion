@@ -8,12 +8,12 @@
     <!-- High-end Japanese minimalist palette -->
 
     <Color x:Key="Ink">#1A1714</Color>
-    <Color x:Key="InkSoft">#8A8078</Color>
+    <Color x:Key="InkSoft">#71675D</Color>
     <Color x:Key="Mist">#F8F3ED</Color>
     <Color x:Key="Paper">#FFFFFF</Color>
     <Color x:Key="PaperAlt">#F8F3ED</Color>
     <Color x:Key="Line">#1A171414</Color>
-    <Color x:Key="Muted">#8A8078</Color>
+    <Color x:Key="Muted">#71675D</Color>
     <Color x:Key="Accent">#3D3329</Color>
     <Color x:Key="AccentSoft">#F6F1EA</Color>
     <Color x:Key="Gold">#B8956A</Color>
@@ -28,6 +28,9 @@
     <Color x:Key="EditorialSurface">#FFFCF8</Color>
     <Color x:Key="EditorialMuted">#71675D</Color>
     <Color x:Key="EditorialLine">#E5DDD3</Color>
+    <Color x:Key="EditorialSuccess">#49634D</Color>
+    <Color x:Key="EditorialError">#9A493F</Color>
+    <Color x:Key="EditorialAccentText">#765831</Color>
 
     <Color x:Key="Primary">#3D3329</Color>
     <Color x:Key="PrimaryDark">#B8956A</Color>

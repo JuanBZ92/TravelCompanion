@@ -18,6 +18,7 @@ public sealed class ExpensesPanel : ContentView
     private JournalScope? scope;
     private bool active;
     private bool refreshing;
+    private int refreshVersion;
 
     public ExpensesPanel()
     {
@@ -50,38 +51,71 @@ public sealed class ExpensesPanel : ContentView
     }
     public async Task ActivateAsync()
     {
-        if (!active) { active = true; store.Changed += OnChanged; }
+        if (!active) { active = true; store.Changed += OnChanged; sessions.StateChanged += OnSessionChanged; }
+        if (scope is { } previous && !store.IsCurrent(previous)) ClearLocalContent();
         await RefreshAsync();
+        if (!active) return;
         var pending = MauiProgram.Services.GetRequiredService<PendingExpenseAction>();
         if (book?.HasPremium == true && scope is { } current && pending.UserId == current.UserId && pending.TripId == current.TripId)
         { var action = pending.Action; pending.Action = null; if (action is not null) await PremiumAsync(action); }
     }
-    public void Deactivate() { active = false; store.Changed -= OnChanged; }
+    public void Deactivate()
+    {
+        active = false; store.Changed -= OnChanged; sessions.StateChanged -= OnSessionChanged;
+        refreshVersion++; refreshing = false;
+    }
+    private void ClearLocalContent()
+    {
+        scope = null; book = null; summary.Clear(); list.ItemsSource = null; status.Text = "";
+    }
+    private void OnSessionChanged(object? sender, EventArgs args)
+    {
+        if (!active || scope is { } current && store.IsCurrent(current)) return;
+        Dispatcher.Dispatch(() =>
+        {
+            if (!active || scope is { } latest && store.IsCurrent(latest)) return;
+            refreshVersion++; refreshing = false;
+            ClearLocalContent();
+            _ = Act(RefreshAsync);
+        });
+    }
     private async void OnChanged(object? sender, EventArgs args)
     {
-        if (!active || refreshing) return;
+        if (!active) return;
         await Act(async () => await MainThread.InvokeOnMainThreadAsync(async () =>
         {
-            if (scope is { } current && store.IsCurrent(current)) { book = await store.ReadAsync(current); Render(); }
+            if (scope is not { } current || !store.IsCurrent(current)) return;
+            var latest = await store.ReadAsync(current);
+            if (!active || scope != current || !store.IsCurrent(current)) return;
+            book = latest;
+            Render();
         }));
     }
     private async Task Act(Func<Task> action)
     {
+        var operationVersion = refreshVersion;
+        var operationScope = scope;
         try { await action(); }
         catch (OperationCanceledException) { }
         catch (Exception error)
         {
             ClientDiagnostics.Record("expenses_ui_failed", exception: error);
-            if (active) status.Text = T("No pudimos actualizar. Tus gastos guardados siguen disponibles.", "Could not refresh. Saved expenses are still available.");
+            if (active && operationVersion == refreshVersion && operationScope == scope
+                && (operationScope is null || store.IsCurrent(operationScope.Value)))
+                status.Text = T("No pudimos actualizar. Tus gastos guardados siguen disponibles.", "Could not refresh. Saved expenses are still available.");
         }
     }
     public async Task RefreshAsync()
     {
         if (refreshing) return;
         refreshing = true;
+        var version = ++refreshVersion;
+        JournalScope? loadingScope = null;
+        bool IsCurrentLoad() => active && version == refreshVersion && loadingScope is { } current
+            && scope == current && store.IsCurrent(current);
         try
         {
-            if (!sessions.CurrentTripId.HasValue)
+            if (!sessions.HasSession || !sessions.CurrentTripId.HasValue)
             {
                 scope = null; book = null; status.Text = "";
                 summary.Clear(); summary.Add(Text(T("Gastos", "Expenses"), 34, true));
@@ -89,22 +123,33 @@ public sealed class ExpensesPanel : ContentView
                 summary.Add(Button(T("Crear mi viaje", "Create my trip"), BuilderSetupNavigation.OpenAsync, true));
                 list.ItemsSource = null; return;
             }
-            scope = store.Scope(); book = await store.ReadAsync(scope.Value); Render();
-            await store.SyncAsync(scope.Value);
-            if (!active || !store.IsCurrent(scope.Value)) return;
-            book = await store.ReadAsync(scope.Value);
+            var current = store.Scope(); loadingScope = current; scope = current;
+            var local = await store.ReadAsync(current);
+            if (!IsCurrentLoad()) return;
+            book = local; Render();
+            await store.SyncAsync(current);
+            if (!IsCurrentLoad()) return;
+            local = await store.ReadAsync(current);
+            if (!IsCurrentLoad()) return;
+            book = local;
             if (book.Settings.Revision == 0 && book.PendingSettings is null && book.Items.Count == 0)
             {
                 var currency = "EUR";
-                try { var local = new RegionInfo(CultureInfo.CurrentCulture.Name).ISOCurrencySymbol; if (ExpensePolicy.Currencies.Contains(local)) currency = local; } catch (ArgumentException) { }
-                await store.SaveBudgetAsync(scope.Value, book.Settings, currency, null);
-                book = await store.ReadAsync(scope.Value);
+                try { var regionCurrency = new RegionInfo(CultureInfo.CurrentCulture.Name).ISOCurrencySymbol; if (ExpensePolicy.Currencies.Contains(regionCurrency)) currency = regionCurrency; } catch (ArgumentException) { }
+                await store.SaveBudgetAsync(current, book.Settings, currency, null);
+                local = await store.ReadAsync(current);
+                if (!IsCurrentLoad()) return;
+                book = local;
             }
             Render();
         }
         catch (OperationCanceledException) { }
-        catch (Exception error) { ClientDiagnostics.Record("expenses_load_failed", exception: error); status.Text = T("No pudimos cargar los gastos. Deslizá para reintentar.", "Could not load expenses. Pull to retry."); }
-        finally { refreshing = false; }
+        catch (Exception error)
+        {
+            ClientDiagnostics.Record("expenses_load_failed", exception: error);
+            if (IsCurrentLoad()) status.Text = T("No pudimos cargar los gastos. Deslizá para reintentar.", "Could not load expenses. Pull to retry.");
+        }
+        finally { if (version == refreshVersion) refreshing = false; }
     }
     private ExpenseBook EffectiveBook() => book!.PendingSettings is { } pending && !book.SettingsConflict
         ? book with { Settings = book.Settings with { Currency = pending.Currency, Budget = pending.Budget } } : book!;
@@ -161,11 +206,11 @@ public sealed class ExpensesPanel : ContentView
     }
     private async Task OpenAsync(LocalExpense? entry)
     {
-        if (scope is not { } current || book is null || !store.IsCurrent(current)) return;
+        if (!active || scope is not { } current || book is null || !store.IsCurrent(current)) return;
         if (entry?.Conflict == true)
         {
             var local = $"{entry.Value.Concept}: {Money(entry.Value.Amount, entry.Value.Currency)}";
-            var remote = entry.Server is { } server ? $"{server.Concept}: {Money(server.Amount, server.Currency)}{(server.Deleted ? " · eliminado" : "")}" : T("Sin registro remoto", "No remote record");
+            var remote = entry.Server is { } server ? $"{server.Concept}: {Money(server.Amount, server.Currency)}{(server.Deleted ? T(" · eliminado", " · deleted") : "")}" : T("Sin registro remoto", "No remote record");
             var choice = await Shell.Current.DisplayActionSheetAsync($"{T("Este dispositivo", "This device")}: {local}\n{T("Servidor", "Server")}: {remote}", T("Cancelar", "Cancel"), null,
                 T("Mantener mi versión", "Keep my version"), T("Usar versión del servidor", "Use server version"));
             if (choice == T("Mantener mi versión", "Keep my version") || choice == T("Usar versión del servidor", "Use server version"))
@@ -176,7 +221,7 @@ public sealed class ExpensesPanel : ContentView
     }
     private async Task ResolveBudgetAsync()
     {
-        if (scope is not { } current || book?.PendingSettings is not { } pending) return;
+        if (!active || scope is not { } current || !store.IsCurrent(current) || book?.PendingSettings is not { } pending) return;
         var choice = await Shell.Current.DisplayActionSheetAsync($"{pending.Budget} {pending.Currency} / {book.Settings.Budget} {book.Settings.Currency}", T("Cancelar", "Cancel"), null,
             T("Mantener mi versión", "Keep my version"), T("Usar versión del servidor", "Use server version"));
         if (choice == T("Mantener mi versión", "Keep my version") || choice == T("Usar versión del servidor", "Use server version"))
@@ -184,24 +229,35 @@ public sealed class ExpensesPanel : ContentView
     }
     private async Task BudgetAsync()
     {
-        if (book is null || scope is not { } current) return;
+        if (!active || book is null || scope is not { } current || !store.IsCurrent(current)) return;
         var effective = EffectiveBook();
         await Shell.Current.Navigation.PushModalAsync(new ExpenseBudgetPage(effective.Settings, async (currency, budget) =>
         {
             await store.SaveBudgetAsync(current, book.Settings, currency, budget);
+            _ = SyncAfterLocalSaveAsync(current);
         }));
     }
     private async Task PremiumAsync(string action)
     {
-        if (scope is not { } current || book is null || !store.IsCurrent(current)) return;
-        if (!book.HasPremium)
+        if (!active || scope is not { } current || book is null || !store.IsCurrent(current)) return;
+        if (!store.CanUsePremiumOffline(current, book))
         {
             var pending = MauiProgram.Services.GetRequiredService<PendingExpenseAction>(); pending.UserId = current.UserId; pending.TripId = current.TripId; pending.Action = action;
             await PaywallNavigation.OpenAsync(PaywallEntryPoint.Expenses); return;
         }
+        if (action == "breakdown")
+        {
+            var local = EffectiveBook();
+            var data = ExpensePolicy.Breakdown(local.Items.Select(x => x.Value), local.Settings.Currency);
+            await Shell.Current.Navigation.PushModalAsync(new ExpenseBreakdownPage(data,
+                local.Items.Any(x => x.Pending is not null) || local.PendingSettings is not null));
+            return;
+        }
         if (book.Items.Any(x => x.Pending is not null) || book.PendingSettings is not null)
-            throw new InvalidOperationException(T("Sincronizá los gastos pendientes para ver el desglose o exportar.", "Sync pending expenses before viewing a breakdown or exporting."));
-        var token = await sessions.GetTokenAsync() ?? throw new InvalidOperationException("Sesión no disponible.");
+            throw new InvalidOperationException(T("Sincronizá los gastos pendientes antes de exportar.", "Sync pending expenses before exporting."));
+        var token = await sessions.GetTokenAsync();
+        if (!active || !store.IsCurrent(current)) return;
+        if (token is null) throw new InvalidOperationException(T("Sesión no disponible.", "Session unavailable."));
         try
         {
             if (action == "export")
@@ -211,22 +267,15 @@ public sealed class ExpensesPanel : ContentView
                 if (!store.IsCurrent(current)) return;
                 await Share.Default.RequestAsync(new ShareFileRequest(T("Gastos del viaje", "Trip expenses"), new ShareFile(path)));
             }
-            else
-            {
-                var data = await api.GetExpenseBreakdownAsync(token, current.TripId, default); if (!store.IsCurrent(current)) return;
-                var body = new VerticalStackLayout { Spacing = 14, Padding = 24 };
-                var page = new TripScopedPage { BackgroundColor = Paper, SafeAreaEdges = SafeAreaEdges.All };
-                body.Add(Button(T("Cerrar", "Close"), () => page.Navigation.PopModalAsync())); body.Add(Text(T("En qué gastaste", "Spending breakdown"), 30, true));
-                var max = Math.Max(1, data.Categories.Sum(x => x.Total));
-                foreach (var group in data.Categories.OrderByDescending(x => x.Total))
-                { body.Add(Text($"{Category(group.Category)} · {Money(group.Total, data.Currency)}{(group.Pending > 0 ? " ≈" : "")}")); body.Add(new ProgressBar { Progress = (double)(group.Total / max), ProgressColor = Gold }); }
-                body.Add(Text(T("Por día", "By day"), 25, true));
-                foreach (var day in data.Days) body.Add(Text($"{day.Date:d} · {Money(day.Total, data.Currency)}{(day.Pending > 0 ? " ≈" : "")}"));
-                page.Content = new ScrollView { Content = body }; await Shell.Current.Navigation.PushModalAsync(page);
-            }
         }
         catch (HttpRequestException error) when (error.StatusCode == System.Net.HttpStatusCode.Forbidden)
-        { book = book with { HasPremium = false }; await PremiumAsync(action); }
+        { if (!active || !store.IsCurrent(current)) return; book = book with { HasPremium = false }; await PremiumAsync(action); }
+    }
+    private async Task SyncAfterLocalSaveAsync(JournalScope current)
+    {
+        try { await store.SyncAsync(current); }
+        catch (OperationCanceledException) { }
+        catch (Exception error) { ClientDiagnostics.Record("expenses_background_sync_failed", exception: error); }
     }
     private sealed record ExpenseRow(LocalExpense Entry, string Day, string Name, string Price, string Icon, string Detail)
     {

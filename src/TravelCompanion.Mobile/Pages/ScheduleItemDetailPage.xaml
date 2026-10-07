@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+<pages:TripScopedPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:pages="clr-namespace:TravelCompanion.Mobile.Pages"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:services="clr-namespace:TravelCompanion.Mobile.Services"
              xmlns:viewModels="clr-namespace:TravelCompanion.Mobile.ViewModels"
@@ -83,7 +84,7 @@
                            FontSize="11"
                            FontAttributes="Bold"
                            TextTransform="Uppercase"
-                           TextColor="#B8956A" />
+                           TextColor="{StaticResource EditorialAccentText}" />
                 </VerticalStackLayout>
 
                 <VerticalStackLayout Spacing="8">
@@ -179,4 +180,4 @@
             </VerticalStackLayout>
         </VerticalStackLayout>
     </ScrollView>
-</ContentPage>
+</pages:TripScopedPage>

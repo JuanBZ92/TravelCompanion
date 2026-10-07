@@ -6,7 +6,7 @@ internal static class MobileDiagnosticsSettings
 {
     private const string MetadataKey = "TravelCompanionDiagnosticsEnabled";
 
-    public static bool IsEnabled => typeof(MobileDiagnosticsSettings).Assembly
+    public static bool IsEnabled { get; } = typeof(MobileDiagnosticsSettings).Assembly
         .GetCustomAttributes<AssemblyMetadataAttribute>()
         .FirstOrDefault(attribute => attribute.Key == MetadataKey)
         ?.Value is { } value

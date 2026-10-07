@@ -12,7 +12,9 @@ public sealed partial class AccountViewModel(
     SessionLogoutService logout,
     AnalyticsConsentService analyticsConsent,
     ProductAnalyticsQueueService analyticsQueue,
-    TripDocumentStore documents) : ViewModelBase
+    TripDocumentStore documents,
+    BiometricUnlockService biometricUnlock,
+    PendingStorePurchaseStore pendingPurchases) : ViewModelBase
 {
     private string _email = string.Empty;
     private bool _emailVerified;
@@ -24,6 +26,10 @@ public sealed partial class AccountViewModel(
     public bool EmailVerified { get => _emailVerified; private set => SetProperty(ref _emailVerified, value); }
     public bool HasTrips => Trips.Count > 0;
     public bool HasNoTrips => !HasTrips;
+    public string UnlockMethodLabel => Resource(sessions.PreferredUnlockMethod == DeviceUnlockMethod.Biometric
+        ? "AccountUnlockBiometric" : "AccountUnlockPin");
+    public string UnlockMethodDescription => Resource(sessions.PreferredUnlockMethod == DeviceUnlockMethod.Biometric
+        ? "AccountUnlockBiometricBody" : "AccountUnlockPinBody");
     public bool BehaviorAnalyticsEnabled
     {
         get => _behaviorAnalyticsEnabled;
@@ -40,6 +46,7 @@ public sealed partial class AccountViewModel(
     [RelayCommand]
     private Task LoadAccountAsync() => LoadAsync(async cancellationToken =>
     {
+        NotifyUnlockMethod();
         var token = await sessions.GetTokenAsync();
         if (string.IsNullOrWhiteSpace(token)) throw new UnauthorizedAccessException();
         var account = await api.GetAccountAsync(token, cancellationToken)
@@ -55,6 +62,50 @@ public sealed partial class AccountViewModel(
         OnPropertyChanged(nameof(HasTrips));
         OnPropertyChanged(nameof(HasNoTrips));
     });
+
+    [RelayCommand]
+    private Task ChooseUnlockMethodAsync() => LoadAsync(async cancellationToken =>
+    {
+        var context = sessions.ContextVersion;
+        var userId = sessions.CurrentUserId;
+        if (!sessions.HasSession || userId is null) return;
+        bool Current() => !cancellationToken.IsCancellationRequested && sessions.HasSession
+            && sessions.CurrentUserId == userId && sessions.ContextVersion == context;
+        try
+        {
+            var biometric = Resource("AccountUnlockBiometric");
+            var pin = Resource("AccountUnlockPin");
+            var choice = await Shell.Current.DisplayActionSheetAsync(Resource("AccountUnlockChoose"),
+                Resource("CommonCancel"), null, biometric, pin);
+            if (!Current() || choice != biometric && choice != pin) return;
+            var method = choice == biometric ? DeviceUnlockMethod.Biometric : DeviceUnlockMethod.Pin;
+            if (method == sessions.PreferredUnlockMethod && sessions.RequiresLocalUnlock) return;
+            if (method == DeviceUnlockMethod.Biometric)
+            {
+                var available = await biometricUnlock.IsAvailableAsync(cancellationToken);
+                if (!Current()) return;
+                if (!available) { ErrorMessage = Resource("BiometricUnavailable"); return; }
+                var verified = await biometricUnlock.UnlockAsync(cancellationToken);
+                if (!Current()) return;
+                if (!verified) { ErrorMessage = Resource("BiometricRejected"); return; }
+            }
+            sessions.SetUnlockMethod(method);
+            NotifyUnlockMethod();
+            StatusMessage = Resource("AccountUnlockSaved");
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
+        catch (Exception error)
+        {
+            ClientDiagnostics.Record("account_unlock_preference_failed", exception: error);
+            if (Current()) ErrorMessage = Resource("AccountUnlockError");
+        }
+    });
+
+    private void NotifyUnlockMethod()
+    {
+        OnPropertyChanged(nameof(UnlockMethodLabel));
+        OnPropertyChanged(nameof(UnlockMethodDescription));
+    }
 
     [RelayCommand]
     private Task SelectTripAsync(AccountTripItem? item) => LoadAsync(async cancellationToken =>
@@ -138,6 +189,8 @@ public sealed partial class AccountViewModel(
             var token = await sessions.GetTokenAsync();
             if (string.IsNullOrWhiteSpace(token) || !await api.DeleteAccountAsync(token, cancellationToken))
                 throw new InvalidOperationException(Resource("AccountDeleteError"));
+            if (deletingUserId.HasValue) sessions.DeleteUnlockPreference(deletingUserId.Value);
+            if (deletingUserId.HasValue) await pendingPurchases.ClearUserAsync(deletingUserId.Value);
             if (deletingUserId.HasValue) { await documents.DeleteAccountAsync(deletingUserId.Value); await MauiProgram.Services.GetRequiredService<JournalStore>().DeleteAccountAsync(deletingUserId.Value); }
             if (deletingUserId.HasValue) await MauiProgram.Services.GetRequiredService<ExpenseStore>().DeleteAccountAsync(deletingUserId.Value);
             if (deletingUserId.HasValue) await MauiProgram.Services.GetRequiredService<DayPlannerStore>().DeleteAccountAsync(deletingUserId.Value);

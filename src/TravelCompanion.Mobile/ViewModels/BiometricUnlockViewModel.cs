@@ -13,6 +13,8 @@ public sealed partial class BiometricUnlockViewModel(
     public string DisplayName => sessionService.CurrentDisplayName ?? LocalizationResourceManager.Instance["BiometricAccountFallback"];
     public string SessionDescription => string.Format(LocalizationResourceManager.Instance.CurrentCulture,
         LocalizationResourceManager.Instance["BiometricSessionFormat"], DisplayName);
+    public bool UsesBiometrics => sessionService.IsBiometricEnabled;
+    public string PrimaryUnlockText => LocalizationResourceManager.Instance[UsesBiometrics ? "BiometricUnlockAction" : "UnlockPinAction"];
 
     public string UnlockStatusMessage
     {
@@ -22,6 +24,9 @@ public sealed partial class BiometricUnlockViewModel(
 
     public async Task TryAutoUnlockAsync()
     {
+        OnPropertyChanged(nameof(UsesBiometrics));
+        OnPropertyChanged(nameof(PrimaryUnlockText));
+        UnlockStatusMessage = LocalizationResourceManager.Instance[UsesBiometrics ? "BiometricStatusDefault" : "UnlockPinStatus"];
         if (_hasTriedAutoUnlock)
         {
             return;
@@ -34,21 +39,22 @@ public sealed partial class BiometricUnlockViewModel(
     [RelayCommand]
     private Task UnlockAsync()
     {
-        return LoadAsync(async () =>
+        return LoadAsync(async cancellationToken =>
         {
+            var contextVersion = sessionService.ContextVersion;
+            bool Current() => !cancellationToken.IsCancellationRequested && sessionService.HasSession
+                && sessionService.IsBiometricEnabled && contextVersion == sessionService.ContextVersion;
             try
             {
-                UnlockStatusMessage = LocalizationResourceManager.Instance["BiometricStatusDefault"];
+                UnlockStatusMessage = LocalizationResourceManager.Instance[UsesBiometrics ? "BiometricStatusDefault" : "UnlockPinStatus"];
                 if (!sessionService.HasSession || !sessionService.IsBiometricEnabled)
                 {
                     await Shell.Current.GoToAsync("//login");
                     return;
                 }
 
-                var contextVersion = sessionService.ContextVersion;
                 var token = await sessionService.GetTokenAsync();
-                if (!sessionService.HasSession || !sessionService.IsBiometricEnabled
-                    || contextVersion != sessionService.ContextVersion) return;
+                if (!Current()) return;
                 if (string.IsNullOrWhiteSpace(token))
                 {
                     sessionService.Clear();
@@ -56,29 +62,35 @@ public sealed partial class BiometricUnlockViewModel(
                     return;
                 }
 
-                if (!await biometricUnlockService.IsAvailableAsync())
+                var available = await biometricUnlockService.IsAvailableAsync(cancellationToken);
+                if (!Current()) return;
+                if (!available)
                 {
                     UnlockStatusMessage = LocalizationResourceManager.Instance["BiometricUnavailable"];
                     return;
                 }
 
-                if (!sessionService.HasSession || !sessionService.IsBiometricEnabled
-                    || contextVersion != sessionService.ContextVersion) return;
-
-                if (await biometricUnlockService.UnlockAsync())
+                var result = await biometricUnlockService.AuthenticateForUnlockAsync(cancellationToken);
+                if (!Current()) return;
+                if (result == BiometricUnlockOutcome.Succeeded)
                 {
-                    if (!sessionService.HasSession || !sessionService.IsBiometricEnabled
-                        || contextVersion != sessionService.ContextVersion) return;
                     await Shell.Current.GoToAsync(AppShell.GetAuthenticatedLandingRoute(sessionService));
                     return;
                 }
-
-                UnlockStatusMessage = LocalizationResourceManager.Instance["BiometricRejected"];
+                if (result == BiometricUnlockOutcome.UsePin)
+                {
+                    await Shell.Current.GoToAsync("//login");
+                    return;
+                }
+                if (result == BiometricUnlockOutcome.Rejected)
+                    UnlockStatusMessage = LocalizationResourceManager.Instance["BiometricRejected"];
+                else ErrorMessage = LocalizationResourceManager.Instance["BiometricUnlockError"];
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
             catch (Exception error)
             {
                 ClientDiagnostics.Record("biometric_unlock_failed", exception: error);
-                ErrorMessage = LocalizationResourceManager.Instance["BiometricUnlockError"];
+                if (Current()) ErrorMessage = LocalizationResourceManager.Instance["BiometricUnlockError"];
             }
         });
     }

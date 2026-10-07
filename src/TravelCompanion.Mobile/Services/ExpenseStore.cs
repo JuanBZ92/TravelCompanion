@@ -11,6 +11,8 @@ public sealed record ExpenseBook(ExpenseSettingsDto Settings, List<LocalExpense>
 public sealed class ExpenseStore(OfflineCacheService cache, AuthSessionService sessions, TravelCompanionApiClient api)
 {
     private readonly SemaphoreSlim gate = new(1, 1);
+    // A slow connection must never own the lock needed by local edits.
+    private readonly SemaphoreSlim syncGate = new(1, 1);
     private readonly HashSet<Guid> deletedUsers = [];
     private readonly HashSet<(Guid, Guid)> deletedTrips = [];
     public event EventHandler? Changed;
@@ -41,6 +43,7 @@ public sealed class ExpenseStore(OfflineCacheService cache, AuthSessionService s
         {
             var book = await ReadAsync(source);
             await cache.SaveAsync(Key(source with { UserId = verified.UserId }), book);
+            Check(source);
             await cache.DeleteByPrefixAsync(Key(source));
         }
         finally { gate.Release(); }
@@ -56,9 +59,14 @@ public sealed class ExpenseStore(OfflineCacheService cache, AuthSessionService s
 
     public async Task SaveAsync(JournalScope scope, ExpenseDto value, decimal? manualRate, int settingsRevision)
     {
+#if ANDROID
+        using var measurement = MobileOperationMeasurement.Start("expense_save_measured");
+#endif
         await gate.WaitAsync();
         try
         {
+            Check(scope);
+            if (value.TripId != scope.TripId) throw new OperationCanceledException("The expense belongs to another trip.");
             var book = await ReadAsync(scope);
             var request = new SaveExpenseRequest(value.Amount, value.Currency, value.Date, value.Category, value.Concept,
                 value.ActivityId, manualRate, value.Revision, settingsRevision, Guid.NewGuid(), value.Deleted,
@@ -83,15 +91,9 @@ public sealed class ExpenseStore(OfflineCacheService cache, AuthSessionService s
             if (currency != book.Settings.Currency && book.Items.Count > 0)
             {
                 if (book.Items.Any(x => x.Pending is not null) || book.PendingSettings is not null)
-                    throw new InvalidOperationException("Sincronizá los gastos pendientes antes de cambiar de moneda.");
-                var result = await api.SaveExpenseSettingsAsync(await Token(scope), scope.TripId, request, default);
-                Check(scope);
-                if (result is null) throw new InvalidOperationException("El presupuesto cambió en otro dispositivo. Actualizá e intentá de nuevo.");
-                var remote = await api.GetExpensesAsync(await Token(scope), scope.TripId, default); Check(scope);
-                await Write(scope, new(remote.Settings, remote.Items.Select(x => new LocalExpense(x)).ToList(), remote.HasPremium,
-                    remote.TimeZoneId, remote.Activities.ToArray(), LastCurrency: book.LastCurrency));
+                    throw new InvalidOperationException(LocalizationResourceManager.Instance["UxExpensePendingCurrencyChange"]);
             }
-            else await Write(scope, book with { PendingSettings = request, SettingsConflict = false });
+            await Write(scope, book with { PendingSettings = request, SettingsConflict = false });
         }
         finally { gate.Release(); }
     }
@@ -105,10 +107,10 @@ public sealed class ExpenseStore(OfflineCacheService cache, AuthSessionService s
     }
     public async Task SyncAsync(JournalScope scope, CancellationToken ct = default)
     {
-        if (!await gate.WaitAsync(0, ct)) return;
+        if (!await syncGate.WaitAsync(0, ct)) return;
         try
         {
-            var book = await ReadAsync(scope);
+            var book = await SnapshotAsync(scope, ct);
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct); timeout.CancelAfter(TimeSpan.FromSeconds(18));
             var token = await Token(scope);
             if (book.PendingSettings is { } settings && !book.SettingsConflict)
@@ -116,11 +118,11 @@ public sealed class ExpenseStore(OfflineCacheService cache, AuthSessionService s
                 try
                 {
                     var result = await api.SaveExpenseSettingsAsync(token, scope.TripId, settings, timeout.Token); Check(scope);
-                    book = result is null ? book with { SettingsConflict = true } : book with { Settings = result, PendingSettings = null };
+                    await MergeSettingsAsync(scope, settings, result, ct);
                 }
                 catch (HttpRequestException error) when (error.StatusCode == System.Net.HttpStatusCode.BadRequest)
-                { book = book with { SettingsConflict = true }; }
-                await Write(scope, book);
+                { await MergeSettingsAsync(scope, settings, null, ct); }
+                book = await SnapshotAsync(scope, ct);
             }
             for (var i = 0; i < book.Items.Count; i++)
             {
@@ -135,7 +137,7 @@ public sealed class ExpenseStore(OfflineCacheService cache, AuthSessionService s
                     if (rate is null) continue;
                     pending = new(value.Amount, value.Currency, value.Date, value.Category, value.Concept, value.ActivityId,
                         null, value.Revision, book.Settings.Revision, Guid.NewGuid(), CachedRate: rate);
-                    entry = entry with { Pending = pending }; book.Items[i] = entry; await Write(scope, book);
+                    if (!await AttachRateMutationAsync(scope, entry, pending, ct)) continue;
                 }
                 if (pending is null) continue;
                 // An acknowledged local budget update can advance the settings revision without changing currency.
@@ -145,25 +147,112 @@ public sealed class ExpenseStore(OfflineCacheService cache, AuthSessionService s
                 try { result = await api.SaveExpenseAsync(token, scope.TripId, entry.Value.Id, pending, timeout.Token); Check(scope); }
                 catch (HttpRequestException error) when (error.StatusCode == System.Net.HttpStatusCode.BadRequest)
                 {
-                    book.Items[i] = entry with { NeedsEdit = true }; await Write(scope, book); continue;
+                    await MergeExpenseAsync(scope, entry.Value.Id, pending, null, rejected: true, ct); continue;
                 }
-                book.Items[i] = result.Saved ? new(result.Entry!) : entry with { Conflict = true, Server = result.Entry };
-                await Write(scope, book);
+                await MergeExpenseAsync(scope, entry.Value.Id, pending, result, rejected: false, ct);
             }
             var remote = await api.GetExpensesAsync(token, scope.TripId, timeout.Token); Check(scope);
-            foreach (var value in remote.Items)
+            await gate.WaitAsync(ct);
+            try
             {
-                var index = book.Items.FindIndex(x => x.Value.Id == value.Id);
-                if (index < 0) book.Items.Add(new(value));
-                else if (book.Items[index].Pending is null) book.Items[index] = new(value);
+                var latest = await ReadAsync(scope);
+                foreach (var value in remote.Items)
+                {
+                    var index = latest.Items.FindIndex(x => x.Value.Id == value.Id);
+                    if (index < 0) latest.Items.Add(new(value));
+                    else if (latest.Items[index].Pending is null && !latest.Items[index].Conflict
+                        && value.Revision >= latest.Items[index].Value.Revision) latest.Items[index] = new(value);
+                }
+                await Write(scope, latest with
+                {
+                    Settings = remote.Settings.Revision >= latest.Settings.Revision ? remote.Settings : latest.Settings,
+                    HasPremium = remote.HasPremium, TimeZoneId = remote.TimeZoneId, Activities = remote.Activities.ToArray()
+                });
             }
-            book = book with { Settings = remote.Settings, HasPremium = remote.HasPremium, TimeZoneId = remote.TimeZoneId, Activities = remote.Activities.ToArray() };
-            await Write(scope, book);
+            finally { gate.Release(); }
         }
         catch (HttpRequestException) { /* Retain pending mutations and their IDs. */ }
         catch (TaskCanceledException) when (!ct.IsCancellationRequested) { }
+        finally { syncGate.Release(); }
+    }
+
+    private async Task<ExpenseBook> SnapshotAsync(JournalScope scope, CancellationToken ct)
+    {
+        await gate.WaitAsync(ct);
+        try { var book = await ReadAsync(scope); return book with { Items = [.. book.Items] }; }
         finally { gate.Release(); }
     }
+
+    private async Task MergeSettingsAsync(JournalScope scope, SaveExpenseSettingsRequest sent,
+        ExpenseSettingsDto? result, CancellationToken ct)
+    {
+        await gate.WaitAsync(ct);
+        try
+        {
+            var latest = await ReadAsync(scope);
+            var matches = latest.PendingSettings?.MutationId == sent.MutationId;
+            var pending = latest.PendingSettings;
+            if (!matches && result is not null && pending is not null
+                && pending.ExpectedRevision == sent.ExpectedRevision && latest.Settings.Revision == sent.ExpectedRevision)
+                // Rebase only a concurrent local successor over this store's acknowledged mutation.
+                pending = pending with { ExpectedRevision = result.Revision };
+            await Write(scope, latest with
+            {
+                Settings = result is not null && result.Revision >= latest.Settings.Revision ? result : latest.Settings,
+                PendingSettings = matches && result is not null ? null : pending,
+                SettingsConflict = matches ? result is null : latest.SettingsConflict
+            });
+        }
+        finally { gate.Release(); }
+    }
+
+    private async Task<bool> AttachRateMutationAsync(JournalScope scope, LocalExpense original,
+        SaveExpenseRequest pending, CancellationToken ct)
+    {
+        await gate.WaitAsync(ct);
+        try
+        {
+            var latest = await ReadAsync(scope);
+            var index = latest.Items.FindIndex(x => x.Value.Id == original.Value.Id);
+            if (index < 0 || latest.Items[index] != original) return false;
+            latest.Items[index] = original with { Pending = pending };
+            await Write(scope, latest); return true;
+        }
+        finally { gate.Release(); }
+    }
+
+    private async Task MergeExpenseAsync(JournalScope scope, Guid id, SaveExpenseRequest sent,
+        SaveExpenseResult? result, bool rejected, CancellationToken ct)
+    {
+        await gate.WaitAsync(ct);
+        try
+        {
+            var latest = await ReadAsync(scope);
+            var index = latest.Items.FindIndex(x => x.Value.Id == id);
+            if (index < 0) return;
+            var current = latest.Items[index];
+            if (current.Pending?.MutationId == sent.MutationId)
+                latest.Items[index] = rejected ? current with { NeedsEdit = true }
+                    : result?.Saved == true && result.Entry is { } saved ? new(saved)
+                    : current with { Conflict = true, Server = result?.Entry };
+            else if (!rejected && result?.Saved == true && result.Entry is { } acknowledged
+                && current.Pending is { } newer && newer.ExpectedRevision == sent.ExpectedRevision
+                && current.Value.Revision == sent.ExpectedRevision)
+                // Rebase only over our acknowledged mutation, never an unseen other-device edit.
+                latest.Items[index] = current with
+                {
+                    Value = current.Value with { Revision = acknowledged.Revision },
+                    Pending = newer with { ExpectedRevision = acknowledged.Revision }
+                };
+            else return;
+            await Write(scope, latest);
+        }
+        finally { gate.Release(); }
+    }
+
+    public bool CanUsePremiumOffline(JournalScope scope, ExpenseBook book) => IsCurrent(scope)
+        && book.HasPremium && sessions.HasKnownValidAccess
+        && sessions.AccessMode is not (SessionAccessMode.FreeMapPreview or SessionAccessMode.BuilderReadOnly);
     public async Task ResolveAsync(JournalScope scope, Guid id, bool keepLocal)
     {
         await gate.WaitAsync();
@@ -201,6 +290,7 @@ public sealed class ExpenseStore(OfflineCacheService cache, AuthSessionService s
     }
     public async Task<ExpenseRateDto?> RateAsync(JournalScope scope, ExpenseBook book, string currency, DateOnly date)
     {
+        Check(scope);
         if (currency == book.Settings.Currency) return new(currency, currency, 1, date, "identity");
         try
         {
@@ -210,6 +300,7 @@ public sealed class ExpenseStore(OfflineCacheService cache, AuthSessionService s
         }
         catch (HttpRequestException) { }
         catch (TaskCanceledException) { }
+        Check(scope);
         return book.Items.Select(x => x.Value).Where(x => x.Currency == currency && x.BaseCurrency == book.Settings.Currency && x.RateDate <= date && x.Rate.HasValue
                 && x.RateSource is "Frankfurter" or "cached")
             .OrderByDescending(x => x.RateDate).Select(x => new ExpenseRateDto(currency, x.BaseCurrency, x.Rate!.Value, x.RateDate!.Value, "cached")).FirstOrDefault();

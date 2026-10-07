@@ -418,8 +418,15 @@ public sealed class DayPlanService(TravelCompanionDbContext db,
         // Existing event uniqueness is the authority for simultaneous replays. Analytics must not fail a committed plan.
         var eventId = new Guid(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(new { userId, tripId, name, identity }))[..16]);
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        var openedConnection = false;
         try
         {
+            // Keep the telemetry unit on one connection without extending its time budget.
+            if (db.Database.IsRelational() && db.Database.GetDbConnection().State == ConnectionState.Closed)
+            {
+                await db.Database.OpenConnectionAsync(timeout.Token);
+                openedConnection = true;
+            }
             if (await db.ProductAnalyticsEvents.AsNoTracking().AnyAsync(item => item.EventId == eventId, timeout.Token)) return;
             await analytics.RecordServerEventAsync(userId, tripId, name, "assistant", null, timeout.Token, eventId: eventId);
         }
@@ -429,6 +436,21 @@ public sealed class DayPlanService(TravelCompanionDbContext db,
                 entry.State = EntityState.Detached;
             logger?.LogWarning("Planning funnel event was not recorded: {EventName}; FailureType={FailureType}",
                 name, exception.GetType().Name);
+        }
+        finally
+        {
+            if (openedConnection)
+            {
+                try
+                {
+                    await db.Database.CloseConnectionAsync();
+                }
+                catch (Exception exception)
+                {
+                    logger?.LogWarning("Planning telemetry connection was not closed: FailureType={FailureType}",
+                        exception.GetType().Name);
+                }
+            }
         }
     }
     private static string Hash<T>(T value) => Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(value)));

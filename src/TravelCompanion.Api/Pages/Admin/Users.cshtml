@@ -1,10 +1,10 @@
 @page "/admin/users"
 @model TravelCompanion.Api.Pages.Admin.UsersModel
 @{
-    ViewData["Title"] = "Users";
+    ViewData["Title"] = "Usuarios y accesos";
 }
 
-<h1>Users & access</h1>
+<h1>Usuarios y accesos</h1>
 <p class="lede">Usuarios de la app y accesos activos por pago, paquete o suscripcion.</p>
 
 @if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
@@ -22,7 +22,7 @@
                 <h2>@(Model.UserInput.Id.HasValue ? "Editar usuario" : "Nuevo usuario")</h2>
                 <p class="muted">Al crear un usuario se genera una password temporal y se marca cambio obligatorio.</p>
             </div>
-            <span class="badge">Password temporal</span>
+            <span class="badge">Contraseña temporal</span>
         </div>
         <form method="post" asp-page-handler="SaveUser">
             <div asp-validation-summary="All"></div>
@@ -111,7 +111,7 @@
         <thead>
             <tr>
                 <th>Usuario</th>
-                <th>Login</th>
+                <th>Inicio de sesión</th>
                 <th>Accesos</th>
                 <th></th>
             </tr>
@@ -140,7 +140,7 @@
                     <div class="row-actions">
                         <a class="button secondary" asp-page="/Admin/Users" asp-route-editUserId="@user.Id" asp-route-pageNumber="@Model.PageNumber" asp-route-pageSize="@Model.PageSize">Editar</a>
                         <form method="post" asp-page-handler="ResetPassword" asp-route-id="@user.Id">
-                            <button class="secondary" type="submit">Reset password</button>
+                            <button class="secondary" type="submit">Restablecer contraseña</button>
                         </form>
                         <form method="post" asp-page-handler="DeleteUser" asp-route-id="@user.Id">
                             <button class="danger" type="submit">Borrar</button>
@@ -171,7 +171,7 @@
             <tr>
                 <th>Usuario</th>
                 <th>Acceso</th>
-                <th>Scope</th>
+                <th>Alcance</th>
                 <th>Vigencia</th>
                 <th>Origen</th>
                 <th></th>

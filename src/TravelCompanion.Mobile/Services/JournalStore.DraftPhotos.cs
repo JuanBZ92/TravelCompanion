@@ -6,6 +6,7 @@ public sealed partial class JournalStore
     public async Task<JournalMemory> AddDraftPhotosAsync(JournalScope scope, JournalMemory memory,
         string text, IEnumerable<FileResult> files)
     {
+        CheckEntry(scope, memory);
         var normalized = new List<JournalImageData>();
         foreach (var file in files.Take(10 - memory.Images.Length))
         {
@@ -23,7 +24,7 @@ public sealed partial class JournalStore
             {
                 var id = Guid.NewGuid();
                 created.Add(id);
-                await cache.SaveAsync(Prefix(scope) + id, image);
+                await SavePhotoPayloadAsync(scope, id, image);
                 memory = memory with { Photos = [..memory.Images, new(id)], CoverId = memory.CoverId ?? id };
                 Check(scope);
             }
@@ -33,7 +34,7 @@ public sealed partial class JournalStore
             drafts.Add(new(memory, text, DateTimeOffset.UtcNow));
             await cache.SaveAsync(Prefix(scope) + "drafts", drafts);
         }
-        catch { foreach (var id in created) await cache.DeleteAsync(Prefix(scope) + id); throw; }
+        catch { foreach (var id in created) await DeletePhotoPayloadAsync(scope, id); throw; }
         finally { gate.Release(); }
         return memory;
     }

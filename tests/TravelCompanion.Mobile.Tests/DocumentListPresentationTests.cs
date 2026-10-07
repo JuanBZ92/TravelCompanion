@@ -4,6 +4,34 @@ namespace TravelCompanion.Mobile.Tests;
 
 public sealed class DocumentListPresentationTests
 {
+    [Theory]
+    [InlineData(false, false, false, null, null, false)]
+    [InlineData(false, true, true, "1", 2L, false)]
+    [InlineData(true, false, false, null, null, true)]
+    [InlineData(true, false, true, "2", 2L, false)]
+    [InlineData(true, true, true, "2", 2L, true)]
+    [InlineData(true, false, true, "1", 2L, true)]
+    [InlineData(true, false, true, "1", null, true)]
+    public void Refresh_honours_offline_cache_and_explicit_retry(bool online, bool force, bool cached,
+        string? cachedVersion, long? currentVersion, bool request)
+    {
+        Assert.Equal(request, DocumentListPresentation.ShouldRequestIncludedDocuments(online, force, cached, cachedVersion, currentVersion));
+    }
+
+    [Fact]
+    public void Refresh_failure_distinguishes_retained_content_from_empty_and_keeps_document_actions()
+    {
+        var opens = 0;
+        var document = new DocumentRow("Local ticket", () => opens++);
+        var available = DocumentListPresentation.Build([new("Transport", [document])], [], false, false, true);
+
+        Assert.Equal("DocsRefreshFailed", DocumentListPresentation.FailureMessageKey(available.Count > 0));
+        ((DocumentRow)available[0][0]).Open();
+        Assert.Equal(1, opens);
+        Assert.Same(document, available[0][0]);
+        Assert.Equal("DocsLoadFailed", DocumentListPresentation.FailureMessageKey(false));
+    }
+
     [Fact]
     public void Personal_categories_precede_included_sections_and_keep_row_order_and_actions()
     {

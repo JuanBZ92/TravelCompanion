@@ -30,8 +30,13 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.trip-admin-grid > *,
+.trip-create-fields > * {
+    min-width: 0;
+}
+
 .trip-fixed-destination {
-    background: #f5f1ea;
+    background: var(--surface-soft);
     border: 1px solid var(--line);
     padding: 10px 12px;
 }
@@ -84,7 +89,17 @@
 }
 
 .trip-city-row input {
+    font-size: 1rem;
     min-width: 0;
+}
+
+.trip-city-field {
+    margin: 0;
+    min-width: 0;
+}
+
+.trip-city-field > .trip-city-caption {
+    display: none;
 }
 
 .trip-city-row .icon-button {
@@ -706,7 +721,7 @@
 
 @media (max-width: 1050px) {
     .trip-admin-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
     }
 
     .planner-toolbar {
@@ -737,12 +752,17 @@
 
 @media (max-width: 1250px) {
     .trip-admin-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
     }
 }
 
 /* Full-screen operator workspace, aligned with the YUKU editorial console. */
 .trip-planner-page {
+    color-scheme: light;
+    --surface: var(--planner-paper);
+    --text: var(--planner-ink);
+    --muted: var(--planner-muted);
+    --line: var(--planner-line);
     background: #f3f0ea;
     color: #231f1b;
     overflow: hidden;
@@ -1218,9 +1238,61 @@
 }
 
 .trip-admin-grid .panel {
-    background: #fffdfa;
+    background: var(--surface);
     border-radius: 2px;
     box-shadow: none;
+}
+
+@media (max-width: 700px) {
+    .trip-create-fields,
+    .trip-city-row {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .trip-city-labels {
+        display: none;
+    }
+
+    .trip-city-row {
+        gap: 12px;
+        margin-top: 16px;
+        padding-bottom: 16px;
+    }
+
+    .trip-city-row + .trip-city-row {
+        border-top: 1px solid var(--line);
+        padding-top: 16px;
+    }
+
+    .trip-city-field > .trip-city-caption {
+        display: block;
+        margin-bottom: 5px;
+    }
+
+    .trip-city-row .icon-button {
+        height: 48px;
+        justify-self: end;
+        width: 48px;
+    }
+
+    .trip-search > * {
+        flex: 1 1 100%;
+        min-width: 0;
+        width: 100%;
+    }
+
+    .trip-row {
+        flex-wrap: wrap;
+    }
+
+    .trip-row > span {
+        min-width: 0;
+        overflow-wrap: anywhere;
+    }
+
+    .trip-row-state {
+        text-align: left;
+    }
 }
 
 @media (max-width: 1320px) {
