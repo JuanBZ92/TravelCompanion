@@ -155,8 +155,11 @@ public sealed class TravelAssistantConversationStateService(
         conversation.LastResponseMode = string.IsNullOrWhiteSpace(state.LastResponseMode)
             ? "balanced"
             : state.LastResponseMode;
-        conversation.LastRecommendationIds = string.Join(",", state.LastRecommendationIds);
-        conversation.StateJson = JsonSerializer.Serialize(Sanitize(state), JsonOptions);
+        var sanitized = Sanitize(state);
+        // The old projection is varchar(512), while StateJson is the authority
+        // for the complete express history. Thirteen UUIDs occupy 480 characters.
+        conversation.LastRecommendationIds = string.Join(",", sanitized.LastRecommendationIds.TakeLast(13));
+        conversation.StateJson = JsonSerializer.Serialize(sanitized, JsonOptions);
         conversation.UpdatedAt = DateTimeOffset.UtcNow;
 
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -246,11 +249,12 @@ public sealed class TravelAssistantConversationStateService(
 
     private static TravelAssistantConversationState Sanitize(TravelAssistantConversationState state)
     {
+        var maximumHistory = state.GuidedCriteria?.WindowStartsAtLocal.HasValue == true ? int.MaxValue : 20;
         state.LastRecommendationIds = state.LastRecommendationIds
             .Where(value => !string.IsNullOrWhiteSpace(value))
             .Select(value => value.Trim())
             .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Take(20)
+            .Take(maximumHistory)
             .ToList();
         state.HiddenTags = state.HiddenTags
             .Where(value => !string.IsNullOrWhiteSpace(value))
@@ -295,7 +299,12 @@ public sealed class TravelAssistantConversationStateService(
         {
             Categories = categories,
             Budgets = budgets,
-            WalkingMinuteOptions = walkingOptions
+            WalkingMinuteOptions = walkingOptions,
+            WindowStartsAtLocal = criteria.WindowStartsAtLocal,
+            WindowEndsAtLocal = criteria.WindowEndsAtLocal,
+            WindowTimeZoneId = criteria.WindowTimeZoneId,
+            NearReservationId = criteria.NearReservationId,
+            ExcludedRecommendationIds = (criteria.ExcludedRecommendationIds ?? []).Where(id => id != Guid.Empty).Distinct().ToArray()
         };
     }
 

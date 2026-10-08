@@ -13,7 +13,7 @@ public sealed partial class TravelChatService
         && (criteria.WindowStartsAtLocal.HasValue || criteria.WindowEndsAtLocal.HasValue
             || criteria.WindowTimeZoneId is not null);
 
-    private static FreeTimePlanningWindow? ResolveFreeTimeWindow(Trip trip, DateOnly date,
+    private FreeTimePlanningWindow? ResolveFreeTimeWindow(Trip trip, DateOnly date,
         GuidedPlanCriteriaDto criteria)
     {
         if (criteria.WindowStartsAtLocal is not { } start || criteria.WindowEndsAtLocal is not { } end
@@ -38,7 +38,7 @@ public sealed partial class TravelChatService
                 commitments.Add((item, new(tripStart, tripEnd)));
             }
             var window = TravelTimeWindowPolicy.Resolve(date, start, end, commitments.Select(item => item.Commitment),
-                TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, zone).DateTime);
+                TimeZoneInfo.ConvertTime((timeProvider ?? TimeProvider.System).GetUtcNow(), zone).DateTime);
             if (window is null) return null;
             var next = commitments.Where(item => item.Commitment.StartsAtLocal == window.NextFixedAtLocal
                     && item.Commitment.StartsAtLocal <= window.EndsAtLocal)
@@ -51,12 +51,43 @@ public sealed partial class TravelChatService
 
     private TravelChatResponse FreeTimeWindowUnavailable(string conversationId, string locale) =>
         responseComposer.MissingContext(conversationId, "time_window", IsEnglish(locale)
-            ? "There is no free time in this window. Change the start or duration."
-            : "No hay un rato libre en este intervalo. Cambia la hora o la duración.", []);
+            ? "There is no free time in this interval. Try a shorter duration or try again later."
+            : "No hay un rato libre en este intervalo. Prueba una duración menor o vuelve más tarde.", []);
+
+    private Reservation? ResolveFreeTimeSearchAnchor(Trip trip, DateOnly date, Guid reservationId)
+    {
+        try
+        {
+            var zone = TimeZoneInfo.FindSystemTimeZoneById(trip.TimeZoneId);
+            var now = TimeZoneInfo.ConvertTime((timeProvider ?? TimeProvider.System).GetUtcNow(), zone).DateTime;
+            if (date != DateOnly.FromDateTime(now)) return null;
+            var future = new List<(Reservation Reservation, DateTime Start)>();
+            foreach (var item in trip.Reservations.Where(item => item.TimePrecision == ItineraryTimePrecision.Exact
+                         && item.Latitude is >= -90 and <= 90 && item.Longitude is >= -180 and <= 180
+                         && (item.Latitude != 0 || item.Longitude != 0)))
+            {
+                if (!TravelTimeWindowPolicy.TryConvertToTripTime(item.Date.ToDateTime(item.StartsAt),
+                        item.TimeZoneId, zone, out var start)) continue;
+                if (start > now && DateOnly.FromDateTime(start) == date) future.Add((item, start));
+            }
+            var next = future.OrderBy(item => item.Start)
+                .ThenBy(item => item.Reservation.PlanningKind == ScheduleItemKind.ConfirmedReservation
+                    || item.Reservation.Flexibility is ItineraryFlexibility.ConfirmedReservation
+                    or ItineraryFlexibility.FixedByTraveler || item.Reservation.Type == ReservationType.Flight ? 0 : 1)
+                .ThenBy(item => item.Reservation.Id).Select(item => item.Reservation).FirstOrDefault();
+            return next?.Id == reservationId ? next : null;
+        }
+        catch (TimeZoneNotFoundException) { return null; }
+        catch (InvalidTimeZoneException) { return null; }
+    }
+
+    private TravelChatResponse FreeTimeAreaUnavailable(string conversationId, string locale) =>
+        responseComposer.MissingContext(conversationId, "area", IsEnglish(locale)
+            ? "That plan is no longer the next located plan for today. Choose the area again."
+            : "Ese plan ya no es el próximo plan con ubicación de hoy. Vuelve a elegir la zona.", []);
 
     private static int FreeTimeOutboundMinutes(ScoredRecommendation item, TravelPlanningContext context)
     {
-        if (item.WalkingMinutes.HasValue) return item.WalkingMinutes.Value;
         var distance = DayDistance(context.CurrentLocation?.Latitude, context.CurrentLocation?.Longitude,
             item.Recommendation.Latitude, item.Recommendation.Longitude);
         return distance.HasValue ? Math.Max(1, (int)Math.Ceiling(distance.Value * 12)) : 10;
@@ -77,16 +108,21 @@ public sealed partial class TravelChatService
             + FreeTimeReturnMinutes(item, window) <= window.Window.AvailableMinutes;
 
     private TravelCardDto ToFreeTimeCard(ScoredRecommendation item, TravelPlanningContext context,
-        FreeTimePlanningWindow window, string locale)
+        FreeTimePlanningWindow window, string locale, Reservation? searchAnchor = null)
     {
         var start = window.Window.StartsAtLocal.AddMinutes(FreeTimeOutboundMinutes(item, context));
         var end = start.AddMinutes(item.Recommendation.SuggestedDurationMinutes);
         var estimate = IsEnglish(locale)
             ? "Duration and travel times are estimates; check the place’s hours before going."
             : "Duración y traslados estimados; confirma el horario del lugar antes de ir.";
+        var anchorName = string.IsNullOrWhiteSpace(searchAnchor?.LocationName)
+            ? searchAnchor?.Title : searchAnchor.LocationName;
         return responseComposer.ToRecommendationCard(item, context) with
         {
-            Subtitle = item.WalkingMinutes.HasValue
+            Subtitle = searchAnchor is not null
+                ? IsEnglish(locale) ? $"Near your next plan · {anchorName}"
+                    : $"Cerca de tu próximo plan · {anchorName}"
+                : item.WalkingMinutes.HasValue
                 ? IsEnglish(locale) ? $"About {item.WalkingMinutes} min walking · {item.Recommendation.Neighborhood}"
                     : $"Unos {item.WalkingMinutes} min a pie · {item.Recommendation.Neighborhood}"
                 : item.Recommendation.Neighborhood,
@@ -99,7 +135,11 @@ public sealed partial class TravelChatService
                 : [$"Una visita de unos {item.Recommendation.SuggestedDurationMinutes} minutos.",
                     "Los traslados estimados caben en este intervalo."],
             Warnings = item.NegativeReasons.Select(reason => LocalizeFreeTimeWarning(reason, item, locale))
-                .Append(estimate).ToArray()
+                .Append(estimate).Concat(searchAnchor is not null && context.CurrentLocation is null
+                    ? [IsEnglish(locale)
+                        ? "Your current position is unknown; allow extra time to reach this area."
+                        : "No conocemos tu posición actual; prevé tiempo adicional para llegar a esta zona."]
+                    : Array.Empty<string>()).ToArray()
         };
     }
 

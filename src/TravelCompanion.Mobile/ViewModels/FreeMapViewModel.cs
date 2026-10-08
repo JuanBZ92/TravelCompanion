@@ -18,7 +18,6 @@ public sealed partial class FreeMapViewModel(
     private DateTimeOffset _lastRevalidation;
     private long _revalidatedGeneration = -1;
     private string? _revalidatedCity;
-    private bool _previewExpanded;
     private static string Text(string key) => LocalizationResourceManager.Instance[key];
 
     public ObservableCollection<FreeMapCityDto> Cities { get; } = [];
@@ -59,8 +58,6 @@ public sealed partial class FreeMapViewModel(
         get => _selectedMarker;
         private set
         {
-            if (_selectedMarker?.MarkerKey != value?.MarkerKey || value?.Access != FreeMapMarkerAccess.Unlocked)
-                IsPreviewExpanded = false;
             if (SetProperty(ref _selectedMarker, value))
             {
                 OnPropertyChanged(nameof(HasSelection));
@@ -86,18 +83,6 @@ public sealed partial class FreeMapViewModel(
     public bool ShowMapSummary => Preview is not null && SelectedMarker is null;
     public bool HasContactUrl => !string.IsNullOrWhiteSpace(Preview?.ContactUrl);
     public bool ShowPinOnlyAction => Preview is not null && !HasContactUrl;
-    public bool IsPreviewExpanded
-    {
-        get => _previewExpanded;
-        private set
-        {
-            if (!SetProperty(ref _previewExpanded, value)) return;
-            OnPropertyChanged(nameof(PreviewTextLines));
-            OnPropertyChanged(nameof(PreviewDetailsAction));
-        }
-    }
-    public int PreviewTextLines => IsPreviewExpanded ? -1 : 2;
-    public string PreviewDetailsAction => Text(IsPreviewExpanded ? "MapHideDetailsAction" : "MapDetailsAction");
     public RecommendationDto? SelectedRecommendation => SelectedMarker?.Recommendation;
     public string SelectedRecommendationType =>
         SelectedRecommendation?.RefinedType ?? SelectedRecommendation?.Category ?? string.Empty;
@@ -188,12 +173,6 @@ public sealed partial class FreeMapViewModel(
     public void SelectMarker(FreeMapMarkerDto marker) => SelectedMarker = marker;
 
     [RelayCommand]
-    private void TogglePreviewDetails()
-    {
-        if (IsUnlockedSelection) IsPreviewExpanded = !IsPreviewExpanded;
-    }
-
-    [RelayCommand]
     private async Task MoreAccessOptionsAsync()
     {
         var context = sessionService.ContextVersion;
@@ -271,7 +250,6 @@ public sealed partial class FreeMapViewModel(
         OnPropertyChanged(nameof(SelectedCity));
         Preview = null;
         SelectedMarker = null;
-        IsPreviewExpanded = false;
     }
 
     private async Task LoadInitialAsync(CancellationToken cancellationToken)

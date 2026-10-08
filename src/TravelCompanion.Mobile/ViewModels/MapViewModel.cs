@@ -39,19 +39,7 @@ public sealed partial class MapViewModel(
     private CancellationTokenSource? _searchCancellation;
     private CancellationTokenSource? _detailCancellation;
     private readonly Dictionary<string, RecommendationDto> _detailCache = new(StringComparer.Ordinal);
-    private bool _previewExpanded;
     private static string Text(string key) => LocalizationResourceManager.Instance[key];
-    public bool IsPreviewExpanded
-    {
-        get => _previewExpanded;
-        private set
-        {
-            if (!SetProperty(ref _previewExpanded, value)) return;
-            OnPropertyChanged(nameof(PreviewTextLines)); OnPropertyChanged(nameof(PreviewDetailsAction));
-        }
-    }
-    public int PreviewTextLines => IsPreviewExpanded ? -1 : 2;
-    public string PreviewDetailsAction => Text(IsPreviewExpanded ? "MapHideDetailsAction" : "MapDetailsAction");
 
     public string SearchText { get => _searchText; set => SetProperty(ref _searchText, value); }
     public bool CanSearchGoogle => sessionService.CanSearchGooglePlaces;
@@ -67,7 +55,7 @@ public sealed partial class MapViewModel(
         get => _selectedRecommendation;
         private set
         {
-            if (_selectedRecommendation?.SelectionKey != value?.SelectionKey) { CancelDetails(); IsPreviewExpanded = false; }
+            if (_selectedRecommendation?.SelectionKey != value?.SelectionKey) CancelDetails();
             if (SetProperty(ref _selectedRecommendation, value))
             {
                 OnPropertyChanged(nameof(HasSelectedRecommendation));
@@ -77,6 +65,10 @@ public sealed partial class MapViewModel(
                 OnPropertyChanged(nameof(SelectedRecommendationMeta));
                 OnPropertyChanged(nameof(SelectedRecommendationType));
                 OnPropertyChanged(nameof(CanBrowseSelectedRecommendations));
+                if (value is not null && value.Id != Guid.Empty && _detailCancellation is null
+                    && !_detailCache.ContainsKey(value.SelectionKey) && sessionService.HasKnownValidAccess
+                    && IsUnlocked(value) && Connectivity.Current.NetworkAccess == NetworkAccess.Internet)
+                    _ = LoadSelectedRecommendationDetailAsync(value);
             }
         }
     }
@@ -209,7 +201,7 @@ public sealed partial class MapViewModel(
         _searchResults = [];
         CancelSearch();
         _externalSearchCache.Clear();
-        CancelDetails(); _detailCache.Clear(); IsPreviewExpanded = false;
+        CancelDetails(); _detailCache.Clear();
         OnPropertyChanged(nameof(MapRecommendations));
         OnPropertyChanged(nameof(CanAddToItinerary));
     }
@@ -282,16 +274,6 @@ public sealed partial class MapViewModel(
         SelectedRecommendation = _detailCache.GetValueOrDefault(recommendation.SelectionKey) is { } detail
             ? detail with { DistanceKm = recommendation.DistanceKm } : recommendation;
         return Task.CompletedTask;
-    }
-
-    [RelayCommand(AllowConcurrentExecutions = true)]
-    private async Task TogglePreviewDetailsAsync()
-    {
-        if (SelectedRecommendation is not { } recommendation || !sessionService.HasKnownValidAccess || !IsUnlocked(recommendation)) return;
-        IsPreviewExpanded = !IsPreviewExpanded;
-        if (!IsPreviewExpanded) { CancelDetails(); return; }
-        if (_detailCache.ContainsKey(recommendation.SelectionKey) || Connectivity.Current.NetworkAccess != NetworkAccess.Internet) return;
-        await LoadSelectedRecommendationDetailAsync(recommendation);
     }
 
     public void CancelDetails()
@@ -752,10 +734,12 @@ public sealed partial class MapViewModel(
                 return;
             }
 
-            if (context != sessionService.ContextVersion || operation.IsCancellationRequested) return;
+            if (context != sessionService.ContextVersion || operation.IsCancellationRequested
+                || !sessionService.HasKnownValidAccess) return;
             var detail = await apiClient.GetMobileRecommendationDetailAsync(token, recommendation.Id, operation.Token);
             if (detail is null || SelectedRecommendation?.SelectionKey != recommendation.SelectionKey
-                || context != sessionService.ContextVersion || operation.IsCancellationRequested || !IsUnlocked(detail))
+                || context != sessionService.ContextVersion || operation.IsCancellationRequested
+                || !sessionService.HasKnownValidAccess || !IsUnlocked(detail))
             {
                 return;
             }

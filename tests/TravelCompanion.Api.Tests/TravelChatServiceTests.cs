@@ -2778,7 +2778,8 @@ public sealed partial class TravelChatServiceTests
     private static TravelChatService CreateService(
         TravelCompanionDbContext dbContext,
         ITravelAiModelClient? modelClient = null,
-        OpenAiTravelOptions? openAiOptions = null)
+        OpenAiTravelOptions? openAiOptions = null,
+        TimeProvider? timeProvider = null)
     {
         var intentClassifier = new TravelChatIntentClassifier();
         var textProvider = new TravelAssistantTextProvider();
@@ -2805,7 +2806,8 @@ public sealed partial class TravelChatServiceTests
             modelClient ?? new FakeTravelAiModelClient(null),
             Microsoft.Extensions.Options.Options.Create(openAiOptions ?? new OpenAiTravelOptions()),
             telemetry,
-            NullLogger<TravelChatService>.Instance);
+            NullLogger<TravelChatService>.Instance,
+            timeProvider);
     }
 
     private static AppUser CreateUser(Guid destinationId, bool includeProfile = true)

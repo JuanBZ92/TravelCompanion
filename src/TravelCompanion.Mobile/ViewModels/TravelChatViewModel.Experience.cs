@@ -27,6 +27,7 @@ public sealed partial class TravelChatViewModel
     private readonly HashSet<string> _quickCategories = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _quickBudgets = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<int> _quickWalking = [];
+    private bool _savingProposal;
 
     public ObservableCollection<AssistantProposalRow> ProposalRows { get; } = [];
     public ObservableCollection<TravelChatGuidedOptionViewModel> QuickCategories { get; } =
@@ -73,7 +74,8 @@ public sealed partial class TravelChatViewModel
     public string AssistantOptionalBudget => Resource("AssistantOptionalBudget");
     public string AssistantOptionalWalk => Resource("AssistantOptionalWalk");
     public string AssistantShowIdeas => Resource("AssistantShowIdeas");
-    public string AssistantSearchAction => _pendingRetryRequest is null ? AssistantShowIdeas : Resource("AssistantRetry");
+    public string AssistantSearchAction => IsFreeTimeSearch && !_freeTimeAreaStep ? Resource("CommonContinue")
+        : _pendingRetryRequest is null ? AssistantShowIdeas : Resource("AssistantRetry");
     public string AssistantYourDay => Resource("AssistantYourDay");
     public string AssistantNoIdeas => Resource("AssistantNoIdeas");
     public string AssistantOpenActivity => Resource("AssistantOpenActivity");
@@ -266,6 +268,7 @@ public sealed partial class TravelChatViewModel
             return true;
         }
         if (ShowAssistantHome) return false;
+        if (TryFreeTimeBack()) return true;
         _quickSearchSubmission = false;
         if (IsBusy) CancelActiveOperations();
         SetAssistantSurface(_assistantHistory.TryPop(out var previous) ? previous : "home", remember: false);
@@ -295,6 +298,7 @@ public sealed partial class TravelChatViewModel
             if (!_quickWalking.Remove(minutes)) { _quickWalking.Clear(); _quickWalking.Add(minutes); }
         }
         RefreshQuickSelections();
+        OnPropertyChanged(nameof(CanSubmitQuickSearch));
     }
 
     private void RefreshQuickSelections()
@@ -312,11 +316,7 @@ public sealed partial class TravelChatViewModel
     private async Task SubmitQuickSearchAsync()
     {
         if (IsBusy) return;
-        if (IsFreeTimeSearch)
-        {
-            RefreshFreeTimeWindow();
-            if (_freeTimeWindow is null) { ErrorMessage = Resource("AssistantFreeTimeNoWindow"); return; }
-        }
+        if (IsFreeTimeSearch) { await SubmitFreeTimeAsync(); return; }
         var categories = _quickCategories.Count == 0
             ? new[] { GuidedTravelCategories.Food, GuidedTravelCategories.Relax, GuidedTravelCategories.Culture,
                 GuidedTravelCategories.Walk, GuidedTravelCategories.Dance, GuidedTravelCategories.Nature,
@@ -330,19 +330,10 @@ public sealed partial class TravelChatViewModel
             Budgets = _quickBudgets.ToArray(),
             WalkingMinuteOptions = _quickWalking.Where(value => value > 0).ToArray()
         };
-        if (IsFreeTimeSearch && _freeTimeWindow is { } window)
-            _guidedCriteria = _guidedCriteria with
-            {
-                MaxDurationMinutes = _pendingRetryRequest?.Criteria?.MaxDurationMinutes ?? window.AvailableMinutes,
-                // Retry the exact interval and operation; an edited filter clears the pending request.
-                WindowStartsAtLocal = _pendingRetryRequest?.Criteria?.WindowStartsAtLocal ?? window.StartsAtLocal,
-                WindowEndsAtLocal = _pendingRetryRequest?.Criteria?.WindowEndsAtLocal ?? window.EndsAtLocal,
-                WindowTimeZoneId = _assistantSchedule?.TimeZoneId
-            };
         _pendingGuidedAction = new GuidedTravelActionDto(GuidedTravelActions.Recommend);
         _pendingReplacementCard = null;
         _quickSearchSubmission = true;
-        MessageText = Resource(IsFreeTimeSearch ? "AssistantFreeTimeRequest" : "AssistantSearchRequest");
+        MessageText = Resource("AssistantSearchRequest");
         HasGuidedQuestion = false;
         IsFreeTextVisible = false;
         SetAssistantSurface("conversation");
@@ -404,7 +395,8 @@ public sealed partial class TravelChatViewModel
         _pendingProposalSaveRecommendationId = null;
         ProposalRows.Clear();
         var rows = _proposalIsQuickSearch
-            ? AssistantDayProposalBuilder.BuildQuickSearch(schedule.Items, _proposalCards, date)
+            ? AssistantDayProposalBuilder.BuildQuickSearch(schedule.Items, _proposalCards, date,
+                preserveOptionPositions: IsFreeTimeSearch)
             : AssistantDayProposalBuilder.Build(schedule.Items, _proposalCards, date);
         foreach (var row in rows) ProposalRows.Add(row);
         OnPropertyChanged(nameof(HasProposalRows));
@@ -435,7 +427,19 @@ public sealed partial class TravelChatViewModel
 
     public async Task SaveProposalCardAsync(TravelChatCardViewModel? card)
     {
+        if (_savingProposal || card is null || !card.CanSave) return;
+        _savingProposal = true;
+        try { await SaveProposalCardCoreAsync(card); }
+        finally { _savingProposal = false; }
+    }
+
+    private async Task SaveProposalCardCoreAsync(TravelChatCardViewModel card)
+    {
         if (card is null || !card.CanSave) return;
+        try { if (!await ValidateFreeTimeSaveAsync(card)) return; }
+        catch (OperationCanceledException) { return; }
+        catch (UnauthorizedAccessException) { ErrorMessage = Resource("ExpressAccessUnavailable"); return; }
+        catch (Exception) { ErrorMessage = Resource("ExpressTryAgain"); return; }
         using var scope = new AssistantRequestScope(sessionService, () => DateOnly.FromDateTime(PlanningDate),
             () => _assistantPageOperationVersion);
         var revision = _proposalRevision;
@@ -479,6 +483,7 @@ public sealed partial class TravelChatViewModel
     public async Task ReplaceProposalCardAsync(TravelChatCardViewModel? card)
     {
         if (card is null || !card.CanFindAlternative || IsBusy) return;
+        if (IsFreeTimeSearch) { await ReplaceFreeTimeOptionAsync(card); return; }
         var message = Messages.FirstOrDefault(item => item.Cards.Contains(card));
         var previousCards = message?.Cards.ToList();
         var wasQuickSearch = _proposalIsQuickSearch;

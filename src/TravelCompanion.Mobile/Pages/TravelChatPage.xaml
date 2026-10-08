@@ -374,11 +374,6 @@
                         Stroke="{StaticResource Line}" VerticalOptions="Start">
                     <Border.StrokeShape><RoundRectangle CornerRadius="18" /></Border.StrokeShape>
                     <VerticalStackLayout Spacing="12">
-                        <Border WidthRequest="44" HeightRequest="44" Padding="10" HorizontalOptions="Start"
-                                BackgroundColor="{StaticResource AccentSoft}" StrokeThickness="0">
-                            <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
-                            <Image Source="tab_ideas.svg" AutomationProperties.IsInAccessibleTree="False" />
-                        </Border>
                         <Label Text="{Binding AssistantConversationPrompt}" FontFamily="serif"
                                FontSize="24" TextColor="{StaticResource Ink}"
                                SemanticProperties.HeadingLevel="Level2" />
@@ -512,10 +507,17 @@
                                 MinimumHeightRequest="62" />
                         <Label Text="{Binding AssistantCompleteDayHelp}" IsVisible="{Binding CanPlanItinerary}"
                                FontSize="12" TextColor="{StaticResource Muted}" />
-                        <Button Text="{Binding AssistantFreeTime}" Command="{Binding OpenFreeTimeCommand}"
-                                IsEnabled="{Binding IsNotBusy}" BackgroundColor="{StaticResource Paper}"
-                                TextColor="{StaticResource Ink}" BorderColor="{StaticResource Line}" BorderWidth="1"
-                                CornerRadius="14" FontSize="16" MinimumHeightRequest="58" LineBreakMode="WordWrap" />
+                        <Border Style="{StaticResource EditorialCard}" Padding="14,10" IsEnabled="{Binding IsNotBusy}">
+                            <Border.GestureRecognizers><TapGestureRecognizer Command="{Binding OpenFreeTimeCommand}" /></Border.GestureRecognizers>
+                            <Grid ColumnDefinitions="32,*,48" ColumnSpacing="9" MinimumHeightRequest="48">
+                                <Image Source="express_time.svg" WidthRequest="24" HeightRequest="24" VerticalOptions="Center" />
+                                <Label Grid.Column="1" Text="{Binding AssistantSearchExpressTitle}" FontSize="16"
+                                       TextColor="{StaticResource Ink}" VerticalOptions="Center" />
+                                <ImageButton Grid.Column="2" Source="today_arrow_dark.svg" Command="{Binding OpenFreeTimeCommand}"
+                                             Style="{StaticResource AssistantIconAction}"
+                                             SemanticProperties.Description="{Binding AssistantFreeTime}" />
+                            </Grid>
+                        </Border>
                         <Label Text="{Binding AssistantFreeTimeHelp}" FontSize="12"
                                TextColor="{StaticResource EditorialMuted}" LineBreakMode="WordWrap" />
                         <Button Text="{Binding AssistantFindPlace}" Command="{Binding OpenQuickSearchCommand}"
@@ -560,24 +562,12 @@
             <VerticalStackLayout Spacing="18" Padding="0,10,0,8">
                 <Label Text="{Binding AssistantSearchHelp}"
                        FontSize="13" TextColor="{StaticResource InkSoft}" />
-                <Border IsVisible="{Binding IsFreeTimeSearch}" Style="{StaticResource EditorialCard}" Padding="16">
-                    <VerticalStackLayout Spacing="8" IsEnabled="{Binding IsNotBusy}">
-                        <Label Text="{Binding FreeTimeStartLabel}" FontSize="13" TextColor="{StaticResource EditorialMuted}" />
-                        <TimePicker Time="{Binding FreeTimeStart}" Format="HH:mm" MinimumHeightRequest="48"
-                                    SemanticProperties.Description="{Binding FreeTimeStartLabel}" />
-                        <Label Text="{Binding FreeTimeDurationLabel}" FontSize="13" TextColor="{StaticResource EditorialMuted}" />
-                        <Picker ItemsSource="{Binding FreeTimeDurations}" SelectedIndex="{Binding FreeTimeDurationIndex}"
-                                Title="{Binding FreeTimeDurationLabel}" MinimumHeightRequest="48" />
-                        <Label Text="{Binding FreeTimeWindowSummary}" FontSize="14" TextColor="{StaticResource Ink}" LineBreakMode="WordWrap" />
-                        <Label Text="{Binding FreeTimeNextFixedNote}" IsVisible="{Binding HasFreeTimeNextFixedNote}"
-                               FontSize="12" TextColor="{StaticResource EditorialMuted}" LineBreakMode="WordWrap" />
-                        <Label Text="{Binding FreeTimeEstimate}" FontSize="12"
-                               TextColor="{StaticResource EditorialMuted}" LineBreakMode="WordWrap" />
-                    </VerticalStackLayout>
-                </Border>
+                <Label Text="{Binding FreeTimeInterestQuestion}" IsVisible="{Binding ShowFreeTimeInterests}"
+                       FontFamily="serif" FontSize="25" TextColor="{StaticResource Ink}" LineBreakMode="WordWrap" />
                 <Label Text="{Binding AssistantInterests}" FontSize="16" FontAttributes="Bold"
+                       IsVisible="{Binding IsStandardQuickSearch}"
                        SemanticProperties.HeadingLevel="Level2" TextColor="{StaticResource Ink}" />
-                <FlexLayout Direction="Row" Wrap="Wrap" BindableLayout.ItemsSource="{Binding QuickCategories}">
+                <FlexLayout Direction="Row" Wrap="Wrap" BindableLayout.ItemsSource="{Binding QuickCategories}" IsVisible="{Binding ShowQuickInterests}">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="viewModels:TravelChatGuidedOptionViewModel">
                             <Button Text="{Binding DisplayLabel}" Clicked="OnQuickCriterionClicked"
@@ -594,9 +584,62 @@
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
                 </FlexLayout>
+                <Button Text="{Binding FreeTimeSurprise}" Command="{Binding SurpriseFreeTimeCommand}"
+                        IsVisible="{Binding ShowFreeTimeInterests}" IsEnabled="{Binding IsNotBusy}"
+                        BackgroundColor="Transparent" TextColor="{StaticResource Accent}"
+                        MinimumHeightRequest="48" FontSize="14" HorizontalOptions="Start" />
+                <VerticalStackLayout IsVisible="{Binding ShowFreeTimeArea}" Spacing="14" IsEnabled="{Binding IsNotBusy}">
+                    <Label Text="{Binding FreeTimeAreaQuestion}" FontFamily="serif" FontSize="25"
+                           TextColor="{StaticResource Ink}" LineBreakMode="WordWrap" />
+                    <Border Style="{StaticResource EditorialCard}" Padding="14,10">
+                        <Border.Triggers><DataTrigger TargetType="Border" Binding="{Binding FreeTimeCurrentAreaSelected}" Value="True">
+                            <Setter Property="Stroke" Value="{StaticResource Gold}" /><Setter Property="BackgroundColor" Value="{StaticResource AccentSoft}" />
+                        </DataTrigger></Border.Triggers>
+                        <Grid ColumnDefinitions="*,48" ColumnSpacing="8" MinimumHeightRequest="48">
+                            <Grid.GestureRecognizers><TapGestureRecognizer Command="{Binding ChooseFreeTimeCurrentAreaCommand}" /></Grid.GestureRecognizers>
+                            <VerticalStackLayout Spacing="4" VerticalOptions="Center">
+                                <Label Text="{Binding FreeTimeCurrentArea}" FontSize="16" TextColor="{StaticResource Ink}" />
+                                <Label Text="{Binding FreeTimeCurrentAreaHelp}" FontSize="12" TextColor="{StaticResource EditorialMuted}" LineBreakMode="WordWrap" />
+                            </VerticalStackLayout>
+                            <ImageButton Grid.Column="1" Source="tab_map.svg" Command="{Binding ChooseFreeTimeCurrentAreaCommand}"
+                                         Style="{StaticResource AssistantIconAction}" SemanticProperties.Description="{Binding FreeTimeCurrentArea}" />
+                        </Grid>
+                    </Border>
+                    <Border IsVisible="{Binding HasFreeTimeNextPlan}" Style="{StaticResource EditorialCard}" Padding="14,10">
+                        <Border.Triggers><DataTrigger TargetType="Border" Binding="{Binding FreeTimeNextAreaSelected}" Value="True">
+                            <Setter Property="Stroke" Value="{StaticResource Gold}" /><Setter Property="BackgroundColor" Value="{StaticResource AccentSoft}" />
+                        </DataTrigger></Border.Triggers>
+                        <Grid ColumnDefinitions="*,48" ColumnSpacing="8" MinimumHeightRequest="48">
+                            <Grid.GestureRecognizers><TapGestureRecognizer Command="{Binding ChooseFreeTimeNextAreaCommand}" /></Grid.GestureRecognizers>
+                            <VerticalStackLayout Spacing="4" VerticalOptions="Center">
+                                <Label Text="{Binding FreeTimeNextArea}" FontSize="16" TextColor="{StaticResource Ink}" LineBreakMode="WordWrap" />
+                                <Label Text="{Binding FreeTimeNextAreaHelp}" FontSize="12" TextColor="{StaticResource EditorialMuted}" LineBreakMode="WordWrap" />
+                            </VerticalStackLayout>
+                            <ImageButton Grid.Column="1" Source="tab_trip.svg" Command="{Binding ChooseFreeTimeNextAreaCommand}"
+                                         Style="{StaticResource AssistantIconAction}" SemanticProperties.Description="{Binding FreeTimeNextArea}" />
+                        </Grid>
+                    </Border>
+                    <Button Text="{Binding FreeTimeCityFallback}" Command="{Binding ChooseFreeTimeCityAreaCommand}"
+                            IsVisible="{Binding CanUseFreeTimeCityFallback}" BackgroundColor="Transparent"
+                            TextColor="{StaticResource Accent}" MinimumHeightRequest="48" LineBreakMode="WordWrap" />
+                    <Label Text="{Binding FreeTimeAreaSummary}" FontSize="13" TextColor="{StaticResource EditorialAccentText}" LineBreakMode="WordWrap" />
+                    <Border Style="{StaticResource EditorialCard}" Padding="14">
+                        <VerticalStackLayout Spacing="7">
+                            <Label Text="{Binding FreeTimeDurationLabel}" FontSize="13" TextColor="{StaticResource EditorialMuted}" />
+                            <Picker ItemsSource="{Binding FreeTimeDurations}" SelectedIndex="{Binding FreeTimeDurationIndex}"
+                                    Title="{Binding FreeTimeDurationLabel}" MinimumHeightRequest="48" />
+                            <Label Text="{Binding FreeTimeWindowSummary}" FontSize="14" TextColor="{StaticResource Ink}" LineBreakMode="WordWrap" />
+                            <Label Text="{Binding FreeTimeSoonNote}" IsVisible="{Binding HasFreeTimeSoonNote}"
+                                   FontSize="12" TextColor="{StaticResource EditorialMuted}" LineBreakMode="WordWrap" />
+                            <Label Text="{Binding FreeTimeNextFixedNote}" IsVisible="{Binding HasFreeTimeNextFixedNote}"
+                                   FontSize="12" TextColor="{StaticResource EditorialMuted}" LineBreakMode="WordWrap" />
+                        </VerticalStackLayout>
+                    </Border>
+                </VerticalStackLayout>
                 <Label Text="{Binding AssistantOptionalBudget}" FontSize="15" FontAttributes="Bold"
+                       IsVisible="{Binding IsStandardQuickSearch}"
                        SemanticProperties.HeadingLevel="Level2" TextColor="{StaticResource Ink}" />
-                <FlexLayout Direction="Row" Wrap="Wrap" BindableLayout.ItemsSource="{Binding QuickBudgets}">
+                <FlexLayout Direction="Row" Wrap="Wrap" BindableLayout.ItemsSource="{Binding QuickBudgets}" IsVisible="{Binding IsStandardQuickSearch}">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="viewModels:TravelChatGuidedOptionViewModel">
                             <Button Text="{Binding DisplayLabel}" Clicked="OnQuickCriterionClicked"
@@ -614,8 +657,9 @@
                     </BindableLayout.ItemTemplate>
                 </FlexLayout>
                 <Label Text="{Binding AssistantOptionalWalk}" FontSize="15" FontAttributes="Bold"
+                       IsVisible="{Binding IsStandardQuickSearch}"
                        SemanticProperties.HeadingLevel="Level2" TextColor="{StaticResource Ink}" />
-                <FlexLayout Direction="Row" Wrap="Wrap" BindableLayout.ItemsSource="{Binding QuickWalking}">
+                <FlexLayout Direction="Row" Wrap="Wrap" BindableLayout.ItemsSource="{Binding QuickWalking}" IsVisible="{Binding IsStandardQuickSearch}">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="viewModels:TravelChatGuidedOptionViewModel">
                             <Button Text="{Binding DisplayLabel}" Clicked="OnQuickCriterionClicked"
@@ -635,12 +679,20 @@
             </VerticalStackLayout>
         </ScrollView>
         <VerticalStackLayout Grid.Row="2" Spacing="7">
+            <HorizontalStackLayout Spacing="8" IsVisible="{Binding ShowFreeTimeCancel}">
+                <ActivityIndicator IsRunning="{Binding IsBusy}" WidthRequest="24" HeightRequest="24" Color="{StaticResource Accent}" />
+                <Button Text="{Binding FreeTimeCancel}" Command="{Binding CancelFreeTimeCommand}"
+                        BackgroundColor="Transparent" TextColor="{StaticResource Accent}" MinimumHeightRequest="48" />
+            </HorizontalStackLayout>
             <Label Text="{Binding StatusMessage}" IsVisible="{Binding HasStatus}"
                    FontSize="12" TextColor="{StaticResource Accent}" />
             <Label Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}"
                    FontSize="12" TextColor="{StaticResource Rose}" />
             <Label Text="{Binding AssistantSearchQuotaNote}" IsVisible="{Binding ShowAssistantQuotaNote}"
                    FontSize="12" TextColor="{StaticResource Muted}" />
+            <Button Text="{Binding FreeTimeRestart}" Command="{Binding OpenFreeTimeCommand}"
+                    IsVisible="{Binding FreeTimeNeedsRestart}" BackgroundColor="Transparent"
+                    TextColor="{StaticResource Accent}" MinimumHeightRequest="48" />
             <Button Text="{Binding AssistantSearchAction}" Command="{Binding SubmitQuickSearchCommand}"
                     IsEnabled="{Binding CanSubmitQuickSearch}"
                     BackgroundColor="{StaticResource Accent}" TextColor="{StaticResource Paper}"
@@ -648,7 +700,7 @@
         </VerticalStackLayout>
     </Grid>
 
-    <Grid Padding="28,26,28,18" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="13"
+    <Grid Padding="28,26,28,18" RowDefinitions="Auto,*,Auto" RowSpacing="13"
           InputTransparent="{Binding HasSelectedDetailCard}"
           IsVisible="{Binding ShowAssistantProposal}">
         <Grid ColumnDefinitions="48,*" ColumnSpacing="8">
@@ -657,14 +709,29 @@
                     SemanticProperties.Description="{Binding AssistantBackHome}"
                     MinimumWidthRequest="48" MinimumHeightRequest="48" />
             <VerticalStackLayout Grid.Column="1" Spacing="3">
-                <Label Text="{Binding AssistantYourDay}" FontFamily="serif" FontSize="29"
+                <Label Text="{Binding AssistantProposalTitle}" FontFamily="serif" FontSize="29"
                        SemanticProperties.HeadingLevel="Level1" TextColor="{StaticResource Ink}" />
                 <Label Text="{Binding AssistantContext}" FontSize="12" TextColor="{StaticResource Muted}" />
             </VerticalStackLayout>
         </Grid>
-        <VerticalStackLayout Grid.Row="1" Spacing="6">
+        <CollectionView Grid.Row="1" ItemsSource="{Binding ProposalRows}" SelectionMode="None"
+                        VerticalScrollBarVisibility="Never">
+        <CollectionView.Header>
+        <VerticalStackLayout Spacing="6" Padding="0,0,0,14">
+            <HorizontalStackLayout Spacing="8" IsVisible="{Binding ShowFreeTimeCancel}">
+                <ActivityIndicator IsRunning="{Binding IsBusy}" WidthRequest="24" HeightRequest="24" Color="{StaticResource Accent}" />
+                <Button Text="{Binding FreeTimeCancel}" Command="{Binding CancelFreeTimeCommand}"
+                        BackgroundColor="Transparent" TextColor="{StaticResource Accent}" MinimumHeightRequest="48" />
+            </HorizontalStackLayout>
+            <Button Text="{Binding FreeTimeRestart}" Command="{Binding OpenFreeTimeCommand}"
+                    IsVisible="{Binding FreeTimeNeedsRestart}" BackgroundColor="Transparent"
+                    TextColor="{StaticResource Accent}" MinimumHeightRequest="48" />
             <Label Text="{Binding FreeTimeWindowSummary}" IsVisible="{Binding IsFreeTimeSearch}"
                    FontSize="13" TextColor="{StaticResource Ink}" LineBreakMode="WordWrap" />
+            <Label Text="{Binding FreeTimeAreaSummary}" IsVisible="{Binding IsFreeTimeSearch}"
+                   FontSize="12" TextColor="{StaticResource EditorialMuted}" LineBreakMode="WordWrap" />
+            <Label Text="{Binding FreeTimeSoonNote}" IsVisible="{Binding HasFreeTimeSoonNote}"
+                   FontSize="12" TextColor="{StaticResource EditorialMuted}" LineBreakMode="WordWrap" />
             <Label Text="{Binding FreeTimeEstimate}" IsVisible="{Binding IsFreeTimeSearch}"
                    FontSize="12" TextColor="{StaticResource EditorialMuted}" LineBreakMode="WordWrap" />
             <Label Text="{Binding ProposalMessage}" FontSize="13"
@@ -674,8 +741,7 @@
             <Label Text="{Binding StatusMessage}" IsVisible="{Binding HasStatus}"
                    FontSize="12" TextColor="{StaticResource Accent}" />
         </VerticalStackLayout>
-        <CollectionView Grid.Row="2" ItemsSource="{Binding ProposalRows}" SelectionMode="None"
-                        VerticalScrollBarVisibility="Never">
+        </CollectionView.Header>
             <CollectionView.EmptyView>
                 <Label Text="{Binding AssistantNoIdeas}"
                        FontSize="14" TextColor="{StaticResource Muted}" />
@@ -690,6 +756,8 @@
                                 <Label Text="{Binding When}" FontSize="11" TextColor="{StaticResource EditorialAccentText}" />
                                 <Label Text="{Binding Title}" FontSize="15" MaxLines="2"
                                        TextColor="{StaticResource Ink}" />
+                                <Label Text="{Binding Suggestion.Subtitle}" FontSize="12"
+                                       TextColor="{StaticResource EditorialMuted}" LineBreakMode="WordWrap" />
                                 <Label Text="{Binding Reason}" IsVisible="{Binding HasReason}"
                                        FontSize="12" MaxLines="2" TextColor="{StaticResource InkSoft}" />
                             </VerticalStackLayout>
@@ -721,8 +789,13 @@
                 </DataTemplate>
             </CollectionView.ItemTemplate>
         </CollectionView>
-        <Button Grid.Row="3" Text="{Binding AssistantAskAboutDay}"
+        <Button Grid.Row="2" Text="{Binding AssistantAskAboutDay}"
+                IsVisible="{Binding IsStandardQuickSearch}"
                 Command="{Binding OpenAssistantConversationCommand}"
+                BackgroundColor="Transparent" TextColor="{StaticResource Accent}"
+                MinimumHeightRequest="48" FontSize="13" />
+        <Button Grid.Row="2" Text="{Binding FreeTimeEditSearch}"
+                IsVisible="{Binding IsFreeTimeSearch}" Command="{Binding EditFreeTimeSearchCommand}"
                 BackgroundColor="Transparent" TextColor="{StaticResource Accent}"
                 MinimumHeightRequest="48" FontSize="13" />
     </Grid>
@@ -748,6 +821,11 @@
                     </Grid>
                     <Label Text="{Binding SummaryLine}" FontSize="12" TextColor="{StaticResource EditorialAccentText}"
                            Margin="0,12,0,0" />
+                    <Label Text="{Binding Subtitle}" FontSize="13" TextColor="{StaticResource EditorialMuted}"
+                           LineBreakMode="WordWrap" Margin="0,6,0,0" />
+                    <Label Text="{Binding TimeLabel}" FontSize="12" TextColor="{StaticResource EditorialAccentText}"
+                           IsVisible="{Binding BindingContext.IsFreeTimeSearch, Source={x:Reference PageRoot}}"
+                           Margin="0,6,0,0" />
                     <Label Text="{Binding Description}" FontSize="14" LineHeight="1.4"
                            TextColor="{StaticResource InkSoft}" Margin="0,18,0,0" />
                     <VerticalStackLayout Spacing="6" Margin="0,16,0,0"

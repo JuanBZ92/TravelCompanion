@@ -221,7 +221,7 @@
                 Margin="0"
                 Style="{StaticResource MapPreviewPanel}"
                 IsVisible="{Binding HasSelectedRecommendation}">
-            <Grid RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="6">
+            <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="6">
                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" HeightRequest="48">
                     <Label Text="{Binding SelectedRecommendationPosition}"
                            FontSize="11"
@@ -255,13 +255,7 @@
                                FontFamily="serif"
                                FontSize="22"
                                TextColor="{StaticResource Ink}"
-                               LineBreakMode="TailTruncation" MaxLines="{Binding PreviewTextLines}">
-                            <Label.Triggers>
-                                <DataTrigger TargetType="Label" Binding="{Binding IsPreviewExpanded}" Value="True">
-                                    <Setter Property="LineBreakMode" Value="WordWrap" />
-                                </DataTrigger>
-                            </Label.Triggers>
-                        </Label>
+                               LineBreakMode="WordWrap" />
                         <Label Text="{Binding SelectedRecommendationMeta}"
                                FontSize="11"
                                LineBreakMode="WordWrap"
@@ -276,21 +270,11 @@
                                IsVisible="{Binding ShowSelectedRecommendationDescription}"
                                FontSize="13"
                                LineHeight="1.2"
-                               LineBreakMode="TailTruncation" MaxLines="{Binding PreviewTextLines}"
-                               TextColor="{StaticResource InkSoft}">
-                            <Label.Triggers>
-                                <DataTrigger TargetType="Label" Binding="{Binding IsPreviewExpanded}" Value="True">
-                                    <Setter Property="LineBreakMode" Value="WordWrap" />
-                                </DataTrigger>
-                            </Label.Triggers>
-                        </Label>
+                               LineBreakMode="WordWrap"
+                               TextColor="{StaticResource InkSoft}" />
                   </VerticalStackLayout>
                 </ScrollView>
-                <Button Grid.Row="2" Text="{Binding PreviewDetailsAction}"
-                        Command="{Binding TogglePreviewDetailsCommand}" Style="{StaticResource GhostButton}"
-                        HorizontalOptions="Start" MinimumHeightRequest="48" />
-
-                <Grid Grid.Row="3" ColumnDefinitions="48,*,48" ColumnSpacing="8" HeightRequest="48">
+                <Grid Grid.Row="2" ColumnDefinitions="48,*,48" ColumnSpacing="8" HeightRequest="48">
                     <Button Text="‹"
                             Command="{Binding SelectPreviousRecommendationCommand}"
                             IsEnabled="{Binding CanBrowseSelectedRecommendations}"

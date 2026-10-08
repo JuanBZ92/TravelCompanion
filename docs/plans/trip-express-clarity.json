@@ -1,0 +1,233 @@
+{
+  "schemaVersion": 1,
+  "plan": "Viaje claro y recomendaciones exprés",
+  "acceptedBaseline": "0416bbd26e5f6d5694577b6be34c25d75dacca54",
+  "scope": "Quitar textos accesorios, ocultar bloques sin planes, mejorar Mañana y convertir Tengo un rato libre en un flujo de interés, zona y opciones individuales. Sin push ni cambios en producción en esta tarea.",
+  "requiredSuites": [
+    "mobile",
+    "shared",
+    "api"
+  ],
+  "requiredBuilds": [
+    "android-release",
+    "api"
+  ],
+  "criteria": [
+    {
+      "id": "express01-schedule-copy",
+      "acceptance": "Viaje no muestra instrucciones de deslizar fechas ni el texto Itinerario actualizado; conserva errores útiles y estados de carga.",
+      "implementation": "done",
+      "verification": "source_review",
+      "sources": [
+        "src/TravelCompanion.Mobile/Pages/SchedulePage.xaml",
+        "src/TravelCompanion.Mobile/ViewModels/ScheduleViewModel.cs"
+      ],
+      "tests": [],
+      "artifacts": [],
+      "reviewNote": "Retirados el hint del selector de fechas y el aviso tras ScheduleUpdated. Se conservan carga, errores y planificar. Revisión de fuentes; composición nativa pendiente por petición del usuario."
+    },
+    {
+      "id": "express02-relevant-context",
+      "acceptance": "El bloque contextual sólo aparece para hoy del viaje y con contenido útil: actividad activa/futura para A continuación y planes de mañana para Mañana. Un día sin planes no produce una tarjeta vacía; se conservan exclusión mutua, datos locales y límites del viaje.",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Mobile/Services/TripDayOverview.cs",
+        "src/TravelCompanion.Mobile/ViewModels/ScheduleViewModel.cs",
+        "tests/TravelCompanion.Mobile.Tests/TripDayContextTests.cs"
+      ],
+      "tests": [
+        {
+          "prefix": "TravelCompanion.Mobile.Tests.TripDayContextTests.",
+          "suite": "mobile"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Sólo hoy y contexto vigente; activa/futura tiene prioridad y mañana requiere planes. Alojamiento de noches sin check-in no crea contenido, ideas flexibles y vuelos nocturnos sí. Cobertura automática de vacío, fin de día, cambio de fecha/cuenta/viaje y actualización; no acredita navegación visual."
+    },
+    {
+      "id": "express03-tomorrow-card",
+      "acceptance": "Mañana es una tarjeta editorial pulsable con fecha e información concreta, coherente con A continuación y distinguible como mañana; navega al resumen existente.",
+      "implementation": "done",
+      "verification": "source_review",
+      "sources": [
+        "src/TravelCompanion.Mobile/Pages/SchedulePage.xaml",
+        "src/TravelCompanion.Mobile/Pages/TomorrowOverviewPage.cs",
+        "src/TravelCompanion.Mobile/ViewModels/ScheduleViewModel.cs"
+      ],
+      "tests": [
+        {
+          "prefix": "TravelCompanion.Mobile.Tests.TripDayContextTests.",
+          "suite": "mobile"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Tarjeta editorial AccentSoft con fecha, primer plan, cantidad y flecha; botón cubre toda la tarjeta y conserva OpenTomorrow. El resumen distingue horarios, ideas y actividad nocturna en curso; navegación y composición nativas pendientes."
+    },
+    {
+      "id": "express04-interest-first",
+      "acceptance": "Tengo un rato libre empieza preguntando interés; calcula ahora/pronto en la zona del viaje, sin pedir una fecha/hora como primer paso.",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Mobile/ViewModels/TravelChatViewModel.FreeTime.cs",
+        "src/TravelCompanion.Mobile/Services/AssistantFreeTimeWindow.cs",
+        "src/TravelCompanion.Mobile/Pages/TravelChatPage.xaml",
+        "tests/TravelCompanion.Mobile.Tests/AssistantExpressFlowTests.cs"
+      ],
+      "tests": [
+        {
+          "prefix": "TravelCompanion.Mobile.Tests.AssistantExpressFlowTests.Interest_precedes_area",
+          "suite": "mobile"
+        },
+        {
+          "prefix": "TravelCompanion.Mobile.Tests.AssistantFreeTimeViewModelTests.Express_starts",
+          "suite": "mobile"
+        },
+        {
+          "prefix": "TravelCompanion.Mobile.Tests.AssistantFreeTimeWindowTests.",
+          "suite": "mobile"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Intereses sin preselección, continuar o sorprenderme; después zona. Ahora/pronto se calcula en la zona del viaje, ajusta después de compromisos en curso y antes de la próxima reserva o medianoche; duración opcional 30/60/90/120 en segundo paso. No modifica el selector del asistente normal."
+    },
+    {
+      "id": "express05-area-choice",
+      "acceptance": "Después del interés permite zona actual o cerca del próximo plan con ubicación cuando existe; solicita ubicación sólo al elegirla y ofrece recuperación si no está disponible. Permisos, fecha, cuenta/viaje y cancelación se comprueban en todo el recorrido.",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Mobile/ViewModels/TravelChatViewModel.FreeTime.cs",
+        "src/TravelCompanion.Mobile/ViewModels/TravelChatViewModel.FreeTime.Options.cs",
+        "src/TravelCompanion.Api/Services/TravelChatService.cs",
+        "src/TravelCompanion.Api/Services/TravelChatService.FreeTime.cs",
+        "tests/TravelCompanion.Mobile.Tests/AssistantExpressFlowTests.cs",
+        "tests/TravelCompanion.Api.Tests/TravelChatExpressTests.cs"
+      ],
+      "tests": [
+        {
+          "prefix": "TravelCompanion.Mobile.Tests.AssistantExpressFlowTests.Delayed_",
+          "suite": "mobile"
+        },
+        {
+          "prefix": "TravelCompanion.Mobile.Tests.AssistantExpressFlowTests.Missing_location",
+          "suite": "mobile"
+        },
+        {
+          "prefix": "TravelCompanion.Api.Tests.TravelChatServiceTests.Express_",
+          "suite": "api"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "GPS sólo tras elección explícita; fallo ofrece reintentar o ciudad. Próximo plan únicamente propio, vigente, con horario y coordenadas válidas, normalizado a la zona del viaje. El backend resuelve el ancla sin simular que el viajero está allí. Cancelación, página, fecha, viaje, cuenta y permisos revisados antes/después de awaits; acceso revocado prevalece sobre caché."
+    },
+    {
+      "id": "express06-individual-alternatives",
+      "acceptance": "Ofrece dos o tres opciones del catálogo autorizado cuando hay suficientes, sin fabricar resultados; cada opción se puede reemplazar individualmente conservando las otras, excluyendo opciones visibles y ya propuestas. Agregar mantiene confirmación y validación de ventana/permisos.",
+      "implementation": "done",
+      "verification": "automated",
+      "sources": [
+        "src/TravelCompanion.Mobile/ViewModels/TravelChatViewModel.FreeTime.Options.cs",
+        "src/TravelCompanion.Mobile/Services/AssistantDayProposalBuilder.cs",
+        "src/TravelCompanion.Api/Services/TravelRecommendationPlanningService.cs",
+        "src/TravelCompanion.Api/Services/TravelAssistantConversationStateService.cs",
+        "src/TravelCompanion.Shared/Dtos/TravelChatDtos.cs",
+        "tests/TravelCompanion.Api.Tests/PostgresExpressConversationTests.cs"
+      ],
+      "tests": [
+        {
+          "prefix": "TravelCompanion.Mobile.Tests.AssistantExpressFlowTests.Replacement_",
+          "suite": "mobile"
+        },
+        {
+          "prefix": "TravelCompanion.Mobile.Tests.AssistantExpressFlowTests.Lost_response_",
+          "suite": "mobile"
+        },
+        {
+          "prefix": "TravelCompanion.Api.Tests.TravelChatServiceTests.Express_individual_",
+          "suite": "api"
+        },
+        {
+          "prefix": "TravelCompanion.Api.Tests.PostgresExpressConversationTests.",
+          "suite": "api"
+        },
+        {
+          "prefix": "TravelCompanion.Shared.Tests.TravelTimeWindowPolicyTests.",
+          "suite": "shared"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Opciones reales del catálogo autorizado (2 o 3 si existen); reemplazo cambia sólo una posición. Historial UUID y alias por provider/título normalizado excluye visibles, propuestas anteriores y planes existentes. Historial completo en StateJson y proyección legado limitada a varchar(512), sin migración. Reintento conserva OperationId/cuerpo; antes de añadir valida ventana y compromisos. Campos nulos omitidos preservan fingerprint JSON de clientes anteriores."
+    },
+    {
+      "id": "express07-express-presentation",
+      "acceptance": "Acceso y recorrido sobrios, rápidos y personalizados con estilo editorial, textos ES/EN, iconos con descripción y 48dp; estados vacío/error/reintento/offline y texto ampliado operables.",
+      "implementation": "done",
+      "verification": "source_review",
+      "sources": [
+        "src/TravelCompanion.Mobile/Pages/SchedulePage.xaml",
+        "src/TravelCompanion.Mobile/Pages/TravelChatPage.xaml",
+        "src/TravelCompanion.Mobile/Resources/Images/express_time.svg",
+        "src/TravelCompanion.Mobile/Localization/AppResources.resx",
+        "src/TravelCompanion.Mobile/Localization/AppResources.es.resx"
+      ],
+      "tests": [
+        {
+          "prefix": "TravelCompanion.Mobile.Tests.AssistantExpressFlowTests.",
+          "suite": "mobile"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Acceso Un plan para ahora, icono exprés, papel cálido y recursos editoriales. Contenido de búsqueda desplazable; metadatos de resultados dentro del Header de lista virtualizada. Acciones 48dp, nombres localizados ES/EN. Casos offline, ausencia de ubicación, sin alternativas, cancelación, error y último cupo gratuito comprobados automáticamente. Teclado, fuentes ampliadas y composición reales siguen pendientes; no se certifican desde XAML."
+    },
+    {
+      "id": "express08-validation",
+      "acceptance": "Pruebas afectadas, compilación Android/API y revisión final de cada punto ligadas al snapshot. Registrar cobertura nativa real y bloqueos; no modificar ajustes globales, usar biometría ni TalkBack.",
+      "implementation": "done",
+      "verification": "source_review",
+      "sources": [
+        "src/TravelCompanion.Mobile/TravelCompanion.Mobile.csproj",
+        "tests/TravelCompanion.Mobile.Tests/AssistantExpressFlowTests.cs",
+        "tests/TravelCompanion.Api.Tests/PostgresExpressConversationTests.cs"
+      ],
+      "tests": [
+        {
+          "prefix": "TravelCompanion.Mobile.Tests.AssistantExpressFlowTests.",
+          "suite": "mobile"
+        },
+        {
+          "prefix": "TravelCompanion.Api.Tests.PostgresExpressConversationTests.",
+          "suite": "api"
+        },
+        {
+          "prefix": "TravelCompanion.Shared.Tests.TravelTimeWindowPolicyTests.",
+          "suite": "shared"
+        }
+      ],
+      "artifacts": [
+        "artifacts/trip-express-20261008/source-review-final.json",
+        "artifacts/trip-express-20261008/apk-proof150.json"
+      ],
+      "reviewNote": "Revisión final independiente de los cinco pedidos: ocho criterios de implementación sin omisiones conocidas. Mobile: 695; Shared: 85; API: 117, incluida persistencia en PostgreSQL real aislado. Sin fallos ni omisiones. API compiló sin avisos; Android Release QA150 sin errores, con 207 avisos XC0025 de bindings con Source. Snapshot y APK nuevos registrados. Instalación y revisión nativa pendientes por petición de continuar sin teléfono. No se ejecutaron ADB, TalkBack, biometría ni cambios de ajustes; sin push, despliegue o migraciones en producción."
+    }
+  ],
+  "nativeChecks": [
+    {
+      "id": "express-native-trip",
+      "status": "pending",
+      "acceptance": "Viaje con/sin próximos planes y con/sin planes mañana; tarjeta y navegación.",
+      "note": "Pendiente: el usuario pidió continuar sin teléfono el 8 de octubre de 2026. No se certifica por pruebas unitarias."
+    },
+    {
+      "id": "express-native-flow",
+      "status": "pending",
+      "acceptance": "Interés, zona, sugerencias, reemplazo individual y recuperación; ES/EN y texto ampliado mediante override local a QA.",
+      "note": "Pendiente: el usuario pidió continuar sin teléfono el 8 de octubre de 2026. No se certifica por pruebas unitarias."
+    }
+  ],
+  "androidArtifact": {
+    "package": "com.yuku.travelcompanion.plannerpaidreview",
+    "versionCode": 150
+  }
+}

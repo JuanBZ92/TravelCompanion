@@ -870,13 +870,13 @@ A tu manera.</value></data>
   <data name="JournalDraftPhotoLimit" xml:space="preserve"><value>El borrador de este recuerdo ya tiene 10 fotos. Edita o descarta el borrador antes de añadir más.</value></data>
   <data name="AssistantConversationThinking" xml:space="preserve"><value>Preparando una respuesta…</value></data>
   <data name="AssistantFreeTime" xml:space="preserve"><value>Tengo un rato libre</value></data>
-  <data name="AssistantFreeTimeHelp" xml:space="preserve"><value>Ideas que encajen antes de tu siguiente reserva fija.</value></data>
+  <data name="AssistantFreeTimeHelp" xml:space="preserve"><value>Un plan breve, elegido para ti y el rato que tienes.</value></data>
   <data name="AssistantFreeTimeStart" xml:space="preserve"><value>Empezar a las</value></data>
   <data name="AssistantFreeTimeDuration" xml:space="preserve"><value>Tiempo disponible</value></data>
   <data name="AssistantFreeTimeMinutes" xml:space="preserve"><value>{0} min</value></data>
   <data name="AssistantFreeTimeWindow" xml:space="preserve"><value>{0:t}–{1:t} · Hora del viaje ({2})</value></data>
   <data name="AssistantFreeTimeNextFixed" xml:space="preserve"><value>Tu próxima reserva empieza a las {0:t}.</value></data>
-  <data name="AssistantFreeTimeNoWindow" xml:space="preserve"><value>No hay un rato libre en este intervalo. Cambia la hora o la duración.</value></data>
+  <data name="AssistantFreeTimeNoWindow" xml:space="preserve"><value>Ahora no hay un hueco compatible. Prueba una duración menor o vuelve más tarde.</value></data>
   <data name="AssistantFreeTimeEstimate" xml:space="preserve"><value>Duración y traslados estimados; confirma el horario del lugar antes de ir.</value></data>
   <data name="AssistantFreeTimeRequest" xml:space="preserve"><value>¿Qué puedo hacer en este rato libre?</value></data>
   <data name="AssistantRequestCancelled" xml:space="preserve"><value>Cancelado. Tu mensaje sigue disponible.</value></data>
@@ -972,4 +972,35 @@ A tu manera.</value></data>
   <data name="DayActivityPlan" xml:space="preserve"><value>Plan</value></data>
   <data name="DayActivityReservation" xml:space="preserve"><value>Reserva</value></data>
   <data name="DayActivityEvent" xml:space="preserve"><value>Actividad</value></data>
+  <data name="ExpressShortcutTitle" xml:space="preserve"><value>Un plan para ahora</value></data>
+  <data name="ExpressShortcutSubtitle" xml:space="preserve"><value>Ideas rápidas a tu medida</value></data>
+  <data name="TomorrowPreviewCount" xml:space="preserve"><value>{0} planes para descubrir</value></data>
+  <data name="TomorrowPreviewSingle" xml:space="preserve"><value>Un plan para descubrir</value></data>
+  <data name="TomorrowPreviewHint" xml:space="preserve"><value>Un vistazo a lo que te espera</value></data>
+  <data name="ExpressInterestHelp" xml:space="preserve"><value>Elige qué te apetece. Buscaremos un plan breve para ahora o pronto.</value></data>
+  <data name="ExpressInterestQuestion" xml:space="preserve"><value>¿Qué te apetece hacer?</value></data>
+  <data name="ExpressSurprise" xml:space="preserve"><value>Sorpréndeme</value></data>
+  <data name="ExpressAreaHelp" xml:space="preserve"><value>Elige la zona. Tendremos en cuenta tus compromisos de hoy.</value></data>
+  <data name="ExpressAreaQuestion" xml:space="preserve"><value>¿Por dónde buscamos?</value></data>
+  <data name="ExpressCurrentArea" xml:space="preserve"><value>Por mi zona actual</value></data>
+  <data name="ExpressCurrentAreaHelp" xml:space="preserve"><value>Usar mi ubicación para esta búsqueda</value></data>
+  <data name="ExpressNextArea" xml:space="preserve"><value>Cerca de mi próximo plan</value></data>
+  <data name="ExpressCityFallback" xml:space="preserve"><value>Buscar en {0} sin mi ubicación</value></data>
+  <data name="ExpressLocating" xml:space="preserve"><value>Buscando tu zona…</value></data>
+  <data name="ExpressLocationUnavailable" xml:space="preserve"><value>No pudimos obtener tu ubicación. Reintenta, elige tu próximo plan o busca en la ciudad.</value></data>
+  <data name="ExpressAreaChanged" xml:space="preserve"><value>Tu próximo plan cambió. Vuelve a elegir la zona.</value></data>
+  <data name="ExpressOutsideTrip" xml:space="preserve"><value>Esto es para ahora o pronto. Hoy está fuera de tu viaje; usa Planificar para otra fecha.</value></data>
+  <data name="ExpressAccessUnavailable" xml:space="preserve"><value>El asistente no está disponible. Revisa tu pase o acceso gratuito.</value></data>
+  <data name="ExpressNeedsConnection" xml:space="preserve"><value>Conéctate para buscar opciones. Conservamos tus intereses y zona; reintenta al recuperar conexión.</value></data>
+  <data name="ExpressSearching" xml:space="preserve"><value>Buscando algo a tu medida…</value></data>
+  <data name="ExpressTryAgain" xml:space="preserve"><value>No pudimos buscar opciones ahora. Conservamos tus elecciones; vuelve a intentarlo.</value></data>
+  <data name="ExpressNoOptions" xml:space="preserve"><value>No hay opciones para este interés, zona y tiempo. Prueba otro interés o más tiempo.</value></data>
+  <data name="ExpressNoReplacement" xml:space="preserve"><value>No encontramos otra opción compatible. Conservamos tus propuestas actuales.</value></data>
+  <data name="ExpressResultsTitle" xml:space="preserve"><value>Para ahora o pronto</value></data>
+  <data name="ExpressResultsHelp" xml:space="preserve"><value>Elige la que te guste. Las flechas cambian sólo esa opción; al añadir puedes revisarla antes de guardar.</value></data>
+  <data name="ExpressOptionExpired" xml:space="preserve"><value>El horario o tus planes cambiaron. Busca nuevas opciones antes de añadir esta.</value></data>
+  <data name="ExpressRestartToday" xml:space="preserve"><value>Buscar opciones para hoy</value></data>
+  <data name="ExpressDayChanged" xml:space="preserve"><value>Empezó otro día en tu destino. Inicia una nueva búsqueda para hoy.</value></data>
+  <data name="ExpressAfterCurrent" xml:space="preserve"><value>Al terminar tus planes en curso</value></data>
+  <data name="ExpressEditSearch" xml:space="preserve"><value>Modificar búsqueda</value></data>
 </root>

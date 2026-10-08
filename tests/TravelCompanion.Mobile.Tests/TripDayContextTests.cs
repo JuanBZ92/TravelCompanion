@@ -11,6 +11,10 @@ public sealed class TripDayContextTests
     private static ScheduleItemDto Item(int hour = 12) => new(Guid.NewGuid(), null, ReservationType.Event,
         Today, new(hour, 0), Today, new((hour + 1) % 24, 0), "Paseo por Gion", "Kyoto", "Gion", "Kyoto, Japan",
         "", "", null, null, null, null, null, null);
+    private static ScheduleItemDto TomorrowItem(int offset = 1) => Item() with
+    {
+        Date = Today.AddDays(offset), EndsOn = Today.AddDays(offset), Title = "Jardines de Kyoto"
+    };
     private static TripScheduleDto Trip(params ScheduleItemDto[] items) => new(Guid.NewGuid(), "QA", "Japan",
         Today.AddDays(-1), Today.AddDays(3), items);
 
@@ -29,7 +33,7 @@ public sealed class TripDayContextTests
     public void Same_activity_transitions_from_future_to_in_progress_then_tomorrow()
     {
         var item = Item();
-        var trip = Trip(item);
+        var trip = Trip(item, TomorrowItem());
         var future = TripDayOverview.ResolveContext(trip, Today, At(11, 59));
         var active = TripDayOverview.ResolveContext(trip, Today, At(12));
         var ended = TripDayOverview.ResolveContext(trip, Today, At(13, 1));
@@ -48,16 +52,17 @@ public sealed class TripDayContextTests
     {
         var active = Item(10) with { EndsAt = new(14, 0) };
         var future = Item(13);
-        var trip = Trip(future, active);
+        var trip = Trip(future, active, TomorrowItem());
         Assert.Equal(active.Id, TripDayOverview.ResolveContext(trip, Today, At(12)).Activity!.Id);
         Assert.Null(TripDayOverview.ResolveContext(trip, Today, At(14, 1)).Activity);
         Assert.Equal(Today.AddDays(1), TripDayOverview.ResolveContext(trip, Today, At(14, 1)).Tomorrow);
     }
 
     [Fact]
-    public void Confirmed_empty_day_can_show_tomorrow_but_initial_absence_cannot()
+    public void Empty_today_only_shows_tomorrow_when_it_contains_real_plans()
     {
-        Assert.Equal(Today.AddDays(1), TripDayOverview.ResolveContext(Trip(), Today, At(12)).Tomorrow);
+        Assert.Equal(TripDayContext.Empty, TripDayOverview.ResolveContext(Trip(), Today, At(12)));
+        Assert.Equal(Today.AddDays(1), TripDayOverview.ResolveContext(Trip(TomorrowItem()), Today, At(12)).Tomorrow);
         Assert.Equal(TripDayContext.Empty, TripDayOverview.ResolveContext(null, Today, At(12)));
         Assert.False(TripDayOverview.ResolveContext(null, Today, At(12)).HasContent);
     }
@@ -66,11 +71,11 @@ public sealed class TripDayContextTests
     public void Flexible_ideas_stay_in_schedule_without_blocking_tomorrow()
     {
         var idea = Item(18) with { TimePrecision = ItineraryTimePrecision.PeriodOnly };
-        var trip = Trip(idea);
+        var trip = Trip(idea, TomorrowItem());
         var result = TripDayOverview.ResolveContext(trip, Today, At(9));
         Assert.Null(result.Activity);
         Assert.Equal(Today.AddDays(1), result.Tomorrow);
-        Assert.Same(idea, Assert.Single(trip.Items));
+        Assert.Same(idea, trip.Items[0]);
     }
 
     [Fact]
@@ -106,7 +111,7 @@ public sealed class TripDayContextTests
     {
         var tomorrow = Today.AddDays(1);
         var flight = Item(23) with { Type = ReservationType.Flight, EndsOn = tomorrow, EndsAt = new(1, 0) };
-        var trip = Trip(flight);
+        var trip = Trip(flight, TomorrowItem(2));
         var before = new DateTimeOffset(2026, 10, 7, 14, 59, 0, TimeSpan.Zero);
         var after = before.AddMinutes(2);
         Assert.Equal(flight.Id, TripDayOverview.ResolveContext(trip, Today, before).Activity!.Id);
@@ -122,8 +127,8 @@ public sealed class TripDayContextTests
     public void Context_uses_trip_timezone_rather_than_device_or_utc_date()
     {
         var instant = new DateTimeOffset(2026, 10, 6, 23, 0, 0, TimeSpan.Zero);
-        Assert.True(TripDayOverview.ResolveContext(Trip(), Today, instant).HasContent);
-        var utcTrip = Trip() with { TimeZoneId = "UTC" };
+        Assert.True(TripDayOverview.ResolveContext(Trip(TomorrowItem()), Today, instant).HasContent);
+        var utcTrip = Trip(Item()) with { TimeZoneId = "UTC" };
         Assert.False(TripDayOverview.ResolveContext(utcTrip, Today, instant).HasContent);
         Assert.True(TripDayOverview.ResolveContext(utcTrip, Today.AddDays(-1), instant).HasContent);
     }
@@ -132,7 +137,7 @@ public sealed class TripDayContextTests
     public void Hotel_check_in_does_not_block_tomorrow_until_checkout()
     {
         var hotel = Item(15) with { Type = ReservationType.Lodging, EndsOn = Today.AddDays(3), EndsAt = new(10, 0) };
-        var trip = Trip(hotel);
+        var trip = Trip(hotel, TomorrowItem());
         Assert.True(TripDayOverview.ResolveContext(trip, Today, At(15, 30)).IsInProgress);
         Assert.Equal(Today.AddDays(1), TripDayOverview.ResolveContext(trip, Today, At(16, 1)).Tomorrow);
     }
@@ -140,26 +145,96 @@ public sealed class TripDayContextTests
     [Fact]
     public void Adding_editing_and_removing_timed_items_recomputes_context_from_confirmed_schedule()
     {
-        var trip = Trip();
+        var tomorrow = TomorrowItem();
+        var trip = Trip(tomorrow);
         Assert.NotNull(TripDayOverview.ResolveContext(trip, Today, At(9)).Tomorrow);
         var item = Item();
-        var added = trip with { Items = [item], Revision = 1 };
+        var added = trip with { Items = [item, tomorrow], Revision = 1 };
         Assert.Equal(item.Id, TripDayOverview.ResolveContext(added, Today, At(9)).Activity!.Id);
-        var edited = added with { Items = [item with { StartsAt = new(7, 0), EndsAt = new(8, 0) }], Revision = 2 };
+        var edited = added with { Items = [item with { StartsAt = new(7, 0), EndsAt = new(8, 0) }, tomorrow], Revision = 2 };
         Assert.NotNull(TripDayOverview.ResolveContext(edited, Today, At(9)).Tomorrow);
-        var removed = added with { Items = [], Revision = 3 };
+        var removed = added with { Items = [tomorrow], Revision = 3 };
         Assert.NotNull(TripDayOverview.ResolveContext(removed, Today, At(9)).Tomorrow);
+        var empty = removed with { Items = [], Revision = 4 };
+        Assert.Equal(TripDayContext.Empty, TripDayOverview.ResolveContext(empty, Today, At(9)));
     }
 
     [Fact]
     public void Clearing_context_then_loading_another_trip_does_not_reuse_old_activity()
     {
         var first = Trip(Item());
-        var second = Trip();
+        var second = Trip(TomorrowItem());
         Assert.NotNull(TripDayOverview.ResolveContext(first, Today, At(9)).Activity);
         Assert.Equal(TripDayContext.Empty, TripDayOverview.ResolveContext(null, Today, At(9)));
         var result = TripDayOverview.ResolveContext(second, Today, At(9));
         Assert.Null(result.Activity);
         Assert.NotNull(result.Tomorrow);
+    }
+
+    [Fact]
+    public void Flexible_today_without_plans_tomorrow_does_not_create_a_context_card()
+    {
+        var idea = Item() with { TimePrecision = ItineraryTimePrecision.PeriodOnly };
+        Assert.Equal(TripDayContext.Empty, TripDayOverview.ResolveContext(Trip(idea), Today, At(9)));
+    }
+
+    [Fact]
+    public void Flexible_tomorrow_is_useful_without_a_confirmed_booking_or_invented_time()
+    {
+        var idea = TomorrowItem() with { TimePrecision = ItineraryTimePrecision.PeriodOnly };
+        var trip = Trip(idea);
+        var context = TripDayOverview.ResolveContext(trip, Today, At(9));
+        Assert.Equal(idea.Date, context.Tomorrow);
+        Assert.Null(context.Activity);
+        Assert.Same(idea, TripDayOverview.FirstPlan(trip, idea.Date));
+        Assert.Null(TripDayOverview.FirstBooking(trip, idea.Date));
+        Assert.Equal(LocalizationResourceManager.Instance["UXAuditPeriodMidday"], TripDayOverview.PlanTimeLabel(idea, idea.Date));
+        Assert.Equal([idea.Id], TripDayOverview.DocumentReservations(trip, idea.Date));
+    }
+
+    [Fact]
+    public void Hotel_nights_alone_are_not_plans_but_check_in_is_a_real_plan()
+    {
+        var hotel = Item(15) with { Type = ReservationType.Lodging, EndsOn = Today.AddDays(3) };
+        var trip = Trip(hotel);
+        Assert.Empty(TripDayOverview.DayPlans(trip, Today.AddDays(1)));
+        Assert.Null(TripDayOverview.Tomorrow(trip, Today));
+        Assert.Equal(TripDayContext.Empty, TripDayOverview.ResolveContext(trip, Today, At(17)));
+        var checkIn = hotel with { Date = Today.AddDays(1) };
+        var newTrip = Trip(checkIn);
+        Assert.Equal(checkIn.Date, TripDayOverview.ResolveContext(newTrip, Today, At(17)).Tomorrow);
+        Assert.Same(checkIn, TripDayOverview.FirstPlan(newTrip, checkIn.Date));
+    }
+
+    [Fact]
+    public void Tomorrow_preview_keeps_distinct_identity_and_stable_chronology_before_flexible_ideas()
+    {
+        var first = TomorrowItem() with { StartsAt = new(9, 0) };
+        var later = TomorrowItem() with { StartsAt = new(15, 0) };
+        var idea = TomorrowItem() with { StartsAt = new(7, 0), TimePrecision = ItineraryTimePrecision.PeriodOnly };
+        var trip = Trip(later, idea, first, first);
+        Assert.Equal([first.Id, later.Id, idea.Id], TripDayOverview.DayPlans(trip, first.Date).Select(item => item.Id));
+        Assert.Same(first, TripDayOverview.FirstPlan(trip, first.Date));
+    }
+
+    [Fact]
+    public void Overnight_flight_is_a_real_plan_on_its_arrival_day()
+    {
+        var flight = Item(23) with { Type = ReservationType.Flight, EndsOn = Today.AddDays(1), EndsAt = new(6, 0) };
+        var trip = Trip(flight);
+        Assert.Same(flight, Assert.Single(TripDayOverview.DayPlans(trip, Today.AddDays(1))));
+        Assert.Equal(Today.AddDays(1), TripDayOverview.Tomorrow(trip, Today));
+        Assert.Equal(LocalizationResourceManager.Instance["DayActivityInProgress"], TripDayOverview.PlanTimeLabel(flight, Today.AddDays(1)));
+        Assert.Equal("23:00", TripDayOverview.PlanTimeLabel(flight, Today));
+        Assert.Equal([flight.Id], TripDayOverview.DocumentReservations(trip, Today.AddDays(1)));
+    }
+
+    [Fact]
+    public void Early_check_in_keeps_the_first_booking_and_stay_document_links()
+    {
+        var hotel = TomorrowItem() with { Type = ReservationType.Lodging, StartsAt = new(9, 0), EndsOn = Today.AddDays(3) };
+        var booking = TomorrowItem() with { StartsAt = new(12, 0) };
+        var trip = Trip(hotel, booking);
+        Assert.Equal([hotel.Id, booking.Id], TripDayOverview.DocumentReservations(trip, hotel.Date));
     }
 }

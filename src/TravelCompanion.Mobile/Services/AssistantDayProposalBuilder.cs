@@ -19,8 +19,8 @@ public sealed record AssistantProposalRow(
     public string When => IsOngoingStay ? Text("AssistantProposalStay") : SavedItem is { } saved
         ? saved.HasExactTime ? saved.StartsAt.ToString("HH:mm") : PeriodLabel(saved.EffectivePeriodKey)
         : Suggestion is { } card
-            ? card.IsDayPlanCard && card.TimePrecision == ItineraryTimePrecision.Exact
-                && card.StartsAt is { } start
+            ? card.TimePrecision == ItineraryTimePrecision.Exact
+                && card.StartsAt is { } start && start != TimeOnly.MinValue
                 ? start.ToString("HH:mm") : PeriodLabel(card.PeriodKey)
             : string.Empty;
 
@@ -70,7 +70,8 @@ public static class AssistantDayProposalBuilder
     public static IReadOnlyList<AssistantProposalRow> BuildQuickSearch(
         IReadOnlyList<ScheduleItemDto> items,
         IReadOnlyList<TravelChatCardViewModel> cards,
-        DateOnly date)
+        DateOnly date,
+        bool preserveOptionPositions = false)
     {
         var dayItems = items.Where(item => item.Date == date).ToList();
         var results = new List<AssistantProposalRow>();
@@ -89,7 +90,8 @@ public static class AssistantDayProposalBuilder
 
         // A flexible moment is a label, not a time window. Keep the proposed order
         // unless every idea has an exact time that can anchor saved plans.
-        if (results.Any(row => GetWindow(row) is null)) return results;
+        // Express options are alternatives to choose from, not consecutive stops in a day plan.
+        if (preserveOptionPositions || results.Any(row => GetWindow(row) is null)) return results;
 
         var anchors = results.Select(GetWindow).Where(window => window.HasValue)
             .Select(window => window.GetValueOrDefault()).ToList();

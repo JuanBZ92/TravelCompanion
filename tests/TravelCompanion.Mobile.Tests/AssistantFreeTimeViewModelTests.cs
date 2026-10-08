@@ -7,7 +7,8 @@ namespace TravelCompanion.Mobile.Tests;
 [Collection("Free map session")]
 public sealed class AssistantFreeTimeViewModelTests
 {
-    private static readonly DateOnly Day = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(10);
+    private static readonly DateOnly Day = new(2026, 10, 8);
+    private static readonly DateTimeOffset Now = new(2026, 10, 8, 1, 0, 0, TimeSpan.Zero);
     private static AuthSessionDto Session() => new(Guid.NewGuid(), "review@example.test", "Traveler", false,
         "token", Guid.NewGuid());
     private static OfflineCacheResult<MobileBootstrapDto> Snapshot(AuthSessionDto session) => new(new(
@@ -29,7 +30,7 @@ public sealed class AssistantFreeTimeViewModelTests
             var session = Session(); await sessions.SaveAsync(session);
             var delayed = new TaskCompletionSource<OfflineCacheResult<MobileBootstrapDto>?>(TaskCreationOptions.RunContinuationsAsynchronously);
             var bootstrap = new MobileBootstrapStore { ReadCached = _ => delayed.Task };
-            var vm = new TravelChatViewModel(sessions, bootstrap) { PlanningDate = Day.ToDateTime(TimeOnly.MinValue) };
+            var vm = new TravelChatViewModel(sessions, bootstrap) { PlanningDate = Day.ToDateTime(TimeOnly.MinValue), FreeTimeClock = () => Now };
             var setup = vm.OpenFreeTimeForDateAsync(null);
             if (change == "date") vm.PlanningDate = Day.AddDays(1).ToDateTime(TimeOnly.MinValue);
             else if (change == "surface") vm.ChangeSurface();
@@ -55,7 +56,7 @@ public sealed class AssistantFreeTimeViewModelTests
             var delayed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             var bootstrap = new MobileBootstrapStore { Value = Snapshot(session).Value };
             var vm = new TravelChatViewModel(sessions, bootstrap)
-            { PlanningDate = Day.ToDateTime(TimeOnly.MinValue), ResolveCity = _ => delayed.Task };
+            { PlanningDate = Day.ToDateTime(TimeOnly.MinValue), FreeTimeClock = () => Now, ResolveCity = _ => delayed.Task };
             var setup = vm.OpenFreeTimeForDateAsync(null);
             if (change == "request") vm.IsBusy = true;
             else if (change == "surface") vm.ChangeSurface();
@@ -70,22 +71,24 @@ public sealed class AssistantFreeTimeViewModelTests
     }
 
     [Fact]
-    public async Task Current_context_opens_requested_day_and_preserves_free_time_controls()
+    public async Task Express_starts_with_interest_for_today_in_trip_zone_even_when_route_requests_another_date()
     {
         var sessions = new AuthSessionService();
         try
         {
             var session = Session(); await sessions.SaveAsync(session);
             var bootstrap = new MobileBootstrapStore { Value = Snapshot(session).Value };
-            var vm = new TravelChatViewModel(sessions, bootstrap) { PlanningDate = Day.ToDateTime(TimeOnly.MinValue) };
+            var vm = new TravelChatViewModel(sessions, bootstrap) { PlanningDate = Day.ToDateTime(TimeOnly.MinValue), FreeTimeClock = () => Now };
             await vm.OpenFreeTimeForDateAsync(Day.AddDays(1));
             Assert.Equal(1, vm.SearchOpened);
             Assert.True(vm.IsFreeTimeSearch);
             Assert.True(vm.DateSelectedByTraveler);
-            Assert.Equal(Day.AddDays(1), DateOnly.FromDateTime(vm.PlanningDate));
-            Assert.Equal(TimeSpan.FromHours(9), vm.FreeTimeStart);
+            Assert.Equal(Day, DateOnly.FromDateTime(vm.PlanningDate));
+            Assert.True(vm.ShowFreeTimeInterests);
+            Assert.False(vm.ShowFreeTimeArea);
+            Assert.Equal(0, vm.Location.Requests);
             Assert.Equal(4, vm.FreeTimeDurations.Count);
-            Assert.True(vm.CanSubmitQuickSearch);
+            Assert.False(vm.CanSubmitQuickSearch);
             Assert.Null(vm.PendingRetryRequest);
         }
         finally { sessions.Clear(); }
@@ -101,7 +104,7 @@ public sealed class AssistantFreeTimeViewModelTests
             var delayed = new TaskCompletionSource<OfflineCacheResult<MobileBootstrapDto>?>(TaskCreationOptions.RunContinuationsAsynchronously);
             var reads = 0;
             var bootstrap = new MobileBootstrapStore { ReadCached = _ => { reads++; return delayed.Task; } };
-            var vm = new TravelChatViewModel(sessions, bootstrap) { PlanningDate = Day.ToDateTime(TimeOnly.MinValue) };
+            var vm = new TravelChatViewModel(sessions, bootstrap) { PlanningDate = Day.ToDateTime(TimeOnly.MinValue), FreeTimeClock = () => Now };
             var first = vm.OpenFreeTimeForDateAsync(null);
             await vm.OpenFreeTimeForDateAsync(null);
             Assert.Equal(1, reads);

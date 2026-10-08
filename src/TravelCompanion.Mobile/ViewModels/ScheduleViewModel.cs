@@ -246,7 +246,22 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         _today?.Sections.Any(x => x.Recommendations.Count > 0) == true)];
     public bool HasTomorrowOverview => HasDailyOverview && _dayContext.Tomorrow.HasValue;
     public string TomorrowSummary => _overviewSchedule is { } schedule && _dayContext.Tomorrow is { } date
-        ? TripDayOverview.FirstBooking(schedule, date) is { } first ? $"{first.StartsAt:HH\\:mm} · {first.Title}" : LocalizationResourceManager.Instance["TomorrowNoBooking"] : "";
+        ? TripDayOverview.FirstPlan(schedule, date)?.Title ?? "" : "";
+    public string TomorrowDate => _dayContext.Tomorrow is { } date
+        ? date.ToString("dddd d MMMM", LocalizationResourceManager.Instance.CurrentCulture) : "";
+    public string TomorrowPlanCount
+    {
+        get
+        {
+            if (_overviewSchedule is not { } schedule || _dayContext.Tomorrow is not { } date) return "";
+            var count = TripDayOverview.DayPlans(schedule, date).Count;
+            return count == 1 ? LocalizationResourceManager.Instance["TomorrowPreviewSingle"]
+                : string.Format(LocalizationResourceManager.Instance["TomorrowPreviewCount"], count);
+        }
+    }
+    public string TomorrowDescription => $"{LocalizationResourceManager.Instance["TomorrowTitle"]}. {TomorrowDate}. {TomorrowSummary}. {TomorrowPlanCount}";
+    public bool HasFreeTimeShortcut => IsOverviewCurrent && _selectedDate == TripToday
+        && _tripStartsOn <= TripToday && _tripEndsOn >= TripToday;
     [RelayCommand] private async Task OpenTomorrowAsync()
     {
         RefreshUpcomingActivity();
@@ -255,9 +270,9 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     }
     [RelayCommand] private async Task FreeTimeAsync()
     {
-        if (_selectedDate is not { } date || !_tripId.HasValue) return;
+        if (!HasFreeTimeShortcut) return;
         if (!_sessionService.CanUseAssistant) { await PaywallNavigation.OpenAsync(PaywallEntryPoint.Assistant); return; }
-        await Shell.Current.GoToAsync("//main/assistant", new ShellNavigationQueryParameters { ["FreeTimeDate"] = date });
+        await Shell.Current.GoToAsync("//main/assistant", new ShellNavigationQueryParameters { ["FreeTimeDate"] = TripToday });
     }
     private DateOnly TripToday => DateOnly.FromDateTime(UpcomingActivitySelector.GetTripNow(_tripTimeZoneId, DateTimeOffset.UtcNow));
     public string FocusPlace => _focusItem is null ? string.Empty
@@ -2094,7 +2109,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         SetTodayLoading(false);
         RebuildSelectedDay();
         MarkLastUpdated(e.SavedAt);
-        StatusMessage = "Itinerario actualizado.";
+        StatusMessage = null;
         _ = RefreshTodayAfterScheduleUpdateAsync();
     }
 
@@ -2149,6 +2164,10 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         OnPropertyChanged(nameof(HasDailyOverview));
         OnPropertyChanged(nameof(HasTomorrowOverview));
         OnPropertyChanged(nameof(TomorrowSummary));
+        OnPropertyChanged(nameof(TomorrowDate));
+        OnPropertyChanged(nameof(TomorrowPlanCount));
+        OnPropertyChanged(nameof(TomorrowDescription));
+        OnPropertyChanged(nameof(HasFreeTimeShortcut));
         OnPropertyChanged(nameof(HasFocusItem));
         OnPropertyChanged(nameof(ShowFinishedToday));
         OnPropertyChanged(nameof(FocusTitle));
@@ -2174,6 +2193,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         OnPropertyChanged(nameof(HasFocusItem));
         OnPropertyChanged(nameof(ShowFinishedToday));
         OnPropertyChanged(nameof(SelectedCity));
+        OnPropertyChanged(nameof(HasFreeTimeShortcut));
         OnPropertyChanged(nameof(SelectedDateLabel));
         OnPropertyChanged(nameof(ShowImproveDay));
         OnPropertyChanged(nameof(ShowAdaptDay));

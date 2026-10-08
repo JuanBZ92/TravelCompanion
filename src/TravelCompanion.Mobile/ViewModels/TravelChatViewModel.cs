@@ -420,6 +420,7 @@ public sealed partial class TravelChatViewModel(
         _pendingRetryMessage = null;
         _assistantSchedule = null;
         _isFreeTimeSearch = false;
+        ResetFreeTimeState();
         _conversationId = null;
         _adaptationRevision = null;
         _adaptationTripId = null;
@@ -1583,6 +1584,7 @@ public sealed partial class TravelChatViewModel(
     {
         OnPropertyChanged(nameof(AssistantSearchAction));
         OnPropertyChanged(nameof(CanSubmitQuickSearch));
+        OnPropertyChanged(nameof(ShowFreeTimeCancel));
         SendMessageCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(ShowEmptyState));
         OnPropertyChanged(nameof(ShowGlobalLoading));
@@ -1706,7 +1708,8 @@ public sealed partial class TravelChatViewModel(
     private AssistantRequestScope BeginAssistantOperation()
     {
         _assistantOperation?.Cancel();
-        var scope = new AssistantRequestScope(sessionService, () => DateOnly.FromDateTime(PlanningDate));
+        var scope = new AssistantRequestScope(sessionService, () => DateOnly.FromDateTime(PlanningDate),
+            () => _assistantPageOperationVersion);
         _assistantOperation = scope;
         IsBusy = true;
         return scope;

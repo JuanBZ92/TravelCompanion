@@ -68,6 +68,12 @@ public sealed record GuidedPlanCriteriaDto(
     public DateTime? WindowEndsAtLocal { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public string? WindowTimeZoneId { get; init; }
+    // Search anchor only. The server resolves the current user's next timed plan;
+    // this does not claim that the traveler is already at that location.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public Guid? NearReservationId { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<Guid>? ExcludedRecommendationIds { get; init; }
 }
 
 public sealed record DayPersonalizationOptionsDto(

@@ -85,7 +85,7 @@
             </Border>
 
             <Border Grid.Row="2" Margin="0,0,0,8" VerticalOptions="End" Style="{StaticResource MapPreviewPanel}" IsVisible="{Binding HasPreview}">
-                <Grid RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="6">
+                <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="6">
                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" HeightRequest="48" IsVisible="{Binding HasSelection}">
                         <Label Text="{Binding SelectedMarkerPosition}"
                                FontSize="11"
@@ -120,40 +120,21 @@
                                    FontFamily="serif"
                                    FontSize="22"
                                    TextColor="{StaticResource Ink}"
-                                   LineBreakMode="TailTruncation" MaxLines="{Binding PreviewTextLines}">
-                                <Label.Triggers>
-                                    <DataTrigger TargetType="Label" Binding="{Binding IsPreviewExpanded}" Value="True">
-                                        <Setter Property="LineBreakMode" Value="WordWrap" />
-                                    </DataTrigger>
-                                </Label.Triggers>
-                            </Label>
+                                   LineBreakMode="WordWrap" />
                             <Label Text="{Binding SelectedLocationText}"
                                    FontSize="11"
                                    TextColor="{StaticResource Muted}"
-                                   LineBreakMode="TailTruncation" MaxLines="{Binding PreviewTextLines}">
-                                <Label.Triggers>
-                                    <DataTrigger TargetType="Label" Binding="{Binding IsPreviewExpanded}" Value="True">
-                                        <Setter Property="LineBreakMode" Value="WordWrap" />
-                                    </DataTrigger>
-                                </Label.Triggers>
-                            </Label>
+                                   LineBreakMode="WordWrap" />
                             <Label Text="{Binding SelectedRecommendation.DisplayDescription}"
                                    FontSize="13"
                                    TextColor="{StaticResource InkSoft}"
                                    LineHeight="1.2"
-                                   LineBreakMode="TailTruncation" MaxLines="{Binding PreviewTextLines}">
-                                <Label.Triggers>
-                                    <DataTrigger TargetType="Label" Binding="{Binding IsPreviewExpanded}" Value="True">
-                                        <Setter Property="LineBreakMode" Value="WordWrap" />
-                                    </DataTrigger>
-                                </Label.Triggers>
-                            </Label>
+                                   LineBreakMode="WordWrap" />
                             <Label Text="{Binding SelectedMetadataText}"
                                    FontSize="11"
                                    TextColor="{StaticResource Muted}"
                                    LineBreakMode="WordWrap" />
                             <Label Text="{Binding SelectedTagsText}"
-                                   IsVisible="{Binding IsPreviewExpanded}"
                                    FontSize="11"
                                    TextColor="#8A6F3D"
                                    LineBreakMode="WordWrap" />
@@ -184,12 +165,7 @@
                     </VerticalStackLayout>
                       </VerticalStackLayout>
                     </ScrollView>
-                    <Button Grid.Row="2" Text="{Binding PreviewDetailsAction}"
-                            IsVisible="{Binding IsUnlockedSelection}"
-                            Command="{Binding TogglePreviewDetailsCommand}" Style="{StaticResource GhostButton}"
-                            HorizontalOptions="Start" MinimumHeightRequest="48" />
-
-                    <Grid Grid.Row="3" ColumnDefinitions="48,*,48" ColumnSpacing="8" HeightRequest="48" IsVisible="{Binding HasSelection}">
+                    <Grid Grid.Row="2" ColumnDefinitions="48,*,48" ColumnSpacing="8" HeightRequest="48" IsVisible="{Binding HasSelection}">
                         <Button Text="‹"
                                 Command="{Binding SelectPreviousMarkerCommand}"
                                 IsEnabled="{Binding CanBrowseMarkers}"

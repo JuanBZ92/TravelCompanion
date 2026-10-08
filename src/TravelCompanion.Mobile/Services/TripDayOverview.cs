@@ -29,8 +29,33 @@ public static class TripDayOverview
     public static DateOnly? Tomorrow(TripScheduleDto? schedule, DateOnly today)
     {
         var tomorrow = today.AddDays(1);
-        return schedule is not null && tomorrow >= schedule.StartsOn && tomorrow <= schedule.EndsOn ? tomorrow : null;
+        return schedule is not null && tomorrow >= schedule.StartsOn && tomorrow <= schedule.EndsOn
+            && schedule.Items.Any(item => IsPlanOnDate(item, tomorrow)) ? tomorrow : null;
     }
+    // A check-in is a plan; the following nights of a hotel stay are only context.
+    // Flexible ideas still give tomorrow useful content without inventing a time.
+    public static IReadOnlyList<ScheduleItemDto> DayPlans(TripScheduleDto schedule, DateOnly date) => schedule.Items
+        .Where(item => IsPlanOnDate(item, date))
+        .DistinctBy(item => item.Id)
+        .OrderBy(item => item.HasExactTime ? 0 : 1)
+        .ThenBy(item => item.Date).ThenBy(item => item.StartsAt).ThenBy(item => item.Id).ToArray();
+    public static ScheduleItemDto? FirstPlan(TripScheduleDto schedule, DateOnly date)
+    {
+        var plans = DayPlans(schedule, date);
+        return plans.Count > 0 ? plans[0] : null;
+    }
+    public static string PlanTimeLabel(ScheduleItemDto item, DateOnly date) => item.Date < date
+        ? LocalizationResourceManager.Instance["DayActivityInProgress"]
+        : item.HasExactTime ? item.StartsAt.ToString("HH:mm")
+        : LocalizationResourceManager.Instance[item.EffectivePeriodKey switch
+        {
+            "morning" => "UXAuditPeriodMorning",
+            "midday" => "UXAuditPeriodMidday",
+            "afternoon" => "UXAuditPeriodAfternoon",
+            _ => "UXAuditPeriodNight"
+        }];
+    private static bool IsPlanOnDate(ScheduleItemDto item, DateOnly date) => item.Date == date
+        || item.Type != ReservationType.Lodging && item.Date < date && item.EndsOn >= date;
     public static ScheduleItemDto? FirstBooking(TripScheduleDto schedule, DateOnly date) => schedule.Items
         .Where(x => x.Date == date && x.HasExactTime && x.Type != ReservationType.Lodging)
         .DistinctBy(x => x.Id).OrderBy(x => x.StartsAt).ThenBy(x => x.Id).FirstOrDefault();
@@ -38,7 +63,7 @@ public static class TripDayOverview
         .Where(x => x.Type == ReservationType.Lodging && x.Date <= date && (x.EndsOn ?? x.Date) >= date)
         .OrderByDescending(x => x.Date).ThenBy(x => x.Id).FirstOrDefault();
     public static IReadOnlyList<Guid> DocumentReservations(TripScheduleDto schedule, DateOnly date) =>
-        new[] { FirstBooking(schedule, date), Hotel(schedule, date) }.OfType<ScheduleItemDto>()
+        new[] { FirstPlan(schedule, date), FirstBooking(schedule, date), Hotel(schedule, date) }.OfType<ScheduleItemDto>()
             .Select(item => item.Id).Distinct().ToArray();
     public static IReadOnlyList<TripDayDocument> DistinctDocuments(IEnumerable<TripDayDocument> documents) =>
         documents.DistinctBy(document => document.Link.CuratedUrl ?? document.Local?.SourceUrl

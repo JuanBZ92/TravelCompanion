@@ -26,16 +26,16 @@ public sealed class TomorrowOverviewPage(TripScheduleDto schedule, DateOnly date
         var header = new Grid { ColumnDefinitions = [new(GridLength.Star), new(new GridLength(48))] };
         header.Add(EditorialUi.Heading(EditorialUi.TextResource("TomorrowTitle")));
         header.Add(EditorialUi.Icon("action_close.svg", EditorialUi.TextResource("UxClose"), () => Navigation.PopModalAsync()), 1);
-        content.Add(header); content.Add(EditorialUi.Text(date.ToString("dddd d MMMM")));
-        var first = TripDayOverview.FirstBooking(schedule, date);
+        content.Add(header); content.Add(EditorialUi.Text(date.ToString("dddd d MMMM", LocalizationResourceManager.Instance.CurrentCulture)));
+        var first = TripDayOverview.FirstPlan(schedule, date);
         if (first is null) content.Add(EditorialUi.Text(EditorialUi.TextResource("TomorrowNoBooking")));
         else
         {
             var booking = new VerticalStackLayout { Spacing = 8 };
-            booking.Add(EditorialUi.Text(first.StartsAt.ToString("HH:mm"), 13));
+            booking.Add(EditorialUi.Text(TripDayOverview.PlanTimeLabel(first, date), 13));
             booking.Add(EditorialUi.Heading(first.Title, 24, SemanticHeadingLevel.Level2));
             booking.Add(EditorialUi.Text(string.IsNullOrWhiteSpace(first.LocationName) ? first.City : first.LocationName));
-            booking.Add(EditorialUi.Button(ExpenseUi.T("Ver reserva", "View booking"), async () => {
+            booking.Add(EditorialUi.Button(EditorialUi.TextResource("UXAuditOpenActivity"), async () => {
                 if (!Current()) return;
                 var vm = MauiProgram.Services.GetRequiredService<ViewModels.ScheduleItemDetailViewModel>();
                 vm.ApplyQueryAttributes(new Dictionary<string, object> { ["ScheduleItem"] = first });

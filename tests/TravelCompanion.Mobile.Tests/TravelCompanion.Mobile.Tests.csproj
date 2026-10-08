@@ -47,6 +47,8 @@
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\AssistantRequestScope.cs" Link="AssistantRequestScope.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\AssistantFreeTimeWindow.cs" Link="AssistantFreeTimeWindow.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\ViewModels\TravelChatViewModel.FreeTime.cs" Link="TravelChatViewModel.FreeTime.cs" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\ViewModels\TravelChatViewModel.FreeTime.Options.cs" Link="TravelChatViewModel.FreeTime.Options.cs" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\Services\ILocationService.cs" Link="ILocationService.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\DiagnosticJournal.cs" Link="DiagnosticJournal.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\JournalEntries.cs" Link="JournalEntries.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\ViewModels\JournalViewModel.cs" Link="JournalViewModel.cs" />

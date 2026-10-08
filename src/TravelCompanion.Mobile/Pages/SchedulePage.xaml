@@ -319,8 +319,6 @@
                         </DataTemplate>
                     </CollectionView.ItemTemplate>
                 </CollectionView>
-                <Label Text="{Binding [UXAuditDaySelectorSwipeHint], Source={x:Static services:LocalizationResourceManager.Instance}}"
-                       FontSize="11" TextColor="#8E867D" Margin="0,0,0,4" />
             </VerticalStackLayout>
             <RefreshView Grid.Row="1" IsRefreshing="{Binding IsRefreshing}" Command="{Binding RefreshScheduleCommand}">
                 <CollectionView
@@ -344,6 +342,11 @@
                         <VerticalStackLayout Padding="0,12,0,16" Spacing="16">
                             <Label Text="{Binding PreviewMessage}" IsVisible="{Binding HasPreviewMessage}" FontSize="13" TextColor="#6A625B" />
                             <Border Padding="14,12" Style="{StaticResource EditorialCard}" IsVisible="{Binding HasDailyOverview}">
+                                <Border.Triggers>
+                                    <DataTrigger TargetType="Border" Binding="{Binding HasTomorrowOverview}" Value="True">
+                                        <Setter Property="BackgroundColor" Value="{StaticResource AccentSoft}" />
+                                    </DataTrigger>
+                                </Border.Triggers>
                                 <Grid>
                                     <Grid ColumnDefinitions="*,48" ColumnSpacing="12" IsVisible="{Binding HasFocusItem}">
                                         <VerticalStackLayout Spacing="4" VerticalOptions="Center">
@@ -380,11 +383,24 @@
                                                 ToolTipProperties.Text="{Binding [UxOpenDocument], Source={x:Static services:LocalizationResourceManager.Instance}}" />
                                         </VerticalStackLayout>
                                     </Grid>
-                                    <VerticalStackLayout IsVisible="{Binding HasTomorrowOverview}" Spacing="4">
-                                        <Button Text="{Binding [TomorrowTitle], Source={x:Static services:LocalizationResourceManager.Instance}}" Command="{Binding OpenTomorrowCommand}"
-                                                BackgroundColor="Transparent" TextColor="{StaticResource Ink}" MinimumHeightRequest="48" HorizontalOptions="Start" Padding="0" />
-                                        <Label Text="{Binding TomorrowSummary}" FontSize="13" TextColor="{StaticResource EditorialMuted}" MaxLines="2" LineBreakMode="TailTruncation" />
-                                    </VerticalStackLayout>
+                                    <Grid IsVisible="{Binding HasTomorrowOverview}">
+                                        <Button Text="" Command="{Binding OpenTomorrowCommand}"
+                                                BackgroundColor="Transparent" BorderWidth="0" Padding="0"
+                                                MinimumHeightRequest="96" MinimumWidthRequest="48"
+                                                SemanticProperties.Description="{Binding TomorrowDescription}" />
+                                        <Grid ColumnDefinitions="28,*,24" ColumnSpacing="12" InputTransparent="True">
+                                            <Image Source="tab_trip.svg" HeightRequest="24" WidthRequest="24" VerticalOptions="Start" Margin="0,4,0,0" />
+                                            <VerticalStackLayout Grid.Column="1" Spacing="6" VerticalOptions="Center">
+                                                <Label Text="{Binding [TomorrowTitle], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                                                       FontSize="11" FontAttributes="Bold" CharacterSpacing="1" TextColor="{StaticResource EditorialAccentText}" />
+                                                <Label Text="{Binding TomorrowDate}" FontSize="13" TextColor="{StaticResource EditorialMuted}" />
+                                                <Label Text="{Binding TomorrowSummary}" FontFamily="serif" FontSize="21" TextColor="{StaticResource Ink}"
+                                                       MaxLines="2" LineBreakMode="TailTruncation" />
+                                                <Label Text="{Binding TomorrowPlanCount}" FontSize="13" TextColor="{StaticResource EditorialMuted}" />
+                                            </VerticalStackLayout>
+                                            <Image Grid.Column="2" Source="today_arrow_dark.svg" HeightRequest="20" WidthRequest="20" VerticalOptions="Center" />
+                                        </Grid>
+                                    </Grid>
                                 </Grid>
                             </Border>
                             <Label
@@ -393,9 +409,23 @@
                                 FontSize="13"
                                 TextColor="{StaticResource EditorialMuted}" />
 
-                            <Button Text="{Binding [AssistantFreeTime], Source={x:Static services:LocalizationResourceManager.Instance}}"
-                                    Command="{Binding FreeTimeCommand}" IsVisible="{Binding HasFocusItem}" MinimumHeightRequest="48"
-                                    BackgroundColor="Transparent" TextColor="{StaticResource Ink}" HorizontalOptions="Start" />
+                            <Grid IsVisible="{Binding HasFreeTimeShortcut}" MinimumHeightRequest="68">
+                                <Button Text="" Command="{Binding FreeTimeCommand}"
+                                        BackgroundColor="{StaticResource EditorialSurface}" BorderColor="{StaticResource EditorialLine}"
+                                        BorderWidth="1" CornerRadius="14" MinimumHeightRequest="68" MinimumWidthRequest="48"
+                                        SemanticProperties.Description="{Binding [ExpressShortcutTitle], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                                        SemanticProperties.Hint="{Binding [ExpressShortcutSubtitle], Source={x:Static services:LocalizationResourceManager.Instance}}" />
+                                <Grid ColumnDefinitions="28,*,20" ColumnSpacing="12" Padding="16,12" InputTransparent="True">
+                                    <Image Source="express_time.svg" WidthRequest="24" HeightRequest="24" VerticalOptions="Center" />
+                                    <VerticalStackLayout Grid.Column="1" Spacing="3" VerticalOptions="Center">
+                                        <Label Text="{Binding [ExpressShortcutTitle], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                                               FontSize="16" TextColor="{StaticResource Ink}" />
+                                        <Label Text="{Binding [ExpressShortcutSubtitle], Source={x:Static services:LocalizationResourceManager.Instance}}"
+                                               FontSize="13" TextColor="{StaticResource EditorialMuted}" />
+                                    </VerticalStackLayout>
+                                    <Image Grid.Column="2" Source="today_arrow_dark.svg" WidthRequest="18" HeightRequest="18" VerticalOptions="Center" />
+                                </Grid>
+                            </Grid>
                             <Border IsVisible="{Binding IsSelectedDayLocked}" Style="{StaticResource NoticePanel}">
                                 <Label Text="{Binding LockedDayMessage}" TextColor="#5F4B25" />
                             </Border>

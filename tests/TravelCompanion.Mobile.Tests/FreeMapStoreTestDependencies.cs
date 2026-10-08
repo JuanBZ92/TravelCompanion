@@ -5,6 +5,10 @@ namespace TravelCompanion.Mobile.Services;
 // Controlled I/O for tests that execute the production FreeMapStore.
 public sealed class TravelCompanionApiClient
 {
+    public Func<TravelChatRequest, CancellationToken, Task<TravelChatResponse?>> SendTravelChat { get; set; } =
+        (_, _) => Task.FromResult<TravelChatResponse?>(null);
+    public Task<TravelChatResponse?> SendTravelChatAsync(string token, TravelChatRequest request, CancellationToken ct) =>
+        SendTravelChat(request, ct);
     public int OfferRequests;
     public int PurchaseIntentRequests;
     public int VerificationRequests;

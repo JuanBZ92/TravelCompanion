@@ -870,13 +870,13 @@ Your way.</value></data>
   <data name="JournalDraftPhotoLimit" xml:space="preserve"><value>This memory’s draft already has 10 photos. Edit or discard the draft before adding more.</value></data>
   <data name="AssistantConversationThinking" xml:space="preserve"><value>Preparing a reply…</value></data>
   <data name="AssistantFreeTime" xml:space="preserve"><value>I have some free time</value></data>
-  <data name="AssistantFreeTimeHelp" xml:space="preserve"><value>Ideas that fit before your next fixed booking.</value></data>
+  <data name="AssistantFreeTimeHelp" xml:space="preserve"><value>A short plan, chosen for you and the time you have.</value></data>
   <data name="AssistantFreeTimeStart" xml:space="preserve"><value>Start at</value></data>
   <data name="AssistantFreeTimeDuration" xml:space="preserve"><value>Available time</value></data>
   <data name="AssistantFreeTimeMinutes" xml:space="preserve"><value>{0} min</value></data>
   <data name="AssistantFreeTimeWindow" xml:space="preserve"><value>{0:t}–{1:t} · Trip time ({2})</value></data>
   <data name="AssistantFreeTimeNextFixed" xml:space="preserve"><value>Your next booking starts at {0:t}.</value></data>
-  <data name="AssistantFreeTimeNoWindow" xml:space="preserve"><value>There is no free time in this window. Change the start or duration.</value></data>
+  <data name="AssistantFreeTimeNoWindow" xml:space="preserve"><value>There is no suitable gap right now. Try less time or come back later.</value></data>
   <data name="AssistantFreeTimeEstimate" xml:space="preserve"><value>Duration and travel times are estimates; check the place’s hours before going.</value></data>
   <data name="AssistantFreeTimeRequest" xml:space="preserve"><value>What can I do in this free time?</value></data>
   <data name="AssistantRequestCancelled" xml:space="preserve"><value>Cancelled. Your message is still available.</value></data>
@@ -972,4 +972,35 @@ Your way.</value></data>
   <data name="DayActivityPlan" xml:space="preserve"><value>Plan</value></data>
   <data name="DayActivityReservation" xml:space="preserve"><value>Booking</value></data>
   <data name="DayActivityEvent" xml:space="preserve"><value>Activity</value></data>
+  <data name="ExpressShortcutTitle" xml:space="preserve"><value>A plan for now</value></data>
+  <data name="ExpressShortcutSubtitle" xml:space="preserve"><value>Quick ideas, tailored to you</value></data>
+  <data name="TomorrowPreviewCount" xml:space="preserve"><value>{0} plans to explore</value></data>
+  <data name="TomorrowPreviewSingle" xml:space="preserve"><value>A plan to explore</value></data>
+  <data name="TomorrowPreviewHint" xml:space="preserve"><value>A peek at what awaits you</value></data>
+  <data name="ExpressInterestHelp" xml:space="preserve"><value>Choose what feels right. We’ll find a short plan for now or soon.</value></data>
+  <data name="ExpressInterestQuestion" xml:space="preserve"><value>What are you in the mood for?</value></data>
+  <data name="ExpressSurprise" xml:space="preserve"><value>Surprise me</value></data>
+  <data name="ExpressAreaHelp" xml:space="preserve"><value>Choose the area. We’ll use today’s commitments to keep the timing realistic.</value></data>
+  <data name="ExpressAreaQuestion" xml:space="preserve"><value>Where should we look?</value></data>
+  <data name="ExpressCurrentArea" xml:space="preserve"><value>Around me</value></data>
+  <data name="ExpressCurrentAreaHelp" xml:space="preserve"><value>Use my location just for this search</value></data>
+  <data name="ExpressNextArea" xml:space="preserve"><value>Near my next plan</value></data>
+  <data name="ExpressCityFallback" xml:space="preserve"><value>Look in {0} without my location</value></data>
+  <data name="ExpressLocating" xml:space="preserve"><value>Finding your area…</value></data>
+  <data name="ExpressLocationUnavailable" xml:space="preserve"><value>Your location isn’t available. Try again, choose your next plan, or look in the city.</value></data>
+  <data name="ExpressAreaChanged" xml:space="preserve"><value>Your next plan changed. Choose the area again.</value></data>
+  <data name="ExpressOutsideTrip" xml:space="preserve"><value>This is for now or soon. Today is outside your trip dates; use Plan your days for another date.</value></data>
+  <data name="ExpressAccessUnavailable" xml:space="preserve"><value>Assistant access is unavailable. Check your pass or free access.</value></data>
+  <data name="ExpressNeedsConnection" xml:space="preserve"><value>Connect to find fresh options. Your interests and area are kept; try again when you’re online.</value></data>
+  <data name="ExpressSearching" xml:space="preserve"><value>Finding something that suits you…</value></data>
+  <data name="ExpressTryAgain" xml:space="preserve"><value>We couldn’t find options right now. Your choices are kept; try again.</value></data>
+  <data name="ExpressNoOptions" xml:space="preserve"><value>No options fit this interest, area and time. Try another interest or more time.</value></data>
+  <data name="ExpressNoReplacement" xml:space="preserve"><value>No new option fits right now. Your current options are kept.</value></data>
+  <data name="ExpressResultsTitle" xml:space="preserve"><value>For now or soon</value></data>
+  <data name="ExpressResultsHelp" xml:space="preserve"><value>Pick the one you like. The arrows change just that option; adding opens a review before saving.</value></data>
+  <data name="ExpressOptionExpired" xml:space="preserve"><value>The timing or your plans changed. Find new options before adding this one.</value></data>
+  <data name="ExpressRestartToday" xml:space="preserve"><value>Find options for today</value></data>
+  <data name="ExpressDayChanged" xml:space="preserve"><value>A new day started at your destination. Start a fresh search for today.</value></data>
+  <data name="ExpressAfterCurrent" xml:space="preserve"><value>After your current plans finish</value></data>
+  <data name="ExpressEditSearch" xml:space="preserve"><value>Change this search</value></data>
 </root>

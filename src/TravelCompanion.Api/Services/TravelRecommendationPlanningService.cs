@@ -97,6 +97,9 @@ public sealed class TravelRecommendationPlanningService(
                 rankedCandidates = freshCandidates;
             }
         }
+        if (guidedCriteria?.WindowStartsAtLocal.HasValue == true)
+            rankedCandidates = FilterFreeTimePlaces(unlockedRecommendations, rankedCandidates,
+                reservations, excludedRecommendationIds);
 
         return new TravelRecommendationPlanningResult(
             unlockedRecommendations.Count,
@@ -104,6 +107,53 @@ public sealed class TravelRecommendationPlanningService(
             dislikedFilteredCandidateCount,
             excludedRecommendationCount,
             rankedCandidates);
+    }
+
+    private static List<ScoredRecommendation> FilterFreeTimePlaces(IReadOnlyList<Recommendation> catalog,
+        IReadOnlyList<ScoredRecommendation> ranked, IReadOnlyList<Reservation> reservations, ISet<string> excludedIds)
+    {
+        // Imports may expose the same place under different IDs. Expand aliases before
+        // selecting results, and retain the expansion while selecting this batch too.
+        var ids = new HashSet<string>(excludedIds, StringComparer.OrdinalIgnoreCase);
+        static string TitleKey(string value) => string.Concat(NormalizeSearchableText(value).Where(char.IsLetterOrDigit));
+        var titles = reservations.SelectMany(item => new[] { item.Title, item.LocationName })
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(TitleKey).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var providers = reservations.Select(item => item.ProviderPlaceId).OfType<string>()
+            .Where(value => !string.IsNullOrWhiteSpace(value)).Select(value => value.Trim()).ToHashSet(StringComparer.Ordinal);
+        var byTitle = catalog.Where(item => !string.IsNullOrWhiteSpace(item.Title))
+            .GroupBy(item => TitleKey(item.Title), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.ToArray(), StringComparer.OrdinalIgnoreCase);
+        var byProvider = catalog.Where(item => !string.IsNullOrWhiteSpace(item.ProviderPlaceId))
+            .GroupBy(item => item.ProviderPlaceId!.Trim(), StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.ToArray(), StringComparer.Ordinal);
+        bool IsExcluded(Recommendation item) => ids.Contains(item.Id.ToString())
+            || titles.Contains(TitleKey(item.Title))
+            || !string.IsNullOrWhiteSpace(item.ProviderPlaceId) && providers.Contains(item.ProviderPlaceId.Trim());
+        void ExcludeAliases(Recommendation item)
+        {
+            var queue = new Queue<Recommendation>();
+            queue.Enqueue(item);
+            var visited = new HashSet<Guid>();
+            while (queue.TryDequeue(out var alias))
+            {
+                if (!visited.Add(alias.Id)) continue;
+                ids.Add(alias.Id.ToString());
+                if (!string.IsNullOrWhiteSpace(alias.Title) && titles.Add(TitleKey(alias.Title)))
+                    foreach (var next in byTitle[TitleKey(alias.Title)]) queue.Enqueue(next);
+                if (!string.IsNullOrWhiteSpace(alias.ProviderPlaceId) && providers.Add(alias.ProviderPlaceId.Trim()))
+                    foreach (var next in byProvider[alias.ProviderPlaceId.Trim()]) queue.Enqueue(next);
+            }
+        }
+        foreach (var item in catalog.Where(IsExcluded).ToArray()) ExcludeAliases(item);
+        var result = new List<ScoredRecommendation>();
+        foreach (var candidate in ranked)
+        {
+            if (IsExcluded(candidate.Recommendation)) continue;
+            result.Add(candidate);
+            ExcludeAliases(candidate.Recommendation);
+        }
+        return result;
     }
 
     private static IEnumerable<ScoredRecommendation> ApplyGuidedCriteria(
