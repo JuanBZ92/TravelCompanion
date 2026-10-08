@@ -4,11 +4,12 @@ namespace TravelCompanion.Mobile.Services;
 
 public sealed record JournalPhoto(Guid Id);
 public sealed record JournalPhotoPayload(byte[] Bytes);
+public sealed record JournalAcknowledgement(Guid MutationId, int Revision);
 public sealed record JournalMemory(JournalNoteDto Note, SaveJournalNoteRequest? Pending = null,
     JournalNoteDto? Conflict = null, JournalPhoto[]? Photos = null, Guid? CoverId = null,
     JournalFreeEntryDto? FreeEntry = null, SaveJournalFreeEntryRequest? FreePending = null,
     JournalFreeEntryDto? FreeConflict = null, DeleteJournalFreeEntryRequest? DeletePending = null,
-    bool IsDraft = false)
+    bool IsDraft = false, JournalAcknowledgement? Acknowledgement = null)
 {
     public bool IsFree => FreeEntry is not null;
     public Guid Id => FreeEntry?.Id ?? Note.ActivityId;
@@ -61,8 +62,7 @@ public sealed partial class JournalStore(OfflineCacheService cache, AuthSessionS
     public async Task ReplayPendingAsync(CancellationToken ct)
     {
         var scope = Scope();
-        if ((await ReadAsync(scope, ct)).Any(x => !x.IsDraft && !x.HasConflict
-            && (x.Pending is not null || x.FreePending is not null || x.DeletePending is not null)))
+        if (HasPendingSynchronization(await ReadLocalSnapshotAsync(scope, ct)))
             await LoadAsync(scope, [], true, ct);
     }
 
@@ -114,16 +114,30 @@ public sealed partial class JournalStore(OfflineCacheService cache, AuthSessionS
         finally { gate.Release(); }
     }
 
-    private async Task SyncAsync(JournalScope scope, CancellationToken ct, Action? onSyncFailure)
+    private async Task<JournalSynchronizationState> SyncAsync(JournalScope scope, CancellationToken ct, Action? onSyncFailure)
     {
         // Only remote work is serialized here. Local saves/photos/drafts use the short gate above.
-        await syncGate.WaitAsync(ct);
+        Check(scope);
+        BeginSynchronization(scope);
+        var acquired = false;
+        var outcome = JournalSynchronizationState.Pending;
+        Exception? failure = null;
+        var failureEvent = "journal_sync_failed";
         try
         {
+            await syncGate.WaitAsync(ct);
+            acquired = true;
             Check(scope);
+            if (Connectivity.Current.NetworkAccess != NetworkAccess.Internet)
+                return outcome = JournalSynchronizationState.Offline;
             var token = await sessions.GetTokenAsync();
             Check(scope);
-            if (string.IsNullOrEmpty(token)) return;
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                failure = new InvalidOperationException("Journal session token unavailable.");
+                failureEvent = "journal_sync_token_unavailable";
+                return outcome = JournalSynchronizationState.Failed;
+            }
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
             timeout.CancelAfter(TimeSpan.FromSeconds(12));
             var remote = await api.GetJournalAsync(token, scope.TripId, timeout.Token);
@@ -135,14 +149,26 @@ public sealed partial class JournalStore(OfflineCacheService cache, AuthSessionS
                 await ApplyNoteResultAsync(scope, entry, result, ct);
             }
             await SyncFreeAsync(scope, token, timeout.Token, ct);
+            outcome = HasPendingSynchronization(await ReadLocalSnapshotAsync(scope, ct))
+                ? JournalSynchronizationState.Pending : JournalSynchronizationState.Idle;
+            return outcome;
         }
-        catch (HttpRequestException) { onSyncFailure?.Invoke(); }
-        catch (IOException) { onSyncFailure?.Invoke(); }
-#if ANDROID
-        catch (Java.IO.IOException) { onSyncFailure?.Invoke(); }
-#endif
-        catch (TaskCanceledException) when (!ct.IsCancellationRequested) { onSyncFailure?.Invoke(); }
-        finally { syncGate.Release(); }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested || !IsCurrent(scope)) { throw; }
+        catch (Exception exception)
+        {
+            failure = exception;
+            return outcome = Connectivity.Current.NetworkAccess == NetworkAccess.Internet
+                ? JournalSynchronizationState.Failed : JournalSynchronizationState.Offline;
+        }
+        finally
+        {
+            if (acquired) syncGate.Release();
+            // Never call observers while either persistence semaphore is held.
+            if (failure is not null) RecordSynchronizationFailure(failure, failureEvent);
+            CompleteSynchronization(scope, outcome);
+            if (IsCurrent(scope) && outcome is JournalSynchronizationState.Failed or JournalSynchronizationState.Offline)
+                onSyncFailure?.Invoke();
+        }
     }
 
     private async Task ApplyRemoteNotesAsync(JournalScope scope, IEnumerable<JournalNoteDto> remote, CancellationToken ct)
@@ -168,6 +194,8 @@ public sealed partial class JournalStore(OfflineCacheService cache, AuthSessionS
 
     private async Task ApplyNoteResultAsync(JournalScope scope, JournalMemory sent, JournalSaveResult result, CancellationToken ct)
     {
+        if (result is null || result.Entry is null)
+            throw new InvalidDataException("Journal acknowledgement unavailable.");
         await gate.WaitAsync(ct);
         try
         {
@@ -176,7 +204,8 @@ public sealed partial class JournalStore(OfflineCacheService cache, AuthSessionS
             if (index < 0 || result.Entry.TripId != scope.TripId) return;
             var current = entries[index];
             if (current.Pending?.MutationId == sent.Pending!.MutationId)
-                entries[index] = result.Saved ? current with { Note = result.Entry, Pending = null, Conflict = null }
+                entries[index] = result.Saved ? current with { Note = result.Entry, Pending = null, Conflict = null,
+                    Acknowledgement = new(sent.Pending.MutationId, result.Entry.Revision) }
                     : current with { Conflict = result.Entry };
             else if (result.Saved && result.Entry.Revision >= current.Note.Revision)
             {
@@ -184,7 +213,8 @@ public sealed partial class JournalStore(OfflineCacheService cache, AuthSessionS
                 // its mutation ID/text/photos remain untouched and it has never been sent yet.
                 var pending = current.Pending is { } newer && newer.ExpectedRevision == sent.Pending.ExpectedRevision
                     ? newer with { ExpectedRevision = result.Entry.Revision } : current.Pending;
-                entries[index] = current with { Note = result.Entry, Pending = pending };
+                entries[index] = current with { Note = result.Entry, Pending = pending,
+                    Acknowledgement = new(sent.Pending.MutationId, result.Entry.Revision) };
             }
             else return;
             Check(scope); await WriteAsync(scope, entries, ct);
@@ -192,13 +222,18 @@ public sealed partial class JournalStore(OfflineCacheService cache, AuthSessionS
         finally { gate.Release(); }
     }
 
-    public async Task SaveAsync(JournalScope scope, JournalMemory entry, string text, CancellationToken ct = default)
+    public Task SaveAsync(JournalScope scope, JournalMemory entry, string text, CancellationToken ct = default,
+        IReadOnlyList<JournalMemory>? knownConfirmations = null) =>
+        SaveConfirmedAsync(scope, entry, text, ct, knownConfirmations);
+
+    public async Task<JournalMemory> SaveConfirmedAsync(JournalScope scope, JournalMemory entry, string text, CancellationToken ct = default,
+        IReadOnlyList<JournalMemory>? knownConfirmations = null)
     {
 #if ANDROID
         using var measurement = MobileOperationMeasurement.Start("journal_save_measured");
 #endif
         CheckEntry(scope, entry);
-        if (entry.IsFree) { await SaveFreeLocalAsync(scope, entry, text, ct); return; }
+        if (entry.IsFree) return await SaveFreeLocalAsync(scope, entry, text, ct, knownConfirmations);
         if (text.Length > 2000) throw new ArgumentException("La nota admite hasta 2000 caracteres.");
         await gate.WaitAsync(ct);
         try
@@ -207,17 +242,49 @@ public sealed partial class JournalStore(OfflineCacheService cache, AuthSessionS
             var entries = await ReadAsync(scope, ct);
             var index = entries.FindIndex(x => x.Key == entry.Key);
             var current = index >= 0 ? entries[index] : entry;
-            // The editor's revision is used, never an unseen newer revision.
+            // Advance only over an exact acknowledgement of this editor's own save.
+            // A newer revision from another writer remains a real conflict.
+            var expectedRevision = ExpectedSaveRevision(entry, current, knownConfirmations);
             if (string.IsNullOrWhiteSpace(text) && entry.Images.Length == 0) throw new ArgumentException(JournalText.Get("JournalEmptyValidation"));
-            var updated = current with { Pending = new(text.Trim(), entry.Note.Revision, Guid.NewGuid()), Conflict = null, IsDraft = false,
+            var updated = current with { Pending = new(text.Trim(), expectedRevision, Guid.NewGuid()), IsDraft = false,
                 Photos = entry.Photos, CoverId = entry.CoverId };
             if (index < 0) entries.Add(updated); else entries[index] = updated;
             Check(scope);
             await WriteAsync(scope, entries, ct);
             await DeleteUnreferencedPhotosAsync(scope, current.Images, entries, ct);
+            return updated;
         }
         finally { gate.Release(); }
     }
+
+    // Called under the local gate, so an arriving acknowledgement and a new edit
+    // cannot change the persisted revision between this check and the write.
+    private static int ExpectedSaveRevision(JournalMemory edited, JournalMemory current,
+        IReadOnlyList<JournalMemory>? knownConfirmations)
+    {
+        if (knownConfirmations is null || current.Revision <= edited.Revision || current.HasConflict
+            || current.Deleted || current.IsDraft || current.DeletePending is not null) return edited.Revision;
+        foreach (var known in knownConfirmations)
+        {
+            if (known.Key != current.Key || known.Note.TripId != current.Note.TripId
+                || known.IsDraft || known.DeletePending is not null) continue;
+            if (current.FreeEntry is { } free && known.FreePending is { } freeSave
+                && IsOwnAcknowledgement(current, freeSave.MutationId, freeSave.ExpectedRevision)
+                && freeSave.Notes == free.Notes && freeSave.Title == free.Title
+                && freeSave.Place == free.Place && freeSave.Date == free.Date)
+                return free.Revision;
+            if (!current.IsFree && known.Pending is { } activitySave
+                && IsOwnAcknowledgement(current, activitySave.MutationId, activitySave.ExpectedRevision)
+                && activitySave.Notes == current.Note.Notes)
+                return current.Note.Revision;
+        }
+        return edited.Revision;
+    }
+
+    private static bool IsOwnAcknowledgement(JournalMemory current, Guid mutationId, int expectedRevision) =>
+        current.Acknowledgement is { } acknowledgement
+            ? acknowledgement.MutationId == mutationId && acknowledgement.Revision == current.Revision
+            : (long)expectedRevision + 1 == current.Revision;
 
     public async Task ResolveAsync(JournalScope scope, JournalMemory entry, bool useLocal)
     {

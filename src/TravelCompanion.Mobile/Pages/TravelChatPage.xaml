@@ -584,10 +584,43 @@
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
                 </FlexLayout>
-                <Button Text="{Binding FreeTimeSurprise}" Command="{Binding SurpriseFreeTimeCommand}"
-                        IsVisible="{Binding ShowFreeTimeInterests}" IsEnabled="{Binding IsNotBusy}"
-                        BackgroundColor="Transparent" TextColor="{StaticResource Accent}"
-                        MinimumHeightRequest="48" FontSize="14" HorizontalOptions="Start" />
+                <Border Style="{StaticResource EditorialCard}" Padding="0"
+                        BackgroundColor="{StaticResource AccentSoft}" Stroke="{StaticResource EditorialLine}"
+                        IsVisible="{Binding ShowFreeTimeInterests}" IsEnabled="{Binding IsNotBusy}">
+                    <Border.Triggers>
+                        <DataTrigger TargetType="Border" Binding="{Binding FreeTimeSurpriseSelected}" Value="True">
+                            <Setter Property="Stroke" Value="{StaticResource Gold}" />
+                        </DataTrigger>
+                    </Border.Triggers>
+                    <Grid>
+                        <Grid ColumnDefinitions="32,*,24" ColumnSpacing="10" Padding="14,12"
+                              InputTransparent="True" MinimumHeightRequest="64">
+                            <Image Source="express_surprise.svg" WidthRequest="24" HeightRequest="24"
+                                   VerticalOptions="Center" AutomationProperties.IsInAccessibleTree="False" />
+                            <VerticalStackLayout Grid.Column="1" Spacing="4" VerticalOptions="Center">
+                                <Label Text="{Binding FreeTimeSurprise}" FontFamily="serif" FontSize="18"
+                                       TextColor="{StaticResource Ink}" LineBreakMode="WordWrap" />
+                                <Label Text="{Binding FreeTimeSurpriseHelp}" FontSize="13"
+                                       TextColor="{StaticResource EditorialMuted}" LineBreakMode="WordWrap" />
+                            </VerticalStackLayout>
+                            <Image Grid.Column="2" Source="today_arrow_dark.svg" WidthRequest="20" HeightRequest="20"
+                                   VerticalOptions="Center" AutomationProperties.IsInAccessibleTree="False">
+                                <Image.Triggers>
+                                    <DataTrigger TargetType="Image" Binding="{Binding FreeTimeSurpriseSelected}" Value="True">
+                                        <Setter Property="IsVisible" Value="False" />
+                                    </DataTrigger>
+                                </Image.Triggers>
+                            </Image>
+                            <Image Grid.Column="2" Source="planner_select.svg" WidthRequest="20" HeightRequest="20"
+                                   IsVisible="{Binding FreeTimeSurpriseSelected}" VerticalOptions="Center"
+                                   AutomationProperties.IsInAccessibleTree="False" />
+                        </Grid>
+                        <Button Command="{Binding SurpriseFreeTimeCommand}" Text="" BackgroundColor="Transparent"
+                                BorderWidth="0" CornerRadius="16" Padding="0" MinimumHeightRequest="48"
+                                SemanticProperties.Description="{Binding FreeTimeSurprise}"
+                                SemanticProperties.Hint="{Binding FreeTimeSurpriseHelp}" />
+                    </Grid>
+                </Border>
                 <VerticalStackLayout IsVisible="{Binding ShowFreeTimeArea}" Spacing="14" IsEnabled="{Binding IsNotBusy}">
                     <Label Text="{Binding FreeTimeAreaQuestion}" FontFamily="serif" FontSize="25"
                            TextColor="{StaticResource Ink}" LineBreakMode="WordWrap" />

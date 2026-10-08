@@ -54,6 +54,7 @@
     <Compile Include="..\..\src\TravelCompanion.Mobile\ViewModels\JournalViewModel.cs" Link="JournalViewModel.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\MapUpdateBatch.cs" Link="MapUpdateBatch.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\JournalStore.cs" Link="JournalStore.cs" />
+    <Compile Include="..\..\src\TravelCompanion.Mobile\Services\JournalStore.Synchronization.cs" Link="JournalStore.Synchronization.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\JournalStore.FreeEntries.cs" Link="JournalStore.FreeEntries.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\JournalStore.DraftPhotos.cs" Link="JournalStore.DraftPhotos.cs" />
     <Compile Include="..\..\src\TravelCompanion.Mobile\Services\JournalText.cs" Link="JournalText.cs" />

@@ -103,17 +103,25 @@ public sealed class JournalMemoryPage : JournalScopedPage
     private readonly VerticalStackLayout photos = new() { Spacing = 12 };
     private readonly Label status = JournalUi.Text("", 12);
     private readonly Label counter = JournalUi.Text("", 12);
+    private readonly Button retrySynchronization;
+    private readonly Button conflictAction;
+    private readonly List<JournalMemory> confirmations = [];
     private CancellationTokenSource? debounce;
     private Task autosave = Task.CompletedTask;
     private readonly SemaphoreSlim persistGate = new(1, 1);
     private long editVersion;
     private bool busy, closing, initialized, dirty, suppress;
+    private bool visible, hasDraftChanges, deferredSynchronizationRefresh;
+    private long synchronizationRefresh;
     private bool pickPhotos;
     private Window? observedWindow;
     private readonly JournalDraft? initialDraft;
     public JournalMemoryPage(JournalScope scope, JournalMemory memory, ScheduleItemDto? item, bool startWithPhotos = false, JournalDraft? draft = null)
     {
         this.scope = scope; this.memory = memory; initialDraft = draft; pickPhotos = startWithPhotos;
+        if (!memory.IsDraft && !memory.HasConflict && memory.DeletePending is null
+            && (memory.Pending is not null || memory.FreePending is not null))
+            confirmations.Add(memory); // The pending payload is already visible to this editor.
         BackgroundColor = JournalUi.Paper; SafeAreaEdges = SafeAreaEdges.All;
         title = new Entry { Text = memory.Title, Placeholder = JournalText.Get("JournalTitleOptional"), MaxLength = 120, FontFamily = "serif", FontSize = 26, TextColor = JournalUi.Ink, IsVisible = memory.IsFree };
         place = new Entry { Text = memory.City, Placeholder = JournalText.Get("JournalPlaceOptional"), MaxLength = 200, TextColor = JournalUi.Ink, IsVisible = memory.IsFree };
@@ -159,8 +167,13 @@ public sealed class JournalMemoryPage : JournalScopedPage
         tools.Add(JournalUi.Tool("journal_photo.svg", "JournalAddPhotos", AddPhotosAsync), 0);
         if (memory.IsFree) tools.Add(JournalUi.Tool("journal_search.svg", "JournalFindDayActivity", FindDayActivityAsync), 1);
         tools.Add(JournalUi.Tool("action_saved.svg", "JournalSave", SaveAsync, true), memory.IsFree ? 2 : 1);
+        retrySynchronization = JournalUi.Action("JournalSyncRetry", RetrySynchronizationAsync);
+        retrySynchronization.IsVisible = false;
+        retrySynchronization.LineBreakMode = LineBreakMode.WordWrap;
+        SemanticProperties.SetDescription(retrySynchronization, JournalText.Get("JournalSyncRetry"));
+        conflictAction = JournalUi.Action("JournalCompare", ResolveAsync);
         var footer = new VerticalStackLayout { Padding = new Thickness(22, 8, 22, 16), Spacing = 8,
-            Children = { status, tools } };
+            Children = { status, retrySynchronization, tools } };
         footer.BackgroundColor = Color.FromArgb("#FFFCF8");
         var grid = new Grid { RowDefinitions = [new(GridLength.Auto), new(GridLength.Star), new(GridLength.Auto)] };
         grid.Add(header); grid.Add(new ScrollView { Content = body }, 0, 1); grid.Add(footer, 0, 2); Content = grid;
@@ -190,11 +203,12 @@ public sealed class JournalMemoryPage : JournalScopedPage
                 return Task.CompletedTask;
             }));
         }
-        finally { busy = false; date.IsEnabled = memory.IsFree; }
+        finally { FinishBusy(); date.IsEnabled = memory.IsFree; }
     }
     private void Changed()
     {
-        UpdateCounter(); if (suppress) return; dirty = true; editVersion++;
+        UpdateCounter(); if (suppress) return; dirty = hasDraftChanges = true; editVersion++;
+        retrySynchronization.IsVisible = false;
         debounce?.Cancel(); debounce = new(); autosave = AutoSaveAsync(debounce.Token);
     }
     private JournalMemory Snapshot()
@@ -218,6 +232,8 @@ public sealed class JournalMemoryPage : JournalScopedPage
         try
         {
             if (!dirty || !store.IsCurrent(scope)) return;
+            hasDraftChanges = true;
+            retrySynchronization.IsVisible = false;
             status.Text = JournalText.Get("JournalSaving");
             var version = editVersion; var snapshot = Snapshot(); var text = editor.Text ?? "";
             await store.SaveDraftAsync(scope, snapshot, text, ct);
@@ -232,23 +248,35 @@ public sealed class JournalMemoryPage : JournalScopedPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        visible = true;
+        store.SynchronizationChanged -= SynchronizationChanged;
+        store.SynchronizationChanged += SynchronizationChanged;
         observedWindow = Window;
         if (observedWindow is not null) observedWindow.Stopped += AppStopped;
         try {
             if (!initialized) {
-                initialized = true;
                 var draft = initialDraft ?? (await store.DraftsAsync(scope)).FirstOrDefault(x => x.Memory.Key == memory.Key);
+                if (!visible || !store.IsCurrent(scope)) return;
                 if (draft is not null) {
+                    hasDraftChanges = true;
+                    if (!draft.Memory.HasConflict && draft.Memory.DeletePending is null
+                        && (draft.Memory.Pending is not null || draft.Memory.FreePending is not null))
+                        confirmations.Add(draft.Memory); // Draft.Text itself is never treated as confirmed.
                     suppress = true; memory = draft.Memory; editor.Text = draft.Text; title.Text = memory.Title; place.Text = memory.City;
                     date.Date = memory.Date.ToDateTime(TimeOnly.MinValue); suppress = false; status.Text = JournalText.Get("JournalDraftSaved");
                 } else status.Text = memory.Status;
+                initialized = true;
             }
+            await RefreshSynchronizationAsync();
+            if (!visible || !store.IsCurrent(scope)) return;
             await RenderPhotosAsync();
             if (pickPhotos) { pickPhotos = false; await AddPhotosAsync(); }
         } catch (OperationCanceledException) { } catch (Exception) { status.Text = JournalText.Get("JournalFailure"); }
     }
     protected override async void OnDisappearing()
     {
+        visible = false; synchronizationRefresh++; deferredSynchronizationRefresh = false;
+        store.SynchronizationChanged -= SynchronizationChanged;
         if (observedWindow is not null) observedWindow.Stopped -= AppStopped;
         observedWindow = null;
         debounce?.Cancel();
@@ -265,7 +293,7 @@ public sealed class JournalMemoryPage : JournalScopedPage
     private async Task RenderPhotosAsync()
     {
         photos.Clear();
-        if (memory.HasConflict) photos.Add(JournalUi.Action("JournalCompare", ResolveAsync));
+        if (memory.HasConflict) photos.Add(conflictAction);
         photos.Add(JournalUi.Text(JournalText.Format("JournalPhotosLimit", memory.Images.Length), 12));
         var gallery = new FlexLayout { Wrap = Microsoft.Maui.Layouts.FlexWrap.Wrap,
             AlignItems = Microsoft.Maui.Layouts.FlexAlignItems.Start,
@@ -290,7 +318,7 @@ public sealed class JournalMemoryPage : JournalScopedPage
                 if (busy || !store.IsCurrent(scope)) return;
                 busy = true;
                 try { memory = Snapshot() with { CoverId = photo.Id }; dirty = true; await PersistAsync(); await RenderPhotosAsync(); }
-                finally { busy = false; } });
+                finally { FinishBusy(); } });
             coverAction.BackgroundColor = photo.Id == memory.CoverId ? JournalUi.Ink : Colors.Transparent;
             coverAction.CornerRadius = 12;
             controls.Add(coverAction);
@@ -302,7 +330,7 @@ public sealed class JournalMemoryPage : JournalScopedPage
                     var remaining = memory.Images.Where(x => x.Id != photo.Id).ToArray();
                     memory = Snapshot() with { Photos = remaining, CoverId = memory.CoverId == photo.Id ? remaining.FirstOrDefault()?.Id : memory.CoverId };
                     dirty = true; await PersistAsync(); await RenderPhotosAsync();
-                } finally { busy = false; }
+                } finally { FinishBusy(); }
             }), 1);
             tile.Add(controls, 0, 1);
             gallery.Children.Add(tile);
@@ -318,62 +346,247 @@ public sealed class JournalMemoryPage : JournalScopedPage
             if (files.Count == 0 || !store.IsCurrent(scope)) return;
             memory = await store.AddDraftPhotosAsync(scope, Snapshot(), editor.Text ?? "", files);
             dirty = true; await PersistAsync(); await RenderPhotosAsync();
-        } finally { busy = false; }
+        } finally { FinishBusy(); }
     }
     private async Task SaveAsync()
     {
-        if (busy) return; busy = true;
+        if (busy || closing || !store.IsCurrent(scope)) return;
+        busy = true; retrySynchronization.IsEnabled = false;
         editor.IsEnabled = false; title.IsEnabled = false; place.IsEnabled = false; date.IsEnabled = false;
         var committed = false;
-        try {
+        try
+        {
             debounce?.Cancel(); await autosave;
             if (memory.HasConflict) { status.Text = JournalText.Get("JournalCompare"); return; }
-            if (string.IsNullOrWhiteSpace(editor.Text) && memory.Images.Length == 0) { status.Text = JournalText.Get("JournalEmptyValidation"); return; }
+            if (string.IsNullOrWhiteSpace(editor.Text) && memory.Images.Length == 0)
+            { status.Text = JournalText.Get("JournalEmptyValidation"); return; }
             await PersistAsync(); status.Text = JournalText.Get("JournalSaving");
-            await store.SaveAsync(scope, Snapshot(), editor.Text ?? "");
+            var snapshot = Snapshot(); var text = editor.Text ?? "";
+            var confirmed = await store.SaveConfirmedAsync(scope, snapshot, text, knownConfirmations: confirmations.ToArray());
             committed = true;
-            await store.DiscardDraftAsync(scope, memory); dirty = false;
-            memory = Snapshot() with { IsDraft = false };
-            status.Text = JournalText.Get("JournalPending");
-        } catch (OperationCanceledException) { }
-        catch (Exception) { status.Text = JournalText.Get(committed ? "JournalPending" : "JournalDraftFailed"); }
+            memory = ConfirmedSnapshot(snapshot, confirmed);
+            confirmations.Add(memory);
+            dirty = hasDraftChanges = false;
+            var saved = (await store.LoadAsync(scope, [], false, default)).FirstOrDefault(x => x.Key == memory.Key);
+            if (!store.IsCurrent(scope)) return;
+            if (saved is not null) MergeSynchronization(saved);
+            await store.DiscardDraftAsync(scope, memory);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception exception)
+        {
+            ClientDiagnostics.Record(committed ? "journal_editor_post_save_failed" : "journal_editor_save_failed", exception: exception);
+            if (visible && store.IsCurrent(scope) && !committed) status.Text = JournalText.Get("JournalDraftFailed");
+        }
+        finally
+        {
+            // The local confirmation remains valid even when draft cleanup fails.
+            if (committed && store.IsCurrent(scope)) RequestSynchronization();
+            editor.IsEnabled = true; title.IsEnabled = memory.IsFree;
+            place.IsEnabled = memory.IsFree; date.IsEnabled = memory.IsFree;
+            FinishBusy(refresh: !committed);
+            if (committed) UpdateSynchronizationStatus();
+            if (visible && store.IsCurrent(scope) && committed) await RefreshSynchronizationAsync();
+        }
+    }
+    private static JournalMemory ConfirmedSnapshot(JournalMemory snapshot, JournalMemory confirmed) => snapshot with
+    {
+        IsDraft = false, Pending = confirmed.Pending, FreePending = confirmed.FreePending,
+        Conflict = confirmed.Conflict, FreeConflict = confirmed.FreeConflict,
+        Acknowledgement = confirmed.Acknowledgement
+    };
+
+    private static int ExpectedRevision(JournalMemory entry) =>
+        entry.FreePending?.ExpectedRevision ?? entry.Pending?.ExpectedRevision ?? entry.Revision;
+
+    private static bool SamePayload(JournalMemory left, JournalMemory right) => left.Key == right.Key
+        && string.Equals(left.Text.Trim(), right.Text.Trim(), StringComparison.Ordinal)
+        && (!left.IsFree || left.Date == right.Date && string.Equals(left.Title.Trim(), right.Title.Trim(), StringComparison.Ordinal)
+            && string.Equals(left.City.Trim(), right.City.Trim(), StringComparison.Ordinal));
+
+    private static bool Acknowledges(JournalMemory local, JournalMemory saved)
+    {
+        if (local.Key != saved.Key || local.HasConflict || local.Deleted) return false;
+        var mutation = saved.FreePending?.MutationId ?? saved.Pending?.MutationId;
+        var ownAcknowledgement = local.Acknowledgement is { } acknowledgement
+            ? mutation is { } id && id != Guid.Empty && acknowledgement.MutationId == id
+                && acknowledgement.Revision == local.Revision
+            : (long)ExpectedRevision(saved) + 1 == local.Revision;
+        if (!ownAcknowledgement) return false;
+        var remote = local with { Pending = null, FreePending = null };
+        return SamePayload(saved, remote);
+    }
+
+    private void MergeSynchronization(JournalMemory local)
+    {
+        if (local.Key != memory.Key || local.IsDraft) return;
+        if (local.HasConflict)
+        {
+            memory = memory with { Conflict = local.Conflict, FreeConflict = local.FreeConflict };
+            return;
+        }
+        if (memory.HasConflict) return;
+        var ownedPending = JournalText.HasPendingChanges(local)
+            ? confirmations.LastOrDefault(saved => SamePayload(saved, local)) : null;
+        var acknowledged = confirmations.LastOrDefault(saved => Acknowledges(local, saved));
+        if (acknowledged is not null)
+        {
+            // Advance only over an acknowledged payload this editor already knew.
+            // Visible fields and current draft photos are deliberately never replaced.
+            var clearPending = !JournalText.HasPendingChanges(local)
+                || (memory.FreePending?.MutationId ?? memory.Pending?.MutationId)
+                    == (acknowledged.FreePending?.MutationId ?? acknowledged.Pending?.MutationId);
+            memory = memory with { Acknowledgement = local.Acknowledgement };
+            memory = memory.IsFree
+                ? memory with { FreeEntry = memory.FreeEntry! with { Revision = local.Revision,
+                    UpdatedAt = local.FreeEntry!.UpdatedAt, Title = acknowledged.Title.Trim(), Place = acknowledged.City.Trim(),
+                    Date = acknowledged.Date, Notes = acknowledged.Text.Trim() },
+                    FreePending = clearPending ? null : memory.FreePending }
+                : memory with { Note = memory.Note with { Revision = local.Revision, UpdatedAt = local.Note.UpdatedAt,
+                    Notes = acknowledged.Text.Trim() }, Pending = clearPending ? null : memory.Pending };
+            confirmations.RemoveAll(saved => ExpectedRevision(saved) < local.Revision);
+        }
+        if (ownedPending is not null && (ExpectedRevision(ownedPending) == ExpectedRevision(local)
+            || acknowledged is not null && ExpectedRevision(local) == local.Revision))
+        {
+            memory = memory with { Pending = local.Pending, FreePending = local.FreePending };
+            confirmations.RemoveAll(saved => ReferenceEquals(saved, ownedPending));
+            confirmations.Add(ownedPending with { Pending = local.Pending, FreePending = local.FreePending });
+        }
+    }
+
+    private void UpdateSynchronizationStatus()
+    {
+        if (!visible || !store.IsCurrent(scope)) return;
+        var state = store.GetSynchronizationState(scope);
+        if (memory.HasConflict || !hasDraftChanges && !dirty && !busy)
+            status.Text = JournalText.SynchronizationStatus(memory, state);
+        retrySynchronization.IsVisible = !hasDraftChanges && JournalText.ShouldRetrySynchronization(memory, state);
+        retrySynchronization.IsEnabled = !busy && !closing;
+        if (memory.HasConflict && !photos.Children.Contains(conflictAction)) photos.Children.Insert(0, conflictAction);
+        if (!memory.HasConflict) photos.Children.Remove(conflictAction);
+    }
+
+    private void SynchronizationChanged(object? sender, JournalScope changedScope)
+    {
+        if (changedScope != scope) return;
+        Dispatcher.Dispatch(() => {
+            if (visible && initialized && !closing && store.IsCurrent(scope)) _ = RefreshSynchronizationAsync();
+        });
+    }
+
+    private async Task RefreshSynchronizationAsync()
+    {
+        if (!visible || !initialized || closing || !store.IsCurrent(scope)) return;
+        if (busy) { deferredSynchronizationRefresh = true; return; }
+        var refresh = ++synchronizationRefresh;
+        try
+        {
+            var local = (await store.LoadAsync(scope, [], false, default)).FirstOrDefault(x => x.Key == memory.Key);
+            if (refresh != synchronizationRefresh || !visible || closing || !store.IsCurrent(scope)) return;
+            if (busy) { deferredSynchronizationRefresh = true; return; }
+            if (local is not null) MergeSynchronization(local);
+            UpdateSynchronizationStatus();
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception exception)
+        {
+            ClientDiagnostics.Record("journal_editor_sync_reload_failed", exception: exception);
+        }
+    }
+
+    private void RequestSynchronization()
+    {
+        if (memory.IsDraft || !store.IsCurrent(scope)) return;
+        try { store.RequestSynchronization(scope); }
+        catch (OperationCanceledException) { }
+        catch (Exception exception) { ClientDiagnostics.Record("journal_editor_sync_request_failed", exception: exception); }
+    }
+
+    private void FinishBusy(bool refresh = true)
+    {
+        busy = false;
+        retrySynchronization.IsEnabled = !closing && visible && store.IsCurrent(scope);
+        var deferred = deferredSynchronizationRefresh;
+        deferredSynchronizationRefresh = false;
+        if (refresh && deferred && visible && !closing && store.IsCurrent(scope)) _ = RefreshSynchronizationAsync();
+    }
+
+    private async Task RetrySynchronizationAsync()
+    {
+        if (busy || closing || !visible || hasDraftChanges || !store.IsCurrent(scope)
+            || !JournalText.ShouldRetrySynchronization(memory, store.GetSynchronizationState(scope))) return;
+        busy = true;
+        try
+        {
+            var local = (await store.LoadAsync(scope, [], false, default)).FirstOrDefault(x => x.Key == memory.Key);
+            if (!visible || !store.IsCurrent(scope) || local is null) return;
+            MergeSynchronization(local);
+            if (JournalText.ShouldRetrySynchronization(local, store.GetSynchronizationState(scope))) RequestSynchronization();
+        }
+        finally { FinishBusy(); UpdateSynchronizationStatus(); }
+    }
+
+    private async Task ResolveAsync()
+    {
+        if (busy || !store.IsCurrent(scope)) return;
+        busy = true;
+        editor.IsEnabled = false; title.IsEnabled = false; place.IsEnabled = false; date.IsEnabled = false;
+        try
+        {
+            var useLocal = false;
+            if (memory.FreeConflict?.Deleted == true)
+            {
+                if (!await DisplayAlertAsync(JournalText.Get("JournalDeleted"), JournalText.Get("JournalDeletedConflict"),
+                    JournalText.Get("JournalAcceptDeletion"), JournalText.Get("JournalCancel"))) return;
+            }
+            else
+            {
+                var keep = JournalText.Get(memory.DeletePending is null ? "JournalKeepMine" : "JournalDelete");
+                var remote = JournalText.Get("JournalUseRemote");
+                var choice = await DisplayActionSheetAsync($"{memory.Text}\n\n{memory.FreeConflict?.Notes ?? memory.Conflict?.Notes}",
+                    JournalText.Get("JournalCancel"), null, keep, remote);
+                if (choice != keep && choice != remote) return;
+                useLocal = choice == keep;
+            }
+            if (!store.IsCurrent(scope)) return;
+            await store.ResolveAsync(scope, memory, useLocal);
+            var entries = await store.LoadAsync(scope, [], false, default);
+            if (!store.IsCurrent(scope)) return;
+            var resolved = entries.FirstOrDefault(x => x.Key == memory.Key);
+            if (resolved is null)
+            {
+                if (useLocal) RequestSynchronization();
+                debounce?.Cancel(); await autosave; await store.DiscardDraftAsync(scope, memory);
+                if (!store.IsCurrent(scope)) return;
+                dirty = false; closing = true; await Navigation.PopModalAsync(); return;
+            }
+            var photoDraft = !memory.Images.Select(photo => photo.Id).SequenceEqual(resolved.Images.Select(photo => photo.Id))
+                || memory.CoverId != resolved.CoverId;
+            memory = resolved with { Photos = memory.Photos, CoverId = memory.CoverId };
+            confirmations.Clear();
+            if (!memory.IsDraft && (memory.Pending is not null || memory.FreePending is not null))
+                confirmations.Add(memory);
+            suppress = true;
+            try
+            {
+                editor.Text = memory.Text; title.Text = memory.Title; place.Text = memory.City;
+                date.Date = memory.Date.ToDateTime(TimeOnly.MinValue);
+            }
+            finally { suppress = false; }
+            if (JournalText.HasPendingChanges(memory)) RequestSynchronization();
+            dirty = true; await PersistAsync();
+            hasDraftChanges = photoDraft; // Text is explicitly resolved; local photo edits remain a draft.
+            await RenderPhotosAsync();
+        }
         finally
         {
             editor.IsEnabled = true; title.IsEnabled = memory.IsFree;
             place.IsEnabled = memory.IsFree; date.IsEnabled = memory.IsFree;
-            busy = false;
+            FinishBusy(refresh: false);
+            UpdateSynchronizationStatus();
+            if (visible && store.IsCurrent(scope)) await RefreshSynchronizationAsync();
         }
-    }
-    private async Task ResolveAsync()
-    {
-        if (busy || !store.IsCurrent(scope)) return;
-        var useLocal = false;
-        if (memory.FreeConflict?.Deleted == true)
-        {
-            if (!await DisplayAlertAsync(JournalText.Get("JournalDeleted"), JournalText.Get("JournalDeletedConflict"),
-                JournalText.Get("JournalAcceptDeletion"), JournalText.Get("JournalCancel"))) return;
-        }
-        else
-        {
-            var keep = JournalText.Get(memory.DeletePending is null ? "JournalKeepMine" : "JournalDelete");
-            var remote = JournalText.Get("JournalUseRemote");
-            var choice = await DisplayActionSheetAsync($"{memory.Text}\n\n{memory.FreeConflict?.Notes ?? memory.Conflict?.Notes}",
-                JournalText.Get("JournalCancel"), null, keep, remote);
-            if (choice != keep && choice != remote) return;
-            useLocal = choice == keep;
-        }
-        if (!store.IsCurrent(scope)) return;
-        await store.ResolveAsync(scope, memory, useLocal);
-        var entries = await store.LoadAsync(scope, [], false, default);
-        var resolved = entries.FirstOrDefault(x => x.Key == memory.Key);
-        if (resolved is null)
-        {
-            debounce?.Cancel(); await autosave; await store.DiscardDraftAsync(scope, memory);
-            dirty = false; closing = true; await Navigation.PopModalAsync(); return;
-        }
-        memory = resolved;
-        suppress = true; editor.Text = memory.Text; title.Text = memory.Title; place.Text = memory.City; date.Date = memory.Date.ToDateTime(TimeOnly.MinValue); suppress = false;
-        dirty = true; await PersistAsync(); await RenderPhotosAsync();
     }
     private async Task DiscardAsync()
     {

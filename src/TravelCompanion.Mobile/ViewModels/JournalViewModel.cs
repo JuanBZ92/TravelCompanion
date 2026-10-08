@@ -44,6 +44,7 @@ public sealed partial class JournalViewModel(MobileBootstrapStore bootstrapStore
     JournalStore store) : ViewModelBase, ISessionStateResettable
 {
     private JournalScope? renderedScope;
+    private int renderVersion;
     private bool opening;
     private int firstVisible = -1;
     private int lastVisible = -1;
@@ -84,7 +85,8 @@ public sealed partial class JournalViewModel(MobileBootstrapStore bootstrapStore
             var schedule = cached?.Value.Schedule;
             Activities = schedule?.TripId == scope.TripId ? schedule.Items : [];
             TripTitle = schedule?.DestinationName ?? JournalText.Get("JournalMyTrip");
-            await ApplyAsync(scope, await store.LoadAsync(scope, Activities, false, ct), ct);
+            var version = Interlocked.Increment(ref renderVersion);
+            await ApplyAsync(scope, await store.LoadAsync(scope, Activities, false, ct), ct, version);
             localScope = scope;
             cancellationToken = ct;
             needsSchedule = schedule is null;
@@ -114,17 +116,30 @@ public sealed partial class JournalViewModel(MobileBootstrapStore bootstrapStore
             // The store applies its own HTTP deadline. Keep its local writes and
             // rendering on the page token so a slow response cannot cancel them.
             var syncFailed = false;
+            var version = Interlocked.Increment(ref renderVersion);
             var memories = await store.LoadAsync(scope, Activities, true, ct, () => syncFailed = true);
-            await ApplyAsync(scope, memories, ct);
+            await ApplyAsync(scope, memories, ct, version);
             if (store.IsCurrent(scope)) ErrorMessage = userRequested && syncFailed
                 ? JournalText.Get("JournalSyncUnavailable") : null;
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
         catch (Exception) { if (userRequested && store.IsCurrent(scope)) ErrorMessage = JournalText.Get("JournalSyncUnavailable"); }
     }
-    private async Task ApplyAsync(JournalScope scope, IReadOnlyList<JournalMemory> memories, CancellationToken ct)
+    public async Task RefreshLocalSynchronizationAsync(JournalScope scope, CancellationToken ct)
+    {
+        if (renderedScope != scope || !store.IsCurrent(scope)) return;
+        var version = Interlocked.Increment(ref renderVersion);
+        var memories = await store.LoadAsync(scope, [], false, ct);
+        ct.ThrowIfCancellationRequested();
+        if (renderedScope != scope || !store.IsCurrent(scope)) return;
+        await ApplyAsync(scope, memories, ct, version);
+    }
+    private async Task ApplyAsync(JournalScope scope, IReadOnlyList<JournalMemory> memories, CancellationToken ct,
+        int version)
     {
         var drafts = await store.DraftsAsync(scope, ct);
+        ct.ThrowIfCancellationRequested();
+        if (!store.IsCurrent(scope) || version != Volatile.Read(ref renderVersion)) return;
         var rows = new List<JournalRow>();
         var activityIds = Activities.Select(x => x.Id).ToHashSet();
         var sameScope = renderedScope == scope;
@@ -290,6 +305,7 @@ public sealed partial class JournalViewModel(MobileBootstrapStore bootstrapStore
     }
     private void Clear()
     {
+        Interlocked.Increment(ref renderVersion);
         StopThumbnails(); thumbnailCache.Clear(); firstVisible = -1; lastVisible = -1;
         renderedScope = null; Entries.Clear(); Activities = []; Memories = []; Drafts = []; TripTitle = ""; NotifyContentChanged();
     }

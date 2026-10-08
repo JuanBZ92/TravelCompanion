@@ -67,7 +67,8 @@ public sealed partial class JournalStore
             throw new ArgumentException("Invalid journal draft.");
     }
 
-    private async Task SaveFreeLocalAsync(JournalScope scope, JournalMemory entry, string text, CancellationToken ct)
+    private async Task<JournalMemory> SaveFreeLocalAsync(JournalScope scope, JournalMemory entry, string text, CancellationToken ct,
+        IReadOnlyList<JournalMemory>? knownConfirmations)
     {
         CheckEntry(scope, entry);
         ValidateContent(entry, text);
@@ -81,13 +82,15 @@ public sealed partial class JournalStore
             if (current.Deleted) throw new InvalidOperationException(JournalText.Get("JournalDeleted"));
             if (string.IsNullOrWhiteSpace(text) && entry.Images.Length == 0)
                 throw new ArgumentException(JournalText.Get("JournalEmptyValidation"));
+            var expectedRevision = ExpectedSaveRevision(entry, current, knownConfirmations);
             var saved = current with { FreePending = new(entry.Title.Trim(), entry.City.Trim(), entry.Date,
-                text.Trim(), entry.Revision, Guid.NewGuid()), FreeConflict = null, IsDraft = false,
+                text.Trim(), expectedRevision, Guid.NewGuid()), IsDraft = false,
                 Photos = entry.Photos, CoverId = entry.CoverId };
             if (index < 0) entries.Add(saved); else entries[index] = saved;
             Check(scope);
             await WriteAsync(scope, entries, ct);
             await DeleteUnreferencedPhotosAsync(scope, current.Images, entries, ct);
+            return saved;
         }
         finally { gate.Release(); }
     }
@@ -159,7 +162,9 @@ public sealed partial class JournalStore
                 result = await api.DeleteJournalFreeAsync(token, scope.TripId, entry.Id, deletion, networkCt);
             else if (entry.FreePending is { } pending)
                 result = await api.SaveJournalFreeAsync(token, scope.TripId, entry.Id, pending, networkCt);
-            if (result is null) continue;
+            else continue;
+            if (result is null || result.Entry is null)
+                throw new InvalidDataException("Journal acknowledgement unavailable.");
             await gate.WaitAsync(localCt);
             try
             {
@@ -171,16 +176,20 @@ public sealed partial class JournalStore
                     ? current.DeletePending?.MutationId == sentDeletion.MutationId
                     : current.FreePending?.MutationId == entry.FreePending!.MutationId;
                 var accepted = result.Saved || entry.DeletePending is not null && result.Entry.Deleted;
+                var acknowledgement = result.Saved
+                    ? new JournalAcknowledgement(entry.DeletePending?.MutationId ?? entry.FreePending!.MutationId, result.Entry.Revision)
+                    : current.Acknowledgement;
                 if (sameMutation)
                     entries[i] = accepted
-                        ? current with { FreeEntry = result.Entry, FreePending = null, DeletePending = null, FreeConflict = null }
+                        ? current with { FreeEntry = result.Entry, FreePending = null, DeletePending = null, FreeConflict = null,
+                            Acknowledgement = acknowledgement }
                         : current with { FreeConflict = result.Entry };
                 else if (result.Entry.Deleted)
                     entries[i] = current with { FreeConflict = result.Entry };
                 else if (result.Saved && result.Entry.Revision >= current.Revision)
                 {
                     var oldRevision = entry.FreePending?.ExpectedRevision ?? entry.DeletePending!.ExpectedRevision;
-                    entries[i] = current with { FreeEntry = result.Entry,
+                    entries[i] = current with { FreeEntry = result.Entry, Acknowledgement = acknowledgement,
                         FreePending = current.FreePending is { } newer && newer.ExpectedRevision == oldRevision
                             ? newer with { ExpectedRevision = result.Entry.Revision } : current.FreePending,
                         DeletePending = current.DeletePending is { } nextDelete && nextDelete.ExpectedRevision == oldRevision

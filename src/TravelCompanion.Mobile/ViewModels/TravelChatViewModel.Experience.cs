@@ -283,6 +283,10 @@ public sealed partial class TravelChatViewModel
         if (option is null) return;
         if (option.Id.StartsWith("category.", StringComparison.Ordinal))
         {
+            _freeTimeSurpriseSelected = false;
+            _freeTimeSurpriseCategory = null;
+            OnPropertyChanged(nameof(FreeTimeSurpriseSelected));
+            OnPropertyChanged(nameof(FreeTimeSurpriseHelp));
             var category = option.Id["category.".Length..];
             if (!_quickCategories.Remove(category) && _quickCategories.Count < 3) _quickCategories.Add(category);
         }

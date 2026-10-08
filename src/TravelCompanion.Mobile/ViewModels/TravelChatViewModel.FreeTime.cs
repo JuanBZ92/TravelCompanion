@@ -14,6 +14,8 @@ public sealed partial class TravelChatViewModel
     private TravelTimeWindow? _freeTimeWindow;
     private bool _openingFreeTime;
     private bool _freeTimeAreaStep;
+    private bool _freeTimeSurpriseSelected;
+    private string? _freeTimeSurpriseCategory;
     private string? _freeTimeArea;
     private GeoPointDto? _freeTimeLocation;
     private ScheduleItemDto? _freeTimeNextPlan;
@@ -49,6 +51,13 @@ public sealed partial class TravelChatViewModel
     public string AssistantProposalTitle => IsFreeTimeSearch ? Resource("ExpressResultsTitle") : AssistantYourDay;
     public string FreeTimeInterestQuestion => Resource("ExpressInterestQuestion");
     public string FreeTimeSurprise => Resource("ExpressSurprise");
+    public string FreeTimeSurpriseHelp => Resource(
+        (_freeTimeSurpriseSelected ? _freeTimeSurpriseCategory is not null : !HasSavedFreeTimeInterests)
+            ? "ExpressSurpriseRandomHelp" : "ExpressSurpriseHelp");
+    public bool FreeTimeSurpriseSelected => IsFreeTimeSearch && _freeTimeSurpriseSelected;
+    private bool HasSavedFreeTimeInterests => _cachedPreferenceProfile is { } profile
+        && _loadedPreferenceUserId == sessionService.CurrentUserId && profile.UserId == sessionService.CurrentUserId
+        && profile.Interests is { Count: > 0 } interests && interests.Any(interest => !string.IsNullOrWhiteSpace(interest));
     public string FreeTimeAreaQuestion => Resource("ExpressAreaQuestion");
     public string FreeTimeCurrentArea => Resource("ExpressCurrentArea");
     public string FreeTimeCurrentAreaHelp => Resource("ExpressCurrentAreaHelp");
@@ -69,7 +78,8 @@ public sealed partial class TravelChatViewModel
     public IReadOnlyList<string> FreeTimeDurations => FreeTimeMinutes.Select(minutes =>
         string.Format(CultureInfo.CurrentCulture, Resource("AssistantFreeTimeMinutes"), minutes)).ToArray();
     public bool CanSubmitQuickSearch => IsNotBusy && (!IsFreeTimeSearch || !_freeTimeNeedsRestart && sessionService.CanUseAssistant
-        && (!_freeTimeAreaStep ? _quickCategories.Count > 0 : _freeTimeArea is not null && _freeTimeWindow is not null));
+        && (!_freeTimeAreaStep ? _quickCategories.Count > 0 || _freeTimeSurpriseSelected
+            : _freeTimeArea is not null && _freeTimeWindow is not null));
     public string FreeTimeWindowSummary => _freeTimeWindow is null ? Resource("AssistantFreeTimeNoWindow")
         : string.Format(CultureInfo.CurrentCulture, Resource("AssistantFreeTimeWindow"),
             _freeTimeWindow.StartsAtLocal, _freeTimeWindow.EndsAtLocal, _assistantSchedule?.TimeZoneId ?? "");
@@ -143,6 +153,8 @@ public sealed partial class TravelChatViewModel
     private void ResetFreeTimeState()
     {
         _freeTimeAreaStep = false;
+        _freeTimeSurpriseSelected = false;
+        _freeTimeSurpriseCategory = null;
         _freeTimeArea = null;
         _freeTimeLocation = null;
         _freeTimeNearPlanId = null;
@@ -160,12 +172,19 @@ public sealed partial class TravelChatViewModel
     private void SurpriseFreeTime()
     {
         if (IsBusy || !ShowFreeTimeInterests) return;
+        var categories = AvailableFreeTimeCategories();
+        if (categories.Length == 0) return;
+        _freeTimeSurpriseSelected = true;
+        _freeTimeSurpriseCategory = HasSavedFreeTimeInterests ? null : categories[Random.Shared.Next(categories.Length)];
         _quickCategories.Clear();
-        foreach (var category in new[] { GuidedTravelCategories.Food, GuidedTravelCategories.Relax,
-                     GuidedTravelCategories.Walk }) _quickCategories.Add(category);
+        if (_freeTimeSurpriseCategory is { } category) _quickCategories.Add(category);
         RefreshQuickSelections();
         ContinueFreeTime();
     }
+
+    private string[] AvailableFreeTimeCategories() => QuickCategories
+        .Select(option => option.Id["category.".Length..]).Where(GuidedTravelCategories.IsValid)
+        .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
 
     private void ContinueFreeTime()
     {
@@ -250,7 +269,11 @@ public sealed partial class TravelChatViewModel
     private Task SubmitFreeTimeAsync()
     {
         if (IsBusy || !IsFreeTimeSearch) return Task.CompletedTask;
-        if (!_freeTimeAreaStep) { if (_quickCategories.Count > 0) ContinueFreeTime(); return Task.CompletedTask; }
+        if (!_freeTimeAreaStep)
+        {
+            if (_quickCategories.Count > 0 || _freeTimeSurpriseSelected) ContinueFreeTime();
+            return Task.CompletedTask;
+        }
         return RequestFreeTimeOptionsAsync(null);
     }
 
@@ -298,7 +321,8 @@ public sealed partial class TravelChatViewModel
                      nameof(AssistantProposalTitle), nameof(FreeTimeDurationLabel), nameof(FreeTimeEstimate),
                      nameof(FreeTimeDurations), nameof(AssistantSearchAction), nameof(CanSubmitQuickSearch),
                      nameof(ShowFreeTimeInterests), nameof(ShowFreeTimeArea), nameof(ShowQuickInterests),
-                     nameof(FreeTimeInterestQuestion), nameof(FreeTimeSurprise), nameof(FreeTimeAreaQuestion),
+                     nameof(FreeTimeInterestQuestion), nameof(FreeTimeSurprise), nameof(FreeTimeSurpriseHelp),
+                     nameof(FreeTimeSurpriseSelected), nameof(FreeTimeAreaQuestion),
                      nameof(FreeTimeCurrentArea), nameof(FreeTimeCurrentAreaHelp), nameof(FreeTimeNextArea),
                      nameof(FreeTimeNextAreaHelp), nameof(HasFreeTimeNextPlan), nameof(FreeTimeAreaSummary),
                      nameof(FreeTimeCityFallback), nameof(CanUseFreeTimeCityFallback), nameof(FreeTimeCurrentAreaSelected),

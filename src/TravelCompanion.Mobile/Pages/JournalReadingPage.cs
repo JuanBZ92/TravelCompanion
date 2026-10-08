@@ -8,6 +8,9 @@ public sealed class JournalReadingPage(JournalScope scope, JournalMemory origina
     private readonly JournalStore store = MauiProgram.Services.GetRequiredService<JournalStore>();
     private JournalMemory memory = original;
     private Label photoStatus = JournalUi.Text("", 12);
+    private Label synchronizationStatus = JournalUi.Text("", 13);
+    private Button? retrySynchronization;
+    private int synchronizationRefreshVersion;
     private Grid? actions;
     private int loadVersion;
     private bool visible;
@@ -18,12 +21,18 @@ public sealed class JournalReadingPage(JournalScope scope, JournalMemory origina
     {
         base.OnAppearing();
         visible = true;
+        store.SynchronizationChanged -= OnSynchronizationChanged;
+        store.SynchronizationChanged += OnSynchronizationChanged;
         await LoadAsync();
+        if (visible && store.IsCurrent(scope) && !memory.IsDraft && !memory.HasConflict
+            && JournalText.HasPendingChanges(memory)) store.RequestSynchronization(scope);
     }
 
     protected override void OnDisappearing()
     {
         visible = false;
+        store.SynchronizationChanged -= OnSynchronizationChanged;
+        Interlocked.Increment(ref synchronizationRefreshVersion);
         loadVersion++;
         base.OnDisappearing();
     }
@@ -38,7 +47,7 @@ public sealed class JournalReadingPage(JournalScope scope, JournalMemory origina
             var memories = await store.LoadAsync(scope, [], false, default);
             if (!CanDisplay(version)) return;
             var current = memories.FirstOrDefault(x => x.Key == memory.Key);
-            if (current is null && memory.IsFree && !memory.IsDraft)
+            if ((current is null || current.Deleted) && memory.IsFree && !memory.IsDraft)
             {
                 if (Navigation.ModalStack.LastOrDefault() == this) await Navigation.PopModalAsync();
                 return;
@@ -123,12 +132,13 @@ public sealed class JournalReadingPage(JournalScope scope, JournalMemory origina
                 }
                 body.Add(gallery);
             }
-            if (memory.Status.Length > 0)
-            {
-                var status = JournalUi.Text(memory.Status, 13);
-                status.TextColor = Color.FromArgb("#765831");
-                body.Add(status);
-            }
+            synchronizationStatus = JournalUi.Text("", 13);
+            synchronizationStatus.TextColor = EditorialUi.Muted;
+            retrySynchronization = EditorialUi.Button(JournalText.Get("JournalSyncRetry"), RetrySynchronizationAsync);
+            retrySynchronization.LineBreakMode = LineBreakMode.WordWrap;
+            SemanticProperties.SetDescription(retrySynchronization, JournalText.Get("JournalSyncRetry"));
+            UpdateSynchronizationStatus(memory);
+            body.Add(new VerticalStackLayout { Spacing = 8, Children = { synchronizationStatus, retrySynchronization } });
             var notice = JournalUi.Text(JournalText.Get("JournalStorageNotice"), 12);
             notice.LineHeight = 1.3;
             body.Add(notice);
@@ -175,6 +185,61 @@ public sealed class JournalReadingPage(JournalScope scope, JournalMemory origina
     }
 
     private bool CanDisplay(int version) => visible && version == loadVersion && store.IsCurrent(scope);
+
+    private void OnSynchronizationChanged(object? sender, JournalScope changedScope)
+    {
+        if (changedScope != scope || !visible || !store.IsCurrent(scope)) return;
+        var refresh = Interlocked.Increment(ref synchronizationRefreshVersion);
+        Dispatcher.Dispatch(async () => await RefreshSynchronizationStatusAsync(refresh));
+    }
+
+    private async Task RefreshSynchronizationStatusAsync(int refresh)
+    {
+        var version = loadVersion;
+        if (!CanDisplay(version)) return;
+        try
+        {
+            var latest = (await store.LoadAsync(scope, [], false, default)).FirstOrDefault(entry => entry.Key == memory.Key);
+            if (!CanDisplay(version) || refresh != Volatile.Read(ref synchronizationRefreshVersion)) return;
+            if (latest is null) { await LoadAsync(); return; }
+            UpdateSynchronizationStatus(latest);
+            if (addingPhotos) return;
+            if (latest.Deleted) { await LoadAsync(); return; }
+            var sameContent = latest.Text == memory.Text && latest.Title == memory.Title
+                && latest.City == memory.City && latest.Date == memory.Date
+                && latest.Images.SequenceEqual(memory.Images) && latest.CoverId == memory.CoverId;
+            if (sameContent) memory = latest;
+            else await LoadAsync();
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception)
+        {
+            if (CanDisplay(version) && refresh == Volatile.Read(ref synchronizationRefreshVersion))
+            {
+                synchronizationStatus.Text = JournalText.Get("JournalSyncUnavailable");
+                synchronizationStatus.IsVisible = true;
+            }
+        }
+    }
+
+    private void UpdateSynchronizationStatus(JournalMemory current)
+    {
+        var state = store.GetSynchronizationState(scope);
+        synchronizationStatus.Text = JournalText.SynchronizationStatus(current, state);
+        synchronizationStatus.IsVisible = synchronizationStatus.Text.Length > 0;
+        if (retrySynchronization is not null)
+            retrySynchronization.IsVisible = JournalText.ShouldRetrySynchronization(current, state);
+    }
+
+    private Task RetrySynchronizationAsync()
+    {
+        if (visible && store.IsCurrent(scope) && !memory.HasConflict && JournalText.HasPendingChanges(memory))
+        {
+            store.RequestSynchronization(scope);
+            UpdateSynchronizationStatus(memory);
+        }
+        return Task.CompletedTask;
+    }
 
     private void SetPhotoStatus(string text)
     {
@@ -241,6 +306,8 @@ public sealed class JournalReadingPage(JournalScope scope, JournalMemory origina
         {
             addingPhotos = false;
             if (actions is not null) actions.IsEnabled = true;
+            if (visible && store.IsCurrent(scope))
+                await RefreshSynchronizationStatusAsync(Interlocked.Increment(ref synchronizationRefreshVersion));
         }
     }
 
@@ -258,6 +325,7 @@ public sealed class JournalReadingPage(JournalScope scope, JournalMemory origina
             || !await DisplayAlertAsync(JournalText.Get("JournalDelete"), JournalText.Get("JournalDeleteQuestion"),
                 JournalText.Get("JournalRemove"), JournalText.Get("JournalCancel"))) return;
         await store.DeleteFreeLocalAsync(scope, memory);
+        store.RequestSynchronization(scope);
         await store.DiscardDraftAsync(scope, memory);
         await Navigation.PopModalAsync();
     }

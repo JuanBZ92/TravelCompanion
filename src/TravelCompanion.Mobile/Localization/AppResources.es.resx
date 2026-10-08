@@ -580,7 +580,12 @@ A tu manera.</value></data>
   <data name="JournalExport" xml:space="preserve"><value>Crear álbum PDF</value></data>
   <data name="JournalDateTitle" xml:space="preserve"><value>Recuerdo del {0}</value></data>
   <data name="JournalConflict" xml:space="preserve"><value>Conflicto · compara las versiones</value></data>
-  <data name="JournalPending" xml:space="preserve"><value>Pendiente de sincronizar</value></data>
+  <data name="JournalPending" xml:space="preserve"><value>Guardado en este dispositivo · Texto por sincronizar</value></data>
+  <data name="JournalSyncing" xml:space="preserve"><value>Guardado en este dispositivo · Sincronizando texto…</value></data>
+  <data name="JournalSynced" xml:space="preserve"><value>Texto sincronizado con tu cuenta</value></data>
+  <data name="JournalSyncOffline" xml:space="preserve"><value>Guardado en este dispositivo. El texto se sincronizará cuando vuelvas a conectarte.</value></data>
+  <data name="JournalSyncFailed" xml:space="preserve"><value>Guardado en este dispositivo. No pudimos sincronizar el texto con tu cuenta.</value></data>
+  <data name="JournalSyncRetry" xml:space="preserve"><value>Reintentar sincronización</value></data>
   <data name="JournalDeleted" xml:space="preserve"><value>Este recuerdo se eliminó en otro dispositivo.</value></data>
   <data name="JournalDeletedConflict" xml:space="preserve"><value>Tu texto y tus fotos locales se conservan hasta que aceptes la eliminación. Copia lo que quieras conservar antes de aceptar. Al aceptar, este recuerdo también se elimina de este dispositivo.</value></data>
   <data name="JournalAcceptDeletion" xml:space="preserve"><value>Aceptar eliminación</value></data>
@@ -926,6 +931,8 @@ A tu manera.</value></data>
   <data name="TomorrowDocuments" xml:space="preserve"><value>Documentos relacionados</value></data>
   <data name="TomorrowNoDocuments" xml:space="preserve"><value>Sin documentos vinculados a las reservas o al hotel de mañana.</value></data>
   <data name="TomorrowOpenDay" xml:space="preserve"><value>Ver mañana</value></data>
+  <data name="TomorrowFirstPlan" xml:space="preserve"><value>Tu primer plan</value></data>
+  <data name="TomorrowOpenDayHint" xml:space="preserve"><value>Revisa la agenda completa, los lugares y los horarios.</value></data>
   <data name="TomorrowOfflineReady" xml:space="preserve"><value>Itinerario disponible sin conexión. El mapa base necesita conexión.</value></data>
   <data name="TomorrowOfflineMissing" xml:space="preserve"><value>Revisa la descarga offline antes de salir.</value></data>
   <data name="TodayEmpty" xml:space="preserve"><value>Hoy todavía no tienes actividades. Puedes planificar el día.</value></data>
@@ -980,6 +987,8 @@ A tu manera.</value></data>
   <data name="ExpressInterestHelp" xml:space="preserve"><value>Elige qué te apetece. Buscaremos un plan breve para ahora o pronto.</value></data>
   <data name="ExpressInterestQuestion" xml:space="preserve"><value>¿Qué te apetece hacer?</value></data>
   <data name="ExpressSurprise" xml:space="preserve"><value>Sorpréndeme</value></data>
+  <data name="ExpressSurpriseHelp" xml:space="preserve"><value>Deja la elección abierta; buscaremos algo que encaje contigo.</value></data>
+  <data name="ExpressSurpriseRandomHelp" xml:space="preserve"><value>Deja que el azar elija algo nuevo para descubrir.</value></data>
   <data name="ExpressAreaHelp" xml:space="preserve"><value>Elige la zona. Tendremos en cuenta tus compromisos de hoy.</value></data>
   <data name="ExpressAreaQuestion" xml:space="preserve"><value>¿Por dónde buscamos?</value></data>
   <data name="ExpressCurrentArea" xml:space="preserve"><value>Por mi zona actual</value></data>

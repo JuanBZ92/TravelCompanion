@@ -580,7 +580,12 @@ Your way.</value></data>
   <data name="JournalExport" xml:space="preserve"><value>Create PDF album</value></data>
   <data name="JournalDateTitle" xml:space="preserve"><value>Memory of {0}</value></data>
   <data name="JournalConflict" xml:space="preserve"><value>Conflict · compare versions</value></data>
-  <data name="JournalPending" xml:space="preserve"><value>Pending sync</value></data>
+  <data name="JournalPending" xml:space="preserve"><value>Saved on this device · Text awaiting sync</value></data>
+  <data name="JournalSyncing" xml:space="preserve"><value>Saved on this device · Syncing text…</value></data>
+  <data name="JournalSynced" xml:space="preserve"><value>Text synced with your account</value></data>
+  <data name="JournalSyncOffline" xml:space="preserve"><value>Saved on this device. The text will sync when you’re back online.</value></data>
+  <data name="JournalSyncFailed" xml:space="preserve"><value>Saved on this device. We couldn’t sync the text with your account.</value></data>
+  <data name="JournalSyncRetry" xml:space="preserve"><value>Retry sync</value></data>
   <data name="JournalDeleted" xml:space="preserve"><value>This memory was deleted on another device.</value></data>
   <data name="JournalDeletedConflict" xml:space="preserve"><value>Your local text and photos are kept until you accept the deletion. Copy anything you want to keep before accepting. Accepting removes this memory from this device too.</value></data>
   <data name="JournalAcceptDeletion" xml:space="preserve"><value>Accept deletion</value></data>
@@ -926,6 +931,8 @@ Your way.</value></data>
   <data name="TomorrowDocuments" xml:space="preserve"><value>Related documents</value></data>
   <data name="TomorrowNoDocuments" xml:space="preserve"><value>No documents linked to tomorrow’s bookings or hotel.</value></data>
   <data name="TomorrowOpenDay" xml:space="preserve"><value>Open tomorrow</value></data>
+  <data name="TomorrowFirstPlan" xml:space="preserve"><value>Your first plan</value></data>
+  <data name="TomorrowOpenDayHint" xml:space="preserve"><value>See the full itinerary, places and times.</value></data>
   <data name="TomorrowOfflineReady" xml:space="preserve"><value>Itinerary available offline. The base map needs a connection.</value></data>
   <data name="TomorrowOfflineMissing" xml:space="preserve"><value>Check your offline download before heading out.</value></data>
   <data name="TodayEmpty" xml:space="preserve"><value>You have no activities today yet. You can plan your day.</value></data>
@@ -980,6 +987,8 @@ Your way.</value></data>
   <data name="ExpressInterestHelp" xml:space="preserve"><value>Choose what feels right. We’ll find a short plan for now or soon.</value></data>
   <data name="ExpressInterestQuestion" xml:space="preserve"><value>What are you in the mood for?</value></data>
   <data name="ExpressSurprise" xml:space="preserve"><value>Surprise me</value></data>
+  <data name="ExpressSurpriseHelp" xml:space="preserve"><value>Leave the choice open; we’ll find something that fits you.</value></data>
+  <data name="ExpressSurpriseRandomHelp" xml:space="preserve"><value>Let chance choose something new to discover.</value></data>
   <data name="ExpressAreaHelp" xml:space="preserve"><value>Choose the area. We’ll use today’s commitments to keep the timing realistic.</value></data>
   <data name="ExpressAreaQuestion" xml:space="preserve"><value>Where should we look?</value></data>
   <data name="ExpressCurrentArea" xml:space="preserve"><value>Around me</value></data>

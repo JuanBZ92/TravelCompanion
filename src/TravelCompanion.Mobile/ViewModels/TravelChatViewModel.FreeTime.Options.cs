@@ -38,10 +38,16 @@ public sealed partial class TravelChatViewModel
             var retry = _pendingRetryRequest is not null && _freeTimeRetryReplacementId == replaced?.RecommendationId
                 && _pendingRetryRequest.Date == scope.Date && _pendingRetryRequest.Criteria?.WindowEndsAtLocal >
                     UpcomingActivitySelector.GetTripNow(schedule.TimeZoneId, FreeTimeClock());
-            var criteria = new GuidedPlanCriteriaDto(_quickCategories.FirstOrDefault(), GuidedTravelPriorities.Direct,
+            // Keep the draw made by Surprise stable for retries and individual replacements.
+            // With saved interests, leave the choice open for the existing personalized ranking.
+            var categories = _freeTimeSurpriseSelected
+                ? _freeTimeSurpriseCategory is { } randomCategory ? new[] { randomCategory } : AvailableFreeTimeCategories()
+                : _quickCategories.ToArray();
+            var criteria = new GuidedPlanCriteriaDto(
+                _freeTimeSurpriseSelected ? _freeTimeSurpriseCategory : _quickCategories.FirstOrDefault(), GuidedTravelPriorities.Direct,
                 MaxWalkingMinutes: _freeTimeArea == "city" ? null : 30, MaxDurationMinutes: window.AvailableMinutes)
             {
-                Categories = _quickCategories.ToArray(), WindowStartsAtLocal = window.StartsAtLocal,
+                Categories = categories, WindowStartsAtLocal = window.StartsAtLocal,
                 WindowEndsAtLocal = window.EndsAtLocal, WindowTimeZoneId = schedule.TimeZoneId,
                 NearReservationId = _freeTimeNearPlanId, ExcludedRecommendationIds = _freeTimeProposedIds.ToArray()
             };
