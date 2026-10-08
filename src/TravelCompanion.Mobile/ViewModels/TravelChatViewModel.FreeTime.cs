@@ -20,6 +20,7 @@ public sealed partial class TravelChatViewModel
     private GeoPointDto? _freeTimeLocation;
     private ScheduleItemDto? _freeTimeNextPlan;
     private bool _freeTimeLocationUnavailable;
+    private bool _freeTimeNoOptions;
     private Guid? _freeTimeNearPlanId;
     private bool _freeTimeNeedsRestart;
     private readonly HashSet<Guid> _freeTimeProposedIds = [];
@@ -34,7 +35,9 @@ public sealed partial class TravelChatViewModel
     public bool ShowFreeTimeArea => IsFreeTimeSearch && _freeTimeAreaStep;
     public bool ShowQuickInterests => !IsFreeTimeSearch || ShowFreeTimeInterests;
     public bool HasFreeTimeNextPlan => _freeTimeNextPlan is not null;
-    public bool CanUseFreeTimeCityFallback => _freeTimeLocationUnavailable;
+    public bool CanUseFreeTimeCityFallback => ShowFreeTimeArea && IsNotBusy && sessionService.CanUseAssistant
+        && _freeTimeArea != "city" && (_freeTimeLocationUnavailable || _freeTimeNoOptions)
+        && !string.IsNullOrWhiteSpace(FreeTimeFallbackCity);
     public bool FreeTimeCurrentAreaSelected => _freeTimeArea == "current";
     public bool FreeTimeNextAreaSelected => _freeTimeArea == "next";
     public bool ShowFreeTimeCancel => IsFreeTimeSearch && IsBusy;
@@ -65,7 +68,9 @@ public sealed partial class TravelChatViewModel
     public string FreeTimeNextAreaHelp => _freeTimeNextPlan is { } plan && _assistantSchedule is { } schedule
         ? $"{AssistantFreeTimeWindow.TripStart(schedule, plan):HH:mm} · {plan.Title}" : "";
     public string FreeTimeCityFallback => string.Format(CultureInfo.CurrentCulture,
-        Resource("ExpressCityFallback"), City ?? Resource("AssistantDestinationFallback"));
+        Resource("ExpressCityFallback"), FreeTimeFallbackCity ?? Resource("AssistantDestinationFallback"));
+    private string? FreeTimeFallbackCity => _freeTimeArea == "next" && !string.IsNullOrWhiteSpace(_freeTimeNextPlan?.City)
+        ? _freeTimeNextPlan.City : City;
     public string FreeTimeAreaSummary => _freeTimeArea switch
     {
         "current" => Resource("ExpressCurrentArea"),
@@ -83,6 +88,11 @@ public sealed partial class TravelChatViewModel
     public string FreeTimeWindowSummary => _freeTimeWindow is null ? Resource("AssistantFreeTimeNoWindow")
         : string.Format(CultureInfo.CurrentCulture, Resource("AssistantFreeTimeWindow"),
             _freeTimeWindow.StartsAtLocal, _freeTimeWindow.EndsAtLocal, _assistantSchedule?.TimeZoneId ?? "");
+    public string FreeTimeSearchLimits => _freeTimeWindow is { } window && _freeTimeArea is not null
+        ? string.Format(CultureInfo.CurrentCulture,
+            Resource(_freeTimeArea == "city" ? "ExpressSearchLimitsCity" : "ExpressSearchLimitsNear"),
+            window.AvailableMinutes) : "";
+    public bool HasFreeTimeSearchLimits => FreeTimeSearchLimits.Length > 0;
     public string FreeTimeNextFixedNote => _freeTimeWindow?.NextFixedAtLocal is { } next
         ? string.Format(CultureInfo.CurrentCulture, Resource("AssistantFreeTimeNextFixed"), next) : "";
     public bool HasFreeTimeNextFixedNote => FreeTimeNextFixedNote.Length > 0;
@@ -160,6 +170,7 @@ public sealed partial class TravelChatViewModel
         _freeTimeNearPlanId = null;
         _freeTimeNextPlan = null;
         _freeTimeLocationUnavailable = false;
+        _freeTimeNoOptions = false;
         _freeTimeNeedsRestart = false;
         _freeTimeProposedIds.Clear();
         _freeTimeProposedPlaces.Clear();
@@ -257,7 +268,8 @@ public sealed partial class TravelChatViewModel
     [RelayCommand]
     private void ChooseFreeTimeCityArea()
     {
-        if (IsBusy || !ShowFreeTimeArea || !_freeTimeLocationUnavailable || !sessionService.CanUseAssistant) return;
+        if (!CanUseFreeTimeCityFallback) return;
+        City = FreeTimeFallbackCity;
         _freeTimeArea = "city";
         _freeTimeLocation = null;
         _freeTimeNearPlanId = null;
@@ -306,7 +318,8 @@ public sealed partial class TravelChatViewModel
             _assistantSchedule, FreeTimeMinutes[_freeTimeDurationIndex], FreeTimeClock());
         _freeTimeNextPlan = _assistantSchedule is null ? null
             : AssistantFreeTimeWindow.NextLocatedPlan(_assistantSchedule, FreeTimeClock());
-        foreach (var name in new[] { nameof(FreeTimeWindowSummary), nameof(FreeTimeNextFixedNote),
+        foreach (var name in new[] { nameof(FreeTimeWindowSummary), nameof(FreeTimeSearchLimits),
+                     nameof(HasFreeTimeSearchLimits), nameof(FreeTimeNextFixedNote),
                      nameof(HasFreeTimeNextFixedNote), nameof(CanSubmitQuickSearch), nameof(AssistantSearchAction),
                      nameof(HasFreeTimeNextPlan), nameof(FreeTimeNextAreaHelp) }) OnPropertyChanged(name);
         OnPropertyChanged(nameof(FreeTimeSoonNote));
@@ -327,6 +340,8 @@ public sealed partial class TravelChatViewModel
                      nameof(FreeTimeNextAreaHelp), nameof(HasFreeTimeNextPlan), nameof(FreeTimeAreaSummary),
                      nameof(FreeTimeCityFallback), nameof(CanUseFreeTimeCityFallback), nameof(FreeTimeCurrentAreaSelected),
                      nameof(FreeTimeNextAreaSelected) }) OnPropertyChanged(name);
+        OnPropertyChanged(nameof(FreeTimeSearchLimits));
+        OnPropertyChanged(nameof(HasFreeTimeSearchLimits));
         OnPropertyChanged(nameof(ShowFreeTimeCancel));
         OnPropertyChanged(nameof(FreeTimeCancel));
         OnPropertyChanged(nameof(FreeTimeNeedsRestart));

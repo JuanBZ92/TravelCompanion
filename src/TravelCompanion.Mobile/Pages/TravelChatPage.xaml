@@ -662,6 +662,8 @@
                             <Picker ItemsSource="{Binding FreeTimeDurations}" SelectedIndex="{Binding FreeTimeDurationIndex}"
                                     Title="{Binding FreeTimeDurationLabel}" MinimumHeightRequest="48" />
                             <Label Text="{Binding FreeTimeWindowSummary}" FontSize="14" TextColor="{StaticResource Ink}" LineBreakMode="WordWrap" />
+                            <Label Text="{Binding FreeTimeSearchLimits}" IsVisible="{Binding HasFreeTimeSearchLimits}"
+                                   FontSize="12" TextColor="{StaticResource EditorialMuted}" LineBreakMode="WordWrap" />
                             <Label Text="{Binding FreeTimeSoonNote}" IsVisible="{Binding HasFreeTimeSoonNote}"
                                    FontSize="12" TextColor="{StaticResource EditorialMuted}" LineBreakMode="WordWrap" />
                             <Label Text="{Binding FreeTimeNextFixedNote}" IsVisible="{Binding HasFreeTimeNextFixedNote}"

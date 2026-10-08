@@ -1004,6 +1004,8 @@ Your way.</value></data>
   <data name="ExpressSearching" xml:space="preserve"><value>Finding something that suits you…</value></data>
   <data name="ExpressTryAgain" xml:space="preserve"><value>We couldn’t find options right now. Your choices are kept; try again.</value></data>
   <data name="ExpressNoOptions" xml:space="preserve"><value>No options fit this interest, area and time. Try another interest or more time.</value></data>
+  <data name="ExpressSearchLimitsNear" xml:space="preserve"><value>Up to an estimated 30 min walk from the selected area. The visit and travel must fit within {0} min.</value></data>
+  <data name="ExpressSearchLimitsCity" xml:space="preserve"><value>Available: {0} min, including the visit and travel.</value></data>
   <data name="ExpressNoReplacement" xml:space="preserve"><value>No new option fits right now. Your current options are kept.</value></data>
   <data name="ExpressResultsTitle" xml:space="preserve"><value>For now or soon</value></data>
   <data name="ExpressResultsHelp" xml:space="preserve"><value>Pick the one you like. The arrows change just that option; adding opens a review before saving.</value></data>

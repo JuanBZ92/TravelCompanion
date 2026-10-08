@@ -311,6 +311,8 @@ public sealed partial class TravelChatService(
             ? ResolveFreeTimeSearchAnchor(trips[0], date, guidedCriteria.NearReservationId.Value) : null;
         if (guidedCriteria?.NearReservationId.HasValue == true && searchAnchor is null)
             return FreeTimeAreaUnavailable(conversationId, locale);
+        if (searchAnchor is not null && !string.IsNullOrWhiteSpace(searchAnchor.City))
+            city = searchAnchor.City.Trim();
         (TimeOnly Start, TimeOnly End, int AvailableMinutes)? planningWindow = freeTimeWindow is not null
             ? (TimeOnly.FromDateTime(freeTimeWindow.Window.StartsAtLocal),
                 TimeOnly.FromDateTime(freeTimeWindow.Window.EndsAtLocal), freeTimeWindow.Window.AvailableMinutes)
@@ -1137,9 +1139,10 @@ public sealed partial class TravelChatService(
         var walkingOptions = criteria.WalkingMinuteOptions.Append(criteria.MaxWalkingMinutes ?? 0)
             .Where(value => value is 15 or 30).Distinct().Order().ToList();
 
-        // A broad search intentionally has no leading category. Choosing the first
-        // category would turn an unfiltered request into a food recommendation.
-        var primaryCategory = criteria.Category is null && categories.Count == 9
+        // Multiple express interests form a union; a leading topic would discard
+        // the others before their category filter. Broad searches also stay neutral.
+        var primaryCategory = HasRequestedWindow(criteria) && categories.Count > 1
+            || criteria.Category is null && categories.Count == 9
             ? null : categories[0];
         return new GuidedPlanCriteriaDto(
             primaryCategory,

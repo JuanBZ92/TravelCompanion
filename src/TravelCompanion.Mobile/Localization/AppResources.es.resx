@@ -1004,6 +1004,8 @@ A tu manera.</value></data>
   <data name="ExpressSearching" xml:space="preserve"><value>Buscando algo a tu medida…</value></data>
   <data name="ExpressTryAgain" xml:space="preserve"><value>No pudimos buscar opciones ahora. Conservamos tus elecciones; vuelve a intentarlo.</value></data>
   <data name="ExpressNoOptions" xml:space="preserve"><value>No hay opciones para este interés, zona y tiempo. Prueba otro interés o más tiempo.</value></data>
+  <data name="ExpressSearchLimitsNear" xml:space="preserve"><value>Hasta 30 min a pie estimados desde la zona elegida. La visita y los traslados deben caber en {0} min.</value></data>
+  <data name="ExpressSearchLimitsCity" xml:space="preserve"><value>Disponibles: {0} min, incluyendo la visita y los traslados.</value></data>
   <data name="ExpressNoReplacement" xml:space="preserve"><value>No encontramos otra opción compatible. Conservamos tus propuestas actuales.</value></data>
   <data name="ExpressResultsTitle" xml:space="preserve"><value>Para ahora o pronto</value></data>
   <data name="ExpressResultsHelp" xml:space="preserve"><value>Elige la que te guste. Las flechas cambian sólo esa opción; al añadir puedes revisarla antes de guardar.</value></data>

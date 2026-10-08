@@ -21,6 +21,7 @@ public sealed partial class TravelChatViewModel
         try
         {
             ErrorMessage = null;
+            _freeTimeNoOptions = false;
             StatusMessage = Resource("ExpressSearching");
             var token = await scope.AwaitAsync(_ => sessionService.GetTokenAsync());
             VerifyFreeTimeAccess(scope);
@@ -87,8 +88,10 @@ public sealed partial class TravelChatViewModel
             var cards = accepted.Select(card => new TravelChatCardViewModel(card) { PlanningDate = scope.Date }).ToList();
             if (cards.Count == 0)
             {
+                _freeTimeNoOptions = response.MissingContext?.Field is null or "city";
                 ErrorMessage = response.MissingContext?.Field == "time_window" ? Resource("AssistantFreeTimeNoWindow")
                     : response.MissingContext?.Field == "area" ? Resource("ExpressAreaChanged")
+                    : response.Cards.Count == 0 && !string.IsNullOrWhiteSpace(response.Message) ? response.Message
                     : replaced is null ? Resource("ExpressNoOptions") : Resource("ExpressNoReplacement");
                 if (response.MissingContext?.Field == "area") _freeTimeArea = null;
                 if (response.TrialAccess is not null) sessionService.ApplyTrialAccess(response.TrialAccess);
