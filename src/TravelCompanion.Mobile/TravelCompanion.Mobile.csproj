@@ -49,7 +49,7 @@
 
 	<PropertyGroup Condition="'$(TargetFramework)'=='net10.0-ios'">
 	  <!-- Increment for each App Store Connect upload. -->
-	  <ApplicationVersion>66</ApplicationVersion>
+	  <ApplicationVersion>67</ApplicationVersion>
 	  <ProvisioningType>manual</ProvisioningType>
 	  <CodesignKey>Apple Distribution: Juan Zardini (AG5JMK42KA)</CodesignKey>
 	  <CodesignProvision>TravelCompanionProfile</CodesignProvision>
