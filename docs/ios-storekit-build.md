@@ -17,6 +17,46 @@ The project builds the bridge automatically in this mode.
 
 ## Publish from Windows using Pair to Mac
 
+### Shared contract members missing during archive
+
+If Publish reports that `GuidedPlanCriteriaDto` has no `NearReservationId` or
+`ExcludedRecommendationIds`, first check the referenced Shared assembly rather
+than removing those properties from the mobile request. Both members are part
+of the current contract.
+
+On 14 October 2026, the iOS Release assembly-reference cache pointed to
+`src/TravelCompanion.Shared/bin/Release/net10.0/TravelCompanion.Shared.dll` from
+7 October, before those members were added. Android builds under a separate
+`--artifacts-path` had not refreshed that standard output directory. Rebuilding
+Shared there resolved the two missing-member errors in the local iOS C# compile.
+The reason Visual Studio reused the old output was not established.
+The Pair to Mac log for that attempt included the two compiler errors inside
+the XMA error while the connection was active. A separate disconnection occurred
+afterward, so reconnect before retrying that session.
+
+From the Windows repository root, with no other build running:
+
+```powershell
+dotnet build src/TravelCompanion.Shared/TravelCompanion.Shared.csproj -c Release --verbosity minimal
+dotnet build src/TravelCompanion.Mobile/TravelCompanion.Mobile.csproj -f net10.0-ios -c Release -t:Compile -p:RuntimeIdentifier=ios-arm64 --verbosity minimal
+```
+
+Alternatively, select Release in Visual Studio and rebuild the Shared project
+before publishing Mobile. Ensure Shared remains enabled in Configuration
+Manager. Do not copy DLLs manually or remove the project reference.
+
+These commands check managed compilation only. Retry Publish with Pair to Mac
+connected to validate native linking, signing and archive creation. If
+`Process cannot be executed on XMA server` remains, inspect the current Build
+output and Pair to Mac logs as a separate failure; that message alone does not
+identify its cause. Do not delete pairing keys, certificates or provisioning
+profiles to repair a stale managed assembly.
+
+Validation for this repair: Shared Release and iOS ARM64 `Compile` completed
+without errors on 14 October 2026. The latter also succeeded with
+`BuildProjectReferences=false`, verifying the refreshed standard Shared output.
+No native archive or TestFlight upload was performed during this repair.
+
 ### Framework load path (ITMS-90863)
 
 Both Xcode configurations explicitly use
