@@ -1014,4 +1014,78 @@ Your way.</value></data>
   <data name="ExpressDayChanged" xml:space="preserve"><value>A new day started at your destination. Start a fresh search for today.</value></data>
   <data name="ExpressAfterCurrent" xml:space="preserve"><value>After your current plans finish</value></data>
   <data name="ExpressEditSearch" xml:space="preserve"><value>Change this search</value></data>
+  <data name="RoutePlannerTitle" xml:space="preserve"><value>Get there in time</value></data>
+  <data name="RoutePlannerDestination" xml:space="preserve"><value>YOUR NEXT COMMITMENT</value></data>
+  <data name="RoutePlannerReservation" xml:space="preserve"><value>View activity</value></data>
+  <data name="RoutePlannerOrigin" xml:space="preserve"><value>Where are you leaving from?</value></data>
+  <data name="RoutePlannerCurrent" xml:space="preserve"><value>My current location</value></data>
+  <data name="RoutePlannerHotel" xml:space="preserve"><value>Hotel · {0}</value></data>
+  <data name="RoutePlannerPrevious" xml:space="preserve"><value>Previous activity · {0}</value></data>
+  <data name="RoutePlannerMode" xml:space="preserve"><value>How you want to travel</value></data>
+  <data name="RoutePlannerMargin" xml:space="preserve"><value>Arrive early · buffer in minutes</value></data>
+  <data name="RoutePlannerMarginSummary" xml:space="preserve"><value>Includes a {0} min buffer before your commitment.</value></data>
+  <data name="RoutePlannerCalculate" xml:space="preserve"><value>Estimate departure time</value></data>
+  <data name="RoutePlannerMaps" xml:space="preserve"><value>Continue in Maps</value></data>
+  <data name="RoutePlannerDuration" xml:space="preserve"><value>≈ {0} min travel time</value></data>
+  <data name="RoutePlannerLeave" xml:space="preserve"><value>Estimated departure · {0}</value></data>
+  <data name="RoutePlannerLeavePassed" xml:space="preserve"><value>Estimated departure has passed · {0}</value></data>
+  <data name="RoutePlannerOriginSummary" xml:space="preserve"><value>From {0}</value></data>
+  <data name="RoutePlannerLoading" xml:space="preserve"><value>Estimating your route…</value></data>
+  <data name="RoutePlannerDisclaimer" xml:space="preserve"><value>Times are estimates and do not guarantee arrival. Check schedules and possible changes in Maps.</value></data>
+  <data name="RoutePlannerTight" xml:space="preserve"><value>The estimated departure overlaps your previous activity. You may need to change the origin, transport or buffer. Check the route in Maps.</value></data>
+  <data name="RoutePlannerPast" xml:space="preserve"><value>This activity has already started. You can view the activity or open Maps.</value></data>
+  <data name="RoutePlannerTooEarly" xml:space="preserve"><value>Transit schedules are not available for this date yet. You can view the route in Maps.</value></data>
+  <data name="RoutePlannerNoLocation" xml:space="preserve"><value>A verified location is missing for this estimate. Your activity and Maps are still available.</value></data>
+  <data name="RoutePlannerUnavailable" xml:space="preserve"><value>We couldn't estimate the route. Retry with a connection or continue in Maps; your activity is still saved.</value></data>
+  <data name="RoutePlannerLocationUnavailable" xml:space="preserve"><value>We couldn't get your location. Choose another origin or use Maps, which can ask for a departure point.</value></data>
+  <data name="RoutePlannerAccess" xml:space="preserve"><value>Route estimates require a valid pass. You can still view your activity and Maps.</value></data>
+  <data name="RoutePlannerMapsFailed" xml:space="preserve"><value>We couldn't open Maps. Retry or view the address in your activity.</value></data>
+  <data name="CalendarTitle" xml:space="preserve"><value>Trip calendar</value></data>
+  <data name="CalendarExport" xml:space="preserve"><value>Export</value></data>
+  <data name="CalendarImport" xml:space="preserve"><value>Import</value></data>
+  <data name="CalendarChooseFile" xml:space="preserve"><value>Choose .ics file</value></data>
+  <data name="CalendarTimeZone" xml:space="preserve"><value>Trip time zone: {0}</value></data>
+  <data name="CalendarShareSelection" xml:space="preserve"><value>Share selection</value></data>
+  <data name="CalendarImportSelection" xml:space="preserve"><value>Import selection</value></data>
+  <data name="CalendarEmpty" xml:space="preserve"><value>Select activities to export or open a calendar file.</value></data>
+  <data name="CalendarLoadFailed" xml:space="preserve"><value>We could not load the trip. Connect and try again; saved data is preserved.</value></data>
+  <data name="CalendarAllDay" xml:space="preserve"><value>No fixed time · all day</value></data>
+  <data name="CalendarFloatingTime" xml:space="preserve"><value>The file has no time zone: the trip time zone will be used.</value></data>
+  <data name="CalendarOriginalZone" xml:space="preserve"><value>File time zone: {0}. It will be saved in the trip time zone.</value></data>
+  <data name="CalendarUnsupportedEvent" xml:space="preserve"><value>Unsupported event</value></data>
+  <data name="CalendarPreviewSummary" xml:space="preserve"><value>{0} available events · {1} unsupported. Select which to import.</value></data>
+  <data name="CalendarImportConfirm" xml:space="preserve"><value>We will add {0} selected events to your itinerary as fixed plans. Previously imported events with the same identity are kept, without duplicates or updates.</value></data>
+  <data name="CalendarExportConfirm" xml:space="preserve"><value>You will share {0} activities with their notes and places. Check that you want to send that information to your chosen app.</value></data>
+  <data name="CalendarExported" xml:space="preserve"><value>Calendar prepared for sharing. This is a copy; later changes do not sync.</value></data>
+  <data name="CalendarImportHint" xml:space="preserve"><value>Open an .ics file and review each event. Only your selected, confirmed events are added. No calendar accounts are connected.</value></data>
+  <data name="CalendarExportHint" xml:space="preserve"><value>Choose activities to share. Plans without a fixed time are exported as all-day events. This is a copy, without synchronization.</value></data>
+  <data name="CalendarPermissionRequired" xml:space="preserve"><value>You can export your itinerary. Importing requires current permission to add personal plans to the trip.</value></data>
+  <data name="CalendarOfflineImport" xml:space="preserve"><value>You can review the file offline. Connect to confirm the import.</value></data>
+  <data name="CalendarImportFailed" xml:space="preserve"><value>We could not finish importing. Saved events are kept; retrying will not create duplicates.</value></data>
+  <data name="CalendarImportRetry" xml:space="preserve"><value>Not saved. The trip or permission may have changed. Review and retry; saved events will not be duplicated.</value></data>
+  <data name="CalendarExportFailed" xml:space="preserve"><value>We could not prepare the calendar. Your itinerary is kept; try another selection.</value></data>
+  <data name="CalendarReadFailed" xml:space="preserve"><value>We could not read that file. Your previous selection is kept; try another .ics.</value></data>
+  <data name="CalendarOverlapTitle" xml:space="preserve"><value>There is already a plan at that time</value></data>
+  <data name="CalendarOverlapMessage" xml:space="preserve"><value>“{0}” overlaps another plan. Keep both in the itinerary?</value></data>
+  <data name="CalendarSaved" xml:space="preserve"><value>Saved · later imports will not duplicate it.</value></data>
+  <data name="CalendarProgress" xml:space="preserve"><value>Saved {0} of {1}</value></data>
+  <data name="CalendarImported" xml:space="preserve"><value>{0} events saved · {1} not saved. Saved events are now in your itinerary.</value></data>
+  <data name="CalendarFileTooLarge" xml:space="preserve"><value>The file is larger than 1 MB. Export a smaller selection from your calendar.</value></data>
+  <data name="CalendarTooManyEvents" xml:space="preserve"><value>The file has more than 500 events. Export a smaller selection.</value></data>
+  <data name="CalendarInvalidFile" xml:space="preserve"><value>This is not a valid UTF-8 .ics calendar.</value></data>
+  <data name="CalendarMalformedEvent" xml:space="preserve"><value>The event format is incomplete or ambiguous. Other valid events remain available.</value></data>
+  <data name="CalendarDuplicateEvent" xml:space="preserve"><value>This event appears more than once in the file; it is offered only once.</value></data>
+  <data name="CalendarRecurringEvent" xml:space="preserve"><value>Recurring events are not supported. Export an individual occurrence without recurrence.</value></data>
+  <data name="CalendarCancelledEvent" xml:space="preserve"><value>This event is cancelled and will not be imported.</value></data>
+  <data name="CalendarAttachedEvent" xml:space="preserve"><value>Events with external attachments are not supported. Export a copy without attachments.</value></data>
+  <data name="CalendarUnsupportedFields" xml:space="preserve"><value>The title is missing or fields are too long or contain unsupported characters. Review the original event.</value></data>
+  <data name="CalendarMissingTime" xml:space="preserve"><value>Unsupported date or time. Review the original event.</value></data>
+  <data name="CalendarLongEvent" xml:space="preserve"><value>Only events up to 24 hours or a single all-day event can be imported.</value></data>
+  <data name="CalendarOutsideTrip" xml:space="preserve"><value>The date is outside your trip. Change the trip or event dates before importing.</value></data>
+  <data name="CalendarUnknownZone" xml:space="preserve"><value>Unknown or custom time zone. Export the event in UTC or with a standard time zone.</value></data>
+  <data name="CalendarAmbiguousTime" xml:space="preserve"><value>The time falls on a clock change and cannot be preserved unambiguously. Review the event.</value></data>
+  <data name="CalendarExportLimited" xml:space="preserve"><value>Your bookings, personal plans and free ideas remain available. Some catalog ideas require current access; unavailable content is hidden.</value></data>
+  <data name="RoutePlannerUnconfirmed" xml:space="preserve"><value>We couldn't confirm the origin and buffer for this estimate. Continue in Maps or try again later.</value></data>
+  <data name="CalendarImportPaused" xml:space="preserve"><value>{0} saved · {1} pending confirmation. Import stopped. The remaining events are still selected; retry with a connection and editing access. Saved events will not be duplicated.</value></data>
+  <data name="CalendarImportUnconfirmed" xml:space="preserve"><value>Saving could not be confirmed. Retry with a connection; an event already saved will not be duplicated.</value></data>
 </root>

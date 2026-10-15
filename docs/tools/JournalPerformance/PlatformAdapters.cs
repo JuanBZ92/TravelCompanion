@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using TravelCompanion.Shared;
 using TravelCompanion.Shared.Dtos;
 
 // Host-only adapters. The actual Journal/Expense stores and AES-GCM cache are compiled unchanged,
@@ -19,6 +20,13 @@ public sealed class SecureStorage
 public sealed class FileResult
 {
     public Task<Stream> OpenReadAsync() => Task.FromResult<Stream>(new MemoryStream([1]));
+}
+
+public enum NetworkAccess { Internet, None }
+public sealed class Connectivity
+{
+    public static Connectivity Current { get; } = new();
+    public NetworkAccess NetworkAccess => NetworkAccess.Internet;
 }
 
 namespace TravelCompanion.Mobile.Services
@@ -48,6 +56,7 @@ namespace TravelCompanion.Mobile.Services
         public bool HasSession => true;
         public bool HasKnownValidAccess => true;
         public bool IsFreeMapPreview => false;
+        public SessionAccessMode AccessMode => SessionAccessMode.Trip;
         public Guid? CurrentUserId => user;
         public Guid? CurrentTripId => trip;
         public long ContextVersion => 1;

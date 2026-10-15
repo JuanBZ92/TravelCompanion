@@ -69,6 +69,8 @@ public sealed record DiagnosticDetails
     public long? Requests { get; init; }
     public long? Reads { get; init; }
     public long? BytesRead { get; init; }
+    public long? KnownResponseBytes { get; init; }
+    public long? UnknownLengthResponses { get; init; }
     public bool? Canceled { get; init; }
     public bool? IsTerminating { get; init; }
 }

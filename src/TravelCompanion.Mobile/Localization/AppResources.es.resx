@@ -1014,4 +1014,78 @@ A tu manera.</value></data>
   <data name="ExpressDayChanged" xml:space="preserve"><value>Empezó otro día en tu destino. Inicia una nueva búsqueda para hoy.</value></data>
   <data name="ExpressAfterCurrent" xml:space="preserve"><value>Al terminar tus planes en curso</value></data>
   <data name="ExpressEditSearch" xml:space="preserve"><value>Modificar búsqueda</value></data>
+  <data name="RoutePlannerTitle" xml:space="preserve"><value>Llegar a tiempo</value></data>
+  <data name="RoutePlannerDestination" xml:space="preserve"><value>TU PRÓXIMO COMPROMISO</value></data>
+  <data name="RoutePlannerReservation" xml:space="preserve"><value>Ver actividad</value></data>
+  <data name="RoutePlannerOrigin" xml:space="preserve"><value>¿Desde dónde sales?</value></data>
+  <data name="RoutePlannerCurrent" xml:space="preserve"><value>Mi ubicación actual</value></data>
+  <data name="RoutePlannerHotel" xml:space="preserve"><value>Hotel · {0}</value></data>
+  <data name="RoutePlannerPrevious" xml:space="preserve"><value>Actividad anterior · {0}</value></data>
+  <data name="RoutePlannerMode" xml:space="preserve"><value>Cómo quieres llegar</value></data>
+  <data name="RoutePlannerMargin" xml:space="preserve"><value>Llegar antes · margen en minutos</value></data>
+  <data name="RoutePlannerMarginSummary" xml:space="preserve"><value>Incluye {0} min de margen antes del compromiso.</value></data>
+  <data name="RoutePlannerCalculate" xml:space="preserve"><value>Calcular cuándo salir</value></data>
+  <data name="RoutePlannerMaps" xml:space="preserve"><value>Continuar en Maps</value></data>
+  <data name="RoutePlannerDuration" xml:space="preserve"><value>≈ {0} min de trayecto</value></data>
+  <data name="RoutePlannerLeave" xml:space="preserve"><value>Salida estimada · {0}</value></data>
+  <data name="RoutePlannerLeavePassed" xml:space="preserve"><value>La salida estimada ya pasó · {0}</value></data>
+  <data name="RoutePlannerOriginSummary" xml:space="preserve"><value>Desde {0}</value></data>
+  <data name="RoutePlannerLoading" xml:space="preserve"><value>Calculando el trayecto…</value></data>
+  <data name="RoutePlannerDisclaimer" xml:space="preserve"><value>Los tiempos son estimados, no garantizan la llegada. Confirma horarios y posibles cambios en Maps.</value></data>
+  <data name="RoutePlannerTight" xml:space="preserve"><value>La salida estimada coincide con tu actividad anterior. Puede que necesites cambiar el origen, el modo o el margen. Confirma el trayecto en Maps.</value></data>
+  <data name="RoutePlannerPast" xml:space="preserve"><value>El horario de esta actividad ya comenzó. Puedes consultar la actividad o abrir Maps.</value></data>
+  <data name="RoutePlannerTooEarly" xml:space="preserve"><value>Todavía no hay horarios de transporte para esta fecha. Puedes consultar el trayecto en Maps.</value></data>
+  <data name="RoutePlannerNoLocation" xml:space="preserve"><value>Falta una ubicación verificada para estimar este trayecto. La actividad y Maps siguen disponibles.</value></data>
+  <data name="RoutePlannerUnavailable" xml:space="preserve"><value>No pudimos estimar el trayecto. Reintenta con conexión o continúa en Maps; tu actividad se conserva.</value></data>
+  <data name="RoutePlannerLocationUnavailable" xml:space="preserve"><value>No pudimos obtener tu ubicación. Elige otro origen o usa Maps, que puede pedirte el punto de salida.</value></data>
+  <data name="RoutePlannerAccess" xml:space="preserve"><value>El cálculo de rutas requiere un pase vigente. Puedes seguir consultando tu actividad y Maps.</value></data>
+  <data name="RoutePlannerMapsFailed" xml:space="preserve"><value>No pudimos abrir Maps. Puedes volver a intentarlo o consultar la dirección en la actividad.</value></data>
+  <data name="CalendarTitle" xml:space="preserve"><value>Calendario del viaje</value></data>
+  <data name="CalendarExport" xml:space="preserve"><value>Exportar</value></data>
+  <data name="CalendarImport" xml:space="preserve"><value>Importar</value></data>
+  <data name="CalendarChooseFile" xml:space="preserve"><value>Elegir archivo .ics</value></data>
+  <data name="CalendarTimeZone" xml:space="preserve"><value>Zona del viaje: {0}</value></data>
+  <data name="CalendarShareSelection" xml:space="preserve"><value>Compartir selección</value></data>
+  <data name="CalendarImportSelection" xml:space="preserve"><value>Importar selección</value></data>
+  <data name="CalendarEmpty" xml:space="preserve"><value>Selecciona actividades para exportar o abre un archivo de calendario.</value></data>
+  <data name="CalendarLoadFailed" xml:space="preserve"><value>No pudimos cargar el viaje. Conéctate y vuelve a intentarlo; los datos guardados se conservan.</value></data>
+  <data name="CalendarAllDay" xml:space="preserve"><value>Sin horario · todo el día</value></data>
+  <data name="CalendarFloatingTime" xml:space="preserve"><value>El archivo no indica una zona: se usará la zona del viaje.</value></data>
+  <data name="CalendarOriginalZone" xml:space="preserve"><value>Zona del archivo: {0}. Se guardará en la zona del viaje.</value></data>
+  <data name="CalendarUnsupportedEvent" xml:space="preserve"><value>Evento no importable</value></data>
+  <data name="CalendarPreviewSummary" xml:space="preserve"><value>{0} eventos disponibles · {1} incompatibles. Selecciona qué importar.</value></data>
+  <data name="CalendarImportConfirm" xml:space="preserve"><value>Añadiremos {0} eventos seleccionados al itinerario, como planes fijos. Los eventos con la misma identidad ya importados se conservan sin duplicarlos ni actualizarlos.</value></data>
+  <data name="CalendarExportConfirm" xml:space="preserve"><value>Compartirás {0} actividades con sus notas y lugares. Revisa que quieras enviar esa información a la aplicación que elijas.</value></data>
+  <data name="CalendarExported" xml:space="preserve"><value>Calendario preparado para compartir. Es una copia; los cambios posteriores no se sincronizan.</value></data>
+  <data name="CalendarImportHint" xml:space="preserve"><value>Abre un archivo .ics y revisa cada evento. Solo se añade lo que selecciones y confirmes. No se conectan cuentas de calendario.</value></data>
+  <data name="CalendarExportHint" xml:space="preserve"><value>Elige las actividades que quieres compartir. Los planes sin horario se exportan como eventos de todo el día. Es una copia, sin sincronización.</value></data>
+  <data name="CalendarPermissionRequired" xml:space="preserve"><value>Puedes exportar tu itinerario. Importar requiere permiso vigente para añadir planes personales al viaje.</value></data>
+  <data name="CalendarOfflineImport" xml:space="preserve"><value>Puedes revisar el archivo sin conexión. Conéctate para confirmar la importación.</value></data>
+  <data name="CalendarImportFailed" xml:space="preserve"><value>No pudimos completar la importación. Lo ya guardado se conserva; vuelve a intentarlo sin crear duplicados.</value></data>
+  <data name="CalendarImportRetry" xml:space="preserve"><value>No se guardó. El viaje o el permiso pueden haber cambiado. Revisa y vuelve a intentar; lo guardado no se duplicará.</value></data>
+  <data name="CalendarExportFailed" xml:space="preserve"><value>No pudimos preparar el calendario. Tu itinerario se conserva; prueba con otra selección.</value></data>
+  <data name="CalendarReadFailed" xml:space="preserve"><value>No pudimos leer ese archivo. Conservamos tu selección anterior; prueba con otro .ics.</value></data>
+  <data name="CalendarOverlapTitle" xml:space="preserve"><value>Ya hay un plan a esa hora</value></data>
+  <data name="CalendarOverlapMessage" xml:space="preserve"><value>«{0}» coincide con otro plan. ¿Quieres conservar ambos en el itinerario?</value></data>
+  <data name="CalendarSaved" xml:space="preserve"><value>Guardado · futuras importaciones no lo duplicarán.</value></data>
+  <data name="CalendarProgress" xml:space="preserve"><value>Guardados {0} de {1}</value></data>
+  <data name="CalendarImported" xml:space="preserve"><value>{0} eventos guardados · {1} sin guardar. Los guardados ya están en tu itinerario.</value></data>
+  <data name="CalendarFileTooLarge" xml:space="preserve"><value>El archivo supera 1 MB. Exporta una selección más pequeña desde tu calendario.</value></data>
+  <data name="CalendarTooManyEvents" xml:space="preserve"><value>El archivo tiene más de 500 eventos. Exporta una selección más pequeña.</value></data>
+  <data name="CalendarInvalidFile" xml:space="preserve"><value>El archivo no es un calendario .ics UTF-8 válido.</value></data>
+  <data name="CalendarMalformedEvent" xml:space="preserve"><value>Formato de evento incompleto o ambiguo. Los demás eventos válidos siguen disponibles.</value></data>
+  <data name="CalendarDuplicateEvent" xml:space="preserve"><value>Este evento está repetido en el archivo; se ofrece una sola vez.</value></data>
+  <data name="CalendarRecurringEvent" xml:space="preserve"><value>Evento recurrente no compatible. Exporta una ocurrencia individual sin recurrencia.</value></data>
+  <data name="CalendarCancelledEvent" xml:space="preserve"><value>Este evento está cancelado y no se importará.</value></data>
+  <data name="CalendarAttachedEvent" xml:space="preserve"><value>Evento con adjuntos externos no compatible. Exporta una copia sin adjuntos.</value></data>
+  <data name="CalendarUnsupportedFields" xml:space="preserve"><value>Falta el título o hay campos demasiado largos o caracteres no compatibles. Revisa el evento original.</value></data>
+  <data name="CalendarMissingTime" xml:space="preserve"><value>Fecha u hora no compatible. Revisa el evento original.</value></data>
+  <data name="CalendarLongEvent" xml:space="preserve"><value>Solo se importan eventos de hasta 24 horas o de un único día completo.</value></data>
+  <data name="CalendarOutsideTrip" xml:space="preserve"><value>La fecha queda fuera del viaje. Cambia las fechas del viaje o del evento antes de importar.</value></data>
+  <data name="CalendarUnknownZone" xml:space="preserve"><value>Zona horaria desconocida o personalizada. Exporta el evento en UTC o con una zona estándar.</value></data>
+  <data name="CalendarAmbiguousTime" xml:space="preserve"><value>La hora coincide con un cambio horario y no puede conservarse sin ambigüedad. Revisa el evento.</value></data>
+  <data name="CalendarExportLimited" xml:space="preserve"><value>Tus reservas, planes personales e ideas gratuitas siguen disponibles. Algunas ideas del catálogo requieren acceso vigente; el contenido no disponible se oculta.</value></data>
+  <data name="RoutePlannerUnconfirmed" xml:space="preserve"><value>No pudimos confirmar el origen y el margen de esta estimación. Continúa en Maps o prueba de nuevo más tarde.</value></data>
+  <data name="CalendarImportPaused" xml:space="preserve"><value>{0} guardados · {1} pendientes de confirmar. La importación se detuvo. Los pendientes siguen seleccionados; reintenta con conexión y permiso de edición. Los guardados no se duplicarán.</value></data>
+  <data name="CalendarImportUnconfirmed" xml:space="preserve"><value>No pudimos confirmar el guardado. Reintenta con conexión; si el evento ya se guardó, no se duplicará.</value></data>
 </root>

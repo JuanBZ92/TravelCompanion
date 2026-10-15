@@ -3,7 +3,9 @@ param(
     [string]$BaselineRef = '51c9962',
     [string]$OutputDirectory = 'artifacts/journal-performance-host',
     [int]$Warmups = 5,
-    [int]$Repetitions = 30
+    [int]$Repetitions = 30,
+    [ValidateSet('all', 'journal-local-open-with-activities', 'journal-save-during-http', 'expense-save-during-http', 'six-encrypted-thumbnails')]
+    [string]$Scenario = 'all'
 )
 $ErrorActionPreference = 'Stop'
 $repositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
@@ -13,7 +15,7 @@ if (-not $measurementOutput.StartsWith($repositoryRoot + [IO.Path]::DirectorySep
     throw 'Measurement output must stay inside this repository.'
 }
 $sourceNames = @('JournalStore.cs', 'JournalStore.FreeEntries.cs', 'JournalStore.DraftPhotos.cs',
-    'JournalEntries.cs', 'JournalText.cs', 'ExpenseStore.cs', 'OfflineCacheService.cs')
+    'JournalEntries.cs', 'JournalText.cs', 'ExpenseStore.cs', 'OfflineCacheService.cs', 'JournalStore.Synchronization.cs')
 New-Item -ItemType Directory -Path $measurementOutput -Force | Out-Null
 Push-Location $repositoryRoot
 try {
@@ -29,6 +31,10 @@ try {
         foreach ($sourceName in $sourceNames) {
             $repositoryPath = "src/TravelCompanion.Mobile/Services/$sourceName"
             if ($variant -eq 'baseline') {
+                if ($sourceName -eq 'JournalStore.Synchronization.cs') {
+                    & git cat-file -e "${BaselineRef}:$repositoryPath" 2>$null
+                    if ($LASTEXITCODE -ne 0) { continue } # Older stores kept synchronization in JournalStore.cs.
+                }
                 $sourceText = (& git show "${BaselineRef}:$repositoryPath") -join "`n"
                 if ($LASTEXITCODE -ne 0) { throw "Could not extract $repositoryPath from $BaselineRef" }
             } else { $sourceText = [IO.File]::ReadAllText((Join-Path $repositoryRoot $repositoryPath)) }
@@ -62,7 +68,7 @@ try {
         $projectPath = Join-Path $stage 'JournalPerformance.csproj'
         [IO.File]::WriteAllText($projectPath, $projectXml)
         $logPath = Join-Path $measurementOutput "$variant.log"
-        & dotnet run --project $projectPath -c Release --verbosity minimal -- $variant $measurementOutput $Warmups $Repetitions *> $logPath
+        & dotnet run --project $projectPath -c Release --verbosity minimal -- $variant $measurementOutput $Warmups $Repetitions $Scenario *> $logPath
         $runExit = $LASTEXITCODE
         Get-Content -LiteralPath $logPath -Tail 12
         if ($runExit -ne 0) { throw "$variant measurement failed (exit $runExit). See $logPath" }
@@ -71,6 +77,10 @@ try {
         CompletedAtUtc = [DateTimeOffset]::UtcNow.ToString('O')
         BaselineRef = $BaselineRef; BaselineCommit = $baselineCommit; CurrentHead = $currentHead
         CurrentSource = 'Working tree snapshot, including uncommitted changes'
+        Scenario = $Scenario
+        HarnessFingerprints = @('Program.cs', 'PlatformAdapters.cs') | ForEach-Object {
+            [pscustomobject]@{ File = $_; Sha256 = (Get-FileHash -LiteralPath (Join-Path $harnessRoot $_) -Algorithm SHA256).Hash }
+        }
         SourceFingerprints = $sourceFingerprints
     } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $measurementOutput 'run-manifest.json')
     $baseline = Get-Content -LiteralPath (Join-Path $measurementOutput 'baseline.json') -Raw | ConvertFrom-Json

@@ -831,6 +831,8 @@ public sealed partial class TravelCompanionApiClient
         using var request = CreateAuthorizedRequest(HttpMethod.Post, $"api/mobile/itinerary/{id}/route", token);
         request.Content = JsonContent.Create(route, options: JsonOptions);
         using var response = await _httpClient.SendAsync(request, ct).ConfigureAwait(false);
+        if (response.StatusCode is System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.Forbidden)
+            return new(route.Mode, "AccessDenied", "");
         return response.IsSuccessStatusCode
             ? await response.Content.ReadFromJsonAsync<ItineraryRouteDto>(JsonOptions, ct).ConfigureAwait(false) : null;
     }
@@ -897,13 +899,13 @@ public sealed partial class TravelCompanionApiClient
         return null;
     }
 
-    public async Task<ItineraryItemMutationResponse?> CreateItineraryItemAsync(string token, ItineraryItemMutationRequest mutation, CancellationToken cancellationToken = default)
+    public async Task<ItineraryItemMutationResponse?> CreateItineraryItemAsync(string token, ItineraryItemMutationRequest mutation, CancellationToken cancellationToken = default, bool notifyChanged = true)
     {
         using var request = CreateAuthorizedRequest(HttpMethod.Post, "api/mobile/itinerary", token);
         request.Content = JsonContent.Create(mutation, options: JsonOptions);
         using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         var result = await response.Content.ReadFromJsonAsync<ItineraryItemMutationResponse>(JsonOptions, cancellationToken).ConfigureAwait(false);
-        if (response.IsSuccessStatusCode && result?.Success == true && ItineraryChanged is { } changed)
+        if (notifyChanged && response.IsSuccessStatusCode && result?.Success == true && ItineraryChanged is { } changed)
             await changed().ConfigureAwait(false);
         return result;
     }

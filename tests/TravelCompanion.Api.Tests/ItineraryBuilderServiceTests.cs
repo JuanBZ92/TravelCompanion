@@ -517,6 +517,43 @@ public sealed class ItineraryBuilderServiceTests
         Assert.All(edited.Segments, item => Assert.Equal("Kyoto", item.City));
     }
 
+    [Fact]
+    public async Task Calendar_reimport_keeps_original_event_and_identity_is_scoped_to_owner_and_trip()
+    {
+        await using var db = CreateDbContext();
+        var destination = CreateDestination();
+        db.Destinations.Add(destination);
+        var sessions = new UserSessionService(db);
+        var itinerary = new TravelerItineraryService(db, new TravelerAccessService(sessions));
+        var date = new DateOnly(2026, 10, 8);
+        var preview = CalendarExchange.Parse("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\nUID:shared-calendar-id@example.test\r\nSUMMARY:Original\r\nDTSTART;TZID=Asia/Tokyo:20261008T233000\r\nDTEND;TZID=Asia/Tokyo:20261009T013000\r\nEND:VEVENT\r\nEND:VCALENDAR", "Asia/Tokyo", date, date.AddDays(1));
+        var item = Assert.Single(preview.Events);
+        var ids = new List<Guid>();
+        for (var i = 0; i < 2; i++)
+        {
+            var user = CreateUser(); user.Email = $"calendar-{i}@example.test";
+            var grant = new BuilderAccessGrant { Id = Guid.NewGuid(), AppUserId = user.Id, AppUser = user,
+                DestinationId = destination.Id, Destination = destination, PinHash = "test" };
+            db.AddRange(user, grant); await db.SaveChangesAsync();
+            var (_, token) = await sessions.CreateSessionAsync(user, accessMode: SessionAccessMode.Builder);
+            var context = CreateHttpContext(token);
+            var setup = await new BuilderTripService(db, sessions).SaveAsync(context,
+                new(date, date.AddDays(1), "Asia/Tokyo", 0, [new("Tokyo", date, date.AddDays(1))]));
+            var request = CalendarExchange.Mutation(item, setup.Revision);
+            var saved = await itinerary.CreateAsync(context, request);
+            var lostResponseRetry = await itinerary.CreateAsync(context, request);
+            var changedImport = await itinerary.CreateAsync(context, request with { Title = "Changed in calendar", Date = date.AddDays(1) });
+            Assert.True(saved.Success); Assert.Equal(saved.Item!.Id, lostResponseRetry.Item!.Id);
+            Assert.Equal(saved.Item.Id, changedImport.Item!.Id); Assert.Equal("Original", changedImport.Item.Title);
+            Assert.Equal(120, saved.Item.DurationMinutes); Assert.Equal(new TimeOnly(1, 30), saved.Item.EndsAt);
+            Assert.Equal("Asia/Tokyo", saved.Item.TimeZoneId);
+            ids.Add(saved.Item.Id);
+            var (_, readOnlyToken) = await sessions.CreateSessionAsync(user, tripId: setup.TripId, accessMode: SessionAccessMode.BuilderReadOnly);
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(() => itinerary.CreateAsync(CreateHttpContext(readOnlyToken), request));
+        }
+        Assert.Equal(2, ids.Distinct().Count()); Assert.Equal(2, await db.Reservations.CountAsync());
+    }
+
     private static TravelCompanionDbContext CreateDbContext() => new(
         new DbContextOptionsBuilder<TravelCompanionDbContext>()
             .UseInMemoryDatabase($"builder-{Guid.NewGuid():N}")

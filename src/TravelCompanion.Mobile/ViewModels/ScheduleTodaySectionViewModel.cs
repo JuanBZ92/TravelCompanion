@@ -310,8 +310,7 @@ public sealed class TodayReservationViewModel
             : string.Format(LocalizationResourceManager.Instance.CurrentCulture,
                 LocalizationResourceManager.Instance["UXAuditConfirmationCode"], item.ConfirmationCode);
         DistanceFromHotelLabel = CalculateDistanceLabel(hotelBase, item);
-        HasRoutes = canCalculateRoutes && item.HasExactTime
-            && (!string.IsNullOrWhiteSpace(item.ProviderPlaceId) || item.Latitude.HasValue && item.Longitude.HasValue);
+        HasRoutes = canCalculateRoutes && item.HasExactTime;
         Routes =
         [
             new("WALK", LocalizationResourceManager.Instance["UXAuditRouteWalk"], "route_walk.svg", item.Id),

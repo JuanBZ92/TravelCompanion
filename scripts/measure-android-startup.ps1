@@ -16,11 +16,12 @@ $activity = (& $Adb -s $Device shell cmd package resolve-activity --brief $Packa
 if ($LASTEXITCODE -ne 0 -or $activity -notmatch ('^' + [regex]::Escape($Package) + '/')) { throw 'Review activity unavailable.' }
 $rows = @()
 for ($i = 0; $i -lt ($Warmups + $Repetitions); $i++) {
-    & $Adb -s $Device shell am force-stop $Package
-    if ($LASTEXITCODE -ne 0) { throw 'Could not stop review app.' }
+    # -S performs the stop before launch. A second preceding force-stop can race
+    # with Android's asynchronous process teardown on newer devices.
     $raw = & $Adb -s $Device shell am start -S -W -n $activity
-    if ($LASTEXITCODE -ne 0 -or ($raw -join "`n") -notmatch 'Status: ok') { throw 'Review launch failed.' }
+    $launchExit = $LASTEXITCODE
     Add-Content -LiteralPath (Join-Path $OutputDirectory "$Label-startup-raw.log") -Value $raw
+    if ($launchExit -ne 0 -or ($raw -join "`n") -notmatch 'Status: ok') { throw 'Review launch failed; inspect the preserved raw launch log.' }
     $total = [regex]::Match(($raw -join "`n"), 'TotalTime:\s*(\d+)')
     $wait = [regex]::Match(($raw -join "`n"), 'WaitTime:\s*(\d+)')
     if (!$wait.Success) { throw 'Android wait timing unavailable; do not record a zero.' }

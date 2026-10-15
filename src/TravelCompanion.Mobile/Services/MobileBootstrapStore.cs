@@ -109,6 +109,9 @@ public sealed class MobileBootstrapStore(
         CacheContext context,
         CancellationToken cancellationToken)
     {
+#if ANDROID || IOS
+        using var measurement = MobileOperationMeasurement.Start("bootstrap_refresh_measured");
+#endif
         var stopwatch = Stopwatch.StartNew();
         var result = await apiClient.GetMobileBootstrapResultAsync(token, destinationSlug, cancellationToken).ConfigureAwait(false);
         if (!result.IsSuccess || result.Value is not { } bootstrap)

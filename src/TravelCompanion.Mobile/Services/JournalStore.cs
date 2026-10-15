@@ -69,6 +69,7 @@ public sealed partial class JournalStore(OfflineCacheService cache, AuthSessionS
     public async Task<List<JournalMemory>> LoadAsync(JournalScope scope, IEnumerable<ScheduleItemDto> items, bool sync,
         CancellationToken ct, Action? onSyncFailure = null)
     {
+        List<JournalMemory>? localSnapshot = null;
         await gate.WaitAsync(ct);
         try
         {
@@ -93,11 +94,16 @@ public sealed partial class JournalStore(OfflineCacheService cache, AuthSessionS
                     }
                 Check(scope);
                 if (changed) await WriteAsync(scope, entries, ct);
+                ct.ThrowIfCancellationRequested();
+                Check(scope);
+                localSnapshot = entries;
             }
         }
         finally { gate.Release(); }
         if (sync) await SyncAsync(scope, ct, onSyncFailure);
-        return Ordered(await ReadLocalSnapshotAsync(scope, ct));
+        // A local opening already owns a validated snapshot. Decrypt the index
+        // again only after remote synchronization, whose merge may have changed it.
+        return Ordered(!sync && localSnapshot is not null ? localSnapshot : await ReadLocalSnapshotAsync(scope, ct));
     }
 
     // Search and other local readers must not seed activities or wait for the network.
@@ -229,7 +235,7 @@ public sealed partial class JournalStore(OfflineCacheService cache, AuthSessionS
     public async Task<JournalMemory> SaveConfirmedAsync(JournalScope scope, JournalMemory entry, string text, CancellationToken ct = default,
         IReadOnlyList<JournalMemory>? knownConfirmations = null)
     {
-#if ANDROID
+#if ANDROID || IOS
         using var measurement = MobileOperationMeasurement.Start("journal_save_measured");
 #endif
         CheckEntry(scope, entry);
@@ -434,7 +440,7 @@ public sealed partial class JournalStore(OfflineCacheService cache, AuthSessionS
 
     public async Task<byte[]?> PhotoAsync(JournalScope scope, Guid id, bool thumbnail = false, CancellationToken ct = default)
     {
-#if ANDROID
+#if ANDROID || IOS
         using var measurement = MobileOperationMeasurement.Start(thumbnail ? "journal_thumbnail_measured" : "journal_photo_measured");
 #endif
         Check(scope);

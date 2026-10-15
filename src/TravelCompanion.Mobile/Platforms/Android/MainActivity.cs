@@ -21,6 +21,20 @@ public class MainActivity : MauiAppCompatActivity
 		OnBackPressedDispatcher.AddCallback(this, new NavigationBackCallback(this));
 	}
 
+    protected override void OnNewIntent(global::Android.Content.Intent? intent)
+    {
+        base.OnNewIntent(intent);
+        var scenario = intent?.GetStringExtra(Platforms.Android.ReviewPerformanceRunner.ScenarioExtra);
+        if (ReviewPerformancePolicy.IsScenario(scenario))
+            _ = Platforms.Android.ReviewPerformanceRunner.RunAsync(scenario);
+    }
+
+    protected override void OnStop()
+    {
+        Platforms.Android.ReviewPerformanceRunner.Cancel();
+        base.OnStop();
+    }
+
     private sealed class NavigationBackCallback(MainActivity activity) : OnBackPressedCallback(true)
     {
         private readonly ExitBackPressGuard _exit = new();

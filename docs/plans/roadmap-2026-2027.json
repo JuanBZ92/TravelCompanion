@@ -1,0 +1,705 @@
+{
+  "schemaVersion": 1,
+  "plan": "Roadmap técnico y de producto de Yuku — octubre 2026 a abril 2027",
+  "acceptedRoadmap": "docs/roadmap-2026-2027.md",
+  "requested": [
+    "R12",
+    "R13",
+    "R14"
+  ],
+  "requestAlias": {
+    "R012": "R12"
+  },
+  "baseline": "21827cd",
+  "startedOn": "2026-10-15",
+  "scope": "Implementación local de R12, R13 y R14 y explicación de R07. Publicación conserva autorización explícita. El resto del roadmap no se considera implementado ni revisado por este incremento.",
+  "constraints": [
+    "Sin TalkBack ni biometría",
+    "Preservar ajustes globales del dispositivo",
+    "Sin push, despliegue ni cambios de producción solicitados en este turno",
+    "No cerrar pruebas nativas con evidencia de compilación o tests unitarios"
+  ],
+  "deliveries": [
+    {
+      "id": "R12",
+      "implementation": "done",
+      "automated": "passed",
+      "android": "partial_native_coverage",
+      "ios": "managed_build_passed_native_pending",
+      "publication": "not_requested",
+      "evidence": [
+        "docs/plans/r12-calendar.md",
+        "artifacts/roadmap-r12-r14-20261015/mobile-results/mobile-closure159.trx",
+        "artifacts/roadmap-r12-r14-20261015/shared-results/shared-closure.trx",
+        "artifacts/roadmap-r12-r14-20261015/api-results/api-closure.trx",
+        "artifacts/roadmap-r12-r14-20261015/android160-build.log",
+        "artifacts/roadmap-r12-r14-20261015/ios-closure160.log",
+        "artifacts/roadmap-r12-r14-20261015/native-qa160.json",
+        "docs/roadmap-r12-r14-delivery.md"
+      ],
+      "androidBuild": "passed",
+      "iosManagedBuild": "passed"
+    },
+    {
+      "id": "R13",
+      "implementation": "done",
+      "automated": "passed",
+      "android": "partial_native_coverage",
+      "ios": "managed_build_passed_native_pending",
+      "publication": "not_requested",
+      "evidence": [
+        "docs/plans/r13-routes.md",
+        "artifacts/roadmap-r12-r14-20261015/mobile-results/mobile-closure159.trx",
+        "artifacts/roadmap-r12-r14-20261015/shared-results/shared-closure.trx",
+        "artifacts/roadmap-r12-r14-20261015/api-results/api-closure.trx",
+        "artifacts/roadmap-r12-r14-20261015/android160-build.log",
+        "artifacts/roadmap-r12-r14-20261015/ios-closure160.log",
+        "artifacts/roadmap-r12-r14-20261015/native-qa160.json",
+        "docs/roadmap-r12-r14-delivery.md"
+      ],
+      "androidBuild": "passed",
+      "iosManagedBuild": "passed"
+    },
+    {
+      "id": "R14",
+      "implementation": "done",
+      "automated": "passed",
+      "android": "passed_recorded_measurements",
+      "ios": "managed_build_passed_native_pending",
+      "publication": "not_requested",
+      "evidence": [
+        "docs/plans/r14-performance.md",
+        "artifacts/roadmap-r12-r14-20261015/mobile-results/mobile-closure159.trx",
+        "artifacts/roadmap-r12-r14-20261015/shared-results/shared-closure.trx",
+        "artifacts/roadmap-r12-r14-20261015/api-results/api-closure.trx",
+        "artifacts/roadmap-r12-r14-20261015/android160-build.log",
+        "artifacts/roadmap-r12-r14-20261015/ios-closure160.log",
+        "artifacts/roadmap-r12-r14-20261015/native-qa160.json",
+        "docs/roadmap-r12-r14-delivery.md"
+      ],
+      "androidBuild": "passed",
+      "iosManagedBuild": "passed"
+    }
+  ],
+  "criteria": [
+    {
+      "id": "R12-01",
+      "delivery": "R12",
+      "acceptance": "Exportar las actividades elegidas desde Viaje en un archivo ICS con fecha y zona visibles.",
+      "flow": "Viaje → calendario → selección → compartir ICS",
+      "implementation": "done",
+      "automated": "passed",
+      "native": "partial_recorded_coverage",
+      "sources": [
+        "src/TravelCompanion.Mobile/Pages/SchedulePage.xaml.cs",
+        "src/TravelCompanion.Mobile/Pages/TripCalendarPage.cs",
+        "src/TravelCompanion.Shared/CalendarExchange.cs"
+      ],
+      "verification": "automated",
+      "notes": [],
+      "tests": [
+        {
+          "suite": "shared",
+          "prefix": "TravelCompanion.Shared.Tests.CalendarExchangeTests.Export_selects_only_requested_events"
+        },
+        {
+          "suite": "shared",
+          "prefix": "TravelCompanion.Shared.Tests.CalendarExchangeTests.Exported_period_only_plan"
+        },
+        {
+          "suite": "shared",
+          "prefix": "TravelCompanion.Shared.Tests.CalendarExchangeTests.Free_editorial_ideas"
+        }
+      ],
+      "artifacts": [
+        "artifacts/roadmap-r12-r14-20261015/native-qa160.json"
+      ],
+      "reviewNote": "Selección y serialización probadas; QA160 ES/EN abre Calendario, confirma selección y entrega un ICS al chooser nativo. Se canceló sin enviarlo. Fuentes y permisos revisados; iOS nativo pendiente."
+    },
+    {
+      "id": "R12-02",
+      "delivery": "R12",
+      "acceptance": "Seleccionar ICS, presentar eventos válidos/incompatibles y confirmar antes de crear actividades.",
+      "flow": "Viaje → importar ICS → vista previa → confirmación",
+      "implementation": "done",
+      "automated": "passed",
+      "native": "partial_recorded_coverage",
+      "sources": [
+        "src/TravelCompanion.Mobile/Pages/TripCalendarPage.cs",
+        "src/TravelCompanion.Shared/CalendarExchange.cs",
+        "src/TravelCompanion.Mobile/Services/TravelCompanionApiClient.cs"
+      ],
+      "verification": "automated",
+      "notes": [],
+      "tests": [
+        {
+          "suite": "shared",
+          "prefix": "TravelCompanion.Shared.Tests.CalendarExchangeTests.File_with_incompatible_events"
+        },
+        {
+          "suite": "api",
+          "prefix": "TravelCompanion.Api.Tests.ItineraryBuilderServiceTests.Calendar_reimport"
+        }
+      ],
+      "artifacts": [
+        "artifacts/roadmap-r12-r14-20261015/r12/native-count-after-import.log"
+      ],
+      "reviewNote": "QA160: picker, preview mixto y confirmación crean tres eventos en PostgreSQL sintético (11→14 filas). Cancelar conserva estado. Fallos de red/timeout/JSON o denegación pausan el lote y retienen pendientes; la revisión nunca retrocede ante un cuerpo de error. Fallo a mitad del lote no certificado en dispositivo."
+    },
+    {
+      "id": "R12-03",
+      "delivery": "R12",
+      "acceptance": "Reimportar no duplica; conservar zona horaria y eventos nocturnos.",
+      "flow": "Importación repetida y retorno al itinerario",
+      "implementation": "done",
+      "automated": "passed",
+      "native": "partial_recorded_coverage",
+      "sources": [
+        "src/TravelCompanion.Shared/CalendarExchange.cs",
+        "src/TravelCompanion.Api/Services/TravelerItineraryService.cs",
+        "tests/TravelCompanion.Shared.Tests/CalendarExchangeTests.cs",
+        "tests/TravelCompanion.Api.Tests/ItineraryBuilderServiceTests.cs"
+      ],
+      "verification": "automated",
+      "notes": [],
+      "tests": [
+        {
+          "suite": "shared",
+          "prefix": "TravelCompanion.Shared.Tests.CalendarExchangeTests.Import_identity_is_stable"
+        },
+        {
+          "suite": "shared",
+          "prefix": "TravelCompanion.Shared.Tests.CalendarExchangeTests.Imports_utc_and_source_zones"
+        },
+        {
+          "suite": "shared",
+          "prefix": "TravelCompanion.Shared.Tests.CalendarExchangeTests.Floating_time_uses_trip_zone"
+        },
+        {
+          "suite": "shared",
+          "prefix": "TravelCompanion.Shared.Tests.CalendarExchangeTests.Rejects_invalid_or_ambiguous"
+        },
+        {
+          "suite": "api",
+          "prefix": "TravelCompanion.Api.Tests.ItineraryBuilderServiceTests.Calendar_reimport"
+        }
+      ],
+      "artifacts": [
+        "artifacts/roadmap-r12-r14-20261015/r12/native-count-after-reimport.log"
+      ],
+      "reviewNote": "Shared/API cubren UID, UTC/flotantes/nocturnos/DST, respuesta perdida, reimportación modificada y propietario/viaje. Reimportar los tres por Android mantiene 14 filas/tres importados. Preview muestra hora local, UTC→Japón y zona flotante."
+    },
+    {
+      "id": "R12-04",
+      "delivery": "R12",
+      "acceptance": "Recurrencias y adjuntos externos no se ejecutan; entradas incompatibles no descartan válidas.",
+      "flow": "Vista previa de archivos mixtos y malformados",
+      "implementation": "done",
+      "automated": "passed",
+      "native": "partial_recorded_coverage",
+      "sources": [
+        "src/TravelCompanion.Shared/CalendarExchange.cs",
+        "src/TravelCompanion.Mobile/Pages/TripCalendarPage.cs"
+      ],
+      "verification": "automated",
+      "notes": [],
+      "tests": [
+        {
+          "suite": "shared",
+          "prefix": "TravelCompanion.Shared.Tests.CalendarExchangeTests.File_with_incompatible_events"
+        },
+        {
+          "suite": "shared",
+          "prefix": "TravelCompanion.Shared.Tests.CalendarExchangeTests.Invalid_structure_oversize"
+        },
+        {
+          "suite": "shared",
+          "prefix": "TravelCompanion.Shared.Tests.CalendarExchangeTests.Unfolds_escaped_text"
+        },
+        {
+          "suite": "shared",
+          "prefix": "TravelCompanion.Shared.Tests.CalendarExchangeTests.Rejects_ambiguous_duplicate"
+        }
+      ],
+      "artifacts": [
+        "artifacts/roadmap-r12-r14-20261015/native-qa160.json"
+      ],
+      "reviewNote": "Shared cubre límites 1MiB/500 eventos y formatos inválidos. QA160 mantiene tres válidos y explica recurrencia/adjunto externo incompatibles sin ejecutarlos. Límites extremos no probados mediante picker nativo."
+    },
+    {
+      "id": "R12-05",
+      "delivery": "R12",
+      "acceptance": "Respetar permisos, sesión/viaje vigente, cancelación, límites de archivo y funcionamiento sin red explícito.",
+      "flow": "Selector/preview/confirmación con cambios de contexto",
+      "implementation": "done",
+      "automated": "passed",
+      "native": "partial_recorded_coverage",
+      "sources": [
+        "src/TravelCompanion.Mobile/Pages/TripCalendarPage.cs",
+        "src/TravelCompanion.Mobile/Pages/TripScopedPage.cs",
+        "src/TravelCompanion.Shared/CalendarExchange.cs",
+        "src/TravelCompanion.Api/Services/TravelerItineraryService.cs"
+      ],
+      "verification": "automated",
+      "notes": [],
+      "tests": [
+        {
+          "suite": "shared",
+          "prefix": "TravelCompanion.Shared.Tests.CalendarExchangeTests.Export_never_uses_cached_paid_access"
+        },
+        {
+          "suite": "shared",
+          "prefix": "TravelCompanion.Shared.Tests.CalendarExchangeTests.Cached_expired_package_grant"
+        },
+        {
+          "suite": "shared",
+          "prefix": "TravelCompanion.Shared.Tests.CalendarExchangeTests.Free_editorial_ideas"
+        },
+        {
+          "suite": "api",
+          "prefix": "TravelCompanion.Api.Tests.ItineraryBuilderServiceTests.Calendar_reimport"
+        }
+      ],
+      "artifacts": [
+        "artifacts/roadmap-r12-r14-20261015/r12/batch-pause-source-check.json"
+      ],
+      "reviewNote": "Políticas Shared/API conservan acceso personal/Free, vencido/revocado y read-only; contexto comprobado tras awaits. Guards de cada evento/solapamiento y pausa revisados en fuente. Cancelar picker nativo pasa; offline real, cambio de cuenta durante picker y revocación UI quedan sin ejecutar."
+    },
+    {
+      "id": "R13-01",
+      "delivery": "R13",
+      "acceptance": "Elegir origen actual, hotel o actividad anterior disponible y modo de transporte.",
+      "flow": "Itinerario → llegar al próximo compromiso",
+      "implementation": "done",
+      "automated": "passed",
+      "native": "partial_recorded_coverage",
+      "sources": [
+        "src/TravelCompanion.Mobile/ViewModels/ScheduleViewModel.cs",
+        "src/TravelCompanion.Mobile/Pages/SchedulePage.xaml",
+        "src/TravelCompanion.Mobile/Pages/RoutePlannerPage.cs",
+        "src/TravelCompanion.Mobile/ViewModels/RoutePlannerViewModel.cs",
+        "src/TravelCompanion.Shared/ItineraryRoutePolicy.cs"
+      ],
+      "verification": "automated",
+      "notes": [],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.RoutePlannerViewModelTests.Selection_is_sent"
+        },
+        {
+          "suite": "shared",
+          "prefix": "TravelCompanion.Shared.Tests.ItineraryRoutePolicyTests.Previous_"
+        },
+        {
+          "suite": "api",
+          "prefix": "TravelCompanion.Api.Tests.ItineraryRouteEndpointTests.Previous_activity_across_date_line"
+        }
+      ],
+      "artifacts": [
+        "artifacts/roadmap-r12-r14-20261015/native-qa160.json"
+      ],
+      "reviewNote": "QA160 ES/EN abre desde A continuación; hotel/ubicación actual, modos y margen seleccionables. Política UTC/origen previo y API se prueban automáticamente. GPS real y presentación del origen previo no ejecutados nativamente."
+    },
+    {
+      "id": "R13-02",
+      "delivery": "R13",
+      "acceptance": "Mostrar origen, hora del compromiso, duración estimada y margen elegido sin garantizar llegada.",
+      "flow": "Resultado de ruta y horas en zona del viaje",
+      "implementation": "done",
+      "automated": "passed",
+      "native": "partial_recorded_coverage",
+      "sources": [
+        "src/TravelCompanion.Mobile/Pages/RoutePlannerPage.cs",
+        "src/TravelCompanion.Mobile/ViewModels/RoutePlannerViewModel.cs",
+        "src/TravelCompanion.Api/Controllers/ItineraryRoutesController.cs",
+        "src/TravelCompanion.Shared/Dtos/ItineraryRouteDto.cs"
+      ],
+      "verification": "automated",
+      "notes": [],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.RoutePlannerViewModelTests.Selection_is_sent"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.RoutePlannerViewModelTests.Older_server_response"
+        },
+        {
+          "suite": "api",
+          "prefix": "TravelCompanion.Api.Tests.ItineraryRouteEndpointTests.Previous_activity_conflict"
+        },
+        {
+          "suite": "api",
+          "prefix": "TravelCompanion.Api.Tests.ItineraryRouteEndpointTests.Existing_and_explicit_hotel"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Opciones, destino y zona son visibles en Android; margen 10→15. Tests cubren estimación, salida, solapamiento y rechazo de respuesta antigua incompatible. Proveedor real desactivado en QA: no se certifica una estimación real."
+    },
+    {
+      "id": "R13-03",
+      "delivery": "R13",
+      "acceptance": "Abrir navegación externa y preservar detalle/Maps cuando falle proveedor o no haya red.",
+      "flow": "Ruta → Maps, error → recuperación",
+      "implementation": "done",
+      "automated": "passed",
+      "native": "partial_recorded_coverage",
+      "sources": [
+        "src/TravelCompanion.Mobile/Pages/RoutePlannerPage.cs",
+        "src/TravelCompanion.Mobile/Services/RouteDirectionsUri.cs",
+        "src/TravelCompanion.Mobile/ViewModels/RoutePlannerViewModel.cs"
+      ],
+      "verification": "automated",
+      "notes": [],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.RoutePlannerViewModelTests.Failed_estimate_keeps"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.RoutePlannerViewModelTests.Location_denial"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.RoutePlannerViewModelTests.Directions_"
+        },
+        {
+          "suite": "api",
+          "prefix": "TravelCompanion.Api.Tests.ItineraryRouteEndpointTests.Previous_activity_and_provider_failure"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.RoutePlannerViewModelTests.Malformed_response_leaves_a_retryable_message_and_maps_instead_of_loading_text"
+        }
+      ],
+      "artifacts": [
+        "artifacts/roadmap-r12-r14-20261015/native-qa160.json"
+      ],
+      "reviewNote": "QA160 conserva reserva/Maps ante proveedor no disponible, abre detalle y Maps real con origen hotel y transporte público. Request/URI/fallback automatizados; offline real y iOS nativo pendientes."
+    },
+    {
+      "id": "R13-04",
+      "delivery": "R13",
+      "acceptance": "Conservar permisos y descartar operaciones de contexto anterior; error/cancelación/reintento localizados.",
+      "flow": "Cambio de cuenta/viaje durante ubicación y HTTP",
+      "implementation": "done",
+      "automated": "passed",
+      "native": "partial_recorded_coverage",
+      "sources": [
+        "src/TravelCompanion.Mobile/ViewModels/RoutePlannerViewModel.cs",
+        "src/TravelCompanion.Mobile/Pages/RoutePlannerPage.cs",
+        "src/TravelCompanion.Mobile/Services/TravelCompanionApiClient.cs",
+        "src/TravelCompanion.Api/Controllers/ItineraryRoutesController.cs"
+      ],
+      "verification": "automated",
+      "notes": [],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.RoutePlannerViewModelTests.Context_or_access_change"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.RoutePlannerViewModelTests.Editing_options_cancels"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.RoutePlannerViewModelTests.Location_acquisition_observes"
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.RoutePlannerViewModelTests.Server_access_denial"
+        },
+        {
+          "suite": "api",
+          "prefix": "TravelCompanion.Api.Tests.ItineraryRouteEndpointTests.Foreign_previous"
+        },
+        {
+          "suite": "api",
+          "prefix": "TravelCompanion.Api.Tests.ItineraryRouteEndpointTests.Free_revoked_and_expired"
+        }
+      ],
+      "artifacts": [],
+      "reviewNote": "Trece tests VM: cancelación desde ubicación/HTTP, contexto/opciones, respuesta tardía, JSON inválido, 401/403 y backend antiguo. API rechaza dueño/viaje ajenos y acceso conocido vencido/revocado; no se atribuye cobertura nativa a esos tests."
+    },
+    {
+      "id": "R14-01",
+      "delivery": "R14",
+      "acceptance": "Medir bootstrap, Viaje, Journal y planificación con escenarios y artefactos identificados.",
+      "flow": "Herramientas QA de medición y diagnóstico",
+      "implementation": "done",
+      "automated": "passed",
+      "native": "android_measured_ios_pending",
+      "sources": [
+        "src/TravelCompanion.Mobile/Services/MobileOperationMeasurement.cs",
+        "src/TravelCompanion.Mobile/Services/DiagnosticHttpHandler.cs",
+        "src/TravelCompanion.Mobile/Services/MobileBootstrapStore.cs",
+        "src/TravelCompanion.Mobile/ViewModels/ScheduleViewModel.cs",
+        "src/TravelCompanion.Mobile/ViewModels/JournalViewModel.cs",
+        "src/TravelCompanion.Mobile/Services/DayPlanClient.cs",
+        "src/TravelCompanion.Mobile/Platforms/Android/ReviewPerformanceRunner.cs",
+        "scripts/measure-android-operations.ps1"
+      ],
+      "verification": "automated",
+      "notes": [],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.ReviewPerformancePolicyTests."
+        },
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.DiagnosticJournalTests."
+        }
+      ],
+      "artifacts": [
+        "artifacts/roadmap-r12-r14-20261015/r14/script-verification.json",
+        "artifacts/roadmap-r12-r14-20261015/r14/clean-source-equivalence.json"
+      ],
+      "reviewNote": "Cuatro operaciones reales medidas en Android Release: cinco calentamientos y treinta repeticiones por variante limpia156/160, misma fixture y 681 fuentes runtime salvo override declarado del Load anterior. No son frames ni producción."
+    },
+    {
+      "id": "R14-02",
+      "delivery": "R14",
+      "acceptance": "Revisar conexiones, comandos SQL, payload y crecimiento de tablas sin exponer datos personales.",
+      "flow": "Diagnóstico móvil/backend y consulta de crecimiento",
+      "implementation": "done",
+      "automated": "passed",
+      "native": "android_measured_ios_pending",
+      "sources": [
+        "scripts/measure-local-database-health.ps1",
+        "docs/tools/analyze-database-operations.ps1",
+        "src/TravelCompanion.Mobile/Services/DiagnosticHttpHandler.cs",
+        "docs/roadmap-r14-performance.md"
+      ],
+      "verification": "measured",
+      "notes": [],
+      "tests": [],
+      "artifacts": [
+        "artifacts/roadmap-r12-r14-20261015/r14/database-clean-final/snapshot.json",
+        "artifacts/roadmap-r12-r14-20261015/r14/existing-indexes.json",
+        "artifacts/roadmap-r12-r14-20261015/r14/local-json-payloads.json"
+      ],
+      "reviewNote": "Catálogos PostgreSQL sintético en solo lectura: conexiones/esperas, índices y volumen; extractor SQL constante/sanitizado y tamaños JSON sin cuerpos. No hay comparación SQL causal por variante limpia ni extrapolación de crecimiento mensual."
+    },
+    {
+      "id": "R14-03",
+      "delivery": "R14",
+      "acceptance": "Optimizar un cuello de botella demostrado con comparación reproducible antes/después.",
+      "flow": "Escenario medido y optimización acotada",
+      "implementation": "done",
+      "automated": "passed",
+      "native": "android_measured_ios_pending",
+      "sources": [
+        "src/TravelCompanion.Mobile/Services/JournalStore.cs",
+        "src/TravelCompanion.Mobile/Services/JournalStore.Synchronization.cs",
+        "tests/TravelCompanion.Mobile.Tests/JournalStoreTests.cs",
+        "docs/tools/JournalPerformance/Program.cs",
+        "docs/roadmap-r14-performance.md"
+      ],
+      "verification": "measured",
+      "notes": [],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests.JournalStoreTests."
+        }
+      ],
+      "artifacts": [
+        "artifacts/roadmap-r12-r14-20261015/r14/host-final/comparison.json",
+        "artifacts/roadmap-r12-r14-20261015/r14/host-final/run-manifest.json",
+        "artifacts/roadmap-r12-r14-20261015/r14/native-clean-comparison-journal/comparison.json"
+      ],
+      "reviewNote": "Doble lectura/descifrado eliminada sólo en apertura local; sync mantiene relectura. Host y Android limpios verifican lecturas/bytes −50%; Android p50 −50,7%, p95 −32,9%, asignaciones −48,9%. Baseline usa Shared actual; APK intermedias obsoletas excluidas."
+    },
+    {
+      "id": "R14-04",
+      "delivery": "R14",
+      "acceptance": "Registrar p50/p95 y regresiones reproducibles >10%; separar evidencia local de dispositivos reales.",
+      "flow": "Informe de rendimiento y comparador",
+      "implementation": "done",
+      "automated": "passed",
+      "native": "android_measured_ios_pending",
+      "sources": [
+        "docs/tools/analyze-native-performance.ps1",
+        "docs/tools/compare-native-performance.ps1",
+        "docs/tools/test-native-performance-analysis.ps1",
+        "docs/tools/test-native-performance-comparison.ps1",
+        "docs/roadmap-r14-performance.md"
+      ],
+      "verification": "measured",
+      "notes": [],
+      "tests": [],
+      "artifacts": [
+        "artifacts/roadmap-r12-r14-20261015/r14/native-clean-comparison-planning/comparison.json",
+        "artifacts/roadmap-r12-r14-20261015/r14/native-clean-comparison-planning-repeat/comparison.json",
+        "artifacts/roadmap-r12-r14-20261015/r14/cold-start-clean160/clean160-startup-summary.json"
+      ],
+      "reviewNote": "P50/p95, muestras, hashes, counters y rechazo de lotes incompletos registrados. P95 planificación inicial +18,43% investigado; repetición35 no reproduce (>10%), p95 30,12 frente34,87ms. Arranque frío160 separado5+30; causa de outliers no demostrada. iOS no medido."
+    },
+    {
+      "id": "ALL-01",
+      "delivery": "R12-R14",
+      "acceptance": "ES/EN, navegación, cancelación, vacío/error/reintento, fuentes ampliadas y offline según flujo.",
+      "flow": "Recorridos cambiados de Android/iOS",
+      "implementation": "done",
+      "automated": "source_review",
+      "native": "partial_recorded_coverage",
+      "sources": [
+        "src/TravelCompanion.Mobile/Localization/AppResources.es.resx",
+        "src/TravelCompanion.Mobile/Localization/AppResources.resx",
+        "src/TravelCompanion.Mobile/Pages/TripCalendarPage.cs",
+        "src/TravelCompanion.Mobile/Pages/RoutePlannerPage.cs",
+        "src/TravelCompanion.Mobile/Pages/EditorialUi.cs"
+      ],
+      "verification": "source_review",
+      "notes": [],
+      "tests": [],
+      "artifacts": [
+        "artifacts/roadmap-r12-r14-20261015/device-final-settings.json",
+        "artifacts/roadmap-r12-r14-20261015/native-qa160.json"
+      ],
+      "reviewNote": "Recursos ES/EN y controles editoriales/48dp revisados, navegación Android y scroll ES/EN comprobados. Ajustes globales intactos y locale QA restaurado. Fuente150/200%, otros anchos, offline real e iOS no acreditados. TalkBack/biometría excluidos."
+    },
+    {
+      "id": "ALL-02",
+      "delivery": "R12-R14",
+      "acceptance": "Ejecutar pruebas afectadas y compilar Android e iOS; revisión final contra cada criterio.",
+      "flow": "Pruebas/build y matriz de cierre",
+      "implementation": "done",
+      "automated": "passed",
+      "native": "partial_recorded_coverage",
+      "sources": [
+        "docs/plans/r12-calendar.md",
+        "docs/plans/r13-routes.md",
+        "docs/plans/r14-performance.md",
+        "docs/roadmap-r14-performance.md",
+        "scripts/check-plan-completion.ps1",
+        "docs/roadmap-r12-r14-delivery.md"
+      ],
+      "verification": "automated",
+      "notes": [],
+      "tests": [
+        {
+          "suite": "mobile",
+          "prefix": "TravelCompanion.Mobile.Tests."
+        },
+        {
+          "suite": "shared",
+          "prefix": "TravelCompanion.Shared.Tests."
+        },
+        {
+          "suite": "api",
+          "prefix": "TravelCompanion.Api.Tests."
+        }
+      ],
+      "artifacts": [
+        "artifacts/roadmap-r12-r14-20261015/qa160-source-rechecked.json"
+      ],
+      "reviewNote": "Fuentes finales QA160 vinculadas a APK firmada e instalada. Mobile721/721, Shared109/109, API afectada27/27 sin fallos/omitidas. Android Release cero errores207avisos XamlC preexistentes; iOS C# cero errores/avisos, sin archivo firmado ni ejecución nativa. Revisión completa de15criterios sin código pendiente conocido."
+    }
+  ],
+  "requiredSuites": [
+    "mobile",
+    "shared",
+    "api"
+  ],
+  "requiredBuilds": [
+    "android-release",
+    "ios-managed"
+  ],
+  "evidenceRoot": "artifacts/roadmap-r12-r14-20261015",
+  "automatedEvidence": {
+    "mobile": {
+      "path": "artifacts/roadmap-r12-r14-20261015/mobile-results/mobile-closure159.trx",
+      "passed": 721,
+      "failed": 0,
+      "skipped": 0
+    },
+    "shared": {
+      "path": "artifacts/roadmap-r12-r14-20261015/shared-results/shared-closure.trx",
+      "passed": 109,
+      "failed": 0,
+      "skipped": 0
+    },
+    "api": {
+      "path": "artifacts/roadmap-r12-r14-20261015/api-results/api-closure.trx",
+      "passed": 27,
+      "failed": 0,
+      "skipped": 0,
+      "scope": "focal R12/R13 y proveedor de rutas; no suite API completa"
+    },
+    "android": {
+      "path": "artifacts/roadmap-r12-r14-20261015/android160-build.log",
+      "status": "passed",
+      "artifactVersion": 160,
+      "scope": "QA160 Android Release ARM64 con RuntimeIdentifier singular; cero errores, 207 avisos XamlC preexistentes.",
+      "exitCode": 0
+    },
+    "ios": {
+      "path": "artifacts/roadmap-r12-r14-20261015/ios-closure160.log",
+      "exitCode": 0,
+      "scope": "Compilación C# iOS ARM64; archivado/firma/ejecución pendientes"
+    }
+  },
+  "nativeChecks": [
+    {
+      "id": "R12-android-core",
+      "status": "passed",
+      "note": "QA160: ES/EN, selección/exportación/confirmación/chooser, picker mixto, importación, reimportación sin duplicados, zonas y cancelar. Alcance exacto native-qa160.json; sin envío externo."
+    },
+    {
+      "id": "R13-android-core",
+      "status": "passed",
+      "note": "QA160: ES/EN, hotel/current seleccionables, modos/margen, scroll, error proveedor, detalle y apertura Maps con hotel/transit. No certifica GPS/origen anterior/proveedor real."
+    },
+    {
+      "id": "R14-android-final",
+      "status": "passed",
+      "note": "Baseline limpia156 y final160: cuatro escenarios5+30, planificación repetida5+30, arranque frío1605+30. Artefactos, fuentes y counter verificados; no frames ni producción."
+    },
+    {
+      "id": "R12-android-context-offline",
+      "status": "pending",
+      "note": "Offline real, desconexión en lote, cambios de cuenta/viaje durante picker y variantes de permisos UI no ejecutados. Políticas y API automáticas no sustituyen nativo."
+    },
+    {
+      "id": "R13-android-extended",
+      "status": "pending",
+      "note": "GPS/cancelación real, presentación del origen anterior, revocación en UI y estimación del proveedor real no ejecutados. API/VM/policy sí cubiertos."
+    },
+    {
+      "id": "ALL-fonts-widths",
+      "status": "pending",
+      "note": "Fuentes150/200% y anchos320/600dp no ejecutados; no se cambió configuración global. Cobertura nativa actual384dp, fuente1.0, ES/EN."
+    },
+    {
+      "id": "R12-ios",
+      "status": "pending",
+      "note": "Selector/compartir/navegación/contexto en iOS no ejecutados; requiere Mac/Xcode y dispositivo/simulador. Compilación C# aprobada no equivale a archivo firmado."
+    },
+    {
+      "id": "R13-ios",
+      "status": "pending",
+      "note": "Rutas/ubicación/cancelación/Maps en iOS no ejecutados; compilación C# aprobada no lo acredita."
+    },
+    {
+      "id": "R14-ios",
+      "status": "pending",
+      "note": "Sin dispositivo iOS disponible para rendimiento. No extrapolar Android."
+    },
+    {
+      "id": "TalkBack-biometric",
+      "status": "excluded",
+      "note": "Excluidos por instrucción explícita del usuario; no activar en pruebas futuras. Acceso QA por PIN."
+    }
+  ],
+  "schemaNote": "Compatible con scripts/check-plan-completion.ps1 schemaVersion1. deliveries/automatedEvidence son seguimiento; la certificación requiere un archivo de evidencia con huellas before/after, hashes de suites/files/builds/APK y resultados reales. No ejecutar RequireNativeChecks como aprobado mientras haya pending.",
+  "androidArtifact": {
+    "package": "com.yuku.travelcompanion.plannerpaidreview",
+    "versionCode": 160
+  }
+}

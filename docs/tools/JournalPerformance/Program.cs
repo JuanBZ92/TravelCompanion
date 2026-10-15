@@ -2,12 +2,14 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
 using TravelCompanion.Mobile.Services;
+using TravelCompanion.Shared;
 using TravelCompanion.Shared.Dtos;
 
 CultureInfo.CurrentCulture = CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("en-US");
-if (args.Length != 4) throw new ArgumentException("Arguments: variant output-directory warmups repetitions");
+if (args.Length is not (4 or 5)) throw new ArgumentException("Arguments: variant output-directory warmups repetitions [scenario]");
 var variant = args[0]; var output = Path.GetFullPath(args[1]);
 var warmups = int.Parse(args[2]); var repetitions = int.Parse(args[3]);
+var selectedScenario = args.Length == 5 ? args[4] : "all";
 if (warmups < 5 || repetitions < 30) throw new ArgumentException("Use at least five warmups and thirty repetitions.");
 Directory.CreateDirectory(output);
 FileSystem.AppDataDirectory = Path.Combine(output, variant, "synthetic-cache");
@@ -26,6 +28,23 @@ var book = new ExpenseBook(new("EUR", null, 1, Guid.Empty), items);
 var journalKey = $"personal-journal-{user}-{trip}-index";
 var expenseKey = $"personal-expenses-{user}-{trip}";
 var scenarios = new List<Scenario>();
+var activitySeed = Enumerable.Range(1, 30).Select(i => new ScheduleItemDto(Id(i), null, ReservationType.Event,
+    date, new(9, 0), null, null, $"Activity {i}", "Tokyo", "", "", "", "", null, null, null, null, null, null,
+    Owner: ItineraryItemOwner.Traveler)).ToArray();
+await cache.SaveAsync(journalKey, memories);
+await Run("journal-local-open-with-activities", async _ =>
+{
+    api.Reset(); BenchmarkIo.Reset();
+    var allocationStart = GC.GetTotalAllocatedBytes(true); var watch = Stopwatch.StartNew();
+    var loaded = await journal.LoadAsync(scope, activitySeed, false, default);
+    watch.Stop();
+    var sample = new Sample(watch.Elapsed.TotalMilliseconds, GC.GetTotalAllocatedBytes(true) - allocationStart,
+        BenchmarkIo.Reads, BenchmarkIo.BytesRead, api.Requests);
+    if (loaded.Count != memories.Count || loaded.Any(x => x.Text != new string('a', 1000))
+        || loaded.Select(x => x.Id).Distinct().Count() != memories.Count)
+        throw new InvalidOperationException("Local journal fixture changed.");
+    return sample;
+});
 await Run("journal-save-during-http", async i =>
 {
     await cache.SaveAsync(journalKey, memories);
@@ -95,6 +114,7 @@ async Task<Sample> HeldSave(Func<Task> startSync, Func<Task> save, Func<Task> ve
 
 async Task Run(string name, Func<int, Task<Sample>> action)
 {
+    if (selectedScenario != "all" && selectedScenario != name) return;
     var first = await action(-1);
     for (var i = 0; i < warmups; i++) await action(i);
     var samples = new List<Sample>();

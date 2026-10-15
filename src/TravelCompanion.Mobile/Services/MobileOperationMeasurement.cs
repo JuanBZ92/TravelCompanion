@@ -1,21 +1,29 @@
-#if ANDROID
+#if ANDROID || IOS
 using System.Diagnostics;
 namespace TravelCompanion.Mobile.Services;
 
 // Review diagnostics only: names are constants, counters cover the whole process interval.
 // Never record identifiers, query text, payloads or paths. Normal builds do no measurement work.
-internal readonly struct MobileOperationMeasurement(string? name, long started, long allocated, long requests, long reads, long bytes) : IDisposable
+internal readonly struct MobileOperationMeasurement(string? name, long started, long allocated, long requests, long reads, long bytes,
+    long responseBytes, long unknownResponses) : IDisposable
 {
-    private static long requestCount, readCount, readBytes;
+    private static long requestCount, readCount, readBytes, knownResponseBytes, unknownResponseCount;
     public static MobileOperationMeasurement Start(string operation)
     {
         if (!MobileDiagnosticsSettings.IsEnabled) return default;
         // Precise collection avoids a cached counter hiding allocations in short intervals.
         // Gather it before starting the duration measurement; review builds only.
         var allocated = GC.GetTotalAllocatedBytes(true);
-        return new(operation, Stopwatch.GetTimestamp(), allocated, Interlocked.Read(ref requestCount), Interlocked.Read(ref readCount), Interlocked.Read(ref readBytes));
+        return new(operation, Stopwatch.GetTimestamp(), allocated, Interlocked.Read(ref requestCount), Interlocked.Read(ref readCount),
+            Interlocked.Read(ref readBytes), Interlocked.Read(ref knownResponseBytes), Interlocked.Read(ref unknownResponseCount));
     }
     public static void Request() { if (MobileDiagnosticsSettings.IsEnabled) Interlocked.Increment(ref requestCount); }
+    public static void Response(long? contentLength)
+    {
+        if (!MobileDiagnosticsSettings.IsEnabled) return;
+        if (contentLength is >= 0) Interlocked.Add(ref knownResponseBytes, contentLength.Value);
+        else Interlocked.Increment(ref unknownResponseCount);
+    }
     public static void Read(long bytes)
     {
         if (!MobileDiagnosticsSettings.IsEnabled) return;
@@ -32,7 +40,9 @@ internal readonly struct MobileOperationMeasurement(string? name, long started, 
         ClientDiagnostics.Record(name, new() { ElapsedTicks = elapsed, TickFrequency = Stopwatch.Frequency,
             ElapsedMs = (long)((double)elapsed / Stopwatch.Frequency * 1000), AllocatedBytes = totalAllocated,
             Requests = Interlocked.Read(ref requestCount) - requests, Reads = Interlocked.Read(ref readCount) - reads,
-            BytesRead = Interlocked.Read(ref readBytes) - bytes });
+            BytesRead = Interlocked.Read(ref readBytes) - bytes,
+            KnownResponseBytes = Interlocked.Read(ref knownResponseBytes) - responseBytes,
+            UnknownLengthResponses = Interlocked.Read(ref unknownResponseCount) - unknownResponses });
     }
 }
 #endif

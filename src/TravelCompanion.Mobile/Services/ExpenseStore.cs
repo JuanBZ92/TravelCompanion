@@ -59,7 +59,7 @@ public sealed class ExpenseStore(OfflineCacheService cache, AuthSessionService s
 
     public async Task SaveAsync(JournalScope scope, ExpenseDto value, decimal? manualRate, int settingsRevision)
     {
-#if ANDROID
+#if ANDROID || IOS
         using var measurement = MobileOperationMeasurement.Start("expense_save_measured");
 #endif
         await gate.WaitAsync();

@@ -7,6 +7,11 @@ param(
     [string]$DeviceModel,
     [string]$AppVersion,
     [string]$AppBuild,
+    [string]$ArtifactPath,
+    [string]$SourceSnapshotPath,
+    [string]$Fixture,
+    [ValidateSet('Android', 'iOS')][string]$Platform = 'Android',
+    [ValidateSet('bootstrap', 'trip', 'journal', 'planning')][string]$BatchOperation,
     [int]$Warmups = 5,
     [int]$Repetitions = 30
 )
@@ -19,12 +24,17 @@ if (-not $analysisOutput.StartsWith($repositoryRoot + [IO.Path]::DirectorySepara
     throw 'Analysis output must stay inside this repository.'
 }
 $eventNames = @('journal_save_measured', 'expense_save_measured', 'journal_thumbnail_measured',
-    'journal_photo_measured', 'preview_cleanup_measured', 'schedule_timer_measured')
-$numericFields = @('elapsedTicks', 'tickFrequency', 'elapsedMs', 'allocatedBytes', 'requests', 'reads', 'bytesRead')
+    'journal_photo_measured', 'preview_cleanup_measured', 'schedule_timer_measured',
+    'bootstrap_refresh_measured', 'schedule_load_measured', 'journal_local_open_measured', 'day_planning_measured')
+$numericFields = @('elapsedTicks', 'tickFrequency', 'elapsedMs', 'allocatedBytes', 'requests', 'reads', 'bytesRead',
+    'knownResponseBytes', 'unknownLengthResponses')
 $parsed = [Collections.Generic.List[object]]::new()
+$batches = [Collections.Generic.List[object]]::new()
 $malformedLines = 0
 $invalidNumericFields = 0
 $inputCount = 0
+$capturingBatch = [string]::IsNullOrEmpty($BatchOperation)
+$batchStarts = 0
 
 function Read-NonNegativeNumber($Value) {
     if ($null -eq $Value) { return $null }
@@ -55,6 +65,24 @@ foreach ($path in $LogPath) {
         if ($jsonStart -gt 0 -and $line.Substring(0, $jsonStart) -notmatch '\bYukuPerformance\b') { continue }
         try { $entry = $line.Substring($jsonStart) | ConvertFrom-Json -Depth 10 -ErrorAction Stop }
         catch { $malformedLines++; continue }
+        if ($BatchOperation -and $entry.eventName -eq 'review_batch_started_measured' -and $entry.details.area -eq $BatchOperation) {
+            $batchStarts++
+            if ($batchStarts -gt 1) { throw 'More than one selected batch in this capture; split captures instead of silently choosing favorable samples.' }
+            $capturingBatch = $true
+            continue
+        }
+        if ($entry.eventName -eq 'review_batch_completed_measured') {
+            if ($entry.details.area -in @('bootstrap', 'trip', 'journal', 'planning') -and
+                (!$BatchOperation -or ($capturingBatch -and $entry.details.area -eq $BatchOperation))) {
+                $batches.Add([pscustomobject]@{ Operation = [string]$entry.details.area
+                    Status = Read-NonNegativeNumber $entry.details.status
+                    CompletedIterations = Read-NonNegativeNumber $entry.details.eventId
+                    Canceled = $entry.details.canceled -eq $true })
+                if ($BatchOperation) { $capturingBatch = $false }
+            }
+            continue
+        }
+        if (!$capturingBatch) { continue }
         if ($entry.eventName -notin $eventNames) { continue }
         $details = [ordered]@{}
         foreach ($field in $numericFields) {
@@ -100,12 +128,13 @@ foreach ($eventName in $eventNames) {
             ElapsedMs = $row.ElapsedMs; ElapsedTicks = $row.Details.elapsedTicks; TickFrequency = $row.Details.tickFrequency
             AllocatedBytes = $row.Details.allocatedBytes; Requests = $row.Details.requests
             Reads = $row.Details.reads; BytesRead = $row.Details.bytesRead; Canceled = $row.Canceled
+            KnownResponseBytes = $row.Details.knownResponseBytes; UnknownLengthResponses = $row.Details.unknownLengthResponses
             AllocationScope = if ($eventName -in @('schedule_timer_measured', 'preview_cleanup_measured')) { 'current-thread' } else { 'process-global-interval' }
         })
     }
     $measured = @($rows | Select-Object -Skip $Warmups -First $Repetitions)
     $metricSummary = [ordered]@{}
-    foreach ($metric in @('ElapsedMs', 'AllocatedBytes', 'Requests', 'Reads', 'BytesRead')) {
+    foreach ($metric in @('ElapsedMs', 'AllocatedBytes', 'Requests', 'Reads', 'BytesRead', 'KnownResponseBytes', 'UnknownLengthResponses')) {
         $values = if ($metric -eq 'ElapsedMs') { @($measured | ForEach-Object { $_.ElapsedMs }) }
             else { @($measured | ForEach-Object { $_.Details.$metric }) }
         $validCount = @($values | Where-Object { $null -ne $_ }).Count
@@ -136,9 +165,15 @@ $report = [ordered]@{
     DeviceModel = if ($DeviceModel) { $DeviceModel } else { $null }
     AppVersion = if ($AppVersion) { $AppVersion } else { $null }
     AppBuild = if ($AppBuild) { $AppBuild } else { $null }
+    Platform = $Platform
+    ArtifactSha256 = if ($ArtifactPath) { (Get-FileHash -LiteralPath $ArtifactPath -Algorithm SHA256).Hash } else { $null }
+    SourceSnapshotSha256 = if ($SourceSnapshotPath) { (Get-FileHash -LiteralPath $SourceSnapshotPath -Algorithm SHA256).Hash } else { $null }
+    Fixture = if ($Fixture) { $Fixture } else { $null }
+    Batches = $batches.ToArray()
+    BatchOperation = if ($BatchOperation) { $BatchOperation } else { $null }
     InputCount = $inputCount; ParsedCount = $parsed.Count; MalformedLines = $malformedLines
     InvalidNumericFields = $invalidNumericFields; Warmups = $Warmups; Repetitions = $Repetitions
-    Notes = 'Metadata only. Stopwatch ticks measure operation intervals, not CPU usage or total UI/HTTP latency. Allocation/request/read counters cover the process interval and may include overlapping work; schedule_timer and preview_cleanup allocations cover the current thread. Unknown counters remain null. P50/P95 require all 30 valid samples; ObservedP50/P95 describe incomplete captures only. No success/error attribution is available unless the capture explicitly provides it. Raw output contains only allowed metrics and code-defined event/scenario labels; original logcat is not copied.'
+    Notes = 'Metadata only. Stopwatch ticks measure operation intervals, not CPU usage or frames/rendering. Bootstrap includes HTTP/JSON/encrypted cache; schedule_load includes its local/network ViewModel work; journal_local_open excludes following remote synchronization; day_planning includes HTTP and JSON. Allocation/request/read counters cover the process interval and may overlap; timer/cleanup allocations cover current thread. KnownResponseBytes sums available Content-Length headers, not wire or decompressed sizes; UnknownLengthResponses prevents interpreting a partial sum as a full payload. Unknown counters remain null. P50/P95 require 30 valid samples; Observed percentiles describe incomplete captures only. Batch completion is recorded separately; failed/canceled batches must not be certified. Artifact/source hashes identify caller-supplied files; callers must preserve their provenance. Raw output contains only allowed metrics and constant labels; original logcat is not copied.'
     Operations = $summaries
 }
 $report | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $analysisOutput 'summary.json') -Encoding utf8

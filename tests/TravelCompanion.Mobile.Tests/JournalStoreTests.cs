@@ -402,6 +402,65 @@ public sealed class JournalStoreTests
     }
 
     [Fact]
+    public async Task LocalOpeningWithActivitySeedReadsIndexOnceAndStillImportsLegacyNotes()
+    {
+        var sessions = new AuthSessionService(); var disk = new OfflineCacheService(); var api = new TravelCompanionApiClient();
+        var store = new JournalStore(disk, sessions, api);
+        try
+        {
+            await sessions.SaveAsync(Session()); var scope = store.Scope();
+            var item = new ScheduleItemDto(Guid.NewGuid(), null, ReservationType.Event, new(2026, 10, 2),
+                new(9, 0), null, null, "Legacy activity", "Tokyo", "", "", "", "Legacy traveler note",
+                null, null, null, null, null, null, Owner: ItineraryItemOwner.Traveler);
+            var before = disk.Reads;
+            var imported = Assert.Single(await store.LoadAsync(scope, [item], false, default));
+            Assert.Equal(1, disk.Reads - before); Assert.Equal(item.Id, imported.Id); Assert.Equal(item.Notes, imported.Text);
+            var writes = disk.Writes; before = disk.Reads;
+            Assert.Equal(imported, Assert.Single(await store.LoadAsync(scope, [item], false, default)));
+            Assert.Equal(1, disk.Reads - before); Assert.Equal(writes, disk.Writes);
+        }
+        finally { sessions.Clear(); }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ContextChangeOrCancellationDuringLegacyWriteCannotReturnOldSnapshot(bool cancel)
+    {
+        var sessions = new AuthSessionService(); var disk = new OfflineCacheService();
+        var store = new JournalStore(disk, sessions, new()); using var cancellation = new CancellationTokenSource();
+        try
+        {
+            await sessions.SaveAsync(Session()); var scope = store.Scope();
+            var item = new ScheduleItemDto(Guid.NewGuid(), null, ReservationType.Event, new(2026, 10, 2),
+                new(9, 0), null, null, "Legacy activity", "Tokyo", "", "", "", "Legacy traveler note",
+                null, null, null, null, null, null, Owner: ItineraryItemOwner.Traveler);
+            disk.BeforeSave = async () => { if (cancel) cancellation.Cancel(); else await sessions.SaveAsync(Session()); };
+            await Assert.ThrowsAsync<OperationCanceledException>(() => store.LoadAsync(scope, [item], false, cancellation.Token));
+        }
+        finally { sessions.Clear(); }
+    }
+
+    [Fact]
+    public async Task RemoteSyncWithActivitySeedReturnsMergedResultRatherThanPreRequestSnapshot()
+    {
+        var sessions = new AuthSessionService(); var api = new TravelCompanionApiClient();
+        var store = new JournalStore(new(), sessions, api);
+        try
+        {
+            await sessions.SaveAsync(Session()); var scope = store.Scope();
+            var memory = Memory(scope.TripId);
+            var item = new ScheduleItemDto(memory.Id, null, ReservationType.Event, memory.Date,
+                new(9, 0), null, null, memory.Title, memory.City, "", "", "", "",
+                null, null, null, null, null, null, Owner: ItineraryItemOwner.Traveler);
+            api.FetchJournal = () => Task.FromResult(new List<JournalNoteDto> { memory.Note with { Notes = "Remote confirmed", Revision = 8 } });
+            var loaded = Assert.Single(await store.LoadAsync(scope, [item], true, default));
+            Assert.Equal("Remote confirmed", loaded.Text); Assert.Equal(8, loaded.Revision);
+        }
+        finally { sessions.Clear(); }
+    }
+
+    [Fact]
     public async Task FailedRemoteSyncReportsFailureAndKeepsPendingLocalMemory()
     {
         var sessions = new AuthSessionService(); var api = new TravelCompanionApiClient();

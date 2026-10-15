@@ -307,9 +307,11 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
             var deleteLabel = resources["DeleteTripTitle"];
             var remindersLabel = resources["UXAuditReservationReminders"];
             var searchLabel = resources["TripSearchTitle"];
+            var calendarLabel = resources["CalendarTitle"];
             var actions = new List<string>
             {
                 searchLabel,
+                calendarLabel,
                 reviewDayLabel,
                 reviewTripLabel,
                 downloadLabel,
@@ -331,6 +333,8 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
             if ((action == editLabel || action == deleteLabel) && !_viewModel.CanManageItinerary) return;
             if (action == searchLabel)
                 await Navigation.PushModalAsync(new TripSearchPage());
+            else if (action == calendarLabel)
+                await Navigation.PushModalAsync(new TripCalendarPage());
             else if (action == reviewDayLabel)
                 await _viewModel.ReviewSelectedDayCommand.ExecuteAsync(null);
             else if (action == reviewTripLabel)

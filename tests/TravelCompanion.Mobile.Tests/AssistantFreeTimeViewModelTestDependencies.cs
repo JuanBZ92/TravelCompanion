@@ -14,6 +14,8 @@ public sealed partial class TravelChatViewModel(AuthSessionService sessionServic
     private TravelChatRequest? _pendingRetryRequest;
     private AssistantRequestScope? _assistantOperation;
     private GuidedPlanCriteriaDto? _guidedCriteria;
+    private TravelPreferenceProfileDto? _cachedPreferenceProfile;
+    private Guid? _loadedPreferenceUserId;
     private string? _conversationId;
     private bool _assistantDateSelectedByTraveler;
     private readonly HashSet<string> _quickCategories = new(StringComparer.OrdinalIgnoreCase);
@@ -36,6 +38,14 @@ public sealed partial class TravelChatViewModel(AuthSessionService sessionServic
     public bool ShowAssistantProposal { get; private set; }
     public TravelChatCardViewModel? SelectedDetailCard { get; private set; }
     public ObservableCollection<TravelChatMessageViewModel> Messages { get; } = [];
+    public ObservableCollection<GuidedOptionDto> QuickCategories { get; } = new(
+        new[] { "food", "relax", "culture", "walk", "dance", "nature", "shopping", "viewpoint", "nightlife" }
+            .Select(category => new GuidedOptionDto("category." + category, category)));
+    public void SetPreferenceProfile(TravelPreferenceProfileDto? profile)
+    {
+        _cachedPreferenceProfile = profile;
+        _loadedPreferenceUserId = profile?.UserId;
+    }
     public IReadOnlyList<TravelChatCardViewModel> Options => _proposalCards;
     public TravelCompanionApiClient Api => apiClient;
     public ExpressTestLocationService Location => locationService;

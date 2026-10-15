@@ -78,6 +78,9 @@ public sealed partial class JournalViewModel(MobileBootstrapStore bootstrapStore
         var needsSchedule = false;
         await base.LoadAsync(async ct =>
         {
+#if ANDROID || IOS
+            using var measurement = MobileOperationMeasurement.Start("journal_local_open_measured");
+#endif
             if (!HasTrip) { Clear(); return; }
             var scope = store.Scope();
             var cached = await bootstrapStore.GetCachedAsync(cancellationToken: ct);

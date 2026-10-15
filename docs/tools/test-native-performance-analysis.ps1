@@ -10,7 +10,8 @@ New-Item -ItemType Directory -Path $testOutput -Force | Out-Null
 function Assert-True([bool]$Condition, [string]$Message) { if (-not $Condition) { throw $Message } }
 function Operation($Report, [string]$Name) { return $Report.Operations | Where-Object EventName -eq $Name }
 $names = @('journal_save_measured', 'expense_save_measured', 'journal_thumbnail_measured',
-    'journal_photo_measured', 'preview_cleanup_measured', 'schedule_timer_measured')
+    'journal_photo_measured', 'preview_cleanup_measured', 'schedule_timer_measured',
+    'bootstrap_refresh_measured', 'schedule_load_measured', 'journal_local_open_measured', 'day_planning_measured')
 $lines = [Collections.Generic.List[string]]::new()
 $lines.Add('10-06 14:00:00 I OtherTag: {"eventName":"journal_save_measured","details":{"elapsedMs":999}}')
 $lines.Add('10-06 14:00:00 I YukuPerformance: {broken')
@@ -20,7 +21,8 @@ for ($i = 0; $i -lt 37; $i++) {
         $ms = if ($i -lt 5) { 1000 } elseif ($i -lt 35) { $i - 4 + .125 } else { 999 }
         $details = [ordered]@{ elapsedTicks = $ms * 1000; tickFrequency = 1000000; elapsedMs = 0
             allocatedBytes = 100; canceled = $false; privatePayload = 'synthetic-private-marker' }
-        if ($name -ne 'schedule_timer_measured') { $details.requests = 0; $details.reads = 6; $details.bytesRead = 8192 }
+        if ($name -ne 'schedule_timer_measured') { $details.requests = 0; $details.reads = 6; $details.bytesRead = 8192
+            $details.knownResponseBytes = 4096; $details.unknownLengthResponses = 1 }
         $json = @{ utc = '2026-10-06T14:00:00Z'; eventName = $name; details = $details } | ConvertTo-Json -Depth 4 -Compress
         $lines.Add($(if ($i % 2 -eq 0) { "10-06 14:00:00 I YukuPerformance: $json" } else { $json }))
     }
@@ -31,7 +33,7 @@ $completeLog = Join-Path $testOutput 'complete.log'
     -OutputDirectory (Join-Path $OutputDirectory 'complete') -BuildConfiguration Release -DeviceModel synthetic | Out-Null
 $completeDirectory = Join-Path $testOutput 'complete'
 $report = Get-Content (Join-Path $completeDirectory 'summary.json') -Raw | ConvertFrom-Json
-Assert-True ($report.ParsedCount -eq 222 -and $report.MalformedLines -eq 1) 'Malformed and unrelated records must be excluded.'
+Assert-True ($report.ParsedCount -eq $names.Count * 37 -and $report.MalformedLines -eq 1) 'Malformed and unrelated records must be excluded.'
 foreach ($name in $names) {
     $operation = Operation $report $name
     Assert-True ($operation.WarmupsExcluded -eq 5 -and $operation.MeasuredCount -eq 30 -and $operation.ExtraCount -eq 2) 'Sample phases are incorrect.'
@@ -44,12 +46,13 @@ Assert-True ($null -eq $timer.Metrics.Requests.P50 -and $timer.Metrics.Requests.
 $save = Operation $report 'journal_save_measured'
 Assert-True ($save.Metrics.Requests.P50 -eq 0 -and $save.Metrics.Requests.ValidCount -eq 30) 'Recorded zero counters must remain zero.'
 $csv = Import-Csv (Join-Path $completeDirectory 'samples.csv')
-Assert-True (@($csv | Where-Object { $_.Phase -eq 'warmup' }).Count -eq 30) 'CSV warmup classification is incorrect.'
+Assert-True (@($csv | Where-Object { $_.Phase -eq 'warmup' }).Count -eq $names.Count * 5) 'CSV warmup classification is incorrect.'
 Assert-True (@($csv | Where-Object { $_.EventName -eq 'schedule_timer_measured' -and $_.Requests -ne '' }).Count -eq 0) 'Missing CSV counters must be blank.'
 Assert-True (@($csv | Where-Object { $_.EventName -in @('schedule_timer_measured', 'preview_cleanup_measured') -and $_.AllocationScope -ne 'current-thread' }).Count -eq 0) 'Timer and cleanup CSV allocation scopes must be current-thread.'
 Assert-True (@($csv | Where-Object { $_.EventName -notin @('schedule_timer_measured', 'preview_cleanup_measured') -and $_.AllocationScope -ne 'process-global-interval' }).Count -eq 0) 'Store CSV allocation scopes must remain process-global-interval.'
 $raw = Get-Content (Join-Path $completeDirectory 'raw.jsonl') -Raw
 Assert-True (-not $raw.Contains('synthetic-private-marker') -and -not $raw.Contains('privatePayload')) 'Filtered output leaked disallowed metadata.'
+Assert-True ($save.Metrics.KnownResponseBytes.P50 -eq 4096 -and $save.Metrics.UnknownLengthResponses.P50 -eq 1) 'Known versus unknown HTTP lengths must remain distinct.'
 $first = (Get-Content (Join-Path $completeDirectory 'raw.jsonl') -TotalCount 1 | ConvertFrom-Json).utc
 Assert-True (([DateTimeOffset]$first).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss') -eq '2026-10-06T14:00:00') 'UTC date changed during JSON conversion.'
 $partialLines = @(1..8 | ForEach-Object {
@@ -67,4 +70,27 @@ Assert-True ($partial.InvalidNumericFields -eq 16 -and $partialSave.Metrics.Allo
 $missing = Operation $partial 'journal_photo_measured'
 Assert-True ($missing.CapturedCount -eq 0 -and $null -eq $missing.Metrics.ElapsedMs.P50 -and $null -eq $missing.Metrics.ElapsedMs.ObservedP50) 'Absent operations must have null metrics.'
 Assert-True ($null -eq $partial.AppVersion -and $null -eq $partial.DeviceModel) 'Unknown build metadata must remain null.'
+$batchLog = Join-Path $testOutput 'batch.log'
+$batchLines = [Collections.Generic.List[string]]::new()
+$batchLines.Add('{"eventName":"journal_local_open_measured","details":{"elapsedMs":9999}}')
+$batchLines.Add('{"eventName":"review_batch_started_measured","details":{"area":"journal"}}')
+1..35 | ForEach-Object { $batchLines.Add('{"eventName":"journal_local_open_measured","details":{"elapsedMs":10}}') }
+$batchLines.Add('{"eventName":"review_batch_completed_measured","details":{"area":"journal","status":200,"eventId":35}}')
+$batchLines.Add('{"eventName":"journal_local_open_measured","details":{"elapsedMs":9999}}')
+[IO.File]::WriteAllLines($batchLog, $batchLines)
+& (Join-Path $PSScriptRoot 'analyze-native-performance.ps1') -LogPath $batchLog -Scenario synthetic-batch `
+    -BatchOperation journal -ArtifactPath $completeLog -SourceSnapshotPath $partialLog -Fixture synthetic-fixture `
+    -OutputDirectory (Join-Path $OutputDirectory 'batch') | Out-Null
+$batch = Get-Content (Join-Path $testOutput 'batch/summary.json') -Raw | ConvertFrom-Json -Depth 10
+Assert-True ($batch.ParsedCount -eq 35 -and (Operation $batch 'journal_local_open_measured').Metrics.ElapsedMs.P95 -eq 10) 'Events outside batch boundaries must be excluded.'
+Assert-True ($batch.Batches.Count -eq 1 -and $batch.Batches[0].CompletedIterations -eq 35 -and $batch.Batches[0].Status -eq 200) 'Successful batch provenance was lost.'
+Assert-True ($batch.ArtifactSha256 -match '^[A-F0-9]{64}$' -and $batch.SourceSnapshotSha256 -match '^[A-F0-9]{64}$') 'Provided artifact identities must be hashed.'
+$batchLines.Add('{"eventName":"review_batch_started_measured","details":{"area":"journal"}}')
+[IO.File]::WriteAllLines($batchLog, $batchLines)
+$multipleRejected = $false
+try {
+    & (Join-Path $PSScriptRoot 'analyze-native-performance.ps1') -LogPath $batchLog -Scenario synthetic-multiple `
+        -BatchOperation journal -OutputDirectory (Join-Path $OutputDirectory 'multiple') | Out-Null
+} catch { $multipleRejected = $true }
+Assert-True $multipleRejected 'Multiple batches must not silently select favorable measurements.'
 Write-Output 'Native analysis smoke tests passed: phases, ticks, UTC, null versus zero, incomplete/invalid samples and metadata whitelist.'

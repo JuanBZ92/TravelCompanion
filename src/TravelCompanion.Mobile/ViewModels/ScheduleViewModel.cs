@@ -83,7 +83,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     private GeoPointDto? _currentLocation;
     private bool _hasRequestedLocation;
     private readonly HashSet<Guid> _nearbyVisitPrompts = [];
-    private readonly Dictionary<string, (DateTimeOffset SavedAt, ItineraryRouteDto Value)> _routeCache = [];
+    private bool _routeOpening;
     private readonly Dictionary<DateOnly, string> _citiesByDate = [];
     private readonly Dictionary<DateOnly, TodayHotelBaseDto> _hotelsByDate = [];
     private readonly Dictionary<DateOnly, TodayDto> _todayByDate = [];
@@ -96,36 +96,36 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     private DateOnly? _lastTripToday;
 
     [RelayCommand]
-    private async Task CalculateRouteAsync(ItineraryRouteViewModel? route)
+    private async Task CalculateRouteAsync(TodayReservationViewModel? reservation)
     {
-        if (route is null || route.ItemId == Guid.Empty || !_sessionService.CanCalculateRoutes) return;
-        var token = await _sessionService.GetTokenAsync();
-        if (string.IsNullOrWhiteSpace(token)) return;
-        route.MarkLoading();
-        GeoPointDto? origin = null;
-        if (route.UseCurrentLocation)
+        if (reservation is not null) await OpenRoutePlannerAsync(reservation.Item);
+    }
+
+    public bool CanPlanFocusRoute => HasFocusItem && _sessionService.CanCalculateRoutes && _sessionService.HasKnownValidAccess;
+
+    [RelayCommand]
+    private async Task OpenFocusRouteAsync()
+    {
+        RefreshUpcomingActivity();
+        if (CanPlanFocusRoute && _focusItem is { } item) await OpenRoutePlannerAsync(item);
+    }
+
+    private async Task OpenRoutePlannerAsync(ScheduleItemDto item, string mode = "WALK", bool fromCurrent = false)
+    {
+        if (_routeOpening || !_sessionService.CanCalculateRoutes || !_sessionService.HasKnownValidAccess || !item.HasExactTime) return;
+        _routeOpening = true;
+        try
         {
-            origin = await _locationService.GetCurrentLocationAsync(CancellationToken.None);
-            if (origin is null)
-            {
-                route.Apply(null);
-                return;
-            }
+            var version = _sessionService.ContextVersion; var trip = _tripId; var date = _selectedDate;
+            var hotel = _selectedHotelBase;
+            if (hotel is null && _overviewSchedule is { } schedule && TripDayOverview.Hotel(schedule, item.Date) is { } stay)
+                hotel = new(string.IsNullOrWhiteSpace(stay.LocationName) ? stay.Title : stay.LocationName,
+                    stay.Address, stay.ProviderPlaceId, stay.Latitude, stay.Longitude);
+            await Shell.Current.Navigation.PushModalAsync(new RoutePlannerPage(item, hotel, _allItems.ToArray(), _tripTimeZoneId,
+                _sessionService, _apiClient, _locationService,
+                () => version == _sessionService.ContextVersion && trip == _tripId && date == _selectedDate, mode, fromCurrent));
         }
-        var request = new ItineraryRouteRequest(route.Mode, origin?.Latitude, origin?.Longitude);
-        var key = $"{route.ItemId}:{route.Mode}:{origin?.Latitude:0.####}:{origin?.Longitude:0.####}";
-        ItineraryRouteDto? result;
-        if (_routeCache.TryGetValue(key, out var cached)
-            && DateTimeOffset.UtcNow - cached.SavedAt < TimeSpan.FromMinutes(5))
-        {
-            result = cached.Value;
-        }
-        else
-        {
-            result = await _apiClient.GetItineraryRouteAsync(token, route.ItemId, request, CancellationToken.None);
-            if (result is not null) _routeCache[key] = (DateTimeOffset.UtcNow, result);
-        }
-        route.Apply(result);
+        finally { _routeOpening = false; }
     }
 
     public ObservableCollection<ScheduleTypeSectionViewModel> TypeSections { get; } = [];
@@ -464,7 +464,6 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
     public void ResetForNewSession()
     {
         CancelSelectedDayLoading();
-        _routeCache.Clear();
         _citiesByDate.Clear();
         _hotelsByDate.Clear();
         _todayByDate.Clear();
@@ -929,6 +928,9 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         bool forceRefresh,
         CancellationToken cancellationToken = default)
     {
+#if ANDROID || IOS
+        using var measurement = MobileOperationMeasurement.Start("schedule_load_measured");
+#endif
         var usableContentStopwatch = Stopwatch.StartNew();
         var usableContentLogged = false;
         if (forceRefresh)
@@ -1039,7 +1041,6 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         bool forceRefresh,
         CancellationToken cancellationToken)
     {
-        if (forceRefresh) _routeCache.Clear();
         if (!_selectedDate.HasValue)
         {
             return;
@@ -1551,7 +1552,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
                     .Select(reservation => new TodayReservationViewModel(
                         reservation,
                         _hotelsByDate.GetValueOrDefault(today.Date),
-                        _sessionService.CanCalculateRoutes))
+                        _sessionService.CanCalculateRoutes && _sessionService.HasKnownValidAccess))
                     .ToList(),
                 CanEditSelectedDay))
             .ToList();
@@ -1581,7 +1582,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
                     .Select(item => new TodayReservationViewModel(
                         item,
                         _hotelsByDate.GetValueOrDefault(selectedDate),
-                        _sessionService.CanCalculateRoutes))
+                        _sessionService.CanCalculateRoutes && _sessionService.HasKnownValidAccess))
                     .ToList();
                 var assignedLocations = periodItems
                     .Where(item => !item.UsesFullCard && item.RecommendationId.HasValue)
@@ -2096,6 +2097,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         OnPropertyChanged(nameof(ShowTodayLoading));
         OnPropertyChanged(nameof(ShowTodayContent));
         OnPropertyChanged(nameof(HasFocusItem));
+        OnPropertyChanged(nameof(CanPlanFocusRoute));
         OnPropertyChanged(nameof(ShowFinishedToday));
         OnPropertyChanged(nameof(ShowDayReview));
     }
@@ -2169,6 +2171,7 @@ public sealed partial class ScheduleViewModel : ViewModelBase, ISessionStateRese
         OnPropertyChanged(nameof(TomorrowDescription));
         OnPropertyChanged(nameof(HasFreeTimeShortcut));
         OnPropertyChanged(nameof(HasFocusItem));
+        OnPropertyChanged(nameof(CanPlanFocusRoute));
         OnPropertyChanged(nameof(ShowFinishedToday));
         OnPropertyChanged(nameof(FocusTitle));
         OnPropertyChanged(nameof(FocusSubtitle));

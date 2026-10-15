@@ -6,7 +6,7 @@ public sealed class DiagnosticHttpHandler(HttpMessageHandler innerHandler) : Del
 {
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-#if ANDROID
+#if ANDROID || IOS
         MobileOperationMeasurement.Request();
 #endif
         var watch = Stopwatch.StartNew();
@@ -18,6 +18,10 @@ public sealed class DiagnosticHttpHandler(HttpMessageHandler innerHandler) : Del
         try
         {
             var response = await base.SendAsync(request, cancellationToken).ConfigureAwait(false);
+#if ANDROID || IOS
+            // Header metadata only: do not force buffering, inspect content or change streaming.
+            MobileOperationMeasurement.Response(response.Content.Headers.ContentLength);
+#endif
             ClientDiagnostics.Record("http_completed", new() { Area = area, Status = (int)response.StatusCode, ElapsedMs = watch.ElapsedMilliseconds });
             return response;
         }

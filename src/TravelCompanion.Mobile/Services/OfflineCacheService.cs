@@ -59,7 +59,7 @@ public sealed class OfflineCacheService
         try
         {
             var json = await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false);
-#if ANDROID
+#if ANDROID || IOS
             MobileOperationMeasurement.Read(Encoding.UTF8.GetByteCount(json));
 #endif
 

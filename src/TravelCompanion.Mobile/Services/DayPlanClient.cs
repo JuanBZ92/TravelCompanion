@@ -22,8 +22,13 @@ public sealed class DayPlanClient : IDisposable
 
     public Task<DayPlanOptionsDto> OptionsAsync(string token, CancellationToken ct) =>
         SendAsync<DayPlanOptionsDto>(HttpMethod.Get, "api/ai/day-plans/options", token, null, ct);
-    public Task<DayPlanResponse> GenerateAsync(string token, DayPlanRequest request, CancellationToken ct) =>
-        SendAsync<DayPlanResponse>(HttpMethod.Post, "api/ai/day-plans", token, request, ct);
+    public async Task<DayPlanResponse> GenerateAsync(string token, DayPlanRequest request, CancellationToken ct)
+    {
+#if ANDROID || IOS
+        using var measurement = MobileOperationMeasurement.Start("day_planning_measured");
+#endif
+        return await SendAsync<DayPlanResponse>(HttpMethod.Post, "api/ai/day-plans", token, request, ct).ConfigureAwait(false);
+    }
     public Task<DayPlanApplyResponse> ApplyAsync(string token, DayPlanApplyRequest request, CancellationToken ct) =>
         SendAsync<DayPlanApplyResponse>(HttpMethod.Post, "api/ai/day-plans/apply", token, request, ct);
     public Task<DayPlanReplaceResponse> ReplaceAsync(string token, DayPlanReplaceRequest request, CancellationToken ct) =>
